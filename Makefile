@@ -27,8 +27,6 @@ MOVE_AGA_CRDS = mkdir -p config/crd/aga && mv config/crd/bases/aga.k8s.aws_* con
 # Copy combined Gateway API CRDs from bases directory to helm directory
 COPY_GATEWAY_CRDS_TO_HELM = cp config/crd/gateway/gateway-crds.yaml helm/aws-load-balancer-controller/crds/gateway-crds.yaml
 
-# Copy combined AGA CRDs from aga directory to helm directory
-COPY_AGA_CRDS_TO_HELM = cp config/crd/aga/aga-crds.yaml helm/aws-load-balancer-controller/crds/aga-crds.yaml
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -83,7 +81,6 @@ crds: manifests
 	$(KUSTOMIZE) build config/crd/aga > config/crd/aga/aga-crds.yaml
 	echo '---' > config/crd/aga/aga-crds.yaml
 	$(KUSTOMIZE) build config/crd/aga >> config/crd/aga/aga-crds.yaml
-	$(COPY_AGA_CRDS_TO_HELM)
 
 # Run go fmt against code
 fmt:

@@ -688,3 +688,197 @@ func (m *mockSecretsManager) GetSecret(ctx context.Context, k8sClient client.Cli
 	}
 	return secret, nil
 }
+
+func Test_buildJwtValidationAction(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *elbv2gw.JwtValidationActionConfig
+		want    *elbv2model.Action
+		wantErr bool
+	}{
+		{
+			name: "jwt validation with all fields",
+			config: &elbv2gw.JwtValidationActionConfig{
+				JwksEndpoint: "https://example.com/.well-known/jwks.json",
+				Issuer:       "https://example.com",
+				AdditionalClaims: []elbv2gw.JwtValidationActionAdditionalClaim{
+					{
+						Format: elbv2gw.FormatSingleString,
+						Name:   "admin",
+						Values: []string{"true"},
+					},
+					{
+						Format: elbv2gw.FormatSpaceSeparatedValues,
+						Name:   "scope",
+						Values: []string{"read:api", "write:api"},
+					},
+					{
+						Format: elbv2gw.FormatStringArray,
+						Name:   "roles",
+						Values: []string{"user", "admin"},
+					},
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeJwtValidation,
+				JwtValidationConfig: &elbv2model.JwtValidationConfig{
+					JwksEndpoint: "https://example.com/.well-known/jwks.json",
+					Issuer:       "https://example.com",
+					AdditionalClaims: []elbv2model.JwtAdditionalClaim{
+						{
+							Format: elbv2model.FormatSingleString,
+							Name:   "admin",
+							Values: []string{"true"},
+						},
+						{
+							Format: elbv2model.FormatSpaceSeparatedValues,
+							Name:   "scope",
+							Values: []string{"read:api", "write:api"},
+						},
+						{
+							Format: elbv2model.FormatStringArray,
+							Name:   "roles",
+							Values: []string{"user", "admin"},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "jwt validation without additional claims",
+			config: &elbv2gw.JwtValidationActionConfig{
+				JwksEndpoint:     "https://auth.example.com/jwks",
+				Issuer:           "https://auth.example.com",
+				AdditionalClaims: []elbv2gw.JwtValidationActionAdditionalClaim{},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeJwtValidation,
+				JwtValidationConfig: &elbv2model.JwtValidationConfig{
+					JwksEndpoint:     "https://auth.example.com/jwks",
+					Issuer:           "https://auth.example.com",
+					AdditionalClaims: []elbv2model.JwtAdditionalClaim{},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "jwt validation with single additional claim",
+			config: &elbv2gw.JwtValidationActionConfig{
+				JwksEndpoint: "https://example.com/jwks",
+				Issuer:       "https://example.com",
+				AdditionalClaims: []elbv2gw.JwtValidationActionAdditionalClaim{
+					{
+						Format: elbv2gw.FormatSingleString,
+						Name:   "email_verified",
+						Values: []string{"true"},
+					},
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeJwtValidation,
+				JwtValidationConfig: &elbv2model.JwtValidationConfig{
+					JwksEndpoint: "https://example.com/jwks",
+					Issuer:       "https://example.com",
+					AdditionalClaims: []elbv2model.JwtAdditionalClaim{
+						{
+							Format: elbv2model.FormatSingleString,
+							Name:   "email_verified",
+							Values: []string{"true"},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _, err := buildJwtValidationAction(tt.config)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, got)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_BuildRulePreRoutingAction(t *testing.T) {
+	ctx := context.Background()
+	k8sClient := fake.NewClientBuilder().Build()
+	mockSecretsManager := newMockSecretsManager(k8sClient)
+	mockRoute := &MockRoute{
+		Kind:      HTTPRouteKind,
+		Namespace: "test-namespace",
+		Name:      "test-route",
+	}
+
+	tests := []struct {
+		name        string
+		action      *elbv2gw.Action
+		wantType    elbv2model.ActionType
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "jwt-validation action",
+			action: &elbv2gw.Action{
+				Type: elbv2gw.ActionTypeJwtValidation,
+				JwtValidationConfig: &elbv2gw.JwtValidationActionConfig{
+					JwksEndpoint: "https://example.com/jwks",
+					Issuer:       "https://example.com",
+				},
+			},
+			wantType: elbv2model.ActionTypeJwtValidation,
+			wantErr:  false,
+		},
+		{
+			name: "authenticate-cognito action",
+			action: &elbv2gw.Action{
+				Type: elbv2gw.ActionTypeAuthenticateCognito,
+				AuthenticateCognitoConfig: &elbv2gw.AuthenticateCognitoActionConfig{
+					UserPoolArn:                      "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
+					UserPoolClientID:                 "client123",
+					UserPoolDomain:                   "my-domain",
+					AuthenticationRequestExtraParams: &map[string]string{},
+					OnUnauthenticatedRequest:         (*elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnum)(awssdk.String(string(elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate))),
+				},
+			},
+			wantType: elbv2model.ActionTypeAuthenticateCognito,
+			wantErr:  false,
+		},
+		{
+			name: "unsupported action type",
+			action: &elbv2gw.Action{
+				Type: elbv2gw.ActionTypeForward,
+			},
+			wantErr:     true,
+			errContains: "unsupported action type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _, err := BuildRulePreRoutingAction(ctx, mockRoute, tt.action, k8sClient, mockSecretsManager)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Equal(t, tt.wantType, got.Type)
+		})
+	}
+}

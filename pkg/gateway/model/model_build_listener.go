@@ -121,10 +121,24 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2mod
 	if certsErr != nil {
 		return &elbv2model.ListenerSpec{}, certsErr
 	}
+
+	// Apply QUIC protocol upgrade if enabled
+	protocol := gwLsCfg.protocol
+	if lbLsCfg != nil && lbLsCfg.QuicEnabled != nil && *lbLsCfg.QuicEnabled {
+		switch protocol {
+		case elbv2model.ProtocolUDP:
+			protocol = elbv2model.ProtocolQUIC
+		case elbv2model.ProtocolTCP_UDP:
+			protocol = elbv2model.ProtocolTCP_QUIC
+		default:
+			return &elbv2model.ListenerSpec{}, fmt.Errorf("QUIC protocol upgrade not supported for protocol %v", protocol)
+		}
+	}
+
 	listenerSpec := &elbv2model.ListenerSpec{
 		LoadBalancerARN:    lb.LoadBalancerARN(),
 		Port:               port,
-		Protocol:           gwLsCfg.protocol,
+		Protocol:           protocol,
 		Certificates:       certificates,
 		SSLPolicy:          sslPolicy,
 		Tags:               tags,
@@ -189,10 +203,18 @@ func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes [
 				if tgErr != nil {
 					return tgTuples, tgErr
 				}
-				tgTuples = append(tgTuples, elbv2model.TargetGroupTuple{
+
+				tuple := elbv2model.TargetGroupTuple{
 					TargetGroupARN: arn,
 					Weight:         awssdk.Int32(int32(backend.Weight)),
-				})
+				}
+
+				if listenerProtocol == elbv2model.ProtocolQUIC || listenerProtocol == elbv2model.ProtocolTCP_QUIC {
+					// QUIC protocols don't support specifying weights.
+					tuple.Weight = nil
+				}
+
+				tgTuples = append(tgTuples, tuple)
 			}
 		}
 	}
@@ -229,7 +251,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		var preRoutingAction *elbv2gw.Action
 		var routingAction *elbv2gw.Action
 		if rule.GetListenerRuleConfig() != nil {
-			if isSecureProtocol(ls.Spec.Protocol) {
+			if ls.Spec.Protocol == elbv2model.ProtocolHTTPS {
 				preRoutingAction = getPreRoutingAction(rule.GetListenerRuleConfig())
 			}
 			routingAction = getRoutingAction(rule.GetListenerRuleConfig())
@@ -608,12 +630,12 @@ func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder 
 	}
 }
 
-// getPreRoutingAction: returns pre routing action  for secure listeners from listener rule configuration
-// action will only be one of authenticate-oidc or  authenticate-cognito
+// getPreRoutingAction: returns pre routing action for secure listeners from listener rule configuration
+// action will only be one of authenticate-oidc, authenticate-cognito, or jwt-validation
 func getPreRoutingAction(config *elbv2gw.ListenerRuleConfiguration) *elbv2gw.Action {
 	if config != nil && config.Spec.Actions != nil {
 		for _, action := range config.Spec.Actions {
-			if action.Type == elbv2gw.ActionTypeAuthenticateCognito || action.Type == elbv2gw.ActionTypeAuthenticateOIDC {
+			if action.Type == elbv2gw.ActionTypeAuthenticateCognito || action.Type == elbv2gw.ActionTypeAuthenticateOIDC || action.Type == elbv2gw.ActionTypeJwtValidation {
 				return &action
 			}
 		}
@@ -645,6 +667,19 @@ func mergeProtocols(storedProtocol, proposedProtocol elbv2model.Protocol) (elbv2
 
 	if storedProtocol == elbv2model.ProtocolUDP && proposedProtocol == elbv2model.ProtocolTCP {
 		return elbv2model.ProtocolTCP_UDP, nil
+	}
+
+	// QUIC protocol merging
+	if storedProtocol == elbv2model.ProtocolTCP_QUIC && (proposedProtocol == elbv2model.ProtocolTCP || proposedProtocol == elbv2model.ProtocolQUIC) {
+		return elbv2model.ProtocolTCP_QUIC, nil
+	}
+
+	if storedProtocol == elbv2model.ProtocolTCP && proposedProtocol == elbv2model.ProtocolQUIC {
+		return elbv2model.ProtocolTCP_QUIC, nil
+	}
+
+	if storedProtocol == elbv2model.ProtocolQUIC && proposedProtocol == elbv2model.ProtocolTCP {
+		return elbv2model.ProtocolTCP_QUIC, nil
 	}
 
 	return elbv2model.ProtocolHTTP, errors.New("unsupported merge")

@@ -257,6 +257,60 @@ spec:
                               type: boolean
                           type: object
                       type: object
+                    jwtValidationConfig:
+                      description: Information for a jwt-validation action
+                      properties:
+                        additionalClaims:
+                          description: Any additional claims in the JWT that should
+                            be validated
+                          items:
+                            description: JwtValidationActionAdditionalClaim Information
+                              about an additional claim to validate.
+                            properties:
+                              format:
+                                description: The format of the claim value(s)
+                                enum:
+                                - single-string
+                                - string-array
+                                - space-separated-values
+                                type: string
+                              name:
+                                description: The name of the claim. You can't specify
+                                  exp, iss, nbf, or iat because we validate them by
+                                  default.
+                                minLength: 1
+                                type: string
+                              values:
+                                description: |-
+                                  The claim values. The maximum size of the list is 10. Each value can be up to 256 characters in length.
+                                  If the format is space-separated-values, the values can't include spaces.
+                                items:
+                                  maxLength: 256
+                                  type: string
+                                maxItems: 10
+                                minItems: 1
+                                type: array
+                            required:
+                            - format
+                            - name
+                            - values
+                            type: object
+                          type: array
+                        issuer:
+                          description: The issuer of the JWT. The maximum length is
+                            256 characters.
+                          maxLength: 256
+                          type: string
+                        jwksEndpoint:
+                          description: |-
+                            The JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider.
+                            This must be a full URL, including the HTTPS protocol, the domain, and the path. The maximum length is 256 characters.
+                          maxLength: 256
+                          type: string
+                      required:
+                      - issuer
+                      - jwksEndpoint
+                      type: object
                     redirectConfig:
                       description: Information for a redirect action
                       properties:
@@ -278,6 +332,7 @@ spec:
                       - redirect
                       - authenticate-cognito
                       - authenticate-oidc
+                      - jwt-validation
                       type: string
                   required:
                   - type
@@ -301,6 +356,10 @@ spec:
                       is 'authenticate-oidc'
                     rule: 'has(self.type) && self.type == ''authenticate-oidc'' ?
                       has(self.authenticateOIDCConfig) : !has(self.authenticateOIDCConfig)'
+                  - message: jwtValidationConfig must be specified only when type
+                      is 'jwt-validation'
+                    rule: 'has(self.type) && self.type == ''jwt-validation'' ? has(self.jwtValidationConfig)
+                      : !has(self.jwtValidationConfig)'
                 maxItems: 2
                 minItems: 1
                 type: array
@@ -359,14 +418,16 @@ spec:
             - message: At least one action must be specified if actions field is present
               rule: '!has(self.actions) || size(self.actions) > 0'
             - message: Only forward, redirect, authenticate-oidc, authenticate-cognito,
-                and fixed-response action types are supported
+                jwt-validation, and fixed-response action types are supported
               rule: '!has(self.actions) || self.actions.all(a, a.type == ''authenticate-oidc''
-                || a.type == ''authenticate-cognito'' || a.type == ''fixed-response''
-                || a.type == ''forward'' || a.type == ''redirect'')'
-            - message: At most one authentication action (either authenticate-oidc
-                or authenticate-cognito) can be specified
+                || a.type == ''authenticate-cognito'' || a.type == ''jwt-validation''
+                || a.type == ''fixed-response'' || a.type == ''forward'' || a.type
+                == ''redirect'')'
+            - message: At most one pre-routing action (authenticate-oidc, authenticate-cognito,
+                or jwt-validation) can be specified
               rule: '!has(self.actions) || size(self.actions.filter(a, a.type == ''authenticate-oidc''
-                || a.type == ''authenticate-cognito'')) <= 1'
+                || a.type == ''authenticate-cognito'' || a.type == ''jwt-validation''))
+                <= 1'
             - message: At most one routing action (fixed-response or forward or redirect)
                 can be specified
               rule: '!has(self.actions) || size(self.actions.filter(a, a.type == ''fixed-response''
@@ -563,6 +624,11 @@ spec:
                         load balancer. It should be of the form PROTOCOL:PORT
                       pattern: ^(HTTP|HTTPS|TLS|TCP|UDP|TCP_UDP)?:(6553[0-5]|655[0-2]\d|65[0-4]\d{2}|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3})?$
                       type: string
+                    quicEnabled:
+                      description: quicEnabled enables QUIC protocol support for UDP
+                        listeners. When enabled, UDP listeners will be upgraded to
+                        QUIC protocol.
+                      type: boolean
                     sslPolicy:
                       description: sslPolicy is the security policy that defines which
                         protocols and ciphers are supported for secure listeners [HTTPS

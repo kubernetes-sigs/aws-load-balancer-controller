@@ -11,3 +11,11 @@ func GenerateOIDCCredentials() (clientID string, clientSecret string) {
 	clientSecret = fmt.Sprintf("%s%s", utils.RandomDNS1123Label(16), utils.RandomDNS1123Label(16))
 	return clientID, clientSecret
 }
+
+func getNamespaceLabels(podReadinessEnabled bool) map[string]string {
+	namespaceLabels := map[string]string{}
+	if podReadinessEnabled {
+		namespaceLabels["elbv2.k8s.aws/pod-readiness-gate-inject"] = "true"
+	}
+	return namespaceLabels
+}

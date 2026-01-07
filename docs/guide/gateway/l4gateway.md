@@ -12,7 +12,7 @@ The LBC instances dedicated to L4 routing monitor the following Gateway API reso
 * **`Gateway`**: For every gateway which references a `GatewayClass` with the `controllerName` set to `gateway.k8s.aws/nlb`, The LBC provisions an AWS NLB.
 * **`TLSRoute`**: Defines TLS-specific routing rules, enabling secure Layer 4 communication. These routes are satisfied by an **AWS NLB**.
 * **`TCPRoute`**: Defines TCP-specific routing rules, facilitating direct TCP traffic management. These routes are satisfied by an **AWS NLB**.
-* **`UDPRoute`**: Defines UDP-specific routing rules, facilitating UDP traffic management. These routes are satisfied by an **AWS NLB**.
+* **`UDPRoute`**: Defines UDP-specific routing rules, facilitating UDP traffic management. These routes are satisfied by an **AWS NLB**. UDP listeners can be upgraded to QUIC protocol for HTTP/3 support using the [LoadBalancerConfiguration](./loadbalancerconfig.md#quicenabled).
 * **`ReferenceGrant`**: Defines cross-namespace access. For more information [see](https://gateway-api.sigs.k8s.io/api-types/referencegrant/)
 * **`LoadBalancerConfiguration` (LBC CRD)**: A Custom Resource Definition utilized for fine-grained customization of the provisioned NLB. This CRD can be attached to a `Gateway` or its `GatewayClass`. For more info, please refer [How customization works](customization.md#customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd)
 * **`TargetGroupConfiguration` (LBC CRD)**: A Custom Resource Definition used for service-specific customizations of AWS Target Groups. This CRD is associated with a Kubernetes `Service`. For more info, please refer [How customization works](customization.md#customizing-services-target-groups-using-targetgroupconfiguration-crd)
@@ -47,7 +47,7 @@ spec:
   controllerName: gateway.k8s.aws/nlb
 ---
 # my-nlb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-tcp-gateway

@@ -88,7 +88,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
 	udpr := buildUDPRoute("port8080")
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
@@ -162,7 +162,7 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 	tgcTCP1 := buildTargetGroupConfig(svcTCP1.Name, tgConfSpec, svcTCP1)
 	tgcTCP2 := buildTargetGroupConfig(svcTCP2.Name, tgConfSpec, svcTCP2)
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
@@ -198,7 +198,72 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
 	udpr := buildUDPRoute("port80udp")
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, namespaceLabels map[string]string) error {
+	dpUDP := buildUDPDeploymentSpec()
+	svcUDP := buildUDPServiceSpec()
+
+	dpUDP.Spec.Template.Annotations = make(map[string]string)
+	dpUDP.Spec.Template.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"] = "app"
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
+		{
+			Name:     "udp-listener",
+			Port:     8080,
+			Protocol: "UDP",
+		},
+	})
+
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
+
+	udpr := buildUDPRoute("udp-listener")
+	udpr.Name = "udp-route-quic"
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-quic-e2e", namespaceLabels)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, namespaceLabels map[string]string) error {
+	dpUDP := buildUDPDeploymentSpec()
+	svcUDP := buildUDPServiceSpec()
+
+	dpUDP.Spec.Template.Annotations = make(map[string]string)
+	dpUDP.Spec.Template.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"] = "app"
+
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
+		{
+			Name:     "udp-listener",
+			Port:     8080,
+			Protocol: "UDP",
+		},
+		{
+			Name:     "tcp-listener",
+			Port:     8080,
+			Protocol: "TCP",
+		},
+	})
+
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
+
+	udpr := buildUDPRoute("udp-listener")
+	udpr.Name = "udp-route-quic"
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-tcp-udp-quic-e2e", namespaceLabels)
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
@@ -236,7 +301,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestSt
 
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
 
 	err := s.nlbResourceStack.Deploy(ctx, f)
 	if err != nil {
@@ -549,7 +614,7 @@ func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	tgcTCP := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svcTCP)
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }

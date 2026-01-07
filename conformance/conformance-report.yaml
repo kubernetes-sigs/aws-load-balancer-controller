@@ -1,5 +1,5 @@
 apiVersion: gateway.networking.k8s.io/v1
-date: "2025-12-07T23:35:46-08:00"
+date: "2025-12-22T13:25:07-08:00"
 gatewayAPIChannel: experimental
 gatewayAPIVersion: v1.3.0
 implementation:
@@ -8,7 +8,7 @@ implementation:
   organization: aws
   project: aws-load-balancer-controller
   url: https://github.com/kubernetes-sigs/aws-load-balancer-controller
-  version: v2.16.0
+  version: v2.17.0
 kind: ConformanceReport
 mode: default
 profiles:

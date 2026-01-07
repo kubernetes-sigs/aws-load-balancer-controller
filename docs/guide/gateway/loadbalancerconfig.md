@@ -549,6 +549,37 @@ An optional boolean that allows you to configure target group stickiness for wei
 
 **Default** null
 
+#### QuicEnabled
+
+`quicEnabled`
+
+```
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  listenerConfigurations:
+    - protocolPort: UDP:80
+      quicEnabled: true
+    - protocolPort: TCP_UDP:443
+      quicEnabled: true
+```
+
+An optional boolean that enables QUIC protocol support for UDP listeners. When enabled:
+- UDP listeners are upgraded to QUIC protocol
+- TCP_UDP listeners are upgraded to TCP_QUIC protocol
+
+This allows HTTP/3 traffic over QUIC for improved performance and reduced latency.
+
+**Requirements:**
+- Only supported on Network Load Balancers with no Security Groups attached.
+- Only works with UDP or TCP_UDP protocol listeners.
+- Target groups must use IP target type (not instance type).
+
+**Default** false
+
 ### MutualAuthenticationAttributes
 
 ```
@@ -716,3 +747,26 @@ Whether to enroll this Gateway with [Shield Advanced](https://docs.aws.amazon.co
 Only applies to Application LoadBalancer Gateways.
 
 **Default** false (No Shield enabled)
+
+
+#### DisableSecurityGroup
+
+`disableSecurityGroup`
+
+```
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  disableSecurityGroup: true
+```
+
+Provisions the NLB with no security groups attached.
+
+See applicable [considerations](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-security-groups.html#security-group-considerations)
+
+Only applies to Network LoadBalancer Gateways.
+
+**Default** false (Provision with Security Groups)

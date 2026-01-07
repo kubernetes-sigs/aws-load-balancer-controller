@@ -56,7 +56,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) standardBuilder(targetPort 
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	protocolUDP := elbv2api.NetworkingProtocolUDP
 
-	udpSupported := tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP
+	udpSupported := tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolQUIC || tgProtocol == elbv2model.ProtocolTCP_QUIC
 
 	if builder.disableRestrictedSGRules {
 		ports := []elbv2api.NetworkingPort{
@@ -168,7 +168,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) nlbNoSecurityGroups(targetP
 		}
 	}
 
-	if tgSpec.Protocol == elbv2model.ProtocolTCP_UDP {
+	if tgSpec.Protocol == elbv2model.ProtocolTCP_UDP || tgSpec.Protocol == elbv2model.ProtocolTCP_QUIC {
 		tcpProtocol := elbv2api.NetworkingProtocolTCP
 		udpProtocol := elbv2api.NetworkingProtocolUDP
 		trafficPorts = []elbv2api.NetworkingPort{
@@ -183,7 +183,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) nlbNoSecurityGroups(targetP
 		}
 	} else {
 		networkingProtocol := elbv2api.NetworkingProtocolTCP
-		if tgSpec.Protocol == elbv2model.ProtocolUDP {
+		if tgSpec.Protocol == elbv2model.ProtocolUDP || tgSpec.Protocol == elbv2model.ProtocolQUIC {
 			networkingProtocol = elbv2api.NetworkingProtocolUDP
 		}
 
@@ -230,7 +230,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) getPreserveClientIP(tgSpec 
 		However, you can enable or disable client IP preservation for TCP and TLS target groups using the preserve_client_ip.enabled target group attribute.
 	*/
 
-	if tgSpec.Protocol == elbv2model.ProtocolUDP || tgSpec.Protocol == elbv2model.ProtocolTCP_UDP {
+	if tgSpec.Protocol == elbv2model.ProtocolUDP || tgSpec.Protocol == elbv2model.ProtocolTCP_UDP || tgSpec.Protocol == elbv2model.ProtocolQUIC || tgSpec.Protocol == elbv2model.ProtocolTCP_QUIC {
 		return true
 	}
 
@@ -292,7 +292,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) buildPeersFromSourceRangeCI
 
 func (builder *targetGroupBindingNetworkBuilderImpl) buildHealthCheckSourceCIDRs(preserveClientIP bool, trafficSource, subnetCIDRs []string, tgPort, hcPort intstr.IntOrString,
 	tgProtocol elbv2model.Protocol, defaultRangeUsed bool) []string {
-	if tgProtocol != elbv2model.ProtocolUDP && tgProtocol != elbv2model.ProtocolTCP_UDP &&
+	if tgProtocol != elbv2model.ProtocolUDP && tgProtocol != elbv2model.ProtocolTCP_UDP && tgProtocol != elbv2model.ProtocolQUIC && tgProtocol != elbv2model.ProtocolTCP_QUIC &&
 		(hcPort.String() == shared_constants.HealthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
 		if !preserveClientIP {
 			return nil

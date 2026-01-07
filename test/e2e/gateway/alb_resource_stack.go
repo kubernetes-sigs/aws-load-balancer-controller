@@ -16,9 +16,9 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func newALBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrc *elbv2gw.ListenerRuleConfiguration, httpr []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, secret *testOIDCSecret, baseName string, enablePodReadinessGate bool) *albResourceStack {
+func newALBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrc *elbv2gw.ListenerRuleConfiguration, httpr []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, secret *testOIDCSecret, baseName string, namespaceLabels map[string]string) *albResourceStack {
 
-	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, []*elbv2gw.ListenerRuleConfiguration{lrc}, baseName, enablePodReadinessGate)
+	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, []*elbv2gw.ListenerRuleConfiguration{lrc}, baseName, namespaceLabels)
 	return &albResourceStack{
 		httprs:      httpr,
 		grpcrs:      grpcrs,

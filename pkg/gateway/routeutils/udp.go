@@ -70,6 +70,7 @@ func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 	}, func(urr *gwalpha2.UDPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertUDPRouteRule(urr, backends)
 	})
+
 	udpRoute.rules = convertedRules
 	return udpRoute, allErrors
 }
