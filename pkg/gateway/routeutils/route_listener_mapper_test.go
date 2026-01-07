@@ -107,6 +107,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 		routeGatewayMap       map[string]bool
 		routeListenerMap      map[string]bool
 		expected              map[int][]preLoadRouteDescriptor
+		routesPerListener     map[gwv1.SectionName]int32
 		expectErr             bool
 	}{
 		{
@@ -139,6 +140,11 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				82: {
 					route3,
 				},
+			},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"section80": 1,
+				"section81": 1,
+				"section82": 1,
 			},
 		},
 		{
@@ -190,6 +196,11 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 					route3,
 				},
 			},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"section80": 3,
+				"section81": 3,
+				"section82": 3,
+			},
 		},
 		{
 			name:   "gateway doesnt allow attachment, no result",
@@ -219,6 +230,11 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 			},
 			routeGatewayMap: map[string]bool{},
 			expected:        map[int][]preLoadRouteDescriptor{},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"section80": 0,
+				"section81": 0,
+				"section82": 0,
+			},
 		},
 		{
 			name:   "route allows all attachment, but listener only allows subset",
@@ -256,6 +272,11 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				82: {
 					route3,
 				},
+			},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"section80": 1,
+				"section81": 1,
+				"section82": 1,
 			},
 		},
 		{
@@ -295,10 +316,16 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 					route3,
 				},
 			},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"section80": 1,
+				"section81": 1,
+				"section82": 1,
+			},
 		},
 		{
-			name:     "no output",
-			expected: make(map[int][]preLoadRouteDescriptor),
+			name:              "no output",
+			expected:          make(map[int][]preLoadRouteDescriptor),
+			routesPerListener: map[gwv1.SectionName]int32{},
 		},
 		{
 			name: "route attaches to multiple listeners on same port - verify deduplication",
@@ -334,6 +361,10 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 			},
 			expected: map[int][]preLoadRouteDescriptor{
 				80: {route1}, // Only one route1, not duplicated
+			},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"listener1-port80": 1,
+				"listener2-port80": 1,
 			},
 		},
 		{
@@ -392,6 +423,9 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 					}),
 				},
 			},
+			routesPerListener: map[gwv1.SectionName]int32{
+				"https-listener": 2,
+			},
 		},
 	}
 
@@ -407,7 +441,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				},
 				logger: logr.Discard(),
 			}
-			result, compatibleHostnames, statusUpdates, _, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
+			result, compatibleHostnames, statusUpdates, _, routesPerListener, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -417,6 +451,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, len(tc.expected), len(result))
 			assert.NotNil(t, compatibleHostnames)
+			assert.Equal(t, tc.routesPerListener, routesPerListener)
 
 			assert.Equal(t, 0, len(statusUpdates))
 
