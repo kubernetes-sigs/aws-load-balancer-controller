@@ -113,7 +113,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 
 	// validate listeners configuration and get listener status
-	listenerValidationResults := ValidateListeners(gw, controllerName, ctx, l.k8sClient)
+	listenerValidationResults := validateListeners(gw, controllerName)
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.

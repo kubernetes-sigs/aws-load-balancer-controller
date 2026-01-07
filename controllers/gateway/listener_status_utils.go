@@ -11,42 +11,30 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults *routeutils.ListenerValidationResults, isProgrammed bool) []gwv1.ListenerStatus {
+func buildListenerStatus(gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults routeutils.ListenerValidationResults, isProgrammed bool) []gwv1.ListenerStatus {
 	var listenerStatuses []gwv1.ListenerStatus
 
-	// if validateListenerResults is nil, getListenerConditions will build condition with accepted condition
 	for _, listener := range gateway.Spec.Listeners {
-		supportedKinds, _ := routeutils.GetSupportedKinds(controllerName, listener)
-		var condition []metav1.Condition
-		if validateListenerResults == nil {
-			condition = getListenerConditions(gateway, nil, isProgrammed)
-		} else {
-			listenerValidationResult := validateListenerResults.Results[listener.Name]
-			condition = getListenerConditions(gateway, &listenerValidationResult, isProgrammed)
-		}
+		listenerValidationResult := validateListenerResults.Results[listener.Name]
+		conditions := getListenerConditions(gateway, listenerValidationResult, isProgrammed)
 
 		listenerStatus := gwv1.ListenerStatus{
 			Name:           listener.Name,
-			SupportedKinds: supportedKinds,
+			SupportedKinds: listenerValidationResult.SupportedKinds,
 			AttachedRoutes: attachedRoutesMap[listener.Name],
-			Conditions:     condition,
+			Conditions:     conditions,
 		}
 		listenerStatuses = append(listenerStatuses, listenerStatus)
 	}
 	return listenerStatuses
 }
 
-func getListenerConditions(gw gwv1.Gateway, listenerValidationResult *routeutils.ListenerValidationResult, isProgrammed bool) []metav1.Condition {
+func getListenerConditions(gw gwv1.Gateway, listenerValidationResult routeutils.ListenerValidationResult, isProgrammed bool) []metav1.Condition {
 	var conditions []metav1.Condition
 
 	// Default
-	listenerReason := gwv1.ListenerReasonAccepted
-	listenerErrMessage := gateway_constants.ListenerAcceptedMessage
-
-	if listenerValidationResult != nil {
-		listenerReason = listenerValidationResult.Reason
-		listenerErrMessage = listenerValidationResult.Message
-	}
+	listenerReason := listenerValidationResult.Reason
+	listenerErrMessage := listenerValidationResult.Message
 
 	// Build Conflict Conditions
 	switch listenerReason {

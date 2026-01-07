@@ -1,12 +1,10 @@
 package routeutils
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -313,8 +311,7 @@ func TestValidateListeners(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := testutils.GenerateTestClient()
-			result := ValidateListeners(tt.gateway, tt.controllerName, context.Background(), client)
+			result := validateListeners(tt.gateway, tt.controllerName)
 
 			assert.Equal(t, tt.expectedErrors, result.HasErrors)
 			assert.Equal(t, tt.expectedCount, len(result.Results))
@@ -400,7 +397,7 @@ func TestGetSupportedKinds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kinds, supported := GetSupportedKinds(tt.controllerName, tt.listener)
+			kinds, supported := getSupportedKinds(tt.controllerName, tt.listener)
 
 			assert.Equal(t, tt.expectedSupported, supported)
 			assert.Equal(t, tt.expectedCount, len(kinds))
