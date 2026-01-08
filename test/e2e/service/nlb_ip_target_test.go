@@ -3,12 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"strings"
 	"time"
 
-	"strings"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
 
 var _ = Describe("k8s service using ip target reconciled by the aws load balancer", func() {
@@ -110,7 +109,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify internet-facing NLB with IP targets", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{})
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -366,7 +365,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				Skip("Skipping tests, certificates not specified")
 			}
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{})
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -527,7 +526,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify service", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{})
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -579,18 +578,27 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 
 	Context("NLB IP with weighted target groups", func() {
 		var (
-			svcs          []*corev1.Service
-			svc           *corev1.Service
-			svcName       string
-			baseSvcWeight int32
-			svc1Name      string
-			svc1Weight    int32
-			targetSvc1    *corev1.Service
-			svc2Name      string
-			svc2Weight    int32
-			targetSvc2    *corev1.Service
+			lbTypeSvcs     []*corev1.Service
+			nonLbTypeSvcs  []*corev1.Service
+			svc            *corev1.Service
+			svcName        string
+			anotherSvc     *corev1.Service
+			anotherSvcName string
+			baseSvcWeight  int32
+			svc1Name       string
+			svc1Weight     int32
+			targetSvc1     *corev1.Service
+			svc2Name       string
+			svc2Weight     int32
+			targetSvc2     *corev1.Service
+			dnsName1       string
+			dnsName2       string
+			lbARN1         string
+			lbARN2         string
 		)
 		BeforeEach(func() {
+			lbTypeSvcs = []*corev1.Service{}
+			nonLbTypeSvcs = []*corev1.Service{}
 			if strings.HasPrefix(tf.Options.AWSRegion, "cn-") || strings.Contains(tf.Options.AWSRegion, "-iso-") || tf.Options.AWSRegion == "eusc-de-east-1" {
 				Skip("Skipping test, weighted target groups not supported in this region")
 			}
@@ -682,11 +690,30 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 					},
 				},
 			}
-			svcs = append(svcs, targetSvc1, targetSvc2)
+			anotherSvcName = "my-another-nlb"
+			anotherSvc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        anotherSvcName,
+					Annotations: annotation,
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: labels,
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+			lbTypeSvcs = append(lbTypeSvcs, anotherSvc)
+			nonLbTypeSvcs = append(nonLbTypeSvcs, targetSvc1, targetSvc2)
 		})
 		It("Should create and verify service", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, svcs, map[string]string{})
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nonLbTypeSvcs, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -756,6 +783,53 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		It("Should support multiple NLB services sharing the same backend services", func() {
+			By("deploying external NLB stack", func() {
+				err := stack.Deploy(ctx, tf, svc, deployment, lbTypeSvcs, nonLbTypeSvcs, map[string]string{})
+				Expect(err).ToNot(HaveOccurred())
+				dnsName1 = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName1).ToNot(BeEmpty())
+				observedAnotherService, err := stack.resourceStack.waitUntilServiceReady(ctx, tf, anotherSvc)
+				Expect(err).NotTo(HaveOccurred())
+				dnsName2 = stack.resourceStack.GetLoadBalancerIngressHostnameForService(observedAnotherService)
+				Expect(dnsName2).ToNot(BeEmpty())
+				lbARN1, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName1)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN1).ToNot(BeEmpty())
+				lbARN2, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName2)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN2).ToNot(BeEmpty())
+				// Get target groups for first load balancer
+				targetGroups1, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN1)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(targetGroups1)).To(Equal(3)) // Base service + 2 backend services
+
+				// Get target groups for second load balancer
+				targetGroups2, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN2)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(targetGroups2)).To(Equal(3)) // Base service + 2 backend services
+
+				// Extract the ARNs for comparison
+				tgARNs1 := make([]string, len(targetGroups1))
+				for i, tg := range targetGroups1 {
+					tgARNs1[i] = awssdk.ToString(tg.TargetGroupArn)
+				}
+
+				tgARNs2 := make([]string, len(targetGroups2))
+				for i, tg := range targetGroups2 {
+					tgARNs2[i] = awssdk.ToString(tg.TargetGroupArn)
+				}
+
+				// Verify the two load balancers have different target groups
+				// (each has its own set of target groups, even though they reference the same backends)
+				for _, arn1 := range tgARNs1 {
+					for _, arn2 := range tgARNs2 {
+						Expect(arn1).ToNot(Equal(arn2))
+					}
+				}
 			})
 		})
 	})

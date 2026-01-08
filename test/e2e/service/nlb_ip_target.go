@@ -17,8 +17,8 @@ type NLBIPTestStack struct {
 	resourceStack *ResourceStack
 }
 
-func (s *NLBIPTestStack) Deploy(ctx context.Context, f *framework.Framework, svc *corev1.Service, dp *appsv1.Deployment, svcs []*corev1.Service, namespaceLabels map[string]string) error {
-	s.resourceStack = NewResourceStack(dp, svc, svcs, "service-ip-e2e", namespaceLabels)
+func (s *NLBIPTestStack) Deploy(ctx context.Context, f *framework.Framework, svc *corev1.Service, dp *appsv1.Deployment, lbTypeSvcs []*corev1.Service, nonLbTypeSvcs []*corev1.Service, namespaceLabels map[string]string) error {
+	s.resourceStack = NewResourceStack(dp, svc, lbTypeSvcs, nonLbTypeSvcs, "service-ip-e2e", namespaceLabels)
 	return s.resourceStack.Deploy(ctx, f)
 }
 

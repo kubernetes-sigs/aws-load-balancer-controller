@@ -13,11 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, svcs []*corev1.Service, baseName string, namespaceLabels map[string]string) *ResourceStack {
+func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, lbTypeSvcs []*corev1.Service, nonLbTypeSvcs []*corev1.Service, baseName string, namespaceLabels map[string]string) *ResourceStack {
 	return &ResourceStack{
 		dp:              dp,
 		svc:             svc,
-		nonLbTypeSvcs:   svcs,
+		lbTypeSvcs:      lbTypeSvcs,
+		nonLbTypeSvcs:   nonLbTypeSvcs,
 		baseName:        baseName,
 		namespaceLabels: namespaceLabels,
 	}
@@ -26,7 +27,8 @@ func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, svcs []*corev1
 // ResourceStack containing the deployment and service resources
 type ResourceStack struct {
 	// configurations
-	svc             *corev1.Service   // Load balancer type service
+	svc             *corev1.Service   // base Load balancer type service
+	lbTypeSvcs      []*corev1.Service // more Load balancer type services
 	nonLbTypeSvcs   []*corev1.Service // Use this for non-load balancer type services
 	dp              *appsv1.Deployment
 	ns              *corev1.Namespace
@@ -44,6 +46,9 @@ func (s *ResourceStack) Deploy(ctx context.Context, f *framework.Framework) erro
 	}
 	s.dp.Namespace = s.ns.Name
 	s.svc.Namespace = s.ns.Name
+	for _, svc := range s.lbTypeSvcs {
+		svc.Namespace = s.ns.Name
+	}
 	for _, svc := range s.nonLbTypeSvcs {
 		svc.Namespace = s.ns.Name
 	}
@@ -56,7 +61,7 @@ func (s *ResourceStack) Deploy(ctx context.Context, f *framework.Framework) erro
 	if err := s.waitUntilDeploymentReady(ctx, f); err != nil {
 		return err
 	}
-	if err := s.waitUntilServiceReady(ctx, f); err != nil {
+	if err := s.waitUntilBaseServiceReady(ctx, f); err != nil {
 		return err
 	}
 	return nil
@@ -66,7 +71,7 @@ func (s *ResourceStack) UpdateServiceAnnotations(ctx context.Context, f *framewo
 	if err := s.updateServiceAnnotations(ctx, f, svcAnnotations); err != nil {
 		return err
 	}
-	if err := s.waitUntilServiceReady(ctx, f); err != nil {
+	if err := s.waitUntilBaseServiceReady(ctx, f); err != nil {
 		return err
 	}
 	return nil
@@ -76,7 +81,7 @@ func (s *ResourceStack) DeleteServiceAnnotations(ctx context.Context, f *framewo
 	if err := s.removeServiceAnnotations(ctx, f, annotationKeys); err != nil {
 		return err
 	}
-	if err := s.waitUntilServiceReady(ctx, f); err != nil {
+	if err := s.waitUntilBaseServiceReady(ctx, f); err != nil {
 		return err
 	}
 	return nil
@@ -86,7 +91,7 @@ func (s *ResourceStack) UpdateServiceTrafficPolicy(ctx context.Context, f *frame
 	if err := s.updateServiceTrafficPolicy(ctx, f, trafficPolicy); err != nil {
 		return err
 	}
-	if err := s.waitUntilServiceReady(ctx, f); err != nil {
+	if err := s.waitUntilBaseServiceReady(ctx, f); err != nil {
 		return err
 	}
 	return nil
@@ -120,7 +125,7 @@ func (s *ResourceStack) Cleanup(ctx context.Context, f *framework.Framework) err
 }
 
 func (s *ResourceStack) GetLoadBalancerIngressHostname() string {
-	return s.createdSVC.Status.LoadBalancer.Ingress[0].Hostname
+	return s.GetLoadBalancerIngressHostnameForService(s.createdSVC)
 }
 
 func (s *ResourceStack) GetStackName() string {
@@ -208,30 +213,50 @@ func (s *ResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framewo
 }
 
 func (s *ResourceStack) createServices(ctx context.Context, f *framework.Framework) error {
-	f.Logger.Info("creating service", "svc", k8s.NamespacedName(s.svc))
+	f.Logger.Info("creating base service", "svc", k8s.NamespacedName(s.svc))
 	if err := f.K8sClient.Create(ctx, s.svc); err != nil {
 		return err
 	}
+	f.Logger.Info("created base service", "svc", k8s.NamespacedName(s.svc))
 
 	for _, svc := range s.nonLbTypeSvcs {
-		f.Logger.Info("creating service", "svc", k8s.NamespacedName(svc))
+		f.Logger.Info("creating target service", "svc", k8s.NamespacedName(svc))
 		svc = svc.DeepCopy()
 		if err := f.K8sClient.Create(ctx, svc); err != nil {
 			return err
 		}
-		f.Logger.Info("created service", "svc", k8s.NamespacedName(svc))
+		f.Logger.Info("created target service", "svc", k8s.NamespacedName(svc))
 	}
+
+	for _, svc := range s.lbTypeSvcs {
+		f.Logger.Info("creating another lb type service", "svc", k8s.NamespacedName(svc))
+		svc = svc.DeepCopy()
+		if err := f.K8sClient.Create(ctx, svc); err != nil {
+			return err
+		}
+		f.Logger.Info("created another lb type service", "svc", k8s.NamespacedName(svc))
+	}
+
 	return nil
 }
 
-func (s *ResourceStack) waitUntilServiceReady(ctx context.Context, f *framework.Framework) error {
-	f.Logger.Info("waiting until service becomes ready", "svc", k8s.NamespacedName(s.svc))
-	observedSVC, err := f.SVCManager.WaitUntilServiceActive(ctx, s.svc)
+func (s *ResourceStack) waitUntilBaseServiceReady(ctx context.Context, f *framework.Framework) error {
+	observedSVC, err := s.waitUntilServiceReady(ctx, f, s.svc)
 	if err != nil {
-		f.Logger.Info("failed waiting for service")
+		return err
 	}
 	s.createdSVC = observedSVC
 	return nil
+}
+
+func (s *ResourceStack) waitUntilServiceReady(ctx context.Context, f *framework.Framework, svc *corev1.Service) (*corev1.Service, error) {
+	f.Logger.Info("waiting until service becomes ready", "svc", k8s.NamespacedName(svc))
+	observedSVC, err := f.SVCManager.WaitUntilServiceActive(ctx, svc)
+	if err != nil {
+		f.Logger.Info("failed waiting for service")
+		return nil, err
+	}
+	return observedSVC, nil
 }
 
 func (s *ResourceStack) deleteDeployment(ctx context.Context, f *framework.Framework) error {
@@ -295,4 +320,8 @@ func (s *ResourceStack) deleteNamespace(ctx context.Context, tf *framework.Frame
 	}
 	tf.Logger.Info("deleted namespace", "ns", k8s.NamespacedName(s.ns))
 	return nil
+}
+
+func (s *ResourceStack) GetLoadBalancerIngressHostnameForService(svc *corev1.Service) string {
+	return svc.Status.LoadBalancer.Ingress[0].Hostname
 }
