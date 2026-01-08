@@ -71,8 +71,12 @@ rules:
   resources:
   - endpointslices
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - elbv2.k8s.aws

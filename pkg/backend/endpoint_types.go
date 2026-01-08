@@ -2,6 +2,7 @@ package backend
 
 import (
 	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	discv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -21,7 +22,7 @@ type PodEndpoint struct {
 	// [QUIC] The ServerID for the IP:Port
 	QuicServerID *string
 	// Pod that provides this endpoint.
-	Pod k8s.PodInfo
+	Pod *k8s.PodInfo
 }
 
 func (e PodEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string {
@@ -31,7 +32,7 @@ func (e PodEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bo
 		baseString = fmt.Sprintf("%s:%s", baseString, *e.QuicServerID)
 	}
 
-	if includeTimestamp {
+	if includeTimestamp && e.Pod != nil {
 		return fmt.Sprintf("%s:%d", baseString, e.Pod.CreationTime.UnixMilli())
 	}
 	return baseString
