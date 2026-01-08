@@ -178,6 +178,10 @@ type TargetGroupBindingStatus struct {
 	// The generation observed by the TargetGroupBinding controller.
 	// +optional
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions describe the current conditions of the TargetGroupBinding.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
