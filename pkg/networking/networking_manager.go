@@ -151,8 +151,11 @@ func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoint
 	pods := make([]k8s.PodInfo, 0, len(endpoints))
 	podByPodKey := make(map[types.NamespacedName]k8s.PodInfo, len(endpoints))
 	for _, endpoint := range endpoints {
-		pods = append(pods, endpoint.Pod)
-		podByPodKey[endpoint.Pod.Key] = endpoint.Pod
+		pod := endpoint.Pod
+		if pod != nil {
+			pods = append(pods, *pod)
+			podByPodKey[pod.Key] = *pod
+		}
 	}
 	eniInfoByPodKey, err := m.podENIResolver.Resolve(ctx, pods)
 	if err != nil {

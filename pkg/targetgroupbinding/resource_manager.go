@@ -162,6 +162,8 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 		return err
 	}
 
+	m.endpointResolver.Cleanup(ctx, tgb)
+
 	return nil
 }
 
@@ -218,10 +220,13 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	preflightNeedFurtherProbe := false
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
-		_, localPreflight := m.calculateReadinessGateTransition(endpointAndTarget.endpoint.Pod, targetHealthCondType, endpointAndTarget.target.TargetHealth)
-		if localPreflight {
-			preflightNeedFurtherProbe = true
-			break
+		pod := endpointAndTarget.endpoint.Pod
+		if pod != nil {
+			_, localPreflight := m.calculateReadinessGateTransition(*pod, targetHealthCondType, endpointAndTarget.target.TargetHealth)
+			if localPreflight {
+				preflightNeedFurtherProbe = true
+				break
+			}
 		}
 	}
 
@@ -421,29 +426,33 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
 		pod := endpointAndTarget.endpoint.Pod
-		targetHealth := endpointAndTarget.target.TargetHealth
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
-		if err != nil {
-			return false, err
-		}
-		if needFurtherProbe {
-			anyPodNeedFurtherProbe = true
+		if pod != nil {
+			targetHealth := endpointAndTarget.target.TargetHealth
+			needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, *pod, targetHealth, targetHealthCondType, tgb)
+			if err != nil {
+				return false, err
+			}
+			if needFurtherProbe {
+				anyPodNeedFurtherProbe = true
+			}
 		}
 	}
 
 	for _, endpoint := range unmatchedEndpoints {
 		pod := endpoint.Pod
-		targetHealth := &elbv2types.TargetHealth{
-			State:       elbv2types.TargetHealthStateEnumInitial,
-			Reason:      elbv2types.TargetHealthReasonEnumRegistrationInProgress,
-			Description: awssdk.String("Target registration is in progress"),
-		}
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
-		if err != nil {
-			return false, err
-		}
-		if needFurtherProbe {
-			anyPodNeedFurtherProbe = true
+		if pod != nil {
+			targetHealth := &elbv2types.TargetHealth{
+				State:       elbv2types.TargetHealthStateEnumInitial,
+				Reason:      elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+				Description: awssdk.String("Target registration is in progress"),
+			}
+			needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, *pod, targetHealth, targetHealthCondType, tgb)
+			if err != nil {
+				return false, err
+			}
+			if needFurtherProbe {
+				anyPodNeedFurtherProbe = true
+			}
 		}
 	}
 	return anyPodNeedFurtherProbe, nil
@@ -640,8 +649,8 @@ func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, en
 			return sdkTargets, err
 		}
 		if doAzOverride(podIP) {
-			if usePodAZ && !usingCrossAccount {
-				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
+			if usePodAZ && !usingCrossAccount && endpoint.Pod != nil {
+				az, err := m.getPodAvailabilityZone(ctx, *endpoint.Pod)
 				if err != nil {
 					return sdkTargets, err
 				}
