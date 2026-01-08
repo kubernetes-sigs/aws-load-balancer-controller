@@ -20,6 +20,13 @@ func LookupServicePort(svc *corev1.Service, port intstr.IntOrString) (corev1.Ser
 				return p, nil
 			}
 		}
+		// Synthesize ServicePort if missing from ExternalName and port is number
+		if svc.Spec.Type == corev1.ServiceTypeExternalName {
+			return corev1.ServicePort{
+				Port:       port.IntVal,
+				TargetPort: port,
+			}, nil
+		}
 	}
 
 	return corev1.ServicePort{}, errors.Errorf("unable to find port %s on service %s", port.String(), NamespacedName(svc))

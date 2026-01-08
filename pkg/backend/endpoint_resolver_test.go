@@ -766,12 +766,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 		},
@@ -836,12 +836,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 		},
@@ -906,12 +906,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 		},
@@ -966,17 +966,17 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.2",
 					Port: 8080,
-					Pod:  pod2,
+					Pod:  &pod2,
 				},
 				{
 					IP:   "192.168.1.5",
 					Port: 8080,
-					Pod:  pod5,
+					Pod:  &pod5,
 				},
 				{
 					IP:   "192.168.1.8",
 					Port: 8080,
-					Pod:  pod8,
+					Pod:  &pod8,
 				},
 			},
 		},
@@ -1090,12 +1090,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 		},
@@ -1155,12 +1155,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 		},
@@ -1220,7 +1220,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 		},
@@ -2587,7 +2587,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 			want: PodEndpoint{
 				IP:   "192.168.1.1",
 				Port: 80,
-				Pod: k8s.PodInfo{
+				Pod: &k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
 			},
@@ -2606,7 +2606,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 			want: PodEndpoint{
 				IP:   "192.168.1.1",
 				Port: 80,
-				Pod: k8s.PodInfo{
+				Pod: &k8s.PodInfo{
 					Key:                 types.NamespacedName{Name: "sample-node"},
 					DefaultQUICServerID: awssdk.String("0xdeadbeef"),
 				},
@@ -2631,7 +2631,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 			want: PodEndpoint{
 				IP:   "192.168.1.1",
 				Port: 80,
-				Pod: k8s.PodInfo{
+				Pod: &k8s.PodInfo{
 					Key:                 types.NamespacedName{Name: "sample-node"},
 					DefaultQUICServerID: awssdk.String("0xnotused"),
 					PerPortServerIds: map[int32]string{
