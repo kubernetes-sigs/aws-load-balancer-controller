@@ -23,10 +23,10 @@ type NLBInstanceTestStack struct {
 	resourceStack *ResourceStack
 }
 
-func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string, svcs []*corev1.Service) error {
+func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string, lbTypeSvcs []*corev1.Service, nonLbTypeSvcs []*corev1.Service) error {
 	dp := s.buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := s.buildServiceSpec(ctx, svcAnnotations)
-	s.resourceStack = NewResourceStack(dp, svc, svcs, "service-instance-e2e", map[string]string{})
+	s.resourceStack = NewResourceStack(dp, svc, lbTypeSvcs, nonLbTypeSvcs, "service-instance-e2e", map[string]string{})
 
 	return s.resourceStack.Deploy(ctx, f)
 }

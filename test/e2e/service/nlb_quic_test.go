@@ -107,7 +107,7 @@ var _ = Describe("NLB QUIC support", func() {
 
 		It("Should create NLB with QUIC protocol and targets with server IDs", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{
 					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -199,7 +199,7 @@ var _ = Describe("NLB QUIC support", func() {
 
 		It("Should create NLB with TCP_QUIC protocol and targets with server IDs", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{
 					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -281,7 +281,7 @@ var _ = Describe("NLB QUIC support", func() {
 
 		It("Should create NLB with TCP protocol and targets without server IDs", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{
 					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
 				})
 				Expect(err).NotTo(HaveOccurred())
