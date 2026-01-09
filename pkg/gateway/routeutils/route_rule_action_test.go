@@ -337,6 +337,32 @@ func Test_buildAuthenticateCognitoAction(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "authenticate cognito with nil AuthenticationRequestExtraParams",
+			config: &elbv2gw.AuthenticateCognitoActionConfig{
+				UserPoolArn:                      userPoolArn,
+				UserPoolClientID:                 userPoolClientID,
+				UserPoolDomain:                   userPoolDomain,
+				AuthenticationRequestExtraParams: nil,
+				OnUnauthenticatedRequest:         &authenticateBehavior,
+				Scope:                            &scope,
+				SessionCookieName:                &sessionCookieName,
+				SessionTimeout:                   &sessionTimeout,
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateCognito,
+				AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+					UserPoolARN:              userPoolArn,
+					UserPoolClientID:         userPoolClientID,
+					UserPoolDomain:           userPoolDomain,
+					OnUnauthenticatedRequest: elbv2model.AuthenticateCognitoActionConditionalBehavior(authenticateBehavior),
+					Scope:                    &scope,
+					SessionCookieName:        &sessionCookieName,
+					SessionTimeout:           &sessionTimeout,
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "authenticate cognito with required fields only",
 			config: &elbv2gw.AuthenticateCognitoActionConfig{
 				UserPoolArn:                      userPoolArn,
@@ -494,6 +520,48 @@ func Test_buildAuthenticateOIDCAction(t *testing.T) {
 					Scope:                            &scope,
 					SessionCookieName:                &sessionCookieName,
 					SessionTimeout:                   &sessionTimeout,
+				},
+			},
+			wantSecretRef: &types.NamespacedName{
+				Namespace: secretNamespace,
+				Name:      secretName,
+			},
+			wantErr: false,
+		},
+		{
+			name: "authenticate OIDC with nil AuthenticationRequestExtraParams",
+			config: &elbv2gw.AuthenticateOidcActionConfig{
+				Issuer:                issuer,
+				AuthorizationEndpoint: authzEndpoint,
+				TokenEndpoint:         tokenEndpoint,
+				UserInfoEndpoint:      userInfoEndpoint,
+				Secret: &elbv2gw.Secret{
+					Name: secretName,
+				},
+				AuthenticationRequestExtraParams: nil,
+				OnUnauthenticatedRequest:         &authenticateBehavior,
+				Scope:                            &scope,
+				SessionCookieName:                &sessionCookieName,
+				SessionTimeout:                   &sessionTimeout,
+			},
+			secretData: map[string][]byte{
+				"clientID":     []byte(clientID),
+				"clientSecret": []byte(clientSecret),
+			},
+			secretExists: true,
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateOIDC,
+				AuthenticateOIDCConfig: &elbv2model.AuthenticateOIDCActionConfig{
+					Issuer:                   issuer,
+					AuthorizationEndpoint:    authzEndpoint,
+					TokenEndpoint:            tokenEndpoint,
+					UserInfoEndpoint:         userInfoEndpoint,
+					ClientID:                 clientID,
+					ClientSecret:             clientSecret,
+					OnUnauthenticatedRequest: elbv2model.AuthenticateOIDCActionConditionalBehavior(authenticateBehavior),
+					Scope:                    &scope,
+					SessionCookieName:        &sessionCookieName,
+					SessionTimeout:           &sessionTimeout,
 				},
 			},
 			wantSecretRef: &types.NamespacedName{

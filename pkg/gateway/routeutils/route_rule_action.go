@@ -100,19 +100,22 @@ func buildJwtValidationAction(jwtValidationConfig *elbv2gw.JwtValidationActionCo
 }
 
 func buildAuthenticateCognitoAction(authCognitoActionConfig *elbv2gw.AuthenticateCognitoActionConfig) (*elbv2model.Action, *types.NamespacedName, error) {
-	return &elbv2model.Action{
+	action := &elbv2model.Action{
 		Type: elbv2model.ActionTypeAuthenticateCognito,
 		AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
-			UserPoolARN:                      authCognitoActionConfig.UserPoolArn,
-			UserPoolClientID:                 authCognitoActionConfig.UserPoolClientID,
-			UserPoolDomain:                   authCognitoActionConfig.UserPoolDomain,
-			AuthenticationRequestExtraParams: *authCognitoActionConfig.AuthenticationRequestExtraParams,
-			OnUnauthenticatedRequest:         elbv2model.AuthenticateCognitoActionConditionalBehavior(*authCognitoActionConfig.OnUnauthenticatedRequest),
-			Scope:                            authCognitoActionConfig.Scope,
-			SessionCookieName:                authCognitoActionConfig.SessionCookieName,
-			SessionTimeout:                   authCognitoActionConfig.SessionTimeout,
+			UserPoolARN:              authCognitoActionConfig.UserPoolArn,
+			UserPoolClientID:         authCognitoActionConfig.UserPoolClientID,
+			UserPoolDomain:           authCognitoActionConfig.UserPoolDomain,
+			OnUnauthenticatedRequest: elbv2model.AuthenticateCognitoActionConditionalBehavior(*authCognitoActionConfig.OnUnauthenticatedRequest),
+			Scope:                    authCognitoActionConfig.Scope,
+			SessionCookieName:        authCognitoActionConfig.SessionCookieName,
+			SessionTimeout:           authCognitoActionConfig.SessionTimeout,
 		},
-	}, nil, nil
+	}
+	if authCognitoActionConfig.AuthenticationRequestExtraParams != nil {
+		action.AuthenticateCognitoConfig.AuthenticationRequestExtraParams = *authCognitoActionConfig.AuthenticationRequestExtraParams
+	}
+	return action, nil, nil
 }
 
 func buildAuthenticateOIDCAction(ctx context.Context, authenticateOIDCActionConfig *elbv2gw.AuthenticateOidcActionConfig, route RouteDescriptor, k8sClient client.Client, secretsManager k8s.SecretsManager) (*elbv2model.Action, *types.NamespacedName, error) {
@@ -141,22 +144,26 @@ func buildAuthenticateOIDCAction(ctx context.Context, authenticateOIDCActionConf
 
 	clientID := strings.TrimRightFunc(string(rawClientID), unicode.IsSpace)
 	clientSecret := strings.TrimRightFunc(string(rawClientSecret), unicode.IsControl)
-	return &elbv2model.Action{
+
+	action := &elbv2model.Action{
 		Type: elbv2model.ActionTypeAuthenticateOIDC,
 		AuthenticateOIDCConfig: &elbv2model.AuthenticateOIDCActionConfig{
-			Issuer:                           authenticateOIDCActionConfig.Issuer,
-			AuthorizationEndpoint:            authenticateOIDCActionConfig.AuthorizationEndpoint,
-			TokenEndpoint:                    authenticateOIDCActionConfig.TokenEndpoint,
-			UserInfoEndpoint:                 authenticateOIDCActionConfig.UserInfoEndpoint,
-			ClientID:                         clientID,
-			ClientSecret:                     clientSecret,
-			AuthenticationRequestExtraParams: *authenticateOIDCActionConfig.AuthenticationRequestExtraParams,
-			OnUnauthenticatedRequest:         elbv2model.AuthenticateOIDCActionConditionalBehavior(*authenticateOIDCActionConfig.OnUnauthenticatedRequest),
-			Scope:                            authenticateOIDCActionConfig.Scope,
-			SessionCookieName:                authenticateOIDCActionConfig.SessionCookieName,
-			SessionTimeout:                   authenticateOIDCActionConfig.SessionTimeout,
+			Issuer:                   authenticateOIDCActionConfig.Issuer,
+			AuthorizationEndpoint:    authenticateOIDCActionConfig.AuthorizationEndpoint,
+			TokenEndpoint:            authenticateOIDCActionConfig.TokenEndpoint,
+			UserInfoEndpoint:         authenticateOIDCActionConfig.UserInfoEndpoint,
+			ClientID:                 clientID,
+			ClientSecret:             clientSecret,
+			OnUnauthenticatedRequest: elbv2model.AuthenticateOIDCActionConditionalBehavior(*authenticateOIDCActionConfig.OnUnauthenticatedRequest),
+			Scope:                    authenticateOIDCActionConfig.Scope,
+			SessionCookieName:        authenticateOIDCActionConfig.SessionCookieName,
+			SessionTimeout:           authenticateOIDCActionConfig.SessionTimeout,
 		},
-	}, &secretKey, nil
+	}
+	if authenticateOIDCActionConfig.AuthenticationRequestExtraParams != nil {
+		action.AuthenticateOIDCConfig.AuthenticationRequestExtraParams = *authenticateOIDCActionConfig.AuthenticationRequestExtraParams
+	}
+	return action, &secretKey, nil
 }
 
 func buildForwardRoutingAction(routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) (*elbv2model.Action, error) {
