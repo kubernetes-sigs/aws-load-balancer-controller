@@ -174,69 +174,81 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		backend.WithPodReadinessGate(targetHealthCondType),
 	}
 
-	var endpoints []backend.PodEndpoint
+	var endpoints []backend.IpEndpoint
 	var containsPotentialReadyEndpoints bool
-	var err error
-
-	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
-
-	endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
-
+	svc, err := m.endpointResolver.FindService(ctx, svcKey)
 	if err != nil {
-		if errors.Is(err, backend.ErrNotFound) {
-			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return "", oldCheckPoint, false, m.Cleanup(ctx, tgb)
+		return "", "", false, err
+	}
+	oldCheckPoint := ""
+	newCheckPoint := ""
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		endpoints, err = m.endpointResolver.ResolveExternalNameEndpoints(ctx, svc, tgb.Spec.ServiceRef.Port)
+		if err != nil {
+			return "", "", false, err
 		}
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "resolve_pod_endpoints_error", err, m.metricsCollector)
+	} else {
+		oldCheckPoint = GetTGBReconcileCheckpoint(tgb)
+
+		endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, svc, tgb.Spec.ServiceRef.Port, resolveOpts...)
+
+		if err != nil {
+			if errors.Is(err, backend.ErrNotFound) {
+				m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
+				return "", oldCheckPoint, false, m.Cleanup(ctx, tgb)
+			}
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "resolve_pod_endpoints_error", err, m.metricsCollector)
+		}
+
+		newCheckPoint, err = calculateTGBReconcileCheckpoint(endpoints, tgb)
+
+		if err != nil {
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
+		}
+
+		if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
+			tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
+			return newCheckPoint, oldCheckPoint, true, nil
+		}
 	}
-
-	newCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
-
-	if err != nil {
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
-	}
-
-	if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
-		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
-		return newCheckPoint, oldCheckPoint, true, nil
-	}
-
 	targets, err := m.targetsManager.ListTargets(ctx, tgb)
 	if err != nil {
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
-	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(tgb, endpoints, notDrainingTargets)
+	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 
 	needNetworkingRequeue := false
-	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
-		tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForPodEndpoints")
-		m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
-		needNetworkingRequeue = true
-	}
-
-	preflightNeedFurtherProbe := false
-	for _, endpointAndTarget := range matchedEndpointAndTargets {
-		_, localPreflight := m.calculateReadinessGateTransition(endpointAndTarget.endpoint.Pod, targetHealthCondType, endpointAndTarget.target.TargetHealth)
-		if localPreflight {
-			preflightNeedFurtherProbe = true
-			break
+	if svc.Spec.Type != corev1.ServiceTypeExternalName {
+		if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
+			tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForPodEndpoints")
+			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
+			needNetworkingRequeue = true
 		}
-	}
 
-	// Any change that we perform should reset the checkpoint.
-	// TODO - How to make this cleaner?
-	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 || needNetworkingRequeue || containsPotentialReadyEndpoints || preflightNeedFurtherProbe {
-		// Set to an empty checkpoint, to ensure that no matter what we try to reconcile atleast one more time.
-		// Consider this ordering of events (without using this method of overriding the checkpoint)
-		// 1. Register some pod IP, don't update TGB checkpoint.
-		// 2. Before next invocation of reconcile happens, the pod is removed.
-		// 3. The next reconcile loop has no knowledge that it needs to deregister the pod ip, therefore it skips deregistering the removed pod ip.
-		err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
-		if err != nil {
-			tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
-			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
+		preflightNeedFurtherProbe := false
+		for _, endpointAndTarget := range matchedEndpointAndTargets {
+			_, localPreflight := m.calculateReadinessGateTransition(*endpointAndTarget.endpoint.Pod, targetHealthCondType, endpointAndTarget.target.TargetHealth)
+			if localPreflight {
+				preflightNeedFurtherProbe = true
+				break
+			}
+		}
+
+		// Any change that we perform should reset the checkpoint.
+		// TODO - How to make this cleaner?
+		if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 || needNetworkingRequeue || containsPotentialReadyEndpoints || preflightNeedFurtherProbe {
+			// Set to an empty checkpoint, to ensure that no matter what we try to reconcile atleast one more time.
+			// Consider this ordering of events (without using this method of overriding the checkpoint)
+			// 1. Register some pod IP, don't update TGB checkpoint.
+			// 2. Before next invocation of reconcile happens, the pod is removed.
+			// 3. The next reconcile loop has no knowledge that it needs to deregister the pod ip, therefore it skips deregistering the removed pod ip.
+			err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
+			if err != nil {
+				tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
+				return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
+			}
 		}
 	}
 
@@ -274,24 +286,26 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "register_pod_endpoint_error", err, m.metricsCollector)
 		}
 	}
+	if svc.Spec.Type != corev1.ServiceTypeExternalName {
 
-	if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
-	}
+		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
+		}
 
-	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints, tgb)
-	if err != nil {
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_target_health_pod_condition_error", err, m.metricsCollector)
-	}
+		anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints, tgb)
+		if err != nil {
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_target_health_pod_condition_error", err, m.metricsCollector)
+		}
 
-	if anyPodNeedFurtherProbe {
-		tgbScopedLogger.Info("Requeue for target monitor target health")
-		return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor targetHealth", m.requeueDuration)
-	}
+		if anyPodNeedFurtherProbe {
+			tgbScopedLogger.Info("Requeue for target monitor target health")
+			return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor targetHealth", m.requeueDuration)
+		}
 
-	if containsPotentialReadyEndpoints {
-		tgbScopedLogger.Info("Requeue for potentially ready endpoints")
-		return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor potential ready endpoints", m.requeueDuration)
+		if containsPotentialReadyEndpoints {
+			tgbScopedLogger.Info("Requeue for potentially ready endpoints")
+			return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor potential ready endpoints", m.requeueDuration)
+		}
 	}
 
 	if needNetworkingRequeue {
@@ -416,13 +430,13 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 // updateTargetHealthPodCondition will updates pod's targetHealth condition for matchedEndpointAndTargets and unmatchedEndpoints.
 // returns whether further probe is needed or not
 func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, targetHealthCondType corev1.PodConditionType,
-	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) (bool, error) {
+	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.IpEndpoint, tgb *elbv2api.TargetGroupBinding) (bool, error) {
 	anyPodNeedFurtherProbe := false
 
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
 		pod := endpointAndTarget.endpoint.Pod
 		targetHealth := endpointAndTarget.target.TargetHealth
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, *pod, targetHealth, targetHealthCondType, tgb)
 		if err != nil {
 			return false, err
 		}
@@ -438,7 +452,7 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 			Reason:      elbv2types.TargetHealthReasonEnumRegistrationInProgress,
 			Description: awssdk.String("Target registration is in progress"),
 		}
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, *pod, targetHealth, targetHealthCondType, tgb)
 		if err != nil {
 			return false, err
 		}
@@ -583,7 +597,7 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elb
 	return true, m.targetsManager.DeregisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
+func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.IpEndpoint) error {
 	vpcID := m.vpcID
 	if tgb.Spec.VpcID != "" && tgb.Spec.VpcID != m.vpcID {
 		vpcID = tgb.Spec.VpcID
@@ -626,9 +640,8 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 	return err
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, usePodAZ bool) ([]elbv2types.TargetDescription, error) {
+func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.IpEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, usePodAZ bool) ([]elbv2types.TargetDescription, error) {
 	usingCrossAccount := tgb.Spec.IamRoleArnToAssume != ""
-
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -762,7 +775,7 @@ func (m *defaultResourceManager) generateOverrideAzFn(ctx context.Context, vpcID
 }
 
 type podEndpointAndTargetPair struct {
-	endpoint backend.PodEndpoint
+	endpoint backend.IpEndpoint
 	target   TargetInfo
 }
 
@@ -788,12 +801,12 @@ func containsTargetsInInitialState(matchedEndpointAndTargets []podEndpointAndTar
 	return false
 }
 
-func matchPodEndpointWithTargets(tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
+func matchPodEndpointWithTargets(tgb *elbv2api.TargetGroupBinding, endpoints []backend.IpEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.IpEndpoint, []TargetInfo) {
 	var matchedEndpointAndTargets []podEndpointAndTargetPair
-	var unmatchedEndpoints []backend.PodEndpoint
+	var unmatchedEndpoints []backend.IpEndpoint
 	var unmatchedTargets []TargetInfo
 
-	endpointsByUID := make(map[string]backend.PodEndpoint, len(endpoints))
+	endpointsByUID := make(map[string]backend.IpEndpoint, len(endpoints))
 	for _, endpoint := range endpoints {
 		endpointUID := endpoint.GetIdentifier(false, tgbProtocolSupportsQuic(tgb))
 		endpointsByUID[endpointUID] = endpoint

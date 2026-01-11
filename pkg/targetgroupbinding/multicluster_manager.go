@@ -25,7 +25,7 @@ type MultiClusterManager interface {
 	FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targetInfo []TargetInfo) ([]TargetInfo, bool, error)
 
 	// UpdateTrackedIPTargets Update the tracked target set in persistent storage
-	UpdateTrackedIPTargets(ctx context.Context, updateRequested bool, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error
+	UpdateTrackedIPTargets(ctx context.Context, updateRequested bool, endpoints []backend.IpEndpoint, tgb *elbv2api.TargetGroupBinding) error
 
 	// UpdateTrackedInstanceTargets Update the tracked target set in persistent storage
 	UpdateTrackedInstanceTargets(ctx context.Context, updateRequested bool, endpoints []backend.NodePortEndpoint, tgb *elbv2api.TargetGroupBinding) error
@@ -54,7 +54,7 @@ func NewMultiClusterManager(kubeClient client.Client, apiReader client.Reader, l
 	}
 }
 
-func (m *multiClusterManagerImpl) UpdateTrackedIPTargets(ctx context.Context, updateRequested bool, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error {
+func (m *multiClusterManagerImpl) UpdateTrackedIPTargets(ctx context.Context, updateRequested bool, endpoints []backend.IpEndpoint, tgb *elbv2api.TargetGroupBinding) error {
 	endpointStringFn := func() []string {
 		endpointStrings := make([]string, 0, len(endpoints))
 
