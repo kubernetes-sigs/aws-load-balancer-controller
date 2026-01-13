@@ -159,7 +159,9 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		// Build the default action
 		defaultActions = t.buildListenerDefaultActionsViaAnnotation(actionCfg, targetGroups)
 	} else {
-		targetGroup, err := t.buildTargetGroup(ctx, t.service, baseSvcAnnotations, port, tgProtocol, scheme)
+		// For standard (non-weighted) NLB configurations, we pass nil as the base service parameter
+		// as target group name uniqueness is already guaranteed by the service's own properties.
+		targetGroup, err := t.buildTargetGroup(ctx, nil, t.service, baseSvcAnnotations, port, tgProtocol, scheme)
 		if err != nil {
 			return elbv2model.ListenerSpec{}, err
 		}

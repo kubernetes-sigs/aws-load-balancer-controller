@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,10 +22,10 @@ type NLBInstanceTestStack struct {
 	resourceStack *ResourceStack
 }
 
-func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string, svcs []*corev1.Service) error {
+func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string, lbTypeSvcs []*corev1.Service, nonLbTypeSvcs []*corev1.Service) error {
 	dp := s.buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := s.buildServiceSpec(ctx, svcAnnotations)
-	s.resourceStack = NewResourceStack(dp, svc, svcs, "service-instance-e2e", map[string]string{})
+	s.resourceStack = NewResourceStack(dp, svc, lbTypeSvcs, nonLbTypeSvcs, "service-instance-e2e", map[string]string{})
 
 	return s.resourceStack.Deploy(ctx, f)
 }
@@ -68,6 +67,19 @@ func (s *NLBInstanceTestStack) GetWorkerNodes(ctx context.Context, f *framework.
 		}
 	}
 	return nodeList, nil
+}
+
+// GetServiceNodePort retrieves the actual NodePort assigned to a service by Kubernetes
+func (s *NLBInstanceTestStack) GetServiceNodePort(ctx context.Context, f *framework.Framework, svc *corev1.Service) (int32, error) {
+	// Get the current service from the API server to ensure we have the latest state NodePort info
+	currentSvc := &corev1.Service{}
+	if err := f.K8sClient.Get(ctx, k8s.NamespacedName(svc), currentSvc); err != nil {
+		f.Logger.Info("failed to get service", "service", k8s.NamespacedName(svc))
+		return 0, err
+	}
+
+	// Return the NodePort from the specified port
+	return currentSvc.Spec.Ports[0].NodePort, nil
 }
 
 func (s *NLBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework.Framework, node *corev1.Node, labels map[string]string) error {

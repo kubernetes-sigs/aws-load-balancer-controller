@@ -34,7 +34,8 @@ func (t *defaultModelBuildTask) buildTargetGroupTuples(ctx context.Context, list
 	// Build target group for the base service
 	baseSvcWeight := action.ForwardConfig.BaseServiceWeight
 	baseSvcAnnotations := t.service.Annotations
-	tg, err := t.buildTargetGroup(ctx, t.service, baseSvcAnnotations, baseTgPort, baseTgProtocol, scheme)
+	// Build target group for the service that owns the load balancer (base service)
+	tg, err := t.buildTargetGroup(ctx, nil, t.service, baseSvcAnnotations, baseTgPort, baseTgProtocol, scheme)
 	if err != nil {
 		return []elbv2model.TargetGroupTuple{}, err
 	}
@@ -69,7 +70,8 @@ func (t *defaultModelBuildTask) buildTargetGroupTuples(ctx context.Context, list
 			}
 
 			// This service doesn't have its own annotations, use the base service annotations
-			tg, err = t.buildTargetGroup(ctx, svc, baseSvcAnnotations, port, tgProtocol, scheme)
+			// Pass the base service (t.service) to ensure unique target group names for shared backend services (svc)
+			tg, err = t.buildTargetGroup(ctx, t.service, svc, baseSvcAnnotations, port, tgProtocol, scheme)
 			if err != nil {
 				return []elbv2model.TargetGroupTuple{}, err
 			}
@@ -86,7 +88,8 @@ func (t *defaultModelBuildTask) buildTargetGroupTuples(ctx context.Context, list
 
 // The service and annotations are passed in separately to accommodate weighted target group creation where services don't have their own annotations.
 // In that case we will apply the annotations of the base service to all services.
-func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, svc *corev1.Service, baseSvcAnnotations map[string]string, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
+// baseSvc is the service that owns the load balancer, which may be different from svc for weighted target groups
+func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, baseSvc *corev1.Service, svc *corev1.Service, baseSvcAnnotations map[string]string, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
 	svcPort := intstr.FromInt(int(port.Port))
 	tgResourceID := t.buildTargetGroupResourceID(k8s.NamespacedName(svc), svcPort)
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
@@ -108,7 +111,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, svc *corev
 	if err != nil {
 		return nil, err
 	}
-	tgSpec, err := t.buildTargetGroupSpec(ctx, svc, tgProtocol, targetType, port, healthCheckConfig, tgAttrs)
+	tgSpec, err := t.buildTargetGroupSpec(ctx, baseSvc, svc, tgProtocol, targetType, port, healthCheckConfig, tgAttrs)
 	if err != nil {
 		return nil, err
 	}
@@ -121,14 +124,14 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, svc *corev
 	return targetGroup, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, svc *corev1.Service, tgProtocol elbv2model.Protocol, targetType elbv2model.TargetType,
+func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, baseSvc *corev1.Service, svc *corev1.Service, tgProtocol elbv2model.Protocol, targetType elbv2model.TargetType,
 	port corev1.ServicePort, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig, tgAttrs []elbv2model.TargetGroupAttribute) (elbv2model.TargetGroupSpec, error) {
 	tags, err := t.buildTargetGroupTags(ctx)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	targetPort := t.buildTargetGroupPort(ctx, targetType, port)
-	tgName := t.buildTargetGroupName(ctx, svc, intstr.FromInt(int(port.Port)), targetPort, targetType, tgProtocol, healthCheckConfig)
+	tgName := t.buildTargetGroupName(ctx, baseSvc, svc, intstr.FromInt(int(port.Port)), targetPort, targetType, tgProtocol, healthCheckConfig)
 	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, svc)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -242,7 +245,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 
 var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
-func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svc *corev1.Service, svcPort intstr.IntOrString, tgPort int32,
+func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, baseSvc *corev1.Service, svc *corev1.Service, svcPort intstr.IntOrString, tgPort int32,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, hc *elbv2model.TargetGroupHealthCheckConfig) string {
 	healthCheckProtocol := string(elbv2model.ProtocolTCP)
 	healthCheckInterval := strconv.FormatInt(int64(t.defaultHealthCheckInterval), 10)
@@ -254,6 +257,9 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svc *cor
 	}
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
+	if baseSvc != nil {
+		_, _ = uuidHash.Write([]byte(baseSvc.UID))
+	}
 	_, _ = uuidHash.Write([]byte(svc.UID))
 	_, _ = uuidHash.Write([]byte(strconv.Itoa(int(tgPort))))
 	_, _ = uuidHash.Write([]byte(svcPort.String()))
