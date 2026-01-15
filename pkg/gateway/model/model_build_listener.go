@@ -173,7 +173,11 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	listenerSpec.ALPNPolicy = alpnPolicy
 
 	tgTuples, err := l.buildL4TargetGroupTuples(stack, routes, gw, port, listenerSpec.Protocol, lb.Spec.IPAddressType)
-
+	
+	if err != nil {
+		return &elbv2model.ListenerSpec{}, err
+	}
+	
 	if len(tgTuples) == 0 {
 		l.logger.Info("Skipping listener creation due to no backend references", "listener", fmt.Sprintf("%v:%v", listenerSpec.Protocol, port), "gateway", k8s.NamespacedName(gw))
 		return nil, nil
