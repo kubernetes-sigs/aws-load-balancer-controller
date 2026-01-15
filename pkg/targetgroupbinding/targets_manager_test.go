@@ -1193,6 +1193,123 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "cached target with nil AZ should query AWS without AZ",
+			fields: fields{
+				describeTargetHealthWithContextCalls: []describeTargetHealthWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTargetHealthInput{
+							TargetGroupArn: awssdk.String("my-tg"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.1"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.DescribeTargetHealthOutput{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
+								{
+									Target: &elbv2types.TargetDescription{
+										Id:               awssdk.String("192.168.1.1"),
+										Port:             awssdk.Int32(8080),
+										AvailabilityZone: awssdk.String("us-east-1d"),
+									},
+									TargetHealth: &elbv2types.TargetHealth{
+										State: elbv2types.TargetHealthStateEnumHealthy,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				cachedTargets: []TargetInfo{
+					{
+						Target: elbv2types.TargetDescription{
+							Id:   awssdk.String("192.168.1.1"),
+							Port: awssdk.Int32(8080),
+						},
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumInitial,
+						},
+					},
+				},
+			},
+			want: []TargetInfo{
+				{
+					Target: elbv2types.TargetDescription{
+						Id:               awssdk.String("192.168.1.1"),
+						Port:             awssdk.Int32(8080),
+						AvailabilityZone: awssdk.String("us-east-1d"),
+					},
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
+					},
+				},
+			},
+		},
+		{
+			name: "cached target with stale AZ should query AWS without AZ",
+			fields: fields{
+				describeTargetHealthWithContextCalls: []describeTargetHealthWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTargetHealthInput{
+							TargetGroupArn: awssdk.String("my-tg"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.1"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.DescribeTargetHealthOutput{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
+								{
+									Target: &elbv2types.TargetDescription{
+										Id:               awssdk.String("192.168.1.1"),
+										Port:             awssdk.Int32(8080),
+										AvailabilityZone: awssdk.String("us-east-1d"),
+									},
+									TargetHealth: &elbv2types.TargetHealth{
+										State: elbv2types.TargetHealthStateEnumHealthy,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tgARN: "my-tg",
+				cachedTargets: []TargetInfo{
+					{
+						Target: elbv2types.TargetDescription{
+							Id:               awssdk.String("192.168.1.1"),
+							Port:             awssdk.Int32(8080),
+							AvailabilityZone: awssdk.String("us-east-1a"),
+						},
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumInitial,
+						},
+					},
+				},
+			},
+			want: []TargetInfo{
+				{
+					Target: elbv2types.TargetDescription{
+						Id:               awssdk.String("192.168.1.1"),
+						Port:             awssdk.Int32(8080),
+						AvailabilityZone: awssdk.String("us-east-1d"),
+					},
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2012,7 +2129,83 @@ func Test_chunkTargetDescriptions(t *testing.T) {
 	}
 }
 
-func Test_pointerizeTargetDescriptions(t *testing.T) {
+func Test_targetByIdPort(t *testing.T) {
+	type args struct {
+		targets []elbv2types.TargetDescription
+	}
+	tests := []struct {
+		name string
+		args args
+		want []elbv2types.TargetDescription
+	}{
+		{
+			name: "nil targets",
+			args: args{
+				targets: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "empty targets",
+			args: args{
+				targets: []elbv2types.TargetDescription{},
+			},
+			want: nil,
+		},
+		{
+			name: "targets without AZ",
+			args: args{
+				targets: []elbv2types.TargetDescription{
+					{
+						Id:   awssdk.String("192.168.1.1"),
+						Port: awssdk.Int32(8080),
+					},
+				},
+			},
+			want: []elbv2types.TargetDescription{
+				{
+					Id:   awssdk.String("192.168.1.1"),
+					Port: awssdk.Int32(8080),
+				},
+			},
+		},
+		{
+			name: "targets with AZ should strip AZ",
+			args: args{
+				targets: []elbv2types.TargetDescription{
+					{
+						Id:               awssdk.String("192.168.1.1"),
+						Port:             awssdk.Int32(8080),
+						AvailabilityZone: awssdk.String("us-east-1a"),
+					},
+					{
+						Id:               awssdk.String("192.168.1.2"),
+						Port:             awssdk.Int32(8080),
+						AvailabilityZone: awssdk.String("us-east-1b"),
+					},
+				},
+			},
+			want: []elbv2types.TargetDescription{
+				{
+					Id:   awssdk.String("192.168.1.1"),
+					Port: awssdk.Int32(8080),
+				},
+				{
+					Id:   awssdk.String("192.168.1.2"),
+					Port: awssdk.Int32(8080),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := targetByIdPort(tt.args.targets)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_cloneTargetDescriptionSlice(t *testing.T) {
 	type args struct {
 		targets []elbv2types.TargetDescription
 	}
@@ -2063,7 +2256,7 @@ func Test_pointerizeTargetDescriptions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := pointerizeTargetDescriptions(tt.args.targets)
+			got := cloneTargetDescriptionSlice(tt.args.targets)
 			assert.Equal(t, tt.want, got)
 		})
 	}

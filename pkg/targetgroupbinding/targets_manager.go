@@ -86,7 +86,7 @@ func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2ap
 	for _, targetsChunk := range targetsChunks {
 		req := &elbv2sdk.RegisterTargetsInput{
 			TargetGroupArn: aws.String(tgARN),
-			Targets:        pointerizeTargetDescriptions(targetsChunk),
+			Targets:        cloneTargetDescriptionSlice(targetsChunk),
 		}
 		m.logger.Info("registering targets",
 			"arn", tgARN,
@@ -115,7 +115,7 @@ func (m *cachedTargetsManager) DeregisterTargets(ctx context.Context, tgb *elbv2
 	for _, targetsChunk := range targetsChunks {
 		req := &elbv2sdk.DeregisterTargetsInput{
 			TargetGroupArn: aws.String(tgARN),
-			Targets:        pointerizeTargetDescriptions(targetsChunk),
+			Targets:        cloneTargetDescriptionSlice(targetsChunk),
 		}
 		m.logger.Info("deRegistering targets",
 			"arn", tgARN,
@@ -211,7 +211,7 @@ func (m *cachedTargetsManager) listTargetsFromAWS(ctx context.Context, tgb *elbv
 	tgARN := tgb.Spec.TargetGroupARN
 	req := &elbv2sdk.DescribeTargetHealthInput{
 		TargetGroupArn: aws.String(tgARN),
-		Targets:        pointerizeTargetDescriptions(targets),
+		Targets:        targetByIdPort(targets),
 	}
 	clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
 	if err != nil {
@@ -304,9 +304,24 @@ func chunkTargetDescriptions(targets []elbv2types.TargetDescription, chunkSize i
 	return chunks
 }
 
-// pointerizeTargetDescriptions converts slice of TargetDescription into slice of pointers to TargetDescription
-// if targets is empty or nil, nil will be returned.
-func pointerizeTargetDescriptions(targets []elbv2types.TargetDescription) []elbv2types.TargetDescription {
+// targetByIdPort returns targets with only Id and Port fields.
+// Omitting AZ ensures DescribeTargetHealth finds targets regardless of cached AZ state.
+func targetByIdPort(targets []elbv2types.TargetDescription) []elbv2types.TargetDescription {
+	if len(targets) == 0 {
+		return nil
+	}
+	result := make([]elbv2types.TargetDescription, 0, len(targets))
+	for _, t := range targets {
+		result = append(result, elbv2types.TargetDescription{
+			Id:   t.Id,
+			Port: t.Port,
+		})
+	}
+	return result
+}
+
+// cloneTargetDescriptionSlice returns a shallow copy of the TargetDescription slice.
+func cloneTargetDescriptionSlice(targets []elbv2types.TargetDescription) []elbv2types.TargetDescription {
 	if len(targets) == 0 {
 		return nil
 	}
