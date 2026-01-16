@@ -2,10 +2,8 @@ package globalaccelerator
 
 import (
 	"context"
-
-	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,20 +12,27 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"strings"
+	"time"
 )
 
 var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 	var (
-		ctx       context.Context
-		agaStack  *ResourceStack
-		ingStack  *ingress.ResourceStack
-		namespace string
-		ingName   string
-		aga       *agav1beta1.GlobalAccelerator
-		baseName  string
+		ctx             context.Context
+		agaStack        *ResourceStack
+		ingStack        *ingress.ResourceStack
+		namespace       string
+		ingName         string
+		crossNsAgaStack *ResourceStack
+		crossIngStack   *ingress.ResourceStack
+		crossNamespace  string
+		crossNsIngName  string
+		aga             *agav1beta1.GlobalAccelerator
+		baseName        string
 	)
 
 	BeforeEach(func() {
@@ -50,6 +55,27 @@ var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 
 		ingStack = ingress.NewResourceStack([]*appsv1.Deployment{deployment}, []*corev1.Service{svc}, []*networkingv1.Ingress{ing})
 		err = ingStack.Deploy(ctx, tf)
+		Expect(err).NotTo(HaveOccurred())
+
+		currentTestName := CurrentSpecReport().LeafNodeText
+		if !strings.Contains(currentTestName, "cross-namespace") {
+			return
+		}
+		crossNs, err := tf.NSManager.AllocateNamespace(ctx, "aga-ing-cross-ns-e2e")
+		Expect(err).NotTo(HaveOccurred())
+		crossNamespace = crossNs.Name
+		baseName = "aga-ing-cross-ns" + utils.RandomDNS1123Label(8)
+		crossNsIngName = baseName + "-ingress"
+		crossNslabels := map[string]string{
+			"app": baseName,
+		}
+
+		crossNsdeployment := createDeployment(baseName, crossNamespace, crossNslabels)
+		crossNsSvc := createNodePortService(baseName+"-service", crossNamespace, crossNslabels)
+		crossNsIng := createALBIngress(crossNsIngName, crossNamespace, baseName+"-service")
+
+		crossIngStack = ingress.NewResourceStack([]*appsv1.Deployment{crossNsdeployment}, []*corev1.Service{crossNsSvc}, []*networkingv1.Ingress{crossNsIng})
+		err = crossIngStack.Deploy(ctx, tf)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -75,6 +101,33 @@ var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 				err = tf.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
 				Expect(err).NotTo(HaveOccurred())
 				tf.Logger.Info("namespace becomes deleted", "name", namespace)
+				currentTestName := CurrentSpecReport().LeafNodeText
+				if !strings.Contains(currentTestName, "cross-namespace") {
+					return
+				}
+				if crossNsAgaStack != nil {
+					err := crossNsAgaStack.Cleanup(ctx, tf)
+					Expect(err).NotTo(HaveOccurred())
+				}
+				if crossIngStack != nil {
+					err := crossIngStack.Cleanup(ctx, tf)
+					Expect(err).NotTo(HaveOccurred())
+				}
+				if crossNamespace != "" {
+					By("teardown cross namespace", func() {
+						ns := &corev1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{Name: crossNsIngName},
+						}
+						tf.Logger.Info("deleting cross namespace", "name", crossNamespace)
+						err := tf.K8sClient.Delete(ctx, ns)
+						Expect(err).Should(SatisfyAny(BeNil(), Satisfy(apierrors.IsNotFound)))
+						tf.Logger.Info("deleted cross namespace", "name", crossNamespace)
+						tf.Logger.Info("waiting cross namespace becomes deleted", "name", crossNamespace)
+						err = tf.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
+						Expect(err).NotTo(HaveOccurred())
+						tf.Logger.Info("cross namespace becomes deleted", "name", crossNamespace)
+					})
+				}
 			})
 		}
 	})
@@ -182,6 +235,109 @@ var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
+
+		It("Should create and verify GlobalAccelerator basic lifecycle - cross-namespace ref", func() {
+			acceleratorName := "aga-ing-basic-cross-ns-" + utils.RandomDNS1123Label(6)
+			protocol := agav1beta1.GlobalAcceleratorProtocolTCP
+			gaName := "aga-basic-cross-ns-" + utils.RandomDNS1123Label(8)
+			aga = createAGAWithIngressEndpoint(gaName, namespace, acceleratorName, crossNsIngName, agav1beta1.IPAddressTypeIPV4,
+				&[]agav1beta1.GlobalAcceleratorListener{
+					{
+						Protocol: &protocol,
+						PortRanges: &[]agav1beta1.PortRange{
+							{FromPort: 80, ToPort: 80},
+							{FromPort: 443, ToPort: 443},
+						},
+						ClientAffinity: agav1beta1.ClientAffinityNone,
+						EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{
+							{
+								TrafficDialPercentage: awssdk.Int32(100),
+								Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
+									{
+										Type:      agav1beta1.GlobalAcceleratorEndpointTypeIngress,
+										Name:      awssdk.String(crossNsIngName),
+										Namespace: awssdk.String(crossNamespace),
+									},
+								},
+							},
+						},
+					},
+				})
+
+			refGrantName := "aga-ing-basic-cross-ns-ref-grant" + utils.RandomDNS1123Label(6)
+			By("deploying GlobalAccelerator", func() {
+				crossNsAgaStack = NewResourceStack(aga)
+				err := crossNsAgaStack.Deploy(ctx, tf)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying AWS GlobalAccelerator configuration has no endpoints", func() {
+				gaARN := crossNsAgaStack.GetGlobalAcceleratorARN()
+				err := verifyGlobalAcceleratorConfiguration(ctx, tf, gaARN, GlobalAcceleratorExpectation{
+					Name:          acceleratorName,
+					IPAddressType: string(types.IpAddressTypeIpv4),
+					Status:        string(types.AcceleratorStatusDeployed),
+					Listeners: []ListenerExpectation{
+						{
+							Protocol: string(types.ProtocolTcp),
+							PortRanges: []PortRangeExpectation{
+								{FromPort: 80, ToPort: 80},
+								{FromPort: 443, ToPort: 443},
+							},
+							ClientAffinity: string(types.ClientAffinityNone),
+							EndpointGroups: []EndpointGroupExpectation{
+								{TrafficDialPercentage: 100, NumEndpoints: 0},
+							},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("deploying ref grant", func() {
+				err := CreateReferenceGrant(
+					ctx,
+					tf,
+					refGrantName,
+					namespace,
+					crossNamespace,
+					shared_constants.IngressAPIGroup,
+					shared_constants.IngressKind,
+				)
+				Expect(err).NotTo(HaveOccurred())
+				// Give some time to have the listener get materialized.
+				time.Sleep(10 * time.Second)
+			})
+
+			By("verifying updated AWS configuration", func() {
+				gaARN := crossNsAgaStack.GetGlobalAcceleratorARN()
+				Eventually(func() error {
+					return verifyGlobalAcceleratorConfiguration(ctx, tf, gaARN, GlobalAcceleratorExpectation{
+						Name:          acceleratorName,
+						IPAddressType: string(types.IpAddressTypeIpv4),
+						Status:        string(types.AcceleratorStatusDeployed),
+						Listeners: []ListenerExpectation{
+							{
+								Protocol: string(types.ProtocolTcp),
+								PortRanges: []PortRangeExpectation{
+									{FromPort: 80, ToPort: 80},
+									{FromPort: 443, ToPort: 443},
+								},
+								ClientAffinity: string(types.ClientAffinityNone),
+								EndpointGroups: []EndpointGroupExpectation{
+									{TrafficDialPercentage: 100, NumEndpoints: 1},
+								},
+							},
+						},
+					})
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).Should(Succeed())
+			})
+
+			By("verifying traffic flows after update", func() {
+				err := verifyAGATrafficFlows(ctx, tf, crossNsAgaStack)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
 	})
 
 	Context("Auto-discovery with Ingress endpoint", func() {
@@ -221,6 +377,91 @@ var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 
 			By("verifying traffic flows through GlobalAccelerator", func() {
 				err := verifyAGATrafficFlows(ctx, tf, agaStack)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		It("Should auto-discover protocol and ports from Ingress - cross-namespace ref", func() {
+			acceleratorName := "aga-autodiscovery-cross-ns-" + utils.RandomDNS1123Label(6)
+			gaName := "aga-autodiscovery-cross-ns-" + utils.RandomDNS1123Label(8)
+			// Create GlobalAccelerator without protocol and port ranges, using cross-namespace reference
+			aga := &agav1beta1.GlobalAccelerator{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      gaName,
+					Namespace: namespace,
+				},
+				Spec: agav1beta1.GlobalAcceleratorSpec{
+					Name:          awssdk.String(acceleratorName),
+					IPAddressType: agav1beta1.IPAddressTypeIPV4,
+					Listeners: &[]agav1beta1.GlobalAcceleratorListener{
+						{
+							EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{
+								{
+									TrafficDialPercentage: awssdk.Int32(100),
+									Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
+										{
+											Type:      agav1beta1.GlobalAcceleratorEndpointTypeIngress,
+											Name:      awssdk.String(crossNsIngName),
+											Namespace: awssdk.String(crossNamespace),
+											Weight:    awssdk.Int32(128),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			By("creating reference grant in cross namespace", func() {
+				refGrantName := "aga-ing-auto-cross-ns-ref-grant-" + utils.RandomDNS1123Label(6)
+				err := CreateReferenceGrant(
+					ctx,
+					tf,
+					refGrantName,
+					namespace,
+					crossNamespace,
+					shared_constants.IngressAPIGroup,
+					shared_constants.IngressKind,
+				)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("deploying GlobalAccelerator with auto-discovery and cross-namespace reference", func() {
+				crossNsAgaStack = NewResourceStack(aga)
+				err := crossNsAgaStack.Deploy(ctx, tf)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying controller auto-discovered protocol and ports from cross-namespace Ingress", func() {
+				gaARN := crossNsAgaStack.GetGlobalAcceleratorARN()
+				Eventually(func() error {
+					return verifyGlobalAcceleratorConfiguration(ctx, tf, gaARN, GlobalAcceleratorExpectation{
+						Name:          acceleratorName,
+						IPAddressType: string(types.IpAddressTypeIpv4),
+						Status:        string(types.AcceleratorStatusDeployed),
+						Listeners: []ListenerExpectation{
+							{
+								Protocol: string(types.ProtocolTcp),
+								PortRanges: []PortRangeExpectation{
+									{FromPort: 80, ToPort: 80},
+								},
+								ClientAffinity: string(types.ClientAffinityNone),
+								EndpointGroups: []EndpointGroupExpectation{
+									{TrafficDialPercentage: 100, NumEndpoints: 1},
+								},
+							},
+						},
+					})
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).Should(Succeed())
+			})
+
+			By("verifying GlobalAccelerator status fields", func() {
+				verifyAGAStatusFields(crossNsAgaStack)
+			})
+
+			By("verifying traffic flows through GlobalAccelerator", func() {
+				err := verifyAGATrafficFlows(ctx, tf, crossNsAgaStack)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

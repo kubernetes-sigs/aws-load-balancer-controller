@@ -181,7 +181,7 @@ func createServices(ctx context.Context, f *framework.Framework, svcs []*corev1.
 	return nil
 }
 
-func createReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwbeta1.ReferenceGrant) error {
+func CreateReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwbeta1.ReferenceGrant) error {
 	f.Logger.Info("About to create ref grant")
 	for _, refg := range refGrants {
 		f.Logger.Info("creating ref grant", "refg", k8s.NamespacedName(refg))
