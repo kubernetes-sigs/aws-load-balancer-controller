@@ -2,6 +2,10 @@ package globalaccelerator
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
@@ -10,9 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/service"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
@@ -541,6 +543,177 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 
 			By("verifying traffic flows through port range", func() {
 				err := verifyAGATrafficFlows(ctx, tf, agaStack, 80, 443)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	Context("Service endpoint with cross-namespace reference", func() {
+		var (
+			agaNamespace    string
+			svcNamespace    string
+			svcStack        *service.ResourceStack
+			svcName         string
+			baseName        string
+			acceleratorName string
+			gaName          string
+			refGrantName    string
+		)
+
+		BeforeEach(func() {
+			agaNs, err := tf.NSManager.AllocateNamespace(ctx, "aga-svc-crossns-ga")
+			Expect(err).NotTo(HaveOccurred())
+			agaNamespace = agaNs.Name
+
+			// Set up names for resources
+			baseName = "aga-svc-crossns-" + utils.RandomDNS1123Label(6)
+			svcName = baseName + "-service"
+			acceleratorName = "aga-svc-crossns-" + utils.RandomDNS1123Label(6)
+			gaName = "aga-" + utils.RandomDNS1123Label(8)
+			refGrantName = "aga-svc-refgrant-" + utils.RandomDNS1123Label(6)
+
+			// Create service in service namespace
+			labels := map[string]string{
+				"app": baseName,
+			}
+
+			deployment := createDeployment(baseName, "", labels)
+			annotations := createServiceAnnotations("nlb-ip", "internet-facing", tf.Options.IPFamily)
+			svc := createLoadBalancerService(svcName, labels, annotations)
+
+			svcStack = service.NewResourceStack(deployment, svc, nil, nil, baseName, map[string]string{})
+			err = svcStack.Deploy(ctx, tf)
+			Expect(err).NotTo(HaveOccurred())
+			svcNamespace = svcStack.GetNamespace()
+		})
+
+		AfterEach(func() {
+			if agaStack != nil {
+				err := agaStack.Cleanup(ctx, tf)
+				Expect(err).NotTo(HaveOccurred())
+			}
+			if svcStack != nil {
+				err := svcStack.Cleanup(ctx, tf)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// Clean up namespaces
+			if agaNamespace != "" {
+				ns := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: agaNamespace},
+				}
+				tf.K8sClient.Delete(ctx, ns)
+				tf.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
+			}
+			if svcNamespace != "" {
+				ns := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: svcNamespace},
+				}
+				tf.K8sClient.Delete(ctx, ns)
+				tf.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
+			}
+		})
+
+		It("Should create and verify GlobalAccelerator basic lifecycle - service cross-namespace ref", func() {
+			protocol := agav1beta1.GlobalAcceleratorProtocolTCP
+
+			// Create GA in GA namespace with cross-namespace reference to Service
+			aga := createAGAWithServiceEndpoint(gaName, agaNamespace, acceleratorName, svcName, agav1beta1.IPAddressTypeIPV4,
+				&[]agav1beta1.GlobalAcceleratorListener{
+					{
+						Protocol: &protocol,
+						PortRanges: &[]agav1beta1.PortRange{
+							{FromPort: 80, ToPort: 80},
+						},
+						ClientAffinity: agav1beta1.ClientAffinityNone,
+						EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{
+							{
+								TrafficDialPercentage: awssdk.Int32(100),
+								Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
+									{
+										Type:      agav1beta1.GlobalAcceleratorEndpointTypeService,
+										Name:      awssdk.String(svcName),
+										Namespace: awssdk.String(svcNamespace),
+									},
+								},
+							},
+						},
+					},
+				})
+
+			By("deploying GlobalAccelerator", func() {
+				agaStack = NewResourceStack(aga)
+				err := agaStack.Deploy(ctx, tf)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying AWS GlobalAccelerator configuration has no endpoints initially", func() {
+				gaARN := agaStack.GetGlobalAcceleratorARN()
+				err := verifyGlobalAcceleratorConfiguration(ctx, tf, gaARN, GlobalAcceleratorExpectation{
+					Name:          acceleratorName,
+					IPAddressType: string(types.IpAddressTypeIpv4),
+					Status:        string(types.AcceleratorStatusDeployed),
+					Listeners: []ListenerExpectation{
+						{
+							Protocol: string(types.ProtocolTcp),
+							PortRanges: []PortRangeExpectation{
+								{FromPort: 80, ToPort: 80},
+							},
+							ClientAffinity: string(types.ClientAffinityNone),
+							EndpointGroups: []EndpointGroupExpectation{
+								{TrafficDialPercentage: 100, NumEndpoints: 0},
+							},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("creating reference grant in service namespace", func() {
+				err := CreateReferenceGrant(
+					ctx,
+					tf,
+					refGrantName,
+					agaNamespace,
+					svcNamespace,
+					shared_constants.CoreAPIGroup,
+					shared_constants.ServiceKind,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Give some time for the controller to reconcile after ReferenceGrant is created
+				time.Sleep(10 * time.Second)
+			})
+
+			By("verifying endpoints are now added after ReferenceGrant", func() {
+				gaARN := agaStack.GetGlobalAcceleratorARN()
+				Eventually(func() error {
+					return verifyGlobalAcceleratorConfiguration(ctx, tf, gaARN, GlobalAcceleratorExpectation{
+						Name:          acceleratorName,
+						IPAddressType: string(types.IpAddressTypeIpv4),
+						Status:        string(types.AcceleratorStatusDeployed),
+						Listeners: []ListenerExpectation{
+							{
+								Protocol: string(types.ProtocolTcp),
+								PortRanges: []PortRangeExpectation{
+									{FromPort: 80, ToPort: 80},
+								},
+								ClientAffinity: string(types.ClientAffinityNone),
+								EndpointGroups: []EndpointGroupExpectation{
+									{TrafficDialPercentage: 100, NumEndpoints: 1},
+								},
+							},
+						},
+					})
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).Should(Succeed())
+			})
+
+			By("verifying GlobalAccelerator status fields", func() {
+				verifyAGAStatusFields(agaStack)
+			})
+
+			By("verifying traffic flows through GlobalAccelerator", func() {
+				err := verifyAGATrafficFlows(ctx, tf, agaStack)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

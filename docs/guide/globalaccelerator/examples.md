@@ -291,15 +291,96 @@ spec:
               name: dual-stack-service
 ```
 
+### Cross-Namespace References with GlobalAccelerator
+
+This example demonstrates how to configure a GlobalAccelerator to reference multiple endpoint types (Ingress, Service, Gateway) from different namespaces using ReferenceGrant resources
+
+#### Step 1: Create the ReferenceGrant Resources
+
+```yaml
+# ReferenceGrant in ingress-ns
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-aga-to-ingress
+  namespace: ingress-ns
+spec:
+  from:
+  - group: aga.k8s.aws
+    kind: GlobalAccelerator
+    namespace: accelerator-ns
+  to:
+  - group: networking.k8s.io
+    kind: Ingress
+---
+# ReferenceGrant in service-ns
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-aga-to-service
+  namespace: service-ns
+spec:
+  from:
+  - group: aga.k8s.aws
+    kind: GlobalAccelerator
+    namespace: accelerator-ns
+  to:
+  - group: ""
+    kind: Service
+---
+# ReferenceGrant in gateway-ns
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-aga-to-gateway
+  namespace: gateway-ns
+spec:
+  from:
+  - group: aga.k8s.aws
+    kind: GlobalAccelerator
+    namespace: accelerator-ns
+  to:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+```
+
+#### Step 2: Create the GlobalAccelerator Resource with Cross-Namespace References
+
+```yaml
+apiVersion: aga.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+name: cross-namespace-example
+namespace: accelerator-ns
+spec:
+acceleratorName: cross-namespace-accelerator
+ipAddressType: IPV4
+listeners:
+- protocol: TCP
+  portRanges:
+    - fromPort: 80
+      toPort: 80
+      clientAffinity: NONE
+      endpointGroups:
+    - trafficDialPercentage: 100
+      endpoints:
+      # Ingress endpoint in ingress-ns
+        - type: INGRESS
+          name: example-ingress
+          namespace: ingress-ns
+          weight: 100
+      # Service endpoint in service-ns
+        - type: SERVICE
+          name: example-service
+          namespace: service-ns
+          weight: 100
+      # Gateway endpoint in gateway-ns
+        - type: GATEWAY
+          name: example-gateway
+          namespace: gateway-ns
+          weight: 100
+```
 ## Important Limitations and Best Practices
-
-### Cross-Namespace References
-
-In the initial release, the AWS Global Accelerator Controller has a limitation regarding cross-namespace references:
-
-1. **Same-Namespace Default**: By default, the controller expects endpoints to be in the same namespace as the GlobalAccelerator resource.
-
-2. **Security Considerations**: Cross-namespace references without proper security controls can present security risks.
 
 ### BYOIP Considerations
 

@@ -374,7 +374,7 @@ func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framewo
 		},
 	}
 
-	if err := createReferenceGrants(ctx, f, []*gwbeta1.ReferenceGrant{refGrant}); err != nil {
+	if err := CreateReferenceGrants(ctx, f, []*gwbeta1.ReferenceGrant{refGrant}); err != nil {
 		return nil, err
 	}
 

@@ -2,6 +2,7 @@ package aga
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -28,12 +29,13 @@ func TestNewEndpointLoader(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 	logger := logr.Discard()
 
 	// Create the endpoint loader
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Verify it's properly initialized
 	assert.NotNil(t, endpointLoader)
@@ -45,8 +47,9 @@ func TestLoadEndpoint_Service(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Setup the service resource
 	svc := &corev1.Service{
@@ -85,7 +88,7 @@ func TestLoadEndpoint_Service(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create an endpoint reference
 	endpoint := &agaapi.GlobalAcceleratorEndpoint{
@@ -93,6 +96,7 @@ func TestLoadEndpoint_Service(t *testing.T) {
 		Name: &svc.Name,
 	}
 
+	// No cross-namespace validation needed for same namespace
 	// Load the endpoint
 	loadedEndpoint := endpointLoader.LoadEndpoint(context.Background(), endpoint, "default")
 
@@ -108,8 +112,9 @@ func TestLoadEndpoint_ServiceError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Setup runtime scheme
 	scheme := runtime.NewScheme()
@@ -121,7 +126,7 @@ func TestLoadEndpoint_ServiceError(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create an endpoint reference
 	endpoint := &agaapi.GlobalAcceleratorEndpoint{
@@ -138,13 +143,161 @@ func TestLoadEndpoint_ServiceError(t *testing.T) {
 	assert.Contains(t, loadedEndpoint.Message, "not found")
 }
 
+func TestLoadEndpoint_CrossNamespace(t *testing.T) {
+	// Setup controller
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Create mock DNS resolver and cross namespace validator
+	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
+
+	// Setup the service resource in a different namespace
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service",
+			Namespace: "other-namespace", // Different namespace
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						Hostname: "test-lb-1234567890.us-west-2.elb.amazonaws.com",
+					},
+				},
+			},
+		},
+	}
+
+	// Setup runtime scheme
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = agaapi.AddToScheme(scheme)
+
+	// Create test client with the service
+	k8sClient := testutils.GenerateTestClient()
+	k8sClient.Create(context.Background(), svc)
+
+	// Set up expectations
+	// Expect cross-namespace validation to be called and return nil (allowed)
+	mockValidator.EXPECT().
+		ValidateCrossNamespaceReference(
+			gomock.Any(),
+			gomock.Eq("default"),         // from namespace
+			gomock.Eq(""),                // to group (core group is "")
+			gomock.Eq("Service"),         // to kind
+			gomock.Eq("other-namespace"), // to namespace
+			gomock.Eq("test-service"),    // to name
+		).Return(nil) // allowed by annotation
+
+	mockDNSResolver.EXPECT().
+		ResolveDNSToLoadBalancerARN(gomock.Any(), "test-lb-1234567890.us-west-2.elb.amazonaws.com").
+		Return("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-lb/1234567890", nil)
+
+	// Create endpoint loader
+	logger := logr.Discard()
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
+
+	// Create an endpoint reference with cross-namespace reference
+	endpoint := &agaapi.GlobalAcceleratorEndpoint{
+		Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+		Name:      &svc.Name,
+		Namespace: &svc.Namespace,
+	}
+
+	// Load the endpoint
+	loadedEndpoint := endpointLoader.LoadEndpoint(context.Background(), endpoint, "default")
+
+	// Verify result
+	assert.Equal(t, EndpointStatusLoaded, loadedEndpoint.Status)
+	assert.Equal(t, "test-lb-1234567890.us-west-2.elb.amazonaws.com", loadedEndpoint.DNSName)
+	assert.Equal(t, "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-lb/1234567890", loadedEndpoint.ARN)
+	assert.Nil(t, loadedEndpoint.Error)
+	assert.True(t, loadedEndpoint.CrossNamespaceAllowed)
+}
+
+func TestLoadEndpoint_CrossNamespaceNotAllowed(t *testing.T) {
+	// Setup controller
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Create mock DNS resolver and cross namespace validator
+	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
+
+	// Setup the service resource in a different namespace
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-service",
+			Namespace: "other-namespace", // Different namespace
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						Hostname: "test-lb-1234567890.us-west-2.elb.amazonaws.com",
+					},
+				},
+			},
+		},
+	}
+
+	// Setup runtime scheme
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = agaapi.AddToScheme(scheme)
+
+	// Create test client with the service
+	k8sClient := testutils.GenerateTestClient()
+	k8sClient.Create(context.Background(), svc)
+
+	// Set up expectations
+	// Expect cross-namespace validation to be called and return an error (not allowed)
+	mockValidator.EXPECT().
+		ValidateCrossNamespaceReference(
+			gomock.Any(),
+			gomock.Eq("default"),         // from namespace
+			gomock.Eq(""),                // to group (core group is "")
+			gomock.Eq("Service"),         // to kind
+			gomock.Eq("other-namespace"), // to namespace
+			gomock.Eq("test-service"),    // to name
+		).Return(fmt.Errorf("cross-namespace reference not allowed by any ReferenceGrant"))
+
+	// Create endpoint loader
+	logger := logr.Discard()
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
+
+	// Create an endpoint reference with cross-namespace reference
+	endpoint := &agaapi.GlobalAcceleratorEndpoint{
+		Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+		Name:      &svc.Name,
+		Namespace: &svc.Namespace,
+	}
+
+	// Load the endpoint
+	loadedEndpoint := endpointLoader.LoadEndpoint(context.Background(), endpoint, "default")
+
+	// Verify result shows a warning for not being allowed
+	assert.Equal(t, EndpointStatusWarning, loadedEndpoint.Status)
+	assert.NotNil(t, loadedEndpoint.Error)
+	assert.Contains(t, loadedEndpoint.Message, "Cross-namespace reference denied")
+	assert.False(t, loadedEndpoint.CrossNamespaceAllowed)
+}
+
 func TestLoadEndpoint_ServiceNoLoadBalancer(t *testing.T) {
 	// Setup controller
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Setup the service resource without LoadBalancer
 	svc := &corev1.Service{
@@ -168,7 +321,7 @@ func TestLoadEndpoint_ServiceNoLoadBalancer(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create an endpoint reference
 	endpoint := &agaapi.GlobalAcceleratorEndpoint{
@@ -191,8 +344,9 @@ func TestLoadEndpoint_Ingress(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Setup the ingress resource
 	ing := &networkingv1.Ingress{
@@ -228,7 +382,7 @@ func TestLoadEndpoint_Ingress(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create an endpoint reference
 	endpoint := &agaapi.GlobalAcceleratorEndpoint{
@@ -251,8 +405,9 @@ func TestLoadEndpoint_Gateway(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	hostnameType := gwv1.HostnameAddressType
 
@@ -289,7 +444,7 @@ func TestLoadEndpoint_Gateway(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create an endpoint reference
 	endpoint := &agaapi.GlobalAcceleratorEndpoint{
@@ -312,8 +467,9 @@ func TestLoadEndpoint_EndpointID(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver (not used for EndpointID)
+	// Create mock DNS resolver (not used for EndpointID) and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Setup runtime scheme
 	scheme := runtime.NewScheme()
@@ -325,7 +481,7 @@ func TestLoadEndpoint_EndpointID(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create an endpoint reference with direct ARN
 	endpointID := "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/direct-arn/1234567890"
@@ -348,8 +504,9 @@ func TestLoadEndpoints(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Setup resources
 	svc := &corev1.Service{
@@ -382,7 +539,7 @@ func TestLoadEndpoints(t *testing.T) {
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create a GlobalAccelerator with endpoints
 	ga := &agaapi.GlobalAccelerator{
@@ -422,15 +579,16 @@ func TestLoadEndpoints_WithError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Create test client without the service
 	k8sClient := testutils.GenerateTestClient()
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create a GlobalAccelerator
 	ga := &agaapi.GlobalAccelerator{
@@ -481,8 +639,9 @@ func TestLoadEndpoints_WithFatalError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Create test client
 	k8sClient := testutils.GenerateTestClient()
@@ -494,7 +653,7 @@ func TestLoadEndpoints_WithFatalError(t *testing.T) {
 
 	// Create endpoint loader with test client
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create a GlobalAccelerator
 	ga := &agaapi.GlobalAccelerator{
@@ -533,15 +692,16 @@ func TestLoadEndpoints_WithNilEndpoint(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// Create mock DNS resolver
+	// Create mock DNS resolver and cross namespace validator
 	mockDNSResolver := NewMockDNSResolverForTest(ctrl)
+	mockValidator := NewMockCrossNamespaceValidator(ctrl)
 
 	// Create test client
 	k8sClient := testutils.GenerateTestClient()
 
 	// Create endpoint loader
 	logger := logr.Discard()
-	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger)
+	endpointLoader := NewEndpointLoader(k8sClient, mockDNSResolver, logger, mockValidator)
 
 	// Create a GlobalAccelerator
 	ga := &agaapi.GlobalAccelerator{
@@ -572,6 +732,41 @@ func TestLoadEndpoints_WithNilEndpoint(t *testing.T) {
 // Helper function to create string pointers
 func stringPtr(s string) *string {
 	return &s
+}
+
+// MockCrossNamespaceValidator is a mock implementation of CrossNamespaceValidator
+type MockCrossNamespaceValidator struct {
+	ctrl     *gomock.Controller
+	recorder *MockCrossNamespaceValidatorMockRecorder
+}
+
+// MockCrossNamespaceValidatorMockRecorder is the recorder for MockCrossNamespaceValidator
+type MockCrossNamespaceValidatorMockRecorder struct {
+	mock *MockCrossNamespaceValidator
+}
+
+// NewMockCrossNamespaceValidator creates a new mock instance
+func NewMockCrossNamespaceValidator(ctrl *gomock.Controller) *MockCrossNamespaceValidator {
+	mock := &MockCrossNamespaceValidator{ctrl: ctrl}
+	mock.recorder = &MockCrossNamespaceValidatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockCrossNamespaceValidator) EXPECT() *MockCrossNamespaceValidatorMockRecorder {
+	return m.recorder
+}
+
+// ValidateCrossNamespaceReference mocks the ValidateCrossNamespaceReference method
+func (m *MockCrossNamespaceValidatorMockRecorder) ValidateCrossNamespaceReference(ctx, fromNamespace, toGroup, toKind, toNamespace, toName interface{}) *gomock.Call {
+	return m.mock.ctrl.RecordCallWithMethodType(m.mock, "ValidateCrossNamespaceReference", reflect.TypeOf((*MockCrossNamespaceValidator)(nil).ValidateCrossNamespaceReference), ctx, fromNamespace, toGroup, toKind, toNamespace, toName)
+}
+
+// ValidateCrossNamespaceReference is the mock implementation
+func (m *MockCrossNamespaceValidator) ValidateCrossNamespaceReference(ctx context.Context, fromNamespace string, toGroup, toKind, toNamespace, toName string) error {
+	ret := m.ctrl.Call(m, "ValidateCrossNamespaceReference", ctx, fromNamespace, toGroup, toKind, toNamespace, toName)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // MockDNSResolverForTest is a mock for DNSResolver

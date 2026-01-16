@@ -157,6 +157,10 @@ func verifyGlobalAcceleratorConfiguration(ctx context.Context, f *framework.Fram
 				for k, expectedEG := range expectedListener.EndpointGroups {
 					eg := listEGResp[k]
 
+					if len(eg.EndpointDescriptions) != expectedEG.NumEndpoints {
+						return fmt.Errorf("listener[%d] endpoint group[%d] endpoint count mismatch: expected %d, got %d", i, k, expectedEG.NumEndpoints, len(eg.EndpointDescriptions))
+					}
+
 					if expectedEG.TrafficDialPercentage > 0 && awssdk.ToFloat32(eg.TrafficDialPercentage) != float32(expectedEG.TrafficDialPercentage) {
 						return fmt.Errorf("listener[%d] endpoint group[%d] traffic dial percentage mismatch: expected %d, got %f", i, k, expectedEG.TrafficDialPercentage, awssdk.ToFloat32(eg.TrafficDialPercentage))
 					}
@@ -173,10 +177,6 @@ func verifyGlobalAcceleratorConfiguration(ctx context.Context, f *framework.Fram
 								return fmt.Errorf("listener[%d] endpoint group[%d] port override[%d] endpoint port mismatch: expected %d, got %d", i, k, l, expectedPO.EndpointPort, awssdk.ToInt32(eg.PortOverrides[l].EndpointPort))
 							}
 						}
-					}
-
-					if expectedEG.NumEndpoints > 0 && len(eg.EndpointDescriptions) != expectedEG.NumEndpoints {
-						return fmt.Errorf("listener[%d] endpoint group[%d] endpoint count mismatch: expected %d, got %d", i, k, expectedEG.NumEndpoints, len(eg.EndpointDescriptions))
 					}
 				}
 			}
