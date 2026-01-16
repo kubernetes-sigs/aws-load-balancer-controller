@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
@@ -59,10 +60,6 @@ import (
 const (
 	controllerName = "globalAccelerator"
 	agaTagPrefix   = "aga.k8s.aws"
-
-	// the groupVersion of used GlobalAccelerator resource.
-	agaResourcesGroupVersion = "aga.k8s.aws/v1beta1"
-	globalAcceleratorKind    = "GlobalAccelerator"
 
 	// Requeue constants for state monitoring
 	// requeueReasonAcceleratorInProgress indicates that the reconciliation is being requeued because
@@ -128,8 +125,11 @@ func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder recor
 		logger.Error(err, "Failed to create DNS resolver")
 	}
 
-	// Create unified endpoint loader
-	endpointLoader := aga.NewEndpointLoader(k8sClient, dnsToLoadBalancerResolver, logger.WithName("endpoint-loader"))
+	// Create cross-namespace validator for ReferenceGrants
+	crossNamespaceValidator := aga.NewReferenceGrantValidator(k8sClient, logger.WithName("reference-grant-validator"))
+
+	// Create unified endpoint loader with validator
+	endpointLoader := aga.NewEndpointLoader(k8sClient, dnsToLoadBalancerResolver, logger.WithName("endpoint-loader"), crossNamespaceValidator)
 	return &globalAcceleratorReconciler{
 		k8sClient:        k8sClient,
 		eventRecorder:    eventRecorder,
@@ -189,6 +189,7 @@ type globalAcceleratorReconciler struct {
 //+kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators/status,verbs=update;patch
 //+kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators/finalizers,verbs=update;patch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=referencegrants,verbs=get;list;watch
 
 func (r *globalAcceleratorReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
@@ -283,11 +284,9 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	// Track referenced endpoints
 	r.referenceTracker.UpdateDesiredEndpointReferencesForGA(ga, endpoints)
 
-	// Update resource watches with the endpointResourcesManager
-	r.endpointResourcesManager.MonitorEndpointResources(ga, endpoints)
-
 	// Validate and load endpoint status using the endpoint loader
 	loadedEndpoints, fatalErrors := r.endpointLoader.LoadEndpoints(ctx, ga, endpoints)
+
 	if len(fatalErrors) > 0 {
 		err := fmt.Errorf("failed to load endpoints: %v", fatalErrors[0])
 		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedEndpointLoad, fmt.Sprintf("Failed to reconcile due to %v", err))
@@ -298,6 +297,10 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 		}
 		return err
 	}
+
+	// Update resource watches with the endpointResourcesManager
+	// Do this after loading endpoints so we have more accurate status information
+	r.endpointResourcesManager.MonitorEndpointResources(ga, loadedEndpoints)
 
 	var stack core.Stack
 	var accelerator *agamodel.Accelerator
@@ -424,12 +427,12 @@ func (r *globalAcceleratorReconciler) cleanupGlobalAcceleratorResources(ctx cont
 
 func (r *globalAcceleratorReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager, clientSet *kubernetes.Clientset) error {
 	// Check if GlobalAccelerator CRD is available
-	resList, err := clientSet.ServerResourcesForGroupVersion(agaResourcesGroupVersion)
+	resList, err := clientSet.ServerResourcesForGroupVersion(shared_constants.GlobalAcceleratorResourcesGroupVersion)
 	if err != nil {
 		r.logger.Info("GlobalAccelerator CRD is not available, skipping controller setup")
 		return nil
 	}
-	globalAcceleratorResourceAvailable := k8s.IsResourceKindAvailable(resList, globalAcceleratorKind)
+	globalAcceleratorResourceAvailable := k8s.IsResourceKindAvailable(resList, shared_constants.GlobalAcceleratorKind)
 	if !globalAcceleratorResourceAvailable {
 		r.logger.Info("GlobalAccelerator CRD is not available, skipping controller setup")
 		return nil
@@ -476,7 +479,7 @@ func (r *globalAcceleratorReconciler) SetupWithManager(ctx context.Context, mgr 
 	}
 
 	// Setup watches for resource events
-	if err := r.setupGlobalAcceleratorWatches(ctrl); err != nil {
+	if err := r.setupGlobalAcceleratorWatches(ctrl, mgr); err != nil {
 		return err
 	}
 
@@ -484,7 +487,7 @@ func (r *globalAcceleratorReconciler) SetupWithManager(ctx context.Context, mgr 
 }
 
 // setupGlobalAcceleratorWatches sets up watches for resources that can trigger reconciliation of GlobalAccelerator objects
-func (r *globalAcceleratorReconciler) setupGlobalAcceleratorWatches(c controller.Controller) error {
+func (r *globalAcceleratorReconciler) setupGlobalAcceleratorWatches(c controller.Controller, mgr ctrl.Manager) error {
 	loggerPrefix := r.logger.WithName("eventHandlers")
 
 	// Create handlers for our dedicated watchers
@@ -521,8 +524,17 @@ func (r *globalAcceleratorReconciler) setupGlobalAcceleratorWatches(c controller
 		if err := c.Watch(source.Channel(r.gatewayEventChan, gatewayHandler)); err != nil {
 			return err
 		}
+
+		referenceGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(
+			r.k8sClient,
+			loggerPrefix.WithName("referencegrant-handler"),
+		)
+
+		if err := c.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, referenceGrantHandler)); err != nil {
+			r.logger.Info("Failed to set up watch for ReferenceGrant resources, cross-namespace validation may be delayed", "error", err)
+		}
 	} else {
-		r.logger.Info("Gateway API CRDs not found, skipping Gateway event watch setup")
+		r.logger.Info("Gateway API CRDs not found, skipping Gateway and ReferenceGrant event watch setup")
 	}
 
 	return nil
