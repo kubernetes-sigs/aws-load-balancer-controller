@@ -440,7 +440,7 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Cer
 	var defaultSDKCerts []elbv2types.Certificate
 	var extraSDKCerts []elbv2types.Certificate
 	defaultSDKCerts = append(defaultSDKCerts, buildSDKCertificate(modelCerts[0]))
-	for _, cert := range modelCerts[1:] {
+	for _, cert := range modelCerts {
 		extraSDKCerts = append(extraSDKCerts, buildSDKCertificate(cert))
 	}
 	return defaultSDKCerts, extraSDKCerts
