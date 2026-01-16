@@ -2246,6 +2246,12 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 								AvailabilityZoneId:      awssdk.String("usw2-az1"),
 								AvailableIpAddressCount: awssdk.Int32(8),
 								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("Name"),
+										Value: awssdk.String("name-1"),
+									},
+								},
 							},
 							{
 								SubnetId:                awssdk.String("subnet-2"),
@@ -2253,6 +2259,12 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 								AvailabilityZoneId:      awssdk.String("usw2-az2"),
 								AvailableIpAddressCount: awssdk.Int32(8),
 								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("Name"),
+										Value: awssdk.String("name-2"),
+									},
+								},
 							},
 						},
 					},
@@ -2292,6 +2304,12 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					AvailabilityZoneId:      awssdk.String("usw2-az1"),
 					AvailableIpAddressCount: awssdk.Int32(8),
 					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String("name-1"),
+						},
+					},
 				},
 				{
 					SubnetId:                awssdk.String("subnet-2"),
@@ -2299,6 +2317,12 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					AvailabilityZoneId:      awssdk.String("usw2-az2"),
 					AvailableIpAddressCount: awssdk.Int32(8),
 					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String("name-2"),
+						},
+					},
 				},
 			},
 		},
@@ -2343,6 +2367,12 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 								AvailabilityZoneId:      awssdk.String("usw2-az2"),
 								AvailableIpAddressCount: awssdk.Int32(8),
 								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("Name"),
+										Value: awssdk.String("name-2"),
+									},
+								},
 							},
 						},
 					},
@@ -2376,6 +2406,111 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				},
 			},
 			want: []ec2types.Subnet{
+				{
+					SubnetId:                awssdk.String("subnet-1"),
+					AvailabilityZone:        awssdk.String("us-west-2a"),
+					AvailabilityZoneId:      awssdk.String("usw2-az1"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+				},
+				{
+					SubnetId:                awssdk.String("subnet-2"),
+					AvailabilityZone:        awssdk.String("us-west-2b"),
+					AvailabilityZoneId:      awssdk.String("usw2-az2"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String("name-2"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "order is preserved when AWS returns subnets in different order",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-3", "subnet-1", "subnet-2"},
+						},
+						// AWS returns in different order than requested
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-1"),
+								AvailabilityZone:        awssdk.String("us-west-2a"),
+								AvailabilityZoneId:      awssdk.String("usw2-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+							},
+							{
+								SubnetId:                awssdk.String("subnet-2"),
+								AvailabilityZone:        awssdk.String("us-west-2b"),
+								AvailabilityZoneId:      awssdk.String("usw2-az2"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+							},
+							{
+								SubnetId:                awssdk.String("subnet-3"),
+								AvailabilityZone:        awssdk.String("us-west-2c"),
+								AvailabilityZoneId:      awssdk.String("usw2-az3"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az3"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az3": {
+								ZoneId:   awssdk.String("usw2-az3"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				nameOrIDs: []string{"subnet-3", "subnet-1", "subnet-2"},
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			// Expected result must be in the requested order, not AWS's order
+			want: []ec2types.Subnet{
+				{
+					SubnetId:                awssdk.String("subnet-3"),
+					AvailabilityZone:        awssdk.String("us-west-2c"),
+					AvailabilityZoneId:      awssdk.String("usw2-az3"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+				},
 				{
 					SubnetId:                awssdk.String("subnet-1"),
 					AvailabilityZone:        awssdk.String("us-west-2a"),

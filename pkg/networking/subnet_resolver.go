@@ -240,6 +240,7 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 }
 
 // listSubnetsByNameOrIDs lists subnets within vpc matching given ID or name.
+// The returned subnets will be in the same order as the input subnetNameOrIDs slice.
 func (r *defaultSubnetsResolver) listSubnetsByNameOrIDs(ctx context.Context, subnetNameOrIDs []string) ([]ec2types.Subnet, error) {
 	var subnetIDs []string
 	var subnetNames []string
@@ -250,21 +251,57 @@ func (r *defaultSubnetsResolver) listSubnetsByNameOrIDs(ctx context.Context, sub
 			subnetNames = append(subnetNames, nameOrID)
 		}
 	}
-	var resolvedSubnets []ec2types.Subnet
+
+	subnetByID := make(map[string]ec2types.Subnet)
+	subnetByName := make(map[string]ec2types.Subnet)
+
 	if len(subnetIDs) > 0 {
 		subnets, err := r.listSubnetsByIDs(ctx, subnetIDs)
 		if err != nil {
 			return nil, err
 		}
-		resolvedSubnets = append(resolvedSubnets, subnets...)
+		for _, subnet := range subnets {
+			subnetByID[awssdk.ToString(subnet.SubnetId)] = subnet
+		}
 	}
 	if len(subnetNames) > 0 {
 		subnets, err := r.listSubnetsByNames(ctx, subnetNames)
 		if err != nil {
 			return nil, err
 		}
-		resolvedSubnets = append(resolvedSubnets, subnets...)
+		for _, subnet := range subnets {
+			// Extract the Name tag value for mapping
+			var subnetName string
+			for _, tag := range subnet.Tags {
+				if awssdk.ToString(tag.Key) == "Name" {
+					subnetName = awssdk.ToString(tag.Value)
+					break
+				}
+			}
+			if subnetName != "" {
+				subnetByName[subnetName] = subnet
+			}
+		}
 	}
+
+	// Reconstruct the subnet list in the original requested order
+	resolvedSubnets := make([]ec2types.Subnet, 0, len(subnetNameOrIDs))
+	for _, nameOrID := range subnetNameOrIDs {
+		if strings.HasPrefix(nameOrID, "subnet-") {
+			if subnet, ok := subnetByID[nameOrID]; ok {
+				resolvedSubnets = append(resolvedSubnets, subnet)
+			} else {
+				return nil, fmt.Errorf("subnet ID not found: %s", nameOrID)
+			}
+		} else {
+			if subnet, ok := subnetByName[nameOrID]; ok {
+				resolvedSubnets = append(resolvedSubnets, subnet)
+			} else {
+				return nil, fmt.Errorf("subnet with Name tag not found: %s", nameOrID)
+			}
+		}
+	}
+
 	return resolvedSubnets, nil
 }
 
