@@ -371,9 +371,6 @@ data:
   tls.crt: {{ $tls.clientCert }}
   tls.key: {{ $tls.clientKey }}
 {{- else }}
-{{- $secretName := (include "aws-load-balancer-controller.webhookCertSecret" .) -}}
-{{- $secret := lookup "v1" "Secret" .Release.Namespace $secretName -}}
-{{- if not (and .Values.keepTLSSecret $secret) }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -404,5 +401,4 @@ spec:
   revisionHistoryLimit: {{ .revisionHistoryLimit }}
   {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}

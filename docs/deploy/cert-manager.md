@@ -6,17 +6,11 @@ The AWS Load Balancer Controller uses admission webhooks to validate and mutate 
 
 When upgrading from a previous version, the following scenarios are handled automatically:
 
-1. If you have existing TLS secrets and `keepTLSSecret: true` (default):
-   - Existing secrets are preserved
-   - No new certificates are created
-   - Your existing certificate setup continues to work as before
-
-2. If you're using cert-manager with a custom issuer:
+- If you're using cert-manager with a custom issuer:
    - Set `certManager.issuerRef` to keep using your issuer
    - The new CA hierarchy will not be created
    - Your existing certificate configuration is preserved
-
-3. If you're using cert-manager without a custom issuer:
+- If you're using cert-manager without a custom issuer:
    - A new CA hierarchy will be created
    - New certificates will be issued using this CA
    - The transition is handled automatically by cert-manager

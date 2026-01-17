@@ -246,9 +246,6 @@ webhookNamespaceSelectors:
 #   values:
 #   - enabled
 
-# keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
-keepTLSSecret: true
-
 # Maximum number of concurrently running reconcile loops for service (default 3)
 serviceMaxConcurrentReconciles:
 
