@@ -117,9 +117,19 @@ enableCertManager: false
 
 # Overrideable variables when enableCertManager is set to true
 certManager:
-  duration:
-  renewBefore:
+  # Webhook serving certificate configuration
+  duration: "8760h0m0s"  # 1 year
+  renewBefore: "720h0m0s"  # 30 days
   revisionHistoryLimit:
+
+  # Root CA certificate configuration
+  rootCert:
+    duration: "43800h0m0s"  # 5 years
+
+  # Optional: custom issuer reference
+  # issuerRef:
+  #   name: my-issuer
+  #   kind: ClusterIssuer
 
 # The name of the Kubernetes cluster. A non-empty value is required
 clusterName:
@@ -235,9 +245,6 @@ webhookNamespaceSelectors:
 #   operator: In
 #   values:
 #   - enabled
-
-# keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
-keepTLSSecret: true
 
 # Maximum number of concurrently running reconcile loops for service (default 3)
 serviceMaxConcurrentReconciles:
