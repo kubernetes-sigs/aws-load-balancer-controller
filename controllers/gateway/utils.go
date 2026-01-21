@@ -190,3 +190,8 @@ func getServicesFromRoutes(listenerRouteMap map[int32][]routeutils.RouteDescript
 	}
 	return res.UnsortedList()
 }
+
+// isGatewayDeleting returns true if the gateway has a deletion timestamp set
+func isGatewayDeleting(gw *gwv1.Gateway) bool {
+	return gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero()
+}
