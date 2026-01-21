@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"strconv"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
@@ -9,7 +11,6 @@ import (
 	modelAddons "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model/addons"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -33,7 +34,7 @@ import (
 // Builder builds the model stack for a Gateway resource.
 type Builder interface {
 	// Build model stack for a gateway
-	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error)
+	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error)
 }
 
 // NewModelBuilder construct a new baseModelBuilder
@@ -122,10 +123,9 @@ type baseModelBuilder struct {
 	defaultIPType             elbv2model.IPAddressType
 }
 
-func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
+func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
-	var isPreDelete bool
-	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
+	if isDelete {
 		if baseBuilder.isDeleteProtected(lbConf) {
 			return nil, nil, nil, false, nil, errors.Errorf("Unable to delete gateway %+v because deletion protection is enabled.", k8s.NamespacedName(gw))
 		}
@@ -133,8 +133,6 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 		if len(currentAddonConfig) == 0 {
 			return stack, nil, nil, false, nil, nil
 		}
-
-		isPreDelete = true
 	}
 
 	/* Basic LB stuff (Scheme, IP Address Type) */
@@ -171,7 +169,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	}
 
 	addOnCfg := lbConf
-	if isPreDelete {
+	if isDelete {
 		addOnCfg = elbv2gw.LoadBalancerConfiguration{}
 	}
 

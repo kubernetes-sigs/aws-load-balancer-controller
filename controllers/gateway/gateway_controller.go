@@ -3,8 +3,9 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"time"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
@@ -220,6 +221,8 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return err
 	}
 
+	isDeleting := isGatewayDeleting(gw)
+
 	loaderResults, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.controllerName)
 
 	if err != nil || loaderResults.ValidationResults.HasErrors {
@@ -253,7 +256,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		}
 	}
 
-	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns)
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns, isDeleting)
 
 	if err != nil {
 		return err
@@ -298,14 +301,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 }
 
 func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, routes map[int32][]routeutils.RouteDescriptor) error {
-	for _, routeList := range routes {
-		if len(routeList) != 0 {
-			err := errors.Errorf("Gateway deletion invoked with routes attached [%s]", generateRouteList(routes))
-			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedDeleteWithRoutesAttached, err.Error())
-			return err
-		}
-	}
-
 	if k8s.HasFinalizer(gw, r.finalizer) {
 		err := r.deployModel(ctx, gw, stack, nil)
 		if err != nil {
@@ -367,8 +362,8 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
-	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig, r.secretsManager, r.targetGroupNameToArnMapper)
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig, r.secretsManager, r.targetGroupNameToArnMapper, isDelete)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, nil, false, nil, err
