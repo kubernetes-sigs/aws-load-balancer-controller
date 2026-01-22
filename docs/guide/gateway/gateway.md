@@ -1,10 +1,5 @@
 # Gateway API
 
-!!! warning
-    - The team is actively trying to close conformance and support gaps.
-    - Using the LBC and Gateway API together is not suggested for production workloads (yet!)
-
-
 The AWS Load Balancer Controller (LBC) supports reconciliation for Kubernetes Gateway API objects. It satisfies
 L4 routes (TCPRoute, UDPRoute, TLSRoute) with an AWS NLB. It satisfies L7 routes (HTTPRoute, GRPCRoute) using an AWS ALB.
 Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not supported.

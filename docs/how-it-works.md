@@ -8,7 +8,7 @@ The following diagram details the AWS components this controller creates. It als
 
 !!!warning "Note"
 
-    The controller manages the configurations of the resources it creates, and we do not recommend out-of-band modifications to these resources because the controller may revert the manual changes during reconciliation. We recommend to use configuration options provided as best practice, such as ingress and service annotations, controller command line flags and IngressClassParams.
+    The controller manages the configurations of the resources it creates, and we do not recommend out-of-band modifications to these resources because the controller may revert the manual changes during reconciliation. We recommend to use configuration options provided as best practice, such as ingress and service annotations, controller command line flags, IngressClassParams, and Gateway API resources.
 
 ### Ingress Creation
 
@@ -46,4 +46,15 @@ By default, `Instance mode` is used, users can explicitly select the mode via `a
 Ingress traffic starts at the ALB and reaches the Kubernetes nodes through each service's NodePort. This means that services referenced from ingress resources must be exposed by `type:NodePort` in order to be reached by the ALB.
 #### IP mode
 Ingress traffic starts at the ALB and reaches the Kubernetes pods directly. CNIs must support directly accessible POD ip via [secondary IP addresses on ENI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html).
+
+## Gateway API
+
+In addition to Ingress and Service resources, the AWS Load Balancer Controller also supports the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/). Gateway API is a more expressive, extensible, and role-oriented API for managing traffic routing in Kubernetes.
+
+The controller satisfies Gateway API resources as follows:
+
+- **L7 Routes (HTTPRoute, GRPCRoute)**: Provisioned using [Application Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html)
+- **L4 Routes (TCPRoute, UDPRoute, TLSRoute)**: Provisioned using [Network Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html)
+
+For more information on Gateway API support, including prerequisites, configuration, and examples, see the [Gateway API Guide](guide/gateway/gateway.md).
 
