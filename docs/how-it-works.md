@@ -58,3 +58,25 @@ The controller satisfies Gateway API resources as follows:
 
 For more information on Gateway API support, including prerequisites, configuration, and examples, see the [Gateway API Guide](guide/gateway/gateway.md).
 
+### How Gateway API Works
+
+The AWS Load Balancer Controller runs a continuous reconciliation loop to align the desired state expressed through Gateway API objects with the actual state of AWS Load Balancer infrastructure. The controller runs dedicated controller instances for L4 routing (NLB) and L7 routing (ALB), each following a similar workflow.
+
+The following diagram illustrates the Gateway API reconciliation process:
+
+![gateway-reconcile](assets/images/gateway-reconcile.png)
+
+At a high level, the reconciliation loop works as follows:
+
+**[1] API Monitoring**: The controller continuously monitors the Kubernetes API for Gateway API resources being created, modified, or deleted.
+
+**[2] Queueing**: Identified resources are added to an internal queue for processing.
+
+**[3] Processing**: For each item in the queue:
+
+- The associated GatewayClass is verified to determine if it is or should be a managed resource.
+- If managed, the Gateway API definition is mapped to AWS resources such as NLB/ALB, Listeners, Listener Rules, Target Groups, and Addons.
+- These mapped resources are compared with the actual state in AWS. For any resource that does not match the desired state, the controller executes the necessary AWS API calls to reconcile the differences.
+
+**[4] Status Updates**: After reconciliation, the controller updates the status field of the corresponding Gateway resource. This provides real-time feedback on provisioned AWS resources, such as the load balancer's DNS name and ARN, and whether the Gateway is accepted and programmed.
+
