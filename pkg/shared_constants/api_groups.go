@@ -16,6 +16,9 @@ const (
 	// GatewayApiKind is the resource kind for Gateway API Gateway resources
 	GatewayApiKind = "Gateway"
 
+	// HTTPRouteKind is the resource kind for HTTPRoute resources
+	HTTPRouteKind = "HTTPRoute"
+
 	// CoreAPIGroup represents the core API group (empty string)
 	CoreAPIGroup = ""
 

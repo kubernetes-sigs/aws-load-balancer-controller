@@ -185,6 +185,9 @@ For more information about when and how to use port overrides, see [AWS Global A
 
 The AWS Global Accelerator controller supports cross-namespace references for endpoints using the [Gateway API ReferenceGrant](https://gateway-api.sigs.k8s.io/api-types/referencegrant/) approach, which is a common pattern for secure cross-namespace references in Kubernetes. Cross-namespace references allow a GlobalAccelerator resource in one namespace (e.g., `accelerator-ns`) to reference resources in another namespace (e.g., `web-ns`), provided that a ReferenceGrant exists in the target namespace explicitly allowing the reference.
 
+!!!warning "Gateway API CRDs Required"
+    Cross-namespace references **require** the Gateway API CRDs to be installed in your cluster, particularly the ReferenceGrant CRD. If these CRDs are not installed, all cross-namespace references will be denied by default. See the [Gateway API Prerequisites](../gateway/gateway.md#prerequisites) for installation instructions.
+
 ### Using Cross-Namespace References
 
 #### Step 1: Create a ReferenceGrant in the Target Namespace
@@ -229,8 +232,9 @@ spec:
 
 !!!note "To use cross-namespace references"
 
-    1. The Gateway API CRDs must be installed in your cluster (specifically the ReferenceGrant CRD)
+    1. The Gateway API CRDs must be installed in your cluster (specifically the ReferenceGrant CRD). Refer to [Gateway API Prerequisites](../gateway/gateway.md#prerequisites) for installation instructions.
     2. The controller must be granted permission to read ReferenceGrants cluster-wide
+    3. If the ReferenceGrant CRD is not installed, cross-namespace references will be denied automatically
 
 ## Sample CRDs
 

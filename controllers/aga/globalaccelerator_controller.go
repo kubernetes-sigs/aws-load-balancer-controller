@@ -125,11 +125,8 @@ func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder recor
 		logger.Error(err, "Failed to create DNS resolver")
 	}
 
-	// Create cross-namespace validator for ReferenceGrants
-	crossNamespaceValidator := aga.NewReferenceGrantValidator(k8sClient, logger.WithName("reference-grant-validator"))
-
 	// Create unified endpoint loader with validator
-	endpointLoader := aga.NewEndpointLoader(k8sClient, dnsToLoadBalancerResolver, logger.WithName("endpoint-loader"), crossNamespaceValidator)
+	endpointLoader := aga.NewEndpointLoader(k8sClient, dnsToLoadBalancerResolver, logger.WithName("endpoint-loader"))
 	return &globalAcceleratorReconciler{
 		k8sClient:        k8sClient,
 		eventRecorder:    eventRecorder,

@@ -98,19 +98,17 @@ type EndpointLoader interface {
 
 // endpointLoaderImpl implements the EndpointLoader interface
 type endpointLoaderImpl struct {
-	k8sClient               client.Client
-	dnsResolver             DNSLoadBalancerResolverInterface
-	logger                  logr.Logger
-	crossNamespaceValidator CrossNamespaceValidator
+	k8sClient   client.Client
+	dnsResolver DNSLoadBalancerResolverInterface
+	logger      logr.Logger
 }
 
 // NewEndpointLoader creates a new EndpointLoader
-func NewEndpointLoader(k8sClient client.Client, dnsResolver DNSLoadBalancerResolverInterface, logger logr.Logger, validator CrossNamespaceValidator) EndpointLoader {
+func NewEndpointLoader(k8sClient client.Client, dnsResolver DNSLoadBalancerResolverInterface, logger logr.Logger) EndpointLoader {
 	return &endpointLoaderImpl{
-		k8sClient:               k8sClient,
-		dnsResolver:             dnsResolver,
-		logger:                  logger,
-		crossNamespaceValidator: validator,
+		k8sClient:   k8sClient,
+		dnsResolver: dnsResolver,
+		logger:      logger,
 	}
 }
 
@@ -208,16 +206,20 @@ func (l *endpointLoaderImpl) loadResourceWithDNS(
 			group = shared_constants.GatewayAPIResourcesGroup
 			kind = shared_constants.GatewayApiKind
 		default:
-			return NewFatalError(UnsupportedResourceTypeMsg,
+			return NewFatalError(UnsupportedEndpointTypeMsg,
 				fmt.Errorf("unsupported resource type: %s", resourceType),
 				result.EndpointRef, parentNamespace)
 		}
 
 		// Validate cross-namespace reference using ReferenceGrant
-		if err := l.crossNamespaceValidator.ValidateCrossNamespaceReference(ctx,
-			parentNamespace,
-			group, kind, result.Namespace, result.Name); err != nil {
-
+		allowed, err := shared_utils.ValidateCrossNamespaceReference(ctx, l.k8sClient,
+			parentNamespace, shared_constants.GlobalAcceleratorResourcesGroup, shared_constants.GlobalAcceleratorKind,
+			group, kind, result.Namespace, result.Name)
+		if err != nil {
+			return NewFatalError(APIServerErrorMsg,
+				err, result.EndpointRef, parentNamespace)
+		}
+		if !allowed {
 			// Return a warning error if reference is not allowed
 			return NewWarningError(CrossNamespaceReferenceMsg, err, result.EndpointRef, parentNamespace)
 		}
