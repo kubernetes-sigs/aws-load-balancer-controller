@@ -1,0 +1,4953 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../gateway_chaining/">
+      
+      
+        <link rel="next" href="../../globalaccelerator/aga-controller/">
+      
+      
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>Specification - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="header.title"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                Specification
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
+          
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../ingress/annotations/" class="md-tabs__link">
+          
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How it works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subnet Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Group Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Scaling your LBC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upgrade
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            Upgrade
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate v1 to v2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Service
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/nlb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Network Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            TargetGroupBinding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../l7gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L7 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listenerruleconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerRuleConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gateway_chaining/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gatewayk8sawsv1beta1" class="md-nav__link">
+    <span class="md-ellipsis">
+      gateway.k8s.aws/v1beta1
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="gateway.k8s.aws/v1beta1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#resource-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alpnpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      ALPNPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action" class="md-nav__link">
+    <span class="md-ellipsis">
+      Action
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#actiontype" class="md-nav__link">
+    <span class="md-ellipsis">
+      ActionType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advertisetruststorecanamesenum" class="md-nav__link">
+    <span class="md-ellipsis">
+      AdvertiseTrustStoreCaNamesEnum
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticatecognitoactionconditionalbehaviorenum" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateCognitoActionConditionalBehaviorEnum
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticatecognitoactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateCognitoActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticateoidcactionconditionalbehaviorenum" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateOidcActionConditionalBehaviorEnum
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticateoidcactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateOidcActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixedresponseactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      FixedResponseActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forwardactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      ForwardActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#healthcheckconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      HealthCheckConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#healthcheckmatcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      HealthCheckMatcher
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerattribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerAttribute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerrulecondition" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleCondition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconditionfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConditionField
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconfigurationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConfigurationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconfigurationstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConfigurationStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerattribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerAttribute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfigmergemode" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfigMergeMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfigurationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfigurationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfigurationstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfigurationStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalanceripaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerIpAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerscheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerScheme
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#minimumloadbalancercapacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      MinimumLoadBalancerCapacity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationAttributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationmode" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      Protocol
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocolport" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProtocolPort
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocolversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProtocolVersion
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#redirectactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      RedirectActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reference
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#routeconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#routeidentifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteIdentifier
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secret" class="md-nav__link">
+    <span class="md-ellipsis">
+      Secret
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shieldconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ShieldConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourceipconditionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      SourceIPConditionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subnetconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      SubnetConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupattribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupAttribute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupconfigurationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupConfigurationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupconfigurationstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupConfigurationStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgrouphealthcheckprotocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupHealthCheckProtocol
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupIPAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupprops" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupProps
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupstickinessconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupStickinessConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targettype" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wafv2configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      WAFv2Configuration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    AWS Global Accelerator (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            AWS Global Accelerator (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/aga-controller/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/examples/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Tasks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cognito Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SSL Redirect
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Use Cases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Use Cases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    NLB TLS Termination
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Externally Managed Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frontend Security Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Blue/Green
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    MultiCluster Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/legacy_app_integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Legacy Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            Metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_9" id="__nav_3_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    ALB Target Optimizer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            ALB Target Optimizer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Target Control Agent
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent-spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALBTargetControlConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EchoServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    gRPCServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RBAC to access OIDC Secret
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gatewayk8sawsv1beta1" class="md-nav__link">
+    <span class="md-ellipsis">
+      gateway.k8s.aws/v1beta1
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="gateway.k8s.aws/v1beta1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#resource-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alpnpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      ALPNPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#action" class="md-nav__link">
+    <span class="md-ellipsis">
+      Action
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#actiontype" class="md-nav__link">
+    <span class="md-ellipsis">
+      ActionType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advertisetruststorecanamesenum" class="md-nav__link">
+    <span class="md-ellipsis">
+      AdvertiseTrustStoreCaNamesEnum
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticatecognitoactionconditionalbehaviorenum" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateCognitoActionConditionalBehaviorEnum
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticatecognitoactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateCognitoActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticateoidcactionconditionalbehaviorenum" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateOidcActionConditionalBehaviorEnum
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#authenticateoidcactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      AuthenticateOidcActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fixedresponseactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      FixedResponseActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#forwardactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      ForwardActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#healthcheckconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      HealthCheckConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#healthcheckmatcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      HealthCheckMatcher
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerattribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerAttribute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerrulecondition" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleCondition
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconditionfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConditionField
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconfigurationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConfigurationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerruleconfigurationstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerRuleConfigurationStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerattribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerAttribute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfigmergemode" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfigMergeMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfigurationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfigurationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerconfigurationstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfigurationStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalanceripaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerIpAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerscheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerScheme
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#minimumloadbalancercapacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      MinimumLoadBalancerCapacity
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationAttributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationmode" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      Protocol
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocolport" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProtocolPort
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#protocolversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProtocolVersion
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#redirectactionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      RedirectActionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      Reference
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#routeconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#routeidentifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteIdentifier
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secret" class="md-nav__link">
+    <span class="md-ellipsis">
+      Secret
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shieldconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ShieldConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourceipconditionconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      SourceIPConditionConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subnetconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      SubnetConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupattribute" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupAttribute
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupconfigurationspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupConfigurationSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupconfigurationstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupConfigurationStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgrouphealthcheckprotocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupHealthCheckProtocol
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupIPAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupprops" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupProps
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupstickinessconfig" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupStickinessConfig
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targettype" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wafv2configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      WAFv2Configuration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
+<h2 id="packages">Packages<a class="headerlink" href="#packages" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#gatewayk8sawsv1beta1">gateway.k8s.aws/v1beta1</a></li>
+</ul>
+<h2 id="gatewayk8sawsv1beta1">gateway.k8s.aws/v1beta1<a class="headerlink" href="#gatewayk8sawsv1beta1" title="Permanent link">&para;</a></h2>
+<p>Package v1beta1 contains API Schema definitions for the elbv2 v1beta1 API group</p>
+<h3 id="resource-types">Resource Types<a class="headerlink" href="#resource-types" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="#listenerruleconfiguration">ListenerRuleConfiguration</a></li>
+<li><a href="#loadbalancerconfiguration">LoadBalancerConfiguration</a></li>
+<li><a href="#targetgroupconfiguration">TargetGroupConfiguration</a></li>
+</ul>
+<h4 id="alpnpolicy">ALPNPolicy<a class="headerlink" href="#alpnpolicy" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>ALPNPolicy defines the ALPN policy configuration for TLS listeners forwarding to TLS target groups
+HTTP1Only Negotiate only HTTP/1.<em>. The ALPN preference list is http/1.1, http/1.0.
+HTTP2Only Negotiate only HTTP/2. The ALPN preference list is h2.
+HTTP2Optional Prefer HTTP/1.</em> over HTTP/2 (which can be useful for HTTP/2 testing). The ALPN preference list is http/1.1, http/1.0, h2.
+HTTP2Preferred Prefer HTTP/2 over HTTP/1.*. The ALPN preference list is h2, http/1.1, http/1.0.
+None Do not negotiate ALPN. This is the default.</p>
+<p><em>Validation:</em>
+- Enum: [HTTP1Only HTTP2Only HTTP2Optional HTTP2Preferred None]</p>
+<p><em>Appears in:</em>
+- <a href="#listenerconfiguration">ListenerConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>None</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTP1Only</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTP2Only</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTP2Optional</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTP2Preferred</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="action">Action<a class="headerlink" href="#action" title="Permanent link">&para;</a></h4>
+<p>Action defines an action for a listener rule</p>
+<p><em>Appears in:</em>
+- <a href="#listenerruleconfigurationspec">ListenerRuleConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code> <em><a href="#actiontype">ActionType</a></em></td>
+<td>The type of action</td>
+<td></td>
+<td>Enum: [forward fixed-response redirect authenticate-cognito authenticate-oidc] <br /></td>
+</tr>
+<tr>
+<td><code>forwardConfig</code> <em><a href="#forwardactionconfig">ForwardActionConfig</a></em></td>
+<td>Information for a forward action</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>redirectConfig</code> <em><a href="#redirectactionconfig">RedirectActionConfig</a></em></td>
+<td>Information for a redirect action</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>fixedResponseConfig</code> <em><a href="#fixedresponseactionconfig">FixedResponseActionConfig</a></em></td>
+<td>Information for a fixed-response action</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticateCognitoConfig</code> <em><a href="#authenticatecognitoactionconfig">AuthenticateCognitoActionConfig</a></em></td>
+<td>Information for an authenticate-cognito action</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticateOIDCConfig</code> <em><a href="#authenticateoidcactionconfig">AuthenticateOidcActionConfig</a></em></td>
+<td>Information for an authenticate-oidc action</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="actiontype">ActionType<a class="headerlink" href="#actiontype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>ActionType defines the type of action for the rule</p>
+<p><em>Validation:</em>
+- Enum: [forward fixed-response redirect authenticate-cognito authenticate-oidc]</p>
+<p><em>Appears in:</em>
+- <a href="#action">Action</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>forward</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>fixed-response</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>redirect</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticate-cognito</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticate-oidc</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="advertisetruststorecanamesenum">AdvertiseTrustStoreCaNamesEnum<a class="headerlink" href="#advertisetruststorecanamesenum" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p><em>Validation:</em>
+- Enum: [on off]</p>
+<p><em>Appears in:</em>
+- <a href="#mutualauthenticationattributes">MutualAuthenticationAttributes</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>on</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>off</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="authenticatecognitoactionconditionalbehaviorenum">AuthenticateCognitoActionConditionalBehaviorEnum<a class="headerlink" href="#authenticatecognitoactionconditionalbehaviorenum" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>AuthenticateCognitoActionConditionalBehaviorEnum defines the behavior when a user is not authenticated</p>
+<p><em>Validation:</em>
+- Enum: [deny allow authenticate]</p>
+<p><em>Appears in:</em>
+- <a href="#authenticatecognitoactionconfig">AuthenticateCognitoActionConfig</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deny</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>allow</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticate</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="authenticatecognitoactionconfig">AuthenticateCognitoActionConfig<a class="headerlink" href="#authenticatecognitoactionconfig" title="Permanent link">&para;</a></h4>
+<p>Information about an authenticate-cognito action</p>
+<p><em>Appears in:</em>
+- <a href="#action">Action</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>userPoolArn</code> <em>string</em></td>
+<td>The Amazon Resource Name (ARN) of the Amazon Cognito user pool.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>userPoolClientId</code> <em>string</em></td>
+<td>The ID of the Amazon Cognito user pool client.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>userPoolDomain</code> <em>string</em></td>
+<td>The domain prefix or fully-qualified domain name of the Amazon Cognito user<br />pool.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>scope</code> <em>string</em></td>
+<td>The set of user claims to be requested from the IdP. The default is openid .<br /><br />To verify which scope values your IdP supports and how to separate multiple<br />values, see the documentation for your IdP.</td>
+<td>openid</td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticationRequestExtraParams</code> <em>map[string]string</em></td>
+<td>The query parameters (up to 10) to include in the redirect request to the<br />authorization endpoint.</td>
+<td></td>
+<td>MaxProperties: 10 <br /></td>
+</tr>
+<tr>
+<td><code>onUnauthenticatedRequest</code> <em><a href="#authenticatecognitoactionconditionalbehaviorenum">AuthenticateCognitoActionConditionalBehaviorEnum</a></em></td>
+<td>The behavior if the user is not authenticated. The following are possible</td>
+<td>authenticate</td>
+<td>Enum: [deny allow authenticate] <br /></td>
+</tr>
+<tr>
+<td><code>sessionCookieName</code> <em>string</em></td>
+<td>The name of the cookie used to maintain session information. The default is<br />AWSELBAuthSessionCookie.</td>
+<td>AWSELBAuthSessionCookie</td>
+<td></td>
+</tr>
+<tr>
+<td><code>sessionTimeout</code> <em>integer</em></td>
+<td>The maximum duration of the authentication session, in seconds. The default is<br />604800 seconds (7 days).</td>
+<td>604800</td>
+<td>Maximum: 604800 <br />Minimum: 1 <br /></td>
+</tr>
+</tbody>
+</table>
+<h4 id="authenticateoidcactionconditionalbehaviorenum">AuthenticateOidcActionConditionalBehaviorEnum<a class="headerlink" href="#authenticateoidcactionconditionalbehaviorenum" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>AuthenticateOidcActionConditionalBehaviorEnum defines the behavior when a user is not authenticated</p>
+<p><em>Validation:</em>
+- Enum: [deny allow authenticate]</p>
+<p><em>Appears in:</em>
+- <a href="#authenticateoidcactionconfig">AuthenticateOidcActionConfig</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deny</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>allow</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticate</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="authenticateoidcactionconfig">AuthenticateOidcActionConfig<a class="headerlink" href="#authenticateoidcactionconfig" title="Permanent link">&para;</a></h4>
+<p>Information about an authenticate-oidc action</p>
+<p><em>Appears in:</em>
+- <a href="#action">Action</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>authorizationEndpoint</code> <em>string</em></td>
+<td>The authorization endpoint of the IdP. This must be a full URL, including the<br />HTTPS protocol, the domain, and the path.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>secret</code> <em><a href="#secret">Secret</a></em></td>
+<td>Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name and namespace</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>issuer</code> <em>string</em></td>
+<td>The OIDC issuer identifier of the IdP. This must be a full URL, including the<br />HTTPS protocol, the domain, and the path.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>tokenEndpoint</code> <em>string</em></td>
+<td>The token endpoint of the IdP. This must be a full URL, including the HTTPS<br />protocol, the domain, and the path.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>userInfoEndpoint</code> <em>string</em></td>
+<td>The user info endpoint of the IdP. This must be a full URL, including the HTTPS<br />protocol, the domain, and the path.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>scope</code> <em>string</em></td>
+<td>The set of user claims to be requested from the IdP. The default is openid .<br /><br />To verify which scope values your IdP supports and how to separate multiple<br />values, see the documentation for your IdP.</td>
+<td>openid</td>
+<td></td>
+</tr>
+<tr>
+<td><code>authenticationRequestExtraParams</code> <em>map[string]string</em></td>
+<td>The query parameters (up to 10) to include in the redirect request to the<br />authorization endpoint.</td>
+<td></td>
+<td>MaxProperties: 10 <br /></td>
+</tr>
+<tr>
+<td><code>onUnauthenticatedRequest</code> <em><a href="#authenticateoidcactionconditionalbehaviorenum">AuthenticateOidcActionConditionalBehaviorEnum</a></em></td>
+<td>The behavior if the user is not authenticated. The following are possible</td>
+<td>authenticate</td>
+<td>Enum: [deny allow authenticate] <br /></td>
+</tr>
+<tr>
+<td><code>sessionCookieName</code> <em>string</em></td>
+<td>The name of the cookie used to maintain session information. The default is<br />AWSELBAuthSessionCookie.</td>
+<td>AWSELBAuthSessionCookie</td>
+<td></td>
+</tr>
+<tr>
+<td><code>sessionTimeout</code> <em>integer</em></td>
+<td>The maximum duration of the authentication session, in seconds. The default is<br />604800 seconds (7 days).</td>
+<td>604800</td>
+<td>Maximum: 604800 <br />Minimum: 1 <br /></td>
+</tr>
+<tr>
+<td><code>useExistingClientSecret</code> <em>boolean</em></td>
+<td>Indicates whether to use the existing client secret when modifying a listener rule. If<br />you are creating a listener rule, you can omit this parameter or set it to false.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="fixedresponseactionconfig">FixedResponseActionConfig<a class="headerlink" href="#fixedresponseactionconfig" title="Permanent link">&para;</a></h4>
+<p>Information about an action that returns a custom HTTP response.</p>
+<p><em>Appears in:</em>
+- <a href="#action">Action</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>statusCode</code> <em>integer</em></td>
+<td>The HTTP response code (2XX, 4XX, or 5XX).</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>contentType</code> <em>string</em></td>
+<td>The content type of the fixed response.</td>
+<td>text/plain</td>
+<td>Enum: [text/plain text/css text/html application/javascript application/json] <br /></td>
+</tr>
+<tr>
+<td><code>messageBody</code> <em>string</em></td>
+<td>The message</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="forwardactionconfig">ForwardActionConfig<a class="headerlink" href="#forwardactionconfig" title="Permanent link">&para;</a></h4>
+<p>Information about a forward action.</p>
+<p><em>Appears in:</em>
+- <a href="#action">Action</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>targetGroupStickinessConfig</code> <em><a href="#targetgroupstickinessconfig">TargetGroupStickinessConfig</a></em></td>
+<td>The target group stickiness for the rule.<br />Note: ForwardActionConfig only supports target group stickiness configuration through CRD.<br />All other forward action fields must be set through the Gateway API native way.</td>
+<td>{  }</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="healthcheckconfiguration">HealthCheckConfiguration<a class="headerlink" href="#healthcheckconfiguration" title="Permanent link">&para;</a></h4>
+<p>HealthCheckConfiguration defines the Health Check configuration for a Target Group.</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupprops">TargetGroupProps</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>healthyThresholdCount</code> <em>integer</em></td>
+<td>healthyThresholdCount The number of consecutive health checks successes required before considering an unhealthy target healthy.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>healthCheckInterval</code> <em>integer</em></td>
+<td>healthCheckInterval The approximate amount of time, in seconds, between health checks of an individual target.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>healthCheckPath</code> <em>string</em></td>
+<td>healthCheckPath The destination for health checks on the targets.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>healthCheckPort</code> <em>string</em></td>
+<td>healthCheckPort The port the load balancer uses when performing health checks on targets.<br />The default is to use the port on which each target receives traffic from the load balancer.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>healthCheckProtocol</code> <em><a href="#targetgrouphealthcheckprotocol">TargetGroupHealthCheckProtocol</a></em></td>
+<td>healthCheckProtocol The protocol to use to connect with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols are not supported for health checks.</td>
+<td></td>
+<td>Enum: [http https tcp] <br /></td>
+</tr>
+<tr>
+<td><code>healthCheckTimeout</code> <em>integer</em></td>
+<td>healthCheckTimeout The amount of time, in seconds, during which no response means a failed health check</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>unhealthyThresholdCount</code> <em>integer</em></td>
+<td>unhealthyThresholdCount The number of consecutive health check failures required before considering the target unhealthy.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>matcher</code> <em><a href="#healthcheckmatcher">HealthCheckMatcher</a></em></td>
+<td>healthCheckCodes The HTTP or gRPC codes to use when checking for a successful response from a target</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="healthcheckmatcher">HealthCheckMatcher<a class="headerlink" href="#healthcheckmatcher" title="Permanent link">&para;</a></h4>
+<p>TODO: Add a validation in the admission webhook to check if only one of HTTPCode or GRPCCode is set.
+Information to use when checking for a successful response from a target.</p>
+<p><em>Appears in:</em>
+- <a href="#healthcheckconfiguration">HealthCheckConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>httpCode</code> <em>string</em></td>
+<td>The HTTP codes.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>grpcCode</code> <em>string</em></td>
+<td>The gRPC codes</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerattribute">ListenerAttribute<a class="headerlink" href="#listenerattribute" title="Permanent link">&para;</a></h4>
+<p>ListenerAttribute defines listener attribute.</p>
+<p><em>Appears in:</em>
+- <a href="#listenerconfiguration">ListenerConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>key</code> <em>string</em></td>
+<td>The key of the attribute.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code> <em>string</em></td>
+<td>The value of the attribute.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerconfiguration">ListenerConfiguration<a class="headerlink" href="#listenerconfiguration" title="Permanent link">&para;</a></h4>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>protocolPort</code> <em><a href="#protocolport">ProtocolPort</a></em></td>
+<td>protocolPort is identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT</td>
+<td></td>
+<td>Pattern: <code>^(HTTP\|HTTPS\|TLS\|TCP\|UDP)?:(6553[0-5]\|655[0-2]\d\|65[0-4]\d\{2\}\|6[0-4]\d\{3\}\|[1-5]\d\{4\}\|[1-9]\d\{0,3\})?$</code> <br /></td>
+</tr>
+<tr>
+<td><code>defaultCertificate</code> <em>string</em></td>
+<td>defaultCertificate the cert arn to be used by default.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>certificates</code> <em>string array</em></td>
+<td>certificates is the list of other certificates to add to the listener.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>sslPolicy</code> <em>string</em></td>
+<td>sslPolicy is the security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener].</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>alpnPolicy</code> <em><a href="#alpnpolicy">ALPNPolicy</a></em></td>
+<td>alpnPolicy an optional string that allows you to configure ALPN policies on your Load Balancer</td>
+<td>None</td>
+<td>Enum: [HTTP1Only HTTP2Only HTTP2Optional HTTP2Preferred None] <br /></td>
+</tr>
+<tr>
+<td><code>mutualAuthentication</code> <em><a href="#mutualauthenticationattributes">MutualAuthenticationAttributes</a></em></td>
+<td>mutualAuthentication defines the mutual authentication configuration information.</td>
+<td>{ mode:off }</td>
+<td></td>
+</tr>
+<tr>
+<td><code>listenerAttributes</code> <em><a href="#listenerattribute">ListenerAttribute</a> array</em></td>
+<td>listenerAttributes defines the attributes for the listener</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerrulecondition">ListenerRuleCondition<a class="headerlink" href="#listenerrulecondition" title="Permanent link">&para;</a></h4>
+<p>Information about a condition for a listener rule</p>
+<p><em>Appears in:</em>
+- <a href="#listenerruleconfigurationspec">ListenerRuleConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>field</code> <em><a href="#listenerruleconditionfield">ListenerRuleConditionField</a></em></td>
+<td>The field in the HTTP request</td>
+<td></td>
+<td>Enum: [source-ip] <br /></td>
+</tr>
+<tr>
+<td><code>sourceIPConfig</code> <em><a href="#sourceipconditionconfig">SourceIPConditionConfig</a></em></td>
+<td>Information for a source IP condition</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerruleconditionfield">ListenerRuleConditionField<a class="headerlink" href="#listenerruleconditionfield" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>ListenerRuleConditionField defines the field in the HTTP request to match</p>
+<p><em>Validation:</em>
+- Enum: [source-ip]</p>
+<p><em>Appears in:</em>
+- <a href="#listenerrulecondition">ListenerRuleCondition</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source-ip</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerruleconfiguration">ListenerRuleConfiguration<a class="headerlink" href="#listenerruleconfiguration" title="Permanent link">&para;</a></h4>
+<p>ListenerRuleConfiguration is the Schema for the ListenerRuleConfiguration API</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiVersion</code> <em>string</em></td>
+<td><code>gateway.k8s.aws/v1beta1</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code> <em>string</em></td>
+<td><code>ListenerRuleConfiguration</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>metadata</code> <em><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta">ObjectMeta</a></em></td>
+<td>Refer to Kubernetes API documentation for fields of <code>metadata</code>.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>spec</code> <em><a href="#listenerruleconfigurationspec">ListenerRuleConfigurationSpec</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code> <em><a href="#listenerruleconfigurationstatus">ListenerRuleConfigurationStatus</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerruleconfigurationspec">ListenerRuleConfigurationSpec<a class="headerlink" href="#listenerruleconfigurationspec" title="Permanent link">&para;</a></h4>
+<p>ListenerRuleConfigurationSpec defines the desired state of ListenerRuleConfiguration</p>
+<p><em>Appears in:</em>
+- <a href="#listenerruleconfiguration">ListenerRuleConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>actions</code> <em><a href="#action">Action</a> array</em></td>
+<td>Actions defines the set of actions to be performed when conditions match.<br />This CRD implementation currently supports only  authenticate-oidc, authenticate-cognito, and fixed-response action types fully and forward and redirect actions partially<br /><br />For other fields in forward and redirect actions, please use the standard Gateway API HTTPRoute or other route resources, which provide<br />native support for those conditions through the Gateway API specification.<br /><br />At most one authentication action can be specified (either authenticate-oidc or authenticate-cognito).</td>
+<td></td>
+<td>MaxItems: 2 <br />MinItems: 1 <br /></td>
+</tr>
+<tr>
+<td><code>conditions</code> <em><a href="#listenerrulecondition">ListenerRuleCondition</a> array</em></td>
+<td>Conditions defines the circumstances under which the rule actions will be performed.<br />This CRD implementation currently supports only the source-ip condition type<br /><br />For other condition types (such as path-pattern, host-header, http-header, etc.),<br />please use the standard Gateway API HTTPRoute or other route resources, which provide<br />native support for those conditions through the Gateway API specification.</td>
+<td></td>
+<td>MinItems: 1 <br /></td>
+</tr>
+<tr>
+<td><code>tags</code> <em>map[string]string</em></td>
+<td>Tags are the AWS resource tags to be applied to all AWS resources created for this rule.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="listenerruleconfigurationstatus">ListenerRuleConfigurationStatus<a class="headerlink" href="#listenerruleconfigurationstatus" title="Permanent link">&para;</a></h4>
+<p>ListenerRuleConfigurationStatus defines the observed state of ListenerRuleConfiguration</p>
+<p><em>Appears in:</em>
+- <a href="#listenerruleconfiguration">ListenerRuleConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observedGeneration</code> <em>integer</em></td>
+<td>The observed generation of the rule configuration</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>accepted</code> <em>boolean</em></td>
+<td>Accepted indicates whether ListenerRuleConfiguration is valid</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code> <em>string</em></td>
+<td>Message provides details about the current state</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalancerattribute">LoadBalancerAttribute<a class="headerlink" href="#loadbalancerattribute" title="Permanent link">&para;</a></h4>
+<p>LoadBalancerAttribute defines LB attribute.</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>key</code> <em>string</em></td>
+<td>The key of the attribute.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code> <em>string</em></td>
+<td>The value of the attribute.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalancerconfigmergemode">LoadBalancerConfigMergeMode<a class="headerlink" href="#loadbalancerconfigmergemode" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>LoadBalancerConfigMergeMode is the merging behavior defined when both Gateway and GatewayClass have lb configurations. See the individual
+configuration fields for the exact merge behavior applied.</p>
+<p><em>Validation:</em>
+- Enum: [prefer-gateway prefer-gateway-class]</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prefer-gateway-class</code></td>
+<td>MergeModePreferGatewayClass when both lb configurations have a field specified, this mode gives precedence to the configuration in the GatewayClass<br /></td>
+</tr>
+<tr>
+<td><code>prefer-gateway</code></td>
+<td>MergeModePreferGatewayClass when both lb configurations have a field specified, this mode gives precedence to the configuration in the Gateway<br /></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalancerconfiguration">LoadBalancerConfiguration<a class="headerlink" href="#loadbalancerconfiguration" title="Permanent link">&para;</a></h4>
+<p>LoadBalancerConfiguration is the Schema for the LoadBalancerConfiguration API</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiVersion</code> <em>string</em></td>
+<td><code>gateway.k8s.aws/v1beta1</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code> <em>string</em></td>
+<td><code>LoadBalancerConfiguration</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>metadata</code> <em><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta">ObjectMeta</a></em></td>
+<td>Refer to Kubernetes API documentation for fields of <code>metadata</code>.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>spec</code> <em><a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code> <em><a href="#loadbalancerconfigurationstatus">LoadBalancerConfigurationStatus</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalancerconfigurationspec">LoadBalancerConfigurationSpec<a class="headerlink" href="#loadbalancerconfigurationspec" title="Permanent link">&para;</a></h4>
+<p>LoadBalancerConfigurationSpec defines the desired state of LoadBalancerConfiguration</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfiguration">LoadBalancerConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mergingMode</code> <em><a href="#loadbalancerconfigmergemode">LoadBalancerConfigMergeMode</a></em></td>
+<td>mergingMode defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration.<br />This field is only honored for the configuration attached to the GatewayClass.</td>
+<td></td>
+<td>Enum: [prefer-gateway prefer-gateway-class] <br /></td>
+</tr>
+<tr>
+<td><code>loadBalancerName</code> <em>string</em></td>
+<td>loadBalancerName defines the name of the LB to provision. If unspecified, it will be automatically generated.</td>
+<td></td>
+<td>MaxLength: 32 <br />MinLength: 1 <br /></td>
+</tr>
+<tr>
+<td><code>scheme</code> <em><a href="#loadbalancerscheme">LoadBalancerScheme</a></em></td>
+<td>scheme defines the type of LB to provision. If unspecified, it will be automatically inferred.</td>
+<td></td>
+<td>Enum: [internal internet-facing] <br /></td>
+</tr>
+<tr>
+<td><code>ipAddressType</code> <em><a href="#loadbalanceripaddresstype">LoadBalancerIpAddressType</a></em></td>
+<td>loadBalancerIPType defines what kind of load balancer to provision (ipv4, dual stack)</td>
+<td></td>
+<td>Enum: [ipv4 dualstack dualstack-without-public-ipv4] <br /></td>
+</tr>
+<tr>
+<td><code>enforceSecurityGroupInboundRulesOnPrivateLinkTraffic</code> <em>string</em></td>
+<td>enforceSecurityGroupInboundRulesOnPrivateLinkTraffic Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through Amazon Web Services PrivateLink.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>customerOwnedIpv4Pool</code> <em>string</em></td>
+<td>customerOwnedIpv4Pool [Application LoadBalancer]<br />is the ID of the customer-owned address for Application Load Balancers on Outposts pool.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ipv4IPAMPoolId</code> <em>string</em></td>
+<td>IPv4IPAMPoolId [Application LoadBalancer]<br />defines the IPAM pool ID used for IPv4 Addresses on the ALB.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>loadBalancerSubnets</code> <em><a href="#subnetconfiguration">SubnetConfiguration</a></em></td>
+<td>loadBalancerSubnets is an optional list of subnet configurations to be used in the LB<br />This value takes precedence over loadBalancerSubnetsSelector if both are selected.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>loadBalancerSubnetsSelector</code> <em>map[string][]string</em></td>
+<td>LoadBalancerSubnetsSelector specifies subnets in the load balancer's VPC where each<br />tag specified in the map key contains one of the values in the corresponding<br />value list.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>listenerConfigurations</code> <em><a href="#listenerconfiguration">ListenerConfiguration</a></em></td>
+<td>listenerConfigurations is an optional list of configurations for each listener on LB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>securityGroups</code> <em>string</em></td>
+<td>securityGroups an optional list of security group ids or names to apply to the LB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>securityGroupPrefixes</code> <em>string</em></td>
+<td>securityGroupPrefixes an optional list of prefixes that are allowed to access the LB.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>sourceRanges</code> <em>string</em></td>
+<td>sourceRanges an optional list of CIDRs that are allowed to access the LB.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>vpcId</code> <em>string</em></td>
+<td>vpcId is the ID of the VPC for the load balancer.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>loadBalancerAttributes</code> <em><a href="#loadbalancerattribute">LoadBalancerAttribute</a> array</em></td>
+<td>LoadBalancerAttributes defines the attribute of LB</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>tags</code> <em>map[string]string</em></td>
+<td>Tags the AWS Tags on all related resources to the gateway.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>enableICMP</code> <em>boolean</em></td>
+<td>EnableICMP [Network LoadBalancer]<br />enables the creation of security group rules to the managed security group<br />to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>manageBackendSecurityGroupRules</code> <em>boolean</em></td>
+<td>ManageBackendSecurityGroupRules [Application / Network LoadBalancer]<br />specifies whether you want the controller to configure security group rules on Node/Pod for traffic access<br />when you specify securityGroups</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>minimumLoadBalancerCapacity</code> <em><a href="#minimumloadbalancercapacity">MinimumLoadBalancerCapacity</a></em></td>
+<td>MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>wafV2</code> <em><a href="#wafv2configuration">WAFv2Configuration</a></em></td>
+<td>WAFv2 define the AWS WAFv2 settings for a Gateway [Application Load Balancer]</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>shieldConfiguration</code> <em><a href="#shieldconfiguration">ShieldConfiguration</a></em></td>
+<td>ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer]</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalancerconfigurationstatus">LoadBalancerConfigurationStatus<a class="headerlink" href="#loadbalancerconfigurationstatus" title="Permanent link">&para;</a></h4>
+<p>LoadBalancerConfigurationStatus defines the observed state of TargetGroupBinding</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfiguration">LoadBalancerConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observedGatewayConfigurationGeneration</code> <em>integer</em></td>
+<td>The generation of the Gateway Configuration attached to the Gateway object.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>observedGatewayClassConfigurationGeneration</code> <em>integer</em></td>
+<td>The generation of the Gateway Configuration attached to the GatewayClass object.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalanceripaddresstype">LoadBalancerIpAddressType<a class="headerlink" href="#loadbalanceripaddresstype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>LoadBalancerIpAddressType is the IP Address type of your LB.</p>
+<p><em>Validation:</em>
+- Enum: [ipv4 dualstack dualstack-without-public-ipv4]</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ipv4</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>dualstack</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>dualstack-without-public-ipv4</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="loadbalancerscheme">LoadBalancerScheme<a class="headerlink" href="#loadbalancerscheme" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>LoadBalancerScheme is the scheme of your LB</p>
+<ul>
+<li>with <code>internal</code> scheme, the LB is only accessible within the VPC.</li>
+<li>with <code>internet-facing</code> scheme, the LB is accesible via the public internet.</li>
+</ul>
+<p><em>Validation:</em>
+- Enum: [internal internet-facing]</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>internal</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>internet-facing</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="minimumloadbalancercapacity">MinimumLoadBalancerCapacity<a class="headerlink" href="#minimumloadbalancercapacity" title="Permanent link">&para;</a></h4>
+<p>MinimumLoadBalancerCapacity Information about a load balancer capacity reservation.</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>capacityUnits</code> <em>integer</em></td>
+<td>The Capacity Units Value.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="mutualauthenticationattributes">MutualAuthenticationAttributes<a class="headerlink" href="#mutualauthenticationattributes" title="Permanent link">&para;</a></h4>
+<p>Information about the mutual authentication attributes of a listener.</p>
+<p><em>Appears in:</em>
+- <a href="#listenerconfiguration">ListenerConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>advertiseTrustStoreCaNames</code> <em><a href="#advertisetruststorecanamesenum">AdvertiseTrustStoreCaNamesEnum</a></em></td>
+<td>Indicates whether trust store CA certificate names are advertised.</td>
+<td></td>
+<td>Enum: [on off] <br /></td>
+</tr>
+<tr>
+<td><code>ignoreClientCertificateExpiry</code> <em>boolean</em></td>
+<td>Indicates whether expired client certificates are ignored.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>mode</code> <em><a href="#mutualauthenticationmode">MutualAuthenticationMode</a></em></td>
+<td>The client certificate handling method. Options are off, passthrough or verify</td>
+<td></td>
+<td>Enum: [off passthrough verify] <br /></td>
+</tr>
+<tr>
+<td><code>trustStore</code> <em>string</em></td>
+<td>The Name or ARN of the trust store.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="mutualauthenticationmode">MutualAuthenticationMode<a class="headerlink" href="#mutualauthenticationmode" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>MutualAuthenticationMode mTLS mode for mutual TLS authentication config for listener</p>
+<p><em>Validation:</em>
+- Enum: [off passthrough verify]</p>
+<p><em>Appears in:</em>
+- <a href="#mutualauthenticationattributes">MutualAuthenticationAttributes</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>passthrough</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>verify</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="protocol">Protocol<a class="headerlink" href="#protocol" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p><em>Validation:</em>
+- Enum: [HTTP HTTPS TCP TLS UDP TCP_UDP]</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupprops">TargetGroupProps</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HTTP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTPS</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>TCP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>TLS</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>UDP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>TCP_UDP</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="protocolport">ProtocolPort<a class="headerlink" href="#protocolport" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p><em>Validation:</em>
+- Pattern: <code>^(HTTP|HTTPS|TLS|TCP|UDP)?:(6553[0-5]|655[0-2]\d|65[0-4]\d{2}|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3})?$</code></p>
+<p><em>Appears in:</em>
+- <a href="#listenerconfiguration">ListenerConfiguration</a></p>
+<h4 id="protocolversion">ProtocolVersion<a class="headerlink" href="#protocolversion" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p><em>Validation:</em>
+- Enum: [HTTP1 HTTP2 GRPC]</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupprops">TargetGroupProps</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HTTP1</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTP2</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>GRPC</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="redirectactionconfig">RedirectActionConfig<a class="headerlink" href="#redirectactionconfig" title="Permanent link">&para;</a></h4>
+<p>Information about a redirect action.</p>
+<p><em>Appears in:</em>
+- <a href="#action">Action</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>query</code> <em>string</em></td>
+<td>The query parameters, URL-encoded when necessary, but not percent-encoded. Do<br />not include the leading "?", as it is automatically added. You can specify any<br />of the reserved keywords.<br />Note: RedirectActionConfig only supports setting the query parameter through CRD.<br />All other redirect action fields must be set through the Gateway API native way.</td>
+<td>#{query}</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">&para;</a></h4>
+<p>Reference defines how to look up the Target Group configuration for a service.</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupconfigurationspec">TargetGroupConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group</code> <em>string</em></td>
+<td>Group is the group of the referent. For example, "gateway.networking.k8s.io".<br />When unspecified or empty string, core API group is inferred.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code> <em>string</em></td>
+<td>Kind is the Kubernetes resource kind of the referent. For example<br />"Service".<br /><br />Defaults to "Service" when not specified.</td>
+<td>Service</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code> <em>string</em></td>
+<td>Name is the name of the referent.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="routeconfiguration">RouteConfiguration<a class="headerlink" href="#routeconfiguration" title="Permanent link">&para;</a></h4>
+<p>RouteConfiguration defines the per route configuration</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupconfigurationspec">TargetGroupConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>routeIdentifier</code> <em><a href="#routeidentifier">RouteIdentifier</a></em></td>
+<td>name the identifier of the route, it should be in the form of ROUTE:NAMESPACE:NAME</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>targetGroupProps</code> <em><a href="#targetgroupprops">TargetGroupProps</a></em></td>
+<td>targetGroupProps the target group specific properties</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="routeidentifier">RouteIdentifier<a class="headerlink" href="#routeidentifier" title="Permanent link">&para;</a></h4>
+<p>RouteIdentifier the complete set of route attributes that identify a route.</p>
+<p><em>Appears in:</em>
+- <a href="#routeconfiguration">RouteConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code> <em>string</em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>namespace</code> <em>string</em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code> <em>string</em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="secret">Secret<a class="headerlink" href="#secret" title="Permanent link">&para;</a></h4>
+<p>Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name</p>
+<p><em>Appears in:</em>
+- <a href="#authenticateoidcactionconfig">AuthenticateOidcActionConfig</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code> <em>string</em></td>
+<td>Name is name of the secret</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="shieldconfiguration">ShieldConfiguration<a class="headerlink" href="#shieldconfiguration" title="Permanent link">&para;</a></h4>
+<p>ShieldConfiguration configuration parameters used to configure Shield</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code> <em>boolean</em></td>
+<td>Enabled whether Shield Advanced should be configured with the Gateway</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="sourceipconditionconfig">SourceIPConditionConfig<a class="headerlink" href="#sourceipconditionconfig" title="Permanent link">&para;</a></h4>
+<p>Information about a source IP condition</p>
+<p><em>Appears in:</em>
+- <a href="#listenerrulecondition">ListenerRuleCondition</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>values</code> <em>string array</em></td>
+<td>One or more source IP addresses, in CIDR format</td>
+<td></td>
+<td>MinItems: 1 <br /></td>
+</tr>
+</tbody>
+</table>
+<h4 id="subnetconfiguration">SubnetConfiguration<a class="headerlink" href="#subnetconfiguration" title="Permanent link">&para;</a></h4>
+<p>SubnetConfiguration defines the subnet settings for a Load Balancer.</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>identifier</code> <em>string</em></td>
+<td>identifier [Application LoadBalancer / Network LoadBalancer] name or id for the subnet</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>eipAllocation</code> <em>string</em></td>
+<td>eipAllocation [Network LoadBalancer] the EIP name for this subnet.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>privateIPv4Allocation</code> <em>string</em></td>
+<td>privateIPv4Allocation [Network LoadBalancer] the private ipv4 address to assign to this subnet.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ipv6Allocation</code> <em>string</em></td>
+<td>IPv6Allocation [Network LoadBalancer] the ipv6 address to assign to this subnet.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>sourceNatIPv6Prefix</code> <em>string</em></td>
+<td>SourceNatIPv6Prefix [Network LoadBalancer] The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or auto_assigned to use an IPv6 prefix selected at random from the subnet CIDR block.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupattribute">TargetGroupAttribute<a class="headerlink" href="#targetgroupattribute" title="Permanent link">&para;</a></h4>
+<p>TargetGroupAttribute defines target group attribute.</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupprops">TargetGroupProps</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>key</code> <em>string</em></td>
+<td>The key of the attribute.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code> <em>string</em></td>
+<td>The value of the attribute.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupconfiguration">TargetGroupConfiguration<a class="headerlink" href="#targetgroupconfiguration" title="Permanent link">&para;</a></h4>
+<p>TargetGroupConfiguration is the Schema for defining TargetGroups with an AWS ELB Gateway</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiVersion</code> <em>string</em></td>
+<td><code>gateway.k8s.aws/v1beta1</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code> <em>string</em></td>
+<td><code>TargetGroupConfiguration</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>metadata</code> <em><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta">ObjectMeta</a></em></td>
+<td>Refer to Kubernetes API documentation for fields of <code>metadata</code>.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>spec</code> <em><a href="#targetgroupconfigurationspec">TargetGroupConfigurationSpec</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code> <em><a href="#targetgroupconfigurationstatus">TargetGroupConfigurationStatus</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupconfigurationspec">TargetGroupConfigurationSpec<a class="headerlink" href="#targetgroupconfigurationspec" title="Permanent link">&para;</a></h4>
+<p>TargetGroupConfigurationSpec defines the TargetGroup properties for a route.</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupconfiguration">TargetGroupConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>targetReference</code> <em><a href="#reference">Reference</a></em></td>
+<td>targetReference the kubernetes object to attach the Target Group settings to.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>defaultConfiguration</code> <em><a href="#targetgroupprops">TargetGroupProps</a></em></td>
+<td>defaultRouteConfiguration fallback configuration applied to all routes, unless overridden by route-specific configurations.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>routeConfigurations</code> <em><a href="#routeconfiguration">RouteConfiguration</a> array</em></td>
+<td>routeConfigurations the route configuration for specific routes. the longest prefix match (kind:namespace:name) is taken to combine with the default properties.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupconfigurationstatus">TargetGroupConfigurationStatus<a class="headerlink" href="#targetgroupconfigurationstatus" title="Permanent link">&para;</a></h4>
+<p>TargetGroupConfigurationStatus defines the observed state of TargetGroupConfiguration</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupconfiguration">TargetGroupConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observedGatewayConfigurationGeneration</code> <em>integer</em></td>
+<td>The generation of the Gateway Configuration attached to the Gateway object.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>observedGatewayClassConfigurationGeneration</code> <em>integer</em></td>
+<td>The generation of the Gateway Configuration attached to the GatewayClass object.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgrouphealthcheckprotocol">TargetGroupHealthCheckProtocol<a class="headerlink" href="#targetgrouphealthcheckprotocol" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p><em>Validation:</em>
+- Enum: [http https tcp]</p>
+<p><em>Appears in:</em>
+- <a href="#healthcheckconfiguration">HealthCheckConfiguration</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HTTP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>HTTPS</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>TCP</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupipaddresstype">TargetGroupIPAddressType<a class="headerlink" href="#targetgroupipaddresstype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>TargetGroupIPAddressType is the IP Address type of your ELBV2 TargetGroup.</p>
+<p><em>Validation:</em>
+- Enum: [ipv4 ipv6]</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupprops">TargetGroupProps</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ipv4</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ipv6</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupprops">TargetGroupProps<a class="headerlink" href="#targetgroupprops" title="Permanent link">&para;</a></h4>
+<p>TargetGroupProps defines the target group properties</p>
+<p><em>Appears in:</em>
+- <a href="#routeconfiguration">RouteConfiguration</a>
+- <a href="#targetgroupconfigurationspec">TargetGroupConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>targetGroupName</code> <em>string</em></td>
+<td>targetGroupName specifies the name to assign to the Target Group. If not defined, then one is generated.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ipAddressType</code> <em><a href="#targetgroupipaddresstype">TargetGroupIPAddressType</a></em></td>
+<td>ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.</td>
+<td></td>
+<td>Enum: [ipv4 ipv6] <br /></td>
+</tr>
+<tr>
+<td><code>healthCheckConfig</code> <em><a href="#healthcheckconfiguration">HealthCheckConfiguration</a></em></td>
+<td>healthCheckConfig The Health Check configuration for this backend.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>nodeSelector</code> <em><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#labelselector-v1-meta">LabelSelector</a></em></td>
+<td>node selector for instance type target groups to only register certain nodes</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>targetGroupAttributes</code> <em><a href="#targetgroupattribute">TargetGroupAttribute</a> array</em></td>
+<td>targetGroupAttributes defines the attribute of target group</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>targetType</code> <em><a href="#targettype">TargetType</a></em></td>
+<td>targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred as instance.</td>
+<td></td>
+<td>Enum: [instance ip] <br /></td>
+</tr>
+<tr>
+<td><code>protocol</code> <em><a href="#protocol">Protocol</a></em></td>
+<td>Protocol [Application / Network Load Balancer] the protocol for the target group.<br />If unspecified, it will be automatically inferred.</td>
+<td></td>
+<td>Enum: [HTTP HTTPS TCP TLS UDP TCP_UDP] <br /></td>
+</tr>
+<tr>
+<td><code>protocolVersion</code> <em><a href="#protocolversion">ProtocolVersion</a></em></td>
+<td>protocolVersion [HTTP/HTTPS protocol] The protocol version. The possible values are GRPC , HTTP1 and HTTP2</td>
+<td></td>
+<td>Enum: [HTTP1 HTTP2 GRPC] <br /></td>
+</tr>
+<tr>
+<td><code>enableMultiCluster</code> <em>boolean</em></td>
+<td>EnableMultiCluster [Application / Network LoadBalancer]<br />Allows for multiple Clusters / Services to use the generated TargetGroup ARN</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>tags</code> <em>map[string]string</em></td>
+<td>Tags the Tags to add on the target group.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targetgroupstickinessconfig">TargetGroupStickinessConfig<a class="headerlink" href="#targetgroupstickinessconfig" title="Permanent link">&para;</a></h4>
+<p>Information about the target group stickiness for a listener rule.</p>
+<p><em>Appears in:</em>
+- <a href="#forwardactionconfig">ForwardActionConfig</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>durationSeconds</code> <em>integer</em></td>
+<td>The time period, in seconds, during which requests from a client should be<br />routed to the same target group. The range is 1-604800 seconds (7 days).</td>
+<td>3600</td>
+<td>Maximum: 604800 <br />Minimum: 1 <br /></td>
+</tr>
+<tr>
+<td><code>enabled</code> <em>boolean</em></td>
+<td>Indicates whether target group stickiness is enabled.</td>
+<td>false</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="targettype">TargetType<a class="headerlink" href="#targettype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>TargetType is the targetType of your ELBV2 TargetGroup.</p>
+<ul>
+<li>with <code>instance</code> TargetType, nodes with nodePort for your service will be registered as targets</li>
+<li>with <code>ip</code> TargetType, Pods with containerPort for your service will be registered as targets</li>
+</ul>
+<p><em>Validation:</em>
+- Enum: [instance ip]</p>
+<p><em>Appears in:</em>
+- <a href="#targetgroupprops">TargetGroupProps</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>instance</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ip</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="wafv2configuration">WAFv2Configuration<a class="headerlink" href="#wafv2configuration" title="Permanent link">&para;</a></h4>
+<p>WAFv2Configuration configuration parameters used to configure WAFv2</p>
+<p><em>Appears in:</em>
+- <a href="#loadbalancerconfigurationspec">LoadBalancerConfigurationSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webACL</code> <em>string</em></td>
+<td>ACL The WebACL to configure with the Gateway</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+    
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../../assets/javascripts/version-select.js"></script>
+
+  </body>
+</html>

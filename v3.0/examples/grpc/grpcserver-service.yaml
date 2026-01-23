@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpcserver
+  namespace: grpcserver
+spec:
+  # bypass kube-proxy
+  ports:
+  - port: 50051
+    protocol: TCP
+    targetPort: 50051
+  clusterIP: None
+  selector:
+    app: grpcserver
