@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -11,7 +12,8 @@ import (
 )
 
 func NewListenerSynthesizer(elbv2Client services.ELBV2, taggingManager TaggingManager,
-	lsManager ListenerManager, logger logr.Logger, stack core.Stack) *listenerSynthesizer {
+	lsManager ListenerManager, logger logr.Logger, stack core.Stack,
+) *listenerSynthesizer {
 	return &listenerSynthesizer{
 		elbv2Client:    elbv2Client,
 		lsManager:      lsManager,

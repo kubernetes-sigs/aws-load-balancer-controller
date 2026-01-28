@@ -2,6 +2,9 @@ package ec2
 
 import (
 	"context"
+	"sync"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -13,8 +16,6 @@ import (
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"sync"
-	"time"
 )
 
 const (
@@ -33,7 +34,8 @@ type SecurityGroupManager interface {
 
 // NewDefaultSecurityGroupManager constructs new defaultSecurityGroupManager.
 func NewDefaultSecurityGroupManager(ec2Client services.EC2, networkingManager networking.NetworkingManager, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, externalManagedTags []string, logger logr.Logger) *defaultSecurityGroupManager {
+	networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, externalManagedTags []string, logger logr.Logger,
+) *defaultSecurityGroupManager {
 	return &defaultSecurityGroupManager{
 		ec2Client:              ec2Client,
 		networkingManager:      networkingManager,

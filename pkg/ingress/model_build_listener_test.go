@@ -2,8 +2,9 @@ package ingress
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
@@ -11,6 +12,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -57,7 +59,6 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 			want: []WantStruct{{port: 443, mutualAuth: &(elbv2.MutualAuthenticationAttributes{Mode: "off", TrustStoreArn: nil, IgnoreClientCertificateExpiry: nil})}, {port: 80, mutualAuth: &(elbv2.MutualAuthenticationAttributes{Mode: "passthrough", TrustStoreArn: nil, IgnoreClientCertificateExpiry: nil})}},
 		},
 		{
-
 			name: "Listener Config when MutualAuthentication annotation is not specified",
 			fields: fields{
 				ingGroup: Group{
@@ -135,11 +136,10 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
-			got, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0])
+			got, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0], &acmModel.Certificate{})
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
-
 				for i := 0; i < len(tt.want); i++ {
 					port := tt.want[i].port
 					mutualAuth := tt.want[i].mutualAuth
@@ -155,11 +155,11 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 					}
 
 				}
-
 			}
 		})
 	}
 }
+
 func Test_buildListenerAttributes(t *testing.T) {
 	type fields struct {
 		ingGroup Group
@@ -426,7 +426,6 @@ func Test_buildListenerAttributes(t *testing.T) {
 			} else {
 				assert.ElementsMatch(t, tt.wantValue, listenerAttributes)
 			}
-
 		})
 	}
 }

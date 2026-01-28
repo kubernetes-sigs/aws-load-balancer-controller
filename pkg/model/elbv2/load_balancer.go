@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -9,8 +10,10 @@ import (
 
 var _ core.Resource = &LoadBalancer{}
 
-const ON = "on"
-const OFF = "off"
+const (
+	ON  = "on"
+	OFF = "off"
+)
 
 // LoadBalancer represents a ELBV2 LoadBalancer.
 type LoadBalancer struct {

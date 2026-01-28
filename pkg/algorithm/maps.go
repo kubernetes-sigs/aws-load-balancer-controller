@@ -1,8 +1,9 @@
 package algorithm
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // MapFindFirst get from list of maps until first found.
@@ -51,6 +52,17 @@ func DiffStringMap(desired map[string]string, current map[string]string) (map[st
 	}
 
 	return modify, remove
+}
+
+// ContainsSubMap reports whether all keys=values pairs from s are present in m
+func ContainsSubMap(m map[string]string, s map[string]string) bool {
+	for k, v := range s {
+		if _, ok := m[k]; !ok || v != m[k] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func CSVToStringSet(csv string) sets.Set[string] {
