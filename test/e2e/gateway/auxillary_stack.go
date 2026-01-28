@@ -101,7 +101,7 @@ func (s *auxiliaryResourceStack) CreateReferenceGrants(ctx context.Context, f *f
 	}
 	s.refGrants = refGrants
 
-	if err := createReferenceGrants(ctx, f, s.refGrants); err != nil {
+	if err := CreateReferenceGrants(ctx, f, s.refGrants); err != nil {
 		return err
 	}
 

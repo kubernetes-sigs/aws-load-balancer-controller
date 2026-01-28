@@ -14,7 +14,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -217,44 +216,6 @@ func LookUpTargetGroupConfiguration(ctx context.Context, k8sClient client.Client
 		}
 	}
 	return nil, nil
-}
-
-// Implements the reference grant API
-// https://gateway-api.sigs.k8s.io/api-types/referencegrant/
-func referenceGrantCheck(ctx context.Context, k8sClient client.Client, objKind string, objGroup string, objIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind RouteKind, routeGroup string) (bool, error) {
-	referenceGrantList := &gwbeta1.ReferenceGrantList{}
-	if err := k8sClient.List(ctx, referenceGrantList, client.InNamespace(objIdentifier.Namespace)); err != nil {
-		return false, err
-	}
-
-	for _, grant := range referenceGrantList.Items {
-		var routeAllowed bool
-
-		for _, from := range grant.Spec.From {
-			if string(from.Group) == routeGroup && string(from.Kind) == string(routeKind) && string(from.Namespace) == routeIdentifier.Namespace {
-				routeAllowed = true
-				break
-			}
-		}
-
-		if routeAllowed {
-			for _, to := range grant.Spec.To {
-				if string(to.Group) != objGroup || string(to.Kind) != objKind {
-					continue
-				}
-
-				// If name is specified, we need to ensure that svc name matches the "to" name.
-				if to.Name != nil && string(*to.Name) != objIdentifier.Name {
-					continue
-				}
-
-				return true, nil
-			}
-
-		}
-	}
-
-	return false, nil
 }
 
 func listenerRuleConfigLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigsRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {

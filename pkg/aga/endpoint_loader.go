@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -66,6 +67,9 @@ type LoadedEndpoint struct {
 
 	// K8s resource reference - used for port and protocol discovery
 	K8sResource client.Object
+
+	// Cross-namespace permission - true if this is a cross-namespace reference that was allowed by a ReferenceGrant
+	CrossNamespaceAllowed bool
 }
 
 // IsUsable returns true if this endpoint can be used in the model
@@ -187,13 +191,45 @@ func (l *endpointLoaderImpl) loadResourceWithDNS(
 	createFunc ResourceCreatorFunc,
 	extractDNSFunc DNSExtractorFunc,
 ) error {
-	// TODO: Implement cross namespace endpoint references
-	// Check for cross-namespace reference and fail for now
+	// Check for cross-namespace reference
 	if result.Namespace != parentNamespace {
-		return NewWarningError(CrossNamespaceReferenceMsg,
-			fmt.Errorf("cross-namespace reference from %s to %s %s/%s is not allowed",
-				parentNamespace, resourceType, result.Namespace, result.Name),
-			result.EndpointRef, parentNamespace)
+		// Get the appropriate group and kind based on resourceType
+		var group, kind string
+		switch resourceType {
+		case string(ServiceResourceType):
+			group = shared_constants.CoreAPIGroup
+			kind = shared_constants.ServiceKind
+		case string(IngressResourceType):
+			group = shared_constants.IngressAPIGroup
+			kind = shared_constants.IngressKind
+		case string(GatewayResourceType):
+			group = shared_constants.GatewayAPIResourcesGroup
+			kind = shared_constants.GatewayApiKind
+		default:
+			return NewFatalError(UnsupportedEndpointTypeMsg,
+				fmt.Errorf("unsupported resource type: %s", resourceType),
+				result.EndpointRef, parentNamespace)
+		}
+
+		// Validate cross-namespace reference using ReferenceGrant
+		allowed, err := shared_utils.ValidateCrossNamespaceReference(ctx, l.k8sClient,
+			parentNamespace, shared_constants.GlobalAcceleratorResourcesGroup, shared_constants.GlobalAcceleratorKind,
+			group, kind, result.Namespace, result.Name)
+		if err != nil {
+			return NewFatalError(APIServerErrorMsg,
+				err, result.EndpointRef, parentNamespace)
+		}
+		if !allowed {
+			// Return a warning error if reference is not allowed
+			return NewWarningError(CrossNamespaceReferenceMsg, err, result.EndpointRef, parentNamespace)
+		}
+
+		// If we got here, the reference is allowed - mark it in the result
+		result.CrossNamespaceAllowed = true
+
+		l.logger.V(1).Info("Cross-namespace reference allowed by ReferenceGrant",
+			"from", fmt.Sprintf("%s/%s", parentNamespace, "GlobalAccelerator"),
+			"to", fmt.Sprintf("%s/%s/%s", resourceType, result.Namespace, result.Name))
 	}
 
 	// Create object of the right type

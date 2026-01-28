@@ -72,18 +72,20 @@ func TestMonitorEndpointResourcesAndRemoveGA(t *testing.T) {
 		},
 	}
 
-	// Create endpoint references
+	// Create loaded endpoints
 	svcName := "test-service"
 	svcNamespace := "default"
-	endpoints := []EndpointReference{
+	endpoints := []*LoadedEndpoint{
 		{
 			Type:      agaapi.GlobalAcceleratorEndpointTypeService,
 			Name:      svcName,
 			Namespace: svcNamespace,
-			Endpoint: &agaapi.GlobalAcceleratorEndpoint{
+			EndpointRef: &agaapi.GlobalAcceleratorEndpoint{
 				Type: agaapi.GlobalAcceleratorEndpointTypeService,
 				Name: &svcName,
 			},
+			Status: EndpointStatusLoaded,
+			ARN:    "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/test",
 		},
 	}
 
@@ -144,18 +146,20 @@ func TestMultipleConsumers(t *testing.T) {
 		},
 	}
 
-	// Create endpoint references to the same service
+	// Create loaded endpoints to the same service
 	svcName := "test-service"
 	svcNamespace := "default"
-	endpoints := []EndpointReference{
+	endpoints := []*LoadedEndpoint{
 		{
 			Type:      agaapi.GlobalAcceleratorEndpointTypeService,
 			Name:      svcName,
 			Namespace: svcNamespace,
-			Endpoint: &agaapi.GlobalAcceleratorEndpoint{
+			EndpointRef: &agaapi.GlobalAcceleratorEndpoint{
 				Type: agaapi.GlobalAcceleratorEndpointTypeService,
 				Name: &svcName,
 			},
+			Status: EndpointStatusLoaded,
+			ARN:    "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/test",
 		},
 	}
 
@@ -189,55 +193,130 @@ func TestMultipleConsumers(t *testing.T) {
 }
 
 func TestCrossNamespaceReferences(t *testing.T) {
-	// Create test dependencies
-	clientSet := fake.NewSimpleClientset()
-	gwClient := fakegwclientset.NewSimpleClientset()
+	t.Run("cross-namespace reference not allowed", func(t *testing.T) {
+		// Create test dependencies
+		clientSet := fake.NewSimpleClientset()
+		gwClient := fakegwclientset.NewSimpleClientset()
 
-	// Use our mock event channels
-	serviceEventChannel := NewMockEventChannel()
-	ingressEventChannel := NewMockEventChannel()
-	gatewayEventChannel := NewMockEventChannel()
+		// Use our mock event channels
+		serviceEventChannel := NewMockEventChannel()
+		ingressEventChannel := NewMockEventChannel()
+		gatewayEventChannel := NewMockEventChannel()
 
-	logger := logr.Discard()
+		logger := logr.Discard()
 
-	// Create the manager
-	manager := NewEndpointResourcesManager(
-		clientSet,
-		gwClient,
-		serviceEventChannel.Channel(),
-		ingressEventChannel.Channel(),
-		gatewayEventChannel.Channel(),
-		logger,
-	)
+		// Create the manager
+		manager := NewEndpointResourcesManager(
+			clientSet,
+			gwClient,
+			serviceEventChannel.Channel(),
+			ingressEventChannel.Channel(),
+			gatewayEventChannel.Channel(),
+			logger,
+		)
 
-	// Create a GlobalAccelerator with cross-namespace endpoint
-	ga := &agaapi.GlobalAccelerator{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-ga",
-			Namespace: "default",
-		},
-	}
-
-	// Create endpoint reference to a service in another namespace
-	svcName := "cross-ns-service"
-	svcNamespace := "other-namespace" // Different from GA's namespace
-	endpoints := []EndpointReference{
-		{
-			Type:      agaapi.GlobalAcceleratorEndpointTypeService,
-			Name:      svcName,
-			Namespace: svcNamespace,
-			Endpoint: &agaapi.GlobalAcceleratorEndpoint{
-				Type: agaapi.GlobalAcceleratorEndpointTypeService,
-				Name: &svcName,
+		// Create a GlobalAccelerator with cross-namespace endpoint
+		ga := &agaapi.GlobalAccelerator{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ga",
+				Namespace: "default",
 			},
-		},
-	}
+		}
 
-	// Monitor the cross-namespace endpoint
-	manager.MonitorEndpointResources(ga, endpoints)
+		// Create loaded endpoint to a service in another namespace
+		svcName := "cross-ns-service"
+		svcNamespace := "other-namespace" // Different from GA's namespace
+		endpoints := []*LoadedEndpoint{
+			{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+				Name:      svcName,
+				Namespace: svcNamespace,
+				EndpointRef: &agaapi.GlobalAcceleratorEndpoint{
+					Type: agaapi.GlobalAcceleratorEndpointTypeService,
+					Name: &svcName,
+				},
+				Status: EndpointStatusLoaded,
+				ARN:    "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/test",
+				// Important: Set CrossNamespaceAllowed to false for this test
+				CrossNamespaceAllowed: false,
+			},
+		}
 
-	// Verify no watches were created since cross-namespace references should be skipped
-	defaultManager, _ := manager.(*defaultEndpointResourcesManager)
-	resourceKey := ktypes.NamespacedName{Namespace: svcNamespace, Name: svcName}
-	assert.NotContains(t, defaultManager.serviceWatches, resourceKey, "Cross-namespace service watch should be skipped")
+		// Monitor the cross-namespace endpoint
+		manager.MonitorEndpointResources(ga, endpoints)
+
+		// Verify no watches were created since cross-namespace references should be skipped
+		defaultManager, _ := manager.(*defaultEndpointResourcesManager)
+		resourceKey := ktypes.NamespacedName{Namespace: svcNamespace, Name: svcName}
+		assert.NotContains(t, defaultManager.serviceWatches, resourceKey, "Cross-namespace service watch should be skipped when not allowed")
+	})
+
+	t.Run("cross-namespace reference allowed", func(t *testing.T) {
+		// Create test dependencies
+		clientSet := fake.NewSimpleClientset()
+		gwClient := fakegwclientset.NewSimpleClientset()
+
+		// Use our mock event channels
+		serviceEventChannel := NewMockEventChannel()
+		ingressEventChannel := NewMockEventChannel()
+		gatewayEventChannel := NewMockEventChannel()
+
+		logger := logr.Discard()
+
+		// Create the manager
+		manager := NewEndpointResourcesManager(
+			clientSet,
+			gwClient,
+			serviceEventChannel.Channel(),
+			ingressEventChannel.Channel(),
+			gatewayEventChannel.Channel(),
+			logger,
+		)
+
+		// Create a GlobalAccelerator with cross-namespace endpoint
+		ga := &agaapi.GlobalAccelerator{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-ga-allowed",
+				Namespace: "default",
+			},
+		}
+
+		// Create loaded endpoint to a service in another namespace
+		svcName := "cross-ns-service-allowed"
+		svcNamespace := "other-namespace" // Different from GA's namespace
+		endpoints := []*LoadedEndpoint{
+			{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+				Name:      svcName,
+				Namespace: svcNamespace,
+				EndpointRef: &agaapi.GlobalAcceleratorEndpoint{
+					Type: agaapi.GlobalAcceleratorEndpointTypeService,
+					Name: &svcName,
+				},
+				Status: EndpointStatusLoaded,
+				ARN:    "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/test-allowed",
+				// Important: Set CrossNamespaceAllowed to true for this test
+				CrossNamespaceAllowed: true,
+			},
+		}
+
+		// Monitor the cross-namespace endpoint
+		manager.MonitorEndpointResources(ga, endpoints)
+
+		// Verify watch was created since cross-namespace reference is allowed
+		defaultManager, _ := manager.(*defaultEndpointResourcesManager)
+		resourceKey := ktypes.NamespacedName{Namespace: svcNamespace, Name: svcName}
+		assert.Contains(t, defaultManager.serviceWatches, resourceKey, "Cross-namespace service watch should be created when allowed")
+
+		// Verify the watch has the right consumer
+		watcher := defaultManager.serviceWatches[resourceKey]
+		assert.True(t, watcher.HasConsumer("default/test-ga-allowed"), "Watcher should have the GA as consumer")
+
+		// Clean up
+		gaKey := ktypes.NamespacedName{Namespace: "default", Name: "test-ga-allowed"}
+		manager.RemoveGA(gaKey)
+
+		// Verify watch was removed
+		assert.NotContains(t, defaultManager.serviceWatches, resourceKey, "Cross-namespace service watch should be removed when GA is removed")
+	})
 }

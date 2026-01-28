@@ -24,7 +24,7 @@ import (
 // EndpointResourcesManager manages watches for resources referenced by GlobalAccelerator endpoints
 type EndpointResourcesManager interface {
 	// MonitorEndpointResources updates the watches based on resources referenced by a GA
-	MonitorEndpointResources(ga *agaapi.GlobalAccelerator, endpoints []EndpointReference)
+	MonitorEndpointResources(ga *agaapi.GlobalAccelerator, endpoints []*LoadedEndpoint)
 
 	// RemoveGA removes all watches for resources referenced by a GA being deleted
 	RemoveGA(gaKey ktypes.NamespacedName)
@@ -72,7 +72,7 @@ func NewEndpointResourcesManager(
 var _ EndpointResourcesManager = &defaultEndpointResourcesManager{}
 
 // MonitorEndpointResources updates the watches based on resources referenced by a GA
-func (m *defaultEndpointResourcesManager) MonitorEndpointResources(ga *agaapi.GlobalAccelerator, endpoints []EndpointReference) {
+func (m *defaultEndpointResourcesManager) MonitorEndpointResources(ga *agaapi.GlobalAccelerator, endpoints []*LoadedEndpoint) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -83,14 +83,14 @@ func (m *defaultEndpointResourcesManager) MonitorEndpointResources(ga *agaapi.Gl
 	ingressRefs := sets.NewString()
 	gatewayRefs := sets.NewString()
 	for _, endpoint := range endpoints {
-		// TODO: Implement cross namespace endpoint references
-		// Skip cross-namespace references
-		if endpoint.Namespace != "" && endpoint.Namespace != ga.Namespace && endpoint.Type != agaapi.GlobalAcceleratorEndpointTypeEndpointID {
-			m.logger.Info("Skipping cross-namespace reference monitoring",
+		// Check if this is a cross-namespace reference that's not allowed
+		if endpoint.Namespace != "" && endpoint.Namespace != ga.Namespace && endpoint.Type != agaapi.GlobalAcceleratorEndpointTypeEndpointID && !endpoint.CrossNamespaceAllowed {
+			m.logger.Info("Skipping cross-namespace reference monitoring - not allowed",
 				"endpointType", endpoint.Type,
 				"endpointNamespace", endpoint.Namespace,
 				"endpointName", endpoint.Name,
-				"gaNamespace", ga.Namespace)
+				"gaNamespace", ga.Namespace,
+				"status", endpoint.Status)
 			continue
 		}
 

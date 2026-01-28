@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -107,7 +108,7 @@ func gatewayLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 
 	// Check for reference grant when performing cross namespace gateway -> route attachment
 	if gwIdentifier.Namespace != routeIdentifier.Namespace {
-		allowed, err := referenceGrantCheck(ctx, k8sClient, gatewayKind, gatewayAPIGroup, gwIdentifier, routeIdentifier, routeKind, gatewayAPIGroup)
+		allowed, err := shared_utils.ValidateCrossNamespaceReference(ctx, k8sClient, routeIdentifier.Namespace, gatewayAPIGroup, string(routeKind), gatewayAPIGroup, gatewayKind, gwIdentifier.Namespace, gwIdentifier.Name)
 		if err != nil {
 			// Currently, this API only fails for a k8s related error message, hence no status update + make the error fatal.
 			return nil, nil, errors.Wrapf(err, "Unable to perform reference grant check")
