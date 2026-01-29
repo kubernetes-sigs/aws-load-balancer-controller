@@ -17,6 +17,9 @@ The LBC instances dedicated to L4 routing monitor the following Gateway API reso
 * **`LoadBalancerConfiguration` (LBC CRD)**: A Custom Resource Definition utilized for fine-grained customization of the provisioned NLB. This CRD can be attached to a `Gateway` or its `GatewayClass`. For more info, please refer [How customization works](customization.md#customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd)
 * **`TargetGroupConfiguration` (LBC CRD)**: A Custom Resource Definition used for service-specific customizations of AWS Target Groups. This CRD is associated with a Kubernetes `Service`. For more info, please refer [How customization works](customization.md#customizing-services-target-groups-using-targetgroupconfiguration-crd)
 
+NOTE: When using TLSRoute, you can specify additional certificates for use during the SNI handshake. 
+However, AWS NLB does not support SNI-based routing; therefore, these routes effectively behave like a TCPRoute.
+
 ### The Reconciliation Loop
 
 The LBC operates on a continuous **reconciliation loop** within your cluster to maintain the desired state of AWS Load Balancer resources:

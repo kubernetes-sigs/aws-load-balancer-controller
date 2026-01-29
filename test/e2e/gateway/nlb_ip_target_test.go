@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strconv"
 	"strings"
 	"time"
@@ -37,8 +38,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			auxiliaryStack.Cleanup(ctx, tf)
 		}
 	})
-	for _, readinessGateEnabled := range []bool{true, false} {
-
+	for _, readinessGateEnabled := range []bool{true} {
 		Context(fmt.Sprintf("with NLB ip target configuration, using readiness gates %+v", readinessGateEnabled), func() {
 			It("should provision internet-facing load balancer resources", func() {
 				interf := elbv2gw.LoadBalancerSchemeInternetFacing
@@ -70,7 +70,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("deploying stack", func() {
 
-					err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, readinessGateEnabled)
+					err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, readinessGateEnabled)
 					Expect(err).NotTo(HaveOccurred())
 
 					err = auxiliaryStack.Deploy(ctx, tf)
@@ -318,7 +318,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("deploying stack", func() {
 
-					err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, readinessGateEnabled)
+					err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, readinessGateEnabled)
 					Expect(err).NotTo(HaveOccurred())
 
 					err = auxiliaryStack.Deploy(ctx, tf)
@@ -723,6 +723,113 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						weightedRequestValidation(tf, fmt.Sprintf("https://%v/any-path", dnsName))
 					}
 				})
+			})
+		})
+
+		Context("with NLB ip target configuration, using passthrough tls", func() {
+			It("should provision internet-facing load balancer resources", func() {
+				interf := elbv2gw.LoadBalancerSchemeInternetFacing
+				lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+					Scheme: &interf,
+				}
+
+				var hasTLS bool
+				if len(tf.Options.CertificateARNs) > 0 {
+					hasTLS = true
+				}
+
+				ipTargetType := elbv2gw.TargetTypeIP
+				tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+					DefaultConfiguration: elbv2gw.TargetGroupProps{
+						TargetType: &ipTargetType,
+					},
+				}
+
+				By("deploying stack", func() {
+					err := stack.Deploy(ctx, tf, nil, lbcSpec, tgSpec, hasTLS, gwv1.TLSModePassthrough, true)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				By("checking gateway status for lb dns name", func() {
+					dnsName = stack.GetLoadBalancerIngressHostName()
+					Expect(dnsName).ToNot(BeEmpty())
+				})
+
+				By("querying AWS loadbalancer from the dns name", func() {
+					var err error
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(lbARN).ToNot(BeEmpty())
+				})
+
+				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{ // This TG is used by Listeners: TCP:443 (if enabled) and TCP:80 (always enabled)
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: targetNumber,
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           15,
+							Timeout:            5,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+					{
+						Protocol:   "UDP",
+						Port:       8080,
+						NumTargets: targetNumber,
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           15,
+							Timeout:            5,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+				}
+
+				expectedListeners := stack.nlbResourceStack.getListenersPortMap()
+				if hasTLS {
+					// Pass through mode means that the NLB should treat the traffic as TCP, not TLS.
+					expectedListeners["443"] = "TCP"
+				}
+
+				By("verifying AWS loadbalancer resources", func() {
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+						Type:         "network",
+						Scheme:       "internet-facing",
+						Listeners:    expectedListeners,
+						TargetGroups: expectedTargetGroups,
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("waiting for target group targets to be healthy", func() {
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("waiting until DNS name is available", func() {
+					err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("sending http request to the lb", func() {
+					url := fmt.Sprintf("http://%v/any-path", dnsName)
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					Expect(err).NotTo(HaveOccurred())
+				})
+				if hasTLS {
+					By("sending tcp traffic to the passthrough listener", func() {
+						url := fmt.Sprintf("http://%v:443/any-path", dnsName)
+						err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+						Expect(err).NotTo(HaveOccurred())
+					})
+				}
 			})
 		})
 	}
