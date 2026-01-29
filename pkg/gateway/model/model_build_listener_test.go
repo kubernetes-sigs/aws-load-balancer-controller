@@ -81,6 +81,75 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "single TCP listener",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tcp",
+							Port:     443,
+							Protocol: gwv1.TCPProtocolType,
+						},
+					},
+				},
+			},
+			want: map[int32]gwListenerConfig{
+				443: {
+					protocol:  elbv2model.ProtocolTCP,
+					hostnames: sets.New[string](),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "single TLS listener with pass through tls is translated to TCP",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tcp",
+							Port:     443,
+							Protocol: gwv1.TLSProtocolType,
+							TLS: &gwv1.GatewayTLSConfig{
+								Mode: (*gwv1.TLSModeType)(awssdk.String("Passthrough")),
+							},
+						},
+					},
+				},
+			},
+			want: map[int32]gwListenerConfig{
+				443: {
+					protocol:  elbv2model.ProtocolTCP,
+					hostnames: sets.New[string](),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "single TLS listener with terminate tls is still TLS",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tcp",
+							Port:     443,
+							Protocol: gwv1.TLSProtocolType,
+							TLS: &gwv1.GatewayTLSConfig{
+								Mode: (*gwv1.TLSModeType)(awssdk.String("Terminate")),
+							},
+						},
+					},
+				},
+			},
+			want: map[int32]gwListenerConfig{
+				443: {
+					protocol:  elbv2model.ProtocolTLS,
+					hostnames: sets.New[string](),
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "multiple listeners with different protocols",
 			gateway: &gwv1.Gateway{
 				Spec: gwv1.GatewaySpec{

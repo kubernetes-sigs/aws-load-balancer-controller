@@ -538,6 +538,13 @@ func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeu
 		port := int32(listener.Port)
 		protocol := elbv2model.Protocol(listener.Protocol)
 
+		// The combination of TLS listener + pass through just means to treat this traffic as tcp.
+		if protocol == elbv2model.ProtocolTLS {
+			if listener.TLS != nil && listener.TLS.Mode != nil && *listener.TLS.Mode == gwv1.TLSModePassthrough {
+				protocol = elbv2model.ProtocolTCP
+			}
+		}
+
 		_, hasPort := gwListenerConfigs[port]
 		if !hasPort {
 			gwListenerConfigs[port] = gwListenerConfig{
