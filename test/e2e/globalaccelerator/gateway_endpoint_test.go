@@ -140,7 +140,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 			}
 			gwStack = &gateway.NLBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
-			err := gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false, gwv1.TLSModeTerminate, false)
+			err := gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false, gwv1.TLSModePassthrough, false)
 			Expect(err).NotTo(HaveOccurred())
 			namespace = gwStack.GetNamespace()
 			gatewayName = "gateway-e2e"
@@ -424,7 +424,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 			// Create Gateway in Gateway namespace
 			gwStack = &gateway.NLBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
-			err = gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false)
+			err = gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false, gwv1.TLSModeTerminate, false)
 			Expect(err).NotTo(HaveOccurred())
 			gatewayNamespace = gwStack.GetNamespace()
 		})

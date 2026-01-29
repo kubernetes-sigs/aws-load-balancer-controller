@@ -432,7 +432,7 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var k8sClient client.Client
-			
+
 			// Setup mock client if provided
 			if tc.setupMock != nil {
 				k8sClient = tc.setupMock()
@@ -447,7 +447,7 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 
 			// Create a context with logger to capture log output
 			loggerCtx := logr.NewContext(context.Background(), log.Log)
-			
+
 			result, err := ValidateCrossNamespaceReference(
 				loggerCtx,
 				k8sClient,
