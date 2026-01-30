@@ -9,9 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"codeberg.org/miekg/dns"
+	"codeberg.org/miekg/dns/dnsconf"
+	"codeberg.org/miekg/dns/dnsutil"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
-	"github.com/miekg/dns"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -25,6 +27,12 @@ import (
 )
 
 var ErrNotFound = errors.New("backend not found")
+
+// resolvConf variable is only meant to be changed for testing
+var resolvConf = "/etc/resolv.conf"
+
+// dnsPort variable is only meant to be changed for testing
+var dnsPort = 53
 
 // TODO: for pod endpoints, we currently rely on endpoints events, we might change to use pod events directly in the future.
 // under current implementation with pod readinessGate enabled, an unready endpoint but not match our inclusionCriteria won't be registered,
@@ -55,7 +63,7 @@ func NewDefaultEndpointResolver(k8sClient client.Client, podInfoRepo k8s.PodInfo
 		logger:               logger,
 
 		externalNameServices:    make(map[types.NamespacedName]string),
-		externalNameReconcilers: make(map[string]externalNameReconciler),
+		externalNameReconcilers: make(map[string]*externalNameReconciler),
 		externalNameMutex:       sync.Mutex{},
 	}
 }
@@ -74,14 +82,13 @@ type defaultEndpointResolver struct {
 	logger               logr.Logger
 
 	externalNameServices    map[types.NamespacedName]string
-	externalNameReconcilers map[string]externalNameReconciler
+	externalNameReconcilers map[string]*externalNameReconciler
 	externalNameMutex       sync.Mutex
 }
 
 type externalNameReconciler struct {
-	cancel       context.CancelFunc
-	externalName string
-	services     map[types.NamespacedName]int32
+	cancel   context.CancelFunc
+	services map[types.NamespacedName]int32
 }
 
 func (r *defaultEndpointResolver) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) {
@@ -133,7 +140,7 @@ func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKe
 		return nil, false, err
 	}
 	if svc.Spec.Type == corev1.ServiceTypeExternalName {
-		err = r.startReconcileExternalNameEndpointSlice(ctx, svc, port)
+		err = r.startReconcileExternalNameEndpointSlice(ctx, svc, svcPort.TargetPort)
 		if err != nil {
 			return nil, false, fmt.Errorf("failed to reconcile external name service: %w", err)
 		}
@@ -415,7 +422,7 @@ func convertCoreEndpointAddressToDiscoveryEndpoint(endpoint corev1.EndpointAddre
 	return ep
 }
 
-func (r *defaultEndpointResolver) watchExternalName(ctx context.Context, externalName string, reconciler externalNameReconciler) {
+func (r *defaultEndpointResolver) watchExternalName(ctx context.Context, externalName string, reconciler *externalNameReconciler) {
 	ttl, err := r.reconcileExternalNameEndpointSlice(ctx, externalName, reconciler)
 	if ttl == math.MaxUint32 || ttl < 10 {
 		// Try again in 10 seconds if no valid TTL was found. Don't query in less than 10 seconds to avoid churn
@@ -460,7 +467,7 @@ func (r *defaultEndpointResolver) startReconcileExternalNameEndpointSlice(ctx co
 		reconciler.cancel()
 		reconciler.services[qualifiedSvcName] = port.IntVal
 	} else {
-		reconciler = externalNameReconciler{
+		reconciler = &externalNameReconciler{
 			services: map[types.NamespacedName]int32{qualifiedSvcName: port.IntVal},
 		}
 		r.externalNameReconcilers[currentExternalName] = reconciler
@@ -471,13 +478,13 @@ func (r *defaultEndpointResolver) startReconcileExternalNameEndpointSlice(ctx co
 	return nil
 }
 
-func (r *defaultEndpointResolver) reconcileExternalNameEndpointSlice(ctx context.Context, externalName string, reconciler externalNameReconciler) (uint32, error) {
-	dnsConf, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+func (r *defaultEndpointResolver) reconcileExternalNameEndpointSlice(ctx context.Context, externalName string, reconciler *externalNameReconciler) (uint32, error) {
+	dnsConf, err := dnsconf.FromFile(resolvConf)
 	if err != nil {
 		return 0, fmt.Errorf("failing to read /etc/resolv.conf: %w", err)
 	}
 
-	addresses, minTTL := r.resolveExternalName(dnsConf, externalName)
+	addresses, minTTL := r.resolveExternalName(ctx, dnsConf, externalName)
 	for svcKey, portNumber := range reconciler.services {
 		labels := map[string]string{
 			discovery.LabelManagedBy:   "aws-load-balancer-controller",
@@ -550,22 +557,20 @@ func (r *defaultEndpointResolver) reconcileExternalNameEndpointSlice(ctx context
 	return minTTL, nil
 }
 
-func (r *defaultEndpointResolver) resolveExternalName(dnsConf *dns.ClientConfig, externalName string) ([]string, uint32) {
+func (r *defaultEndpointResolver) resolveExternalName(ctx context.Context, dnsConf *dnsconf.Config, externalName string) ([]string, uint32) {
 	var addresses []string
 	var minTTL uint32
 	minTTL = math.MaxUint32
 	c := new(dns.Client)
-	c.Net = "udp"
 
 	for _, server := range dnsConf.Servers {
 		for _, domain := range dnsConf.NameList(externalName) {
 			// Since svc.Spec.IPFamilies is nil for services with svc.Spec.Type = corev1.ServiceTypeExternalName
 			// targetGroup.Spec.IPAddressType = "ipv4". To support AAAA the logic for setting IPAddressType would need to be changed.
 			qtype := dns.TypeA
-			m := new(dns.Msg)
-			m.SetQuestion(dns.Fqdn(domain), qtype)
+			m := dns.NewMsg(dnsutil.Fqdn(domain), qtype)
 			m.RecursionDesired = true
-			resp, _, err := c.Exchange(m, server+":53")
+			resp, _, err := c.Exchange(ctx, m, "udp", fmt.Sprintf("%s:%d", server, dnsPort))
 			if err != nil {
 				r.logger.V(1).Info("DNS query for external name failed",
 					"server", server,
@@ -582,7 +587,7 @@ func (r *defaultEndpointResolver) resolveExternalName(dnsConf *dns.ClientConfig,
 			}
 
 			for _, ans := range resp.Answer {
-				minTTL = min(ans.Header().Ttl, minTTL)
+				minTTL = min(ans.Header().TTL, minTTL)
 				if a, ok := ans.(*dns.A); ok {
 					addresses = append(addresses, a.A.String())
 				}
