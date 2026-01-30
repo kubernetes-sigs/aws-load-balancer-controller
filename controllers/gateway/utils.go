@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -25,6 +26,19 @@ const (
 
 	// The max message that can be stored in a condition
 	maxMessageLength = 32700
+
+	// messageSimilarityThreshold is the minimum similarity ratio for two messages
+	// to be considered equivalent. This allows for dynamic parts like request IDs,
+	// timestamps, or other identifiers to change without triggering status updates.
+	// Set to 70% to be more relaxed - prefer skipping status updates over risking
+	// an infinite reconcile loop from constantly changing dynamic content.
+	messageSimilarityThreshold = 0.70
+
+	// messageOnlyUpdateInterval is the minimum time that must pass before updating
+	// a condition when only the message has changed (status, reason, and generation
+	// are the same). This prevents rapid status updates from dynamic content like
+	// request IDs while still eventually reflecting the latest error message.
+	messageOnlyUpdateInterval = 1 * time.Minute
 )
 
 // updateGatewayClassLastProcessedConfig updates the gateway class annotations with the last processed lb config resource version or "" if no lb config is attached to the gatewayclass
@@ -109,11 +123,16 @@ func prepareGatewayConditionUpdate(gw *gwv1.Gateway, targetConditionType string,
 		}
 	}
 
-	// 32768 is the max message limit
 	truncatedMessage := truncateMessage(message)
 
 	if indxToUpdate != -1 {
-		if derivedCondition.Status != newStatus || derivedCondition.Message != truncatedMessage || derivedCondition.Reason != reason || derivedCondition.ObservedGeneration != gw.Generation {
+		statusChanged := derivedCondition.Status != newStatus
+		reasonChanged := derivedCondition.Reason != reason
+		generationChanged := derivedCondition.ObservedGeneration != gw.Generation
+		messageChanged := derivedCondition.Message != truncatedMessage
+
+		// Always update if status, reason, or generation changed
+		if statusChanged || reasonChanged || generationChanged {
 			gw.Status.Conditions[indxToUpdate].LastTransitionTime = metav1.NewTime(time.Now())
 			gw.Status.Conditions[indxToUpdate].ObservedGeneration = gw.Generation
 			gw.Status.Conditions[indxToUpdate].Status = newStatus
@@ -121,6 +140,20 @@ func prepareGatewayConditionUpdate(gw *gwv1.Gateway, targetConditionType string,
 			gw.Status.Conditions[indxToUpdate].Reason = reason
 			return true
 		}
+
+		// Only message changed - check if enough time has passed and messages are dissimilar
+		if messageChanged {
+			timeSinceLastTransition := time.Since(derivedCondition.LastTransitionTime.Time)
+			messagesSimilar := algorithm.StringsSimilar(derivedCondition.Message, truncatedMessage, messageSimilarityThreshold)
+
+			// Update only if transition time is old enough AND messages are dissimilar
+			if timeSinceLastTransition >= messageOnlyUpdateInterval && !messagesSimilar {
+				gw.Status.Conditions[indxToUpdate].LastTransitionTime = metav1.NewTime(time.Now())
+				gw.Status.Conditions[indxToUpdate].Message = truncatedMessage
+				return true
+			}
+		}
+
 		return false
 	}
 

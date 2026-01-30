@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
@@ -911,6 +912,352 @@ func Test_generateRouteList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := generateRouteList(tc.routes)
 			assert.Equal(t, tc.expected, res)
+		})
+	}
+}
+
+func Test_StringsSimilar(t *testing.T) {
+	testCases := []struct {
+		name      string
+		a         string
+		b         string
+		threshold float64
+		expected  bool
+	}{
+		{
+			name:      "identical messages",
+			a:         "failed to create load balancer",
+			b:         "failed to create load balancer",
+			threshold: 0.85,
+			expected:  true,
+		},
+		{
+			name:      "messages with different AWS request IDs",
+			a:         "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: f25747d6-52b6-4db6-bde2-a38aed0fa036, InvalidLoadBalancerAction: The redirect configuration is not valid because it creates a loop",
+			b:         "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: a1b2c3d4-e5f6-7890-abcd-ef1234567890, InvalidLoadBalancerAction: The redirect configuration is not valid because it creates a loop",
+			threshold: 0.85,
+			expected:  true,
+		},
+		{
+			name:      "completely different messages",
+			a:         "failed to create load balancer",
+			b:         "subnet not found in availability zone",
+			threshold: 0.85,
+			expected:  false,
+		},
+		{
+			name:      "empty and non-empty",
+			a:         "",
+			b:         "some error",
+			threshold: 0.85,
+			expected:  false,
+		},
+		{
+			name:      "both empty",
+			a:         "",
+			b:         "",
+			threshold: 0.85,
+			expected:  true,
+		},
+		{
+			name:      "messages with different timestamps in long message",
+			a:         "operation failed at 2024-01-15T10:30:00Z: connection timeout while connecting to the backend service endpoint",
+			b:         "operation failed at 2024-01-15T10:31:00Z: connection timeout while connecting to the backend service endpoint",
+			threshold: 0.85,
+			expected:  true,
+		},
+		{
+			name:      "higher threshold rejects similar messages",
+			a:         "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: f25747d6-52b6-4db6-bde2-a38aed0fa036, InvalidLoadBalancerAction: error",
+			b:         "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: a1b2c3d4-e5f6-7890-abcd-ef1234567890, InvalidLoadBalancerAction: error",
+			threshold: 0.95,
+			expected:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := algorithm.StringsSimilar(tc.a, tc.b, tc.threshold)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_LevenshteinDistance(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        string
+		b        string
+		expected int
+	}{
+		{
+			name:     "identical strings",
+			a:        "hello",
+			b:        "hello",
+			expected: 0,
+		},
+		{
+			name:     "one insertion",
+			a:        "hello",
+			b:        "helloo",
+			expected: 1,
+		},
+		{
+			name:     "one deletion",
+			a:        "hello",
+			b:        "helo",
+			expected: 1,
+		},
+		{
+			name:     "one substitution",
+			a:        "hello",
+			b:        "hallo",
+			expected: 1,
+		},
+		{
+			name:     "empty first string",
+			a:        "",
+			b:        "hello",
+			expected: 5,
+		},
+		{
+			name:     "empty second string",
+			a:        "hello",
+			b:        "",
+			expected: 5,
+		},
+		{
+			name:     "both empty",
+			a:        "",
+			b:        "",
+			expected: 0,
+		},
+		{
+			name:     "completely different",
+			a:        "abc",
+			b:        "xyz",
+			expected: 3,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := algorithm.LevenshteinDistance(tc.a, tc.b)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_prepareGatewayConditionUpdate_TransitionTime(t *testing.T) {
+	recentTime := metav1.NewTime(time.Now().Add(-30 * time.Second)) // 30 seconds ago
+	oldTime := metav1.NewTime(time.Now().Add(-2 * time.Minute))     // 2 minutes ago
+
+	testCases := []struct {
+		name                string
+		gw                  gwv1.Gateway
+		targetConditionType string
+		newStatus           metav1.ConditionStatus
+		reason              string
+		message             string
+		expected            bool
+		expectedMessage     string
+	}{
+		{
+			name: "status change always updates regardless of transition time",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 50,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "same reason",
+							Message:            "same message",
+							ObservedGeneration: 50,
+							LastTransitionTime: recentTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionTrue,
+			reason:              "same reason",
+			message:             "same message",
+			expected:            true,
+			expectedMessage:     "same message",
+		},
+		{
+			name: "reason change always updates regardless of transition time",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 50,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "old reason",
+							Message:            "same message",
+							ObservedGeneration: 50,
+							LastTransitionTime: recentTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionFalse,
+			reason:              "new reason",
+			message:             "same message",
+			expected:            true,
+			expectedMessage:     "same message",
+		},
+		{
+			name: "generation change always updates regardless of transition time",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 51,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "same reason",
+							Message:            "same message",
+							ObservedGeneration: 50,
+							LastTransitionTime: recentTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionFalse,
+			reason:              "same reason",
+			message:             "same message",
+			expected:            true,
+			expectedMessage:     "same message",
+		},
+		{
+			name: "message only change with recent transition time - should NOT update",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 50,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "same reason",
+							Message:            "old error message with RequestID: abc123",
+							ObservedGeneration: 50,
+							LastTransitionTime: recentTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionFalse,
+			reason:              "same reason",
+			message:             "new error message with RequestID: xyz789",
+			expected:            false,
+			expectedMessage:     "old error message with RequestID: abc123",
+		},
+		{
+			name: "message only change with old transition time and dissimilar message - should update",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 50,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "same reason",
+							Message:            "old error: connection timeout",
+							ObservedGeneration: 50,
+							LastTransitionTime: oldTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionFalse,
+			reason:              "same reason",
+			message:             "new error: subnet not found",
+			expected:            true,
+			expectedMessage:     "new error: subnet not found",
+		},
+		{
+			name: "message only change with old transition time but similar message - should NOT update",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 50,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "same reason",
+							Message:            "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: f25747d6-52b6-4db6-bde2-a38aed0fa036, InvalidLoadBalancerAction: error",
+							ObservedGeneration: 50,
+							LastTransitionTime: oldTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionFalse,
+			reason:              "same reason",
+			message:             "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: a1b2c3d4-e5f6-7890-abcd-ef1234567890, InvalidLoadBalancerAction: error",
+			expected:            false,
+			expectedMessage:     "operation error Elastic Load Balancingv2: CreateRule, https response error StatusCode: 400, RequestID: f25747d6-52b6-4db6-bde2-a38aed0fa036, InvalidLoadBalancerAction: error",
+		},
+		{
+			name: "identical message should NOT update",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 50,
+				},
+				Status: gwv1.GatewayStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             "same reason",
+							Message:            "same message",
+							ObservedGeneration: 50,
+							LastTransitionTime: oldTime,
+						},
+					},
+				},
+			},
+			targetConditionType: string(gwv1.GatewayConditionAccepted),
+			newStatus:           metav1.ConditionFalse,
+			reason:              "same reason",
+			message:             "same message",
+			expected:            false,
+			expectedMessage:     "same message",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := prepareGatewayConditionUpdate(&tc.gw, tc.targetConditionType, tc.newStatus, tc.reason, tc.message)
+			assert.Equal(t, tc.expected, res)
+
+			// Find the target condition and verify the message
+			for _, cond := range tc.gw.Status.Conditions {
+				if cond.Type == tc.targetConditionType {
+					assert.Equal(t, tc.expectedMessage, cond.Message)
+					break
+				}
+			}
 		})
 	}
 }
