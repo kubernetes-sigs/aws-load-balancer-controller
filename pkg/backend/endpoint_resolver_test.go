@@ -3,8 +3,18 @@ package backend
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/netip"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 
+	"codeberg.org/miekg/dns"
+	"codeberg.org/miekg/dns/dnstest"
+	"codeberg.org/miekg/dns/dnsutil"
+	"codeberg.org/miekg/dns/rdata"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
@@ -1347,6 +1357,356 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 	}
 }
 
+func Test_defaultEndpointResolver_ResolvePodEndpointsFromExternalName(t *testing.T) {
+	testNS := "test-ns"
+
+	ip1 := "192.168.1.1"
+	ip2 := "192.168.1.2"
+	ip3 := "192.168.1.3"
+
+	svc1 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeExternalName,
+			// Since ExternalName isn't set no DNS lookup will actually be made in this test
+		},
+	}
+	svc2 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeExternalName,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+		},
+	}
+	eps1 := &discovery.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1-a",
+			Labels: map[string]string{
+				"kubernetes.io/service-name": "svc-1",
+			},
+		},
+		Ports: []discovery.EndpointPort{
+			{
+				Name: awssdk.String("http"),
+				Port: awssdk.Int32(8080),
+			},
+		},
+		Endpoints: []discovery.Endpoint{
+			{
+				Addresses: []string{ip1, ip2, ip3},
+			},
+		},
+	}
+
+	type env struct {
+		services       []*corev1.Service
+		endpointSlices []*discovery.EndpointSlice
+	}
+
+	type args struct {
+		svcKey types.NamespacedName
+		port   intstr.IntOrString
+		opts   []EndpointResolveOption
+	}
+	tests := []struct {
+		name    string
+		env     env
+		args    args
+		want    []PodEndpoint
+		wantErr error
+	}{
+		{
+			name: "[with endpointSlices] external name",
+			env: env{
+				services:       []*corev1.Service{svc1},
+				endpointSlices: []*discovery.EndpointSlice{eps1},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromInt32(8080),
+				opts:   nil,
+			},
+			want: []PodEndpoint{
+				{
+					IP:   "192.168.1.1",
+					Port: 8080,
+				},
+				{
+					IP:   "192.168.1.2",
+					Port: 8080,
+				},
+				{
+					IP:   "192.168.1.3",
+					Port: 8080,
+				},
+			},
+		},
+		{
+			name: "[with endpointSlices] external name with ports",
+			env: env{
+				services:       []*corev1.Service{svc2},
+				endpointSlices: []*discovery.EndpointSlice{eps1},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc2),
+				port:   intstr.FromString("http"),
+				opts:   nil,
+			},
+			want: []PodEndpoint{
+				{
+					IP:   "192.168.1.1",
+					Port: 8080,
+				},
+				{
+					IP:   "192.168.1.2",
+					Port: 8080,
+				},
+				{
+					IP:   "192.168.1.3",
+					Port: 8080,
+				},
+			},
+		},
+		{
+			name: "[with endpointSlices] external name no numeric port",
+			env: env{
+				services:       []*corev1.Service{svc1},
+				endpointSlices: []*discovery.EndpointSlice{eps1},
+			},
+			args: args{
+				svcKey: k8s.NamespacedName(svc1),
+				port:   intstr.FromString("http"),
+				opts:   nil,
+			},
+			wantErr: errors.Errorf("backend not found: unable to find port http on service %s/svc-1", testNS),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			ctx := context.Background()
+			for _, svc := range tt.env.services {
+				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+			}
+			for _, eps := range tt.env.endpointSlices {
+				assert.NoError(t, k8sClient.Create(ctx, eps.DeepCopy()))
+			}
+
+			r := &defaultEndpointResolver{
+				k8sClient:            k8sClient,
+				endpointSliceEnabled: true,
+				logger:               logr.New(&log.NullLogSink{}),
+			}
+			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				opt := cmp.Options{
+					equality.IgnoreFakeClientPopulatedFields(),
+					cmpopts.SortSlices(func(lhs PodEndpoint, rhs PodEndpoint) bool {
+						return lhs.IP < rhs.IP
+					}),
+				}
+				assert.True(t, cmp.Equal(tt.want, got, opt),
+					"diff: %v", cmp.Diff(tt.want, got, opt))
+				assert.Equal(t, false, gotContainsPotentialReadyEndpoints)
+			}
+		})
+	}
+}
+
+func Test_defaultEndpointResolver_DNSLookupExternalName(t *testing.T) {
+	cancelTestServer := startTestDNSServer(t)
+	defer cancelTestServer()
+
+	testNS := "test-ns"
+	testHostName := "test-hostname"
+
+	ip1 := "192.168.1.1"
+	ip2 := "192.168.1.2"
+	ip3 := "192.168.1.3"
+
+	callCounter := 0
+
+	mockResponseHandler := func(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) {
+		m := new(dns.Msg)
+		dnsutil.SetReply(m, req)
+		ip1Addr, _ := netip.ParseAddr(ip1)
+		ip2Addr, _ := netip.ParseAddr(ip2)
+		ip3Addr, _ := netip.ParseAddr(ip3)
+		m.Answer = []dns.RR{
+			&dns.A{Hdr: dns.Header{Name: m.Question[0].Header().Name, Class: dns.ClassINET}, A: rdata.A{Addr: ip1Addr}},
+			&dns.A{Hdr: dns.Header{Name: m.Question[0].Header().Name, Class: dns.ClassINET}, A: rdata.A{Addr: ip2Addr}},
+			&dns.A{Hdr: dns.Header{Name: m.Question[0].Header().Name, Class: dns.ClassINET}, A: rdata.A{Addr: ip3Addr}},
+		}
+		io.Copy(w, m)
+		callCounter++
+	}
+
+	dns.HandleFunc(dnsutil.Fqdn(testHostName), mockResponseHandler)
+
+	svc1 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: testHostName,
+		},
+	}
+	svc2 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNS,
+			Name:      "svc-2",
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: testHostName,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+		},
+	}
+
+	endpoints1 := []PodEndpoint{
+		{
+			IP:   "192.168.1.1",
+			Port: 8080,
+		},
+		{
+			IP:   "192.168.1.2",
+			Port: 8080,
+		},
+		{
+			IP:   "192.168.1.3",
+			Port: 8080,
+		},
+	}
+	endpoints2 := []PodEndpoint{
+		{
+			IP:   "1.1.1.1",
+			Port: 8080,
+		},
+		{
+			IP:   "192.168.1.2",
+			Port: 8080,
+		},
+		{
+			IP:   "192.168.1.3",
+			Port: 8080,
+		},
+	}
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	ctx := context.Background()
+	for _, svc := range []*corev1.Service{svc1, svc2} {
+		assert.NoError(t, k8sClient.Create(ctx, svc))
+	}
+
+	r := &defaultEndpointResolver{
+		k8sClient:            k8sClient,
+		endpointSliceEnabled: true,
+		logger:               logr.New(&log.NullLogSink{}),
+
+		externalNameServices:    make(map[types.NamespacedName]string),
+		externalNameReconcilers: make(map[string]*externalNameReconciler),
+		externalNameMutex:       sync.Mutex{},
+	}
+
+	cmpOpt := cmp.Options{
+		equality.IgnoreFakeClientPopulatedFields(),
+		cmpopts.SortSlices(func(lhs PodEndpoint, rhs PodEndpoint) bool {
+			return lhs.IP < rhs.IP
+		}),
+	}
+
+	_, _, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc1), intstr.FromInt32(8080))
+	watch, err := k8sClient.Watch(ctx, &discovery.EndpointSliceList{})
+	assert.NoError(t, err)
+	defer watch.Stop()
+	// wait for creation of endpontslices
+	<-watch.ResultChan()
+
+	got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc1), intstr.FromInt32(8080))
+	assert.NoError(t, err)
+	assert.Equal(t, 1, callCounter)
+	assert.True(t, cmp.Equal(endpoints1, got, cmpOpt),
+		"diff: %v", cmp.Diff(endpoints1, got, cmpOpt))
+	assert.Equal(t, false, gotContainsPotentialReadyEndpoints)
+
+	// Changing DNS response
+	ip1 = "1.1.1.1"
+
+	_, _, err = r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc2), intstr.FromString("http"))
+	assert.NoError(t, err)
+	watch, err = k8sClient.Watch(ctx, &discovery.EndpointSliceList{})
+	assert.NoError(t, err)
+	defer watch.Stop()
+	// wait for creation of endpontslices
+	<-watch.ResultChan()
+
+	got, gotContainsPotentialReadyEndpoints, err = r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc2), intstr.FromString("http"))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCounter)
+	assert.True(t, cmp.Equal(endpoints2, got, cmpOpt),
+		"diff: %v", cmp.Diff(endpoints2, got, cmpOpt))
+	assert.Equal(t, false, gotContainsPotentialReadyEndpoints)
+
+	// The endpoints for svc1 should be updated as well without any extra DNS query
+	got, gotContainsPotentialReadyEndpoints, err = r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc1), intstr.FromInt32(8080))
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCounter)
+	assert.True(t, cmp.Equal(endpoints2, got, cmpOpt),
+		"diff: %v", cmp.Diff(endpoints2, got, cmpOpt))
+	assert.Equal(t, false, gotContainsPotentialReadyEndpoints)
+
+	_, _, err = r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc1), intstr.FromString("http"))
+	assert.EqualError(t, err, fmt.Sprintf("backend not found: unable to find port http on service %s/svc-1", testNS))
+}
+
+func startTestDNSServer(t *testing.T) func() {
+	cancelTestServer, dnsAddr, err := dnstest.Server(":0", func(s *dns.Server) { s.Net = "udp4" })
+	assert.NoError(t, err)
+	addrParts := strings.Split(dnsAddr, ":")
+	dnsServer := addrParts[0]
+	dnsPort, err = strconv.Atoi(addrParts[1])
+	assert.NoError(t, err)
+	dir := t.TempDir()
+	testResolvConf, err := os.CreateTemp(dir, "resolv.conf")
+	assert.NoError(t, err)
+	_, err = fmt.Fprintf(testResolvConf, "nameserver %s\n", dnsServer)
+	assert.NoError(t, err)
+	resolvConf = testResolvConf.Name()
+	_ = testResolvConf.Close()
+	return cancelTestServer
+}
+
+// TODO: Test that with multiple services with same externalname the dns server is only queried once after ttl has expired
+
 func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 	testNS := "test-ns"
 	node1 := &corev1.Node{
@@ -2058,6 +2418,40 @@ func Test_defaultEndpointResolver_findServiceAndServicePort(t *testing.T) {
 				port:   intstr.FromString("http"),
 			},
 			wantErr: errors.New("backend not found: unable to find port http on service sample-ns/sample-svc"),
+		},
+		{
+			name: "found service and servicePort with externalName",
+			env: env{
+				services: []*corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "sample-ns",
+							Name:      "sample-svc",
+						},
+						Spec: corev1.ServiceSpec{
+							Type: corev1.ServiceTypeExternalName,
+						},
+					},
+				},
+			},
+			args: args{
+				svcKey: types.NamespacedName{Namespace: "sample-ns", Name: "sample-svc"},
+				port:   intstr.FromInt32(80),
+			},
+			wantSvc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "sample-ns",
+					Name:      "sample-svc",
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeExternalName,
+				},
+			},
+			wantSvcPort: corev1.ServicePort{
+				Name:       "",
+				Port:       80,
+				TargetPort: intstr.FromInt32(80),
+			},
 		},
 	}
 	for _, tt := range tests {
