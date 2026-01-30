@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -27,8 +28,10 @@ import (
 )
 
 const (
-	reasonConfigNotFound  = "NotFound"
-	messageConfigNotFound = "LoadBalancerConfiguration (%s,%s) not found"
+	reasonConfigNotFound       = "NotFound"
+	messageConfigNotFound      = "LoadBalancerConfiguration (%s,%s) not found"
+	reasonInvalidParametersRef = "InvalidParametersRef"
+	messageNamespaceRequired   = "Namespace must be specified in ParametersRef for LoadBalancerConfiguration"
 )
 
 // NewGatewayClassReconciler constructs a reconciler that responds to gateway class object changes
@@ -119,6 +122,12 @@ func (r *gatewayClassReconciler) handleUpdate(ctx context.Context, gwClass *gwv1
 		}
 	}
 
+	// Validate ParametersRef has namespace if it references a LoadBalancerConfiguration
+	if gwClass.Spec.ParametersRef != nil && gwClass.Spec.ParametersRef.Namespace == nil {
+		// Reject the GatewayClass with an InvalidParametersRef condition
+		return r.updateGwClassAcceptedFn(ctx, r.k8sClient, gwClass, metav1.ConditionFalse, reasonInvalidParametersRef, messageNamespaceRequired)
+	}
+
 	var lbConf *elbv2gw.LoadBalancerConfiguration
 
 	lbConf, err := r.configResolverFn(ctx, r.k8sClient, gwClass.Spec.ParametersRef)
@@ -160,7 +169,7 @@ func (r *gatewayClassReconciler) handleDelete(ctx context.Context, gwClass *gwv1
 
 func (r *gatewayClassReconciler) getNotFoundMessage(paramRef *gwv1.ParametersReference) string {
 	var ns string
-	if paramRef.Namespace == nil {
+	if paramRef.Namespace != nil {
 		ns = string(*paramRef.Namespace)
 	}
 

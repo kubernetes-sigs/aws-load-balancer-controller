@@ -3,6 +3,8 @@ package gatewayutils
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,7 +14,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_IsGatewayManagedByLBController(t *testing.T) {
@@ -717,6 +718,47 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 				gwControllers: sets.New(constants.NLBGatewayController),
 			},
 			want: 1,
+		},
+		{
+			name: "gateway class with nil namespace in ParametersRef should be skipped",
+			args: args{
+				lbConfig: &elbv2gw.LoadBalancerConfiguration{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-config",
+						Namespace: "default",
+					},
+				},
+				gwClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-class-with-nil-namespace",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+							ParametersRef: &gwv1.ParametersReference{
+								Kind:      "LoadBalancerConfiguration",
+								Name:      "test-config",
+								Namespace: nil, // Missing namespace - should not cause NPE
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-class-with-namespace",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+							ParametersRef: &gwv1.ParametersReference{
+								Kind:      "LoadBalancerConfiguration",
+								Name:      "test-config",
+								Namespace: &defaultNamespace,
+							},
+						},
+					},
+				},
+				gwControllers: sets.New(constants.NLBGatewayController),
+			},
+			want: 1, // Only the one with valid namespace should match
 		},
 	}
 

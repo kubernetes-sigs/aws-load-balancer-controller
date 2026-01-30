@@ -3,6 +3,7 @@ package gatewayutils
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
@@ -114,7 +115,11 @@ func GetImpactedGatewayClassesFromLbConfig(ctx context.Context, k8sClient client
 	}
 	impactedGatewayClasses := make(map[string]*gwv1.GatewayClass, len(managedGwClasses))
 	for _, gwClass := range managedGwClasses {
-		if gwClass.Spec.ParametersRef != nil && string(gwClass.Spec.ParametersRef.Kind) == constants.LoadBalancerConfiguration && string(*gwClass.Spec.ParametersRef.Namespace) == lbconfig.Namespace && gwClass.Spec.ParametersRef.Name == lbconfig.Name {
+		if gwClass.Spec.ParametersRef != nil &&
+			gwClass.Spec.ParametersRef.Namespace != nil &&
+			string(gwClass.Spec.ParametersRef.Kind) == constants.LoadBalancerConfiguration &&
+			string(*gwClass.Spec.ParametersRef.Namespace) == lbconfig.Namespace &&
+			gwClass.Spec.ParametersRef.Name == lbconfig.Name {
 			impactedGatewayClasses[gwClass.Name] = gwClass
 		}
 	}
