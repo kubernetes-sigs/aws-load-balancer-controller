@@ -16,7 +16,8 @@ import (
 
 // NewTargetGroupSynthesizer constructs targetGroupSynthesizer
 func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, findSDKTargetGroups func() TargetGroupsResult) *targetGroupSynthesizer {
+	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, findSDKTargetGroups func() TargetGroupsResult,
+) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
 		elbv2Client:         elbv2Client,
 		trackingProvider:    trackingProvider,
@@ -94,7 +95,8 @@ type resAndSDKTargetGroupPair struct {
 }
 
 func matchResAndSDKTargetGroups(resTGs []*elbv2model.TargetGroup, sdkTGs []TargetGroupWithTags,
-	resourceIDTagKey string, featureGates config.FeatureGates) ([]resAndSDKTargetGroupPair, []*elbv2model.TargetGroup, []TargetGroupWithTags, error) {
+	resourceIDTagKey string, featureGates config.FeatureGates,
+) ([]resAndSDKTargetGroupPair, []*elbv2model.TargetGroup, []TargetGroupWithTags, error) {
 	var matchedResAndSDKTGs []resAndSDKTargetGroupPair
 	var unmatchedResTGs []*elbv2model.TargetGroup
 	var unmatchedSDKTGs []TargetGroupWithTags
