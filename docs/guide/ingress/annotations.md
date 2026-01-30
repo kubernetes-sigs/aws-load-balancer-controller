@@ -1395,17 +1395,17 @@ When this option is set to true, the controller will automatically provision a N
     !!!example
         - enable access log to s3
         ```
-        alb.ingress.kubernetes.io/aws-load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
         ```
         - enable NLB deletion protection
         ```
-        alb.ingress.kubernetes.io/aws-load-balancer-attributes: deletion_protection.enabled=true
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: deletion_protection.enabled=true
         ```
         - enable cross zone load balancing
         ```
-        alb.ingress.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: load_balancing.cross_zone.enabled=true
         ```
         - enable client availability zone affinity
         ```
-        alb.ingress.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
