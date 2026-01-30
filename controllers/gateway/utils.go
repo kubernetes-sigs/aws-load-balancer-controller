@@ -109,19 +109,19 @@ func prepareGatewayConditionUpdate(gw *gwv1.Gateway, targetConditionType string,
 		}
 	}
 
-	// 32768 is the max message limit
 	truncatedMessage := truncateMessage(message)
 
 	if indxToUpdate != -1 {
-		if derivedCondition.Status != newStatus || derivedCondition.Message != truncatedMessage || derivedCondition.Reason != reason || derivedCondition.ObservedGeneration != gw.Generation {
-			gw.Status.Conditions[indxToUpdate].LastTransitionTime = metav1.NewTime(time.Now())
-			gw.Status.Conditions[indxToUpdate].ObservedGeneration = gw.Generation
-			gw.Status.Conditions[indxToUpdate].Status = newStatus
-			gw.Status.Conditions[indxToUpdate].Message = truncatedMessage
-			gw.Status.Conditions[indxToUpdate].Reason = reason
-			return true
+		if derivedCondition.Status == newStatus && derivedCondition.Message == truncatedMessage && derivedCondition.Reason == reason && derivedCondition.ObservedGeneration == gw.Generation {
+			return false
 		}
-		return false
+
+		gw.Status.Conditions[indxToUpdate].LastTransitionTime = metav1.NewTime(time.Now())
+		gw.Status.Conditions[indxToUpdate].ObservedGeneration = gw.Generation
+		gw.Status.Conditions[indxToUpdate].Status = newStatus
+		gw.Status.Conditions[indxToUpdate].Message = truncatedMessage
+		gw.Status.Conditions[indxToUpdate].Reason = reason
+		return true
 	}
 
 	// Condition doesn't exist, create it
