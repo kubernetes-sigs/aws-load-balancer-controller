@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
@@ -45,8 +46,8 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
-	targetGroupCollector awsmetrics.TargetGroupCollector) *serviceReconciler {
-
+	targetGroupCollector awsmetrics.TargetGroupCollector,
+) *serviceReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
 	serviceUtils := service.NewServiceUtils(annotationParser, shared_constants.ServiceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
@@ -169,8 +170,8 @@ func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service
 }
 
 func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, svc *corev1.Service, stack core.Stack,
-	lb *elbv2model.LoadBalancer, backendSGRequired bool) error {
-
+	lb *elbv2model.LoadBalancer, backendSGRequired bool,
+) error {
 	var err error
 	addFinalizersFn := func() {
 		err = r.finalizerManager.AddFinalizers(ctx, svc, shared_constants.ServiceFinalizer)

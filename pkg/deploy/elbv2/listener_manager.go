@@ -48,7 +48,8 @@ type ListenerManager interface {
 }
 
 func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, enhancedDefaultingPolicyEnabled bool, logger logr.Logger) *defaultListenerManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, enhancedDefaultingPolicyEnabled bool, logger logr.Logger,
+) *defaultListenerManager {
 	return &defaultListenerManager{
 		elbv2Client:                     elbv2Client,
 		trackingProvider:                trackingProvider,
@@ -199,7 +200,8 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 // updateSDKListenerWithExtraCertificates will update the extra certificates on listener.
 // currentExtraCertificates is the current extra certificates, if it's nil, the current extra certificates will be fetched from AWS.
 func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx context.Context, resLS *elbv2model.Listener,
-	sdkLS ListenerWithTags, isNewSDKListener bool) error {
+	sdkLS ListenerWithTags, isNewSDKListener bool,
+) error {
 	// if TLS is not supported, we shouldn't update
 	if resLS.Spec.SSLPolicy == nil && sdkLS.Listener.SslPolicy == nil {
 		m.logger.V(1).Info("Res and Sdk Listener don't have SSL Policy set, skip updating extra certs for non-TLS listener.")
@@ -289,7 +291,8 @@ func (m *defaultListenerManager) fetchSDKListenerExtraCertificateARNs(ctx contex
 }
 
 func (m *defaultListenerManager) isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS ListenerWithTags,
-	desiredDefaultActions []elbv2types.Action, desiredDefaultCerts []elbv2types.Certificate, desiredDefaultMutualAuthentication *elbv2types.MutualAuthenticationAttributes) bool {
+	desiredDefaultActions []elbv2types.Action, desiredDefaultCerts []elbv2types.Certificate, desiredDefaultMutualAuthentication *elbv2types.MutualAuthenticationAttributes,
+) bool {
 	if lsSpec.Port != awssdk.ToInt32(sdkLS.Listener.Port) {
 		return true
 	}
@@ -447,8 +450,9 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Cer
 }
 
 func buildSDKCertificate(modelCert elbv2model.Certificate) elbv2types.Certificate {
+	cert, _ := modelCert.CertificateARN.Resolve(context.TODO())
 	return elbv2types.Certificate{
-		CertificateArn: modelCert.CertificateARN,
+		CertificateArn: &cert,
 	}
 }
 

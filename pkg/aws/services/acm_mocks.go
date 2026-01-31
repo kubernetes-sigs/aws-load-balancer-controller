@@ -7,6 +7,7 @@ package services
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	acm "github.com/aws/aws-sdk-go-v2/service/acm"
 	types "github.com/aws/aws-sdk-go-v2/service/acm/types"
@@ -34,6 +35,21 @@ func NewMockACM(ctrl *gomock.Controller) *MockACM {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockACM) EXPECT() *MockACMMockRecorder {
 	return m.recorder
+}
+
+// DeleteCertificateWithContext mocks base method.
+func (m *MockACM) DeleteCertificateWithContext(arg0 context.Context, arg1 *acm.DeleteCertificateInput) (*acm.DeleteCertificateOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCertificateWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*acm.DeleteCertificateOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteCertificateWithContext indicates an expected call of DeleteCertificateWithContext.
+func (mr *MockACMMockRecorder) DeleteCertificateWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCertificateWithContext", reflect.TypeOf((*MockACM)(nil).DeleteCertificateWithContext), arg0, arg1)
 }
 
 // DescribeCertificateWithContext mocks base method.
@@ -64,4 +80,48 @@ func (m *MockACM) ListCertificatesAsList(arg0 context.Context, arg1 *acm.ListCer
 func (mr *MockACMMockRecorder) ListCertificatesAsList(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCertificatesAsList", reflect.TypeOf((*MockACM)(nil).ListCertificatesAsList), arg0, arg1)
+}
+
+// ListTagsForCertificate mocks base method.
+func (m *MockACM) ListTagsForCertificate(arg0 context.Context, arg1 *acm.ListTagsForCertificateInput) (*acm.ListTagsForCertificateOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTagsForCertificate", arg0, arg1)
+	ret0, _ := ret[0].(*acm.ListTagsForCertificateOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListTagsForCertificate indicates an expected call of ListTagsForCertificate.
+func (mr *MockACMMockRecorder) ListTagsForCertificate(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForCertificate", reflect.TypeOf((*MockACM)(nil).ListTagsForCertificate), arg0, arg1)
+}
+
+// RequestCertificateWithContext mocks base method.
+func (m *MockACM) RequestCertificateWithContext(arg0 context.Context, arg1 *acm.RequestCertificateInput) (*acm.RequestCertificateOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RequestCertificateWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*acm.RequestCertificateOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RequestCertificateWithContext indicates an expected call of RequestCertificateWithContext.
+func (mr *MockACMMockRecorder) RequestCertificateWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestCertificateWithContext", reflect.TypeOf((*MockACM)(nil).RequestCertificateWithContext), arg0, arg1)
+}
+
+// WaitForCertificateIssuedWithContext mocks base method.
+func (m *MockACM) WaitForCertificateIssuedWithContext(arg0 context.Context, arg1 string, arg2 time.Duration) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WaitForCertificateIssuedWithContext", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WaitForCertificateIssuedWithContext indicates an expected call of WaitForCertificateIssuedWithContext.
+func (mr *MockACMMockRecorder) WaitForCertificateIssuedWithContext(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitForCertificateIssuedWithContext", reflect.TypeOf((*MockACM)(nil).WaitForCertificateIssuedWithContext), arg0, arg1, arg2)
 }

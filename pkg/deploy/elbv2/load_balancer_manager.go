@@ -27,7 +27,8 @@ type LoadBalancerManager interface {
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
 func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, logger logr.Logger) *defaultLoadBalancerManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, logger logr.Logger,
+) *defaultLoadBalancerManager {
 	return &defaultLoadBalancerManager{
 		elbv2Client:                   elbv2Client,
 		trackingProvider:              trackingProvider,
@@ -398,7 +399,6 @@ func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalan
 }
 
 func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (bool, string, string) {
-
 	if resLB.Spec.Type != elbv2model.LoadBalancerTypeNetwork || resLB.Spec.SecurityGroupsInboundRulesOnPrivateLink == nil {
 		return false, "", ""
 	}
@@ -416,7 +416,6 @@ func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer,
 	}
 
 	return true, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
-
 }
 
 func isIPv4ToDualstackUpdate(resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) bool {
