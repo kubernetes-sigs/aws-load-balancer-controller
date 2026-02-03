@@ -10,12 +10,16 @@ const (
 	flagTolerateNonExistentBackendService    = "tolerate-non-existent-backend-service"
 	flagTolerateNonExistentBackendAction     = "tolerate-non-existent-backend-action"
 	flagAllowedCAArns                        = "allowed-certificate-authority-arns"
+	flagEnableACMCertificates                = "enable-acm-certificates"
+	flagDefaultPCAARN                        = "default-pca-arn"
 	defaultIngressClass                      = "alb"
 	defaultDisableIngressClassAnnotation     = false
 	defaultDisableIngressGroupNameAnnotation = false
 	defaultMaxIngressConcurrentReconciles    = 3
 	defaultTolerateNonExistentBackendService = true
 	defaultTolerateNonExistentBackendAction  = true
+	defaultEnableACMCertificates             = false
+	defaultDefaultPCAArn                     = ""
 )
 
 // IngressConfig contains the configurations for the Ingress controller
@@ -46,6 +50,10 @@ type IngressConfig struct {
 
 	// AllowedCertificateAuthoritiyARNs contains a list of all CAs to consider when discovering certificates for ingress resources
 	AllowedCertificateAuthorityARNs []string
+
+	// ACM Certificates Management feature
+	EnableACMCertificates bool
+	DefaultPCAArn         string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -63,4 +71,6 @@ func (cfg *IngressConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&cfg.TolerateNonExistentBackendAction, flagTolerateNonExistentBackendAction, defaultTolerateNonExistentBackendAction,
 		"Tolerate rules that specify a non-existent backend action")
 	fs.StringSliceVar(&cfg.AllowedCertificateAuthorityARNs, flagAllowedCAArns, []string{}, "Specify an optional list of CA ARNs to filter on in cert discovery")
+	fs.BoolVar(&cfg.EnableACMCertificates, flagEnableACMCertificates, defaultEnableACMCertificates, "Enable creation of ACM certificates for ingress objects")
+	fs.StringVar(&cfg.DefaultPCAArn, flagDefaultPCAARN, defaultDefaultPCAArn, "Default PCA ARN to use for creating ACM certificates")
 }
