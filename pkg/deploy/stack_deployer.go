@@ -3,13 +3,16 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"sync"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sync"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/shield"
@@ -36,8 +39,8 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 	networkingManager networking.NetworkingManager, networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, controllerName string, enhancedDefaultingPolicyEnabled bool,
-	targetGroupCollector awsmetrics.TargetGroupCollector, enableFrontendNLB bool) *defaultStackDeployer {
-
+	targetGroupCollector awsmetrics.TargetGroupCollector, enableFrontendNLB bool,
+) *defaultStackDeployer {
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
 
@@ -47,8 +50,10 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		controllerConfig:                    config,
 		addonsConfig:                        config.AddonsConfig,
 		trackingProvider:                    trackingProvider,
+		acmManager:                          acm.NewDefaultCertificateManager(cloud.ACM(), cloud.Route53(), config.IngressConfig.DefaultPCAArn, trackingProvider, logger),
 		ec2TaggingManager:                   ec2TaggingManager,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), networkingManager, trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), config.ExternalManagedTags, logger),
+		acmTaggingManager:                   acm.NewDefaultTaggingManager(cloud.ACM(), config.FeatureGates, logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,
 		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2LSManager:                      elbv2.NewDefaultListenerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, enhancedDefaultingPolicyEnabled, logger),
@@ -65,6 +70,7 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		metricsCollector:                    metricsCollector,
 		controllerName:                      controllerName,
 		enableFrontendNLB:                   enableFrontendNLB,
+		enableACMCertificates:               config.IngressConfig.EnableACMCertificates,
 	}
 }
 
@@ -77,9 +83,11 @@ type defaultStackDeployer struct {
 	controllerConfig                    config.ControllerConfig
 	addonsConfig                        config.AddonsConfig
 	trackingProvider                    tracking.Provider
+	acmManager                          acm.CertificateManager
 	ec2TaggingManager                   ec2.TaggingManager
 	ec2SGManager                        ec2.SecurityGroupManager
 	elbv2TaggingManager                 elbv2.TaggingManager
+	acmTaggingManager                   acm.TaggingManager
 	elbv2LBManager                      elbv2.LoadBalancerManager
 	elbv2LSManager                      elbv2.ListenerManager
 	elbv2LRManager                      elbv2.ListenerRuleManager
@@ -94,6 +102,8 @@ type defaultStackDeployer struct {
 	metricsCollector                    lbcmetrics.MetricCollector
 	controllerName                      string
 	enableFrontendNLB                   bool
+	enableACMCertificates               bool
+	certDiscovery                       certs.CertDiscovery
 
 	logger logr.Logger
 }
@@ -130,6 +140,11 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 
 		synthesizers = append(synthesizers, elbv2.NewFrontendNlbTargetSynthesizer(
 			d.k8sClient, d.trackingProvider, d.elbv2TaggingManager, d.elbv2FrontendNlbTargetsManager, d.logger, d.featureGates, stack, frontendNLBState, findSDKTargetGroups))
+	}
+
+	// it's important that this synthesizer is called before the ListenerSynthesizer, due to the dependency
+	if d.enableACMCertificates {
+		synthesizers = append(synthesizers, acm.NewCertificateSynthesizer(d.acmManager, d.certDiscovery, d.trackingProvider, d.acmTaggingManager, d.logger, stack))
 	}
 
 	synthesizers = append(synthesizers,
