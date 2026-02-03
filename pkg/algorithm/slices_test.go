@@ -44,3 +44,50 @@ func Test_RemoveSliceDuplicates(t *testing.T) {
 		})
 	}
 }
+
+func TestIsDiffStringSlice(t *testing.T) {
+	tests := []struct {
+		name   string
+		one    []string
+		two    []string
+		result bool
+	}{
+		{
+			name:   "empty slices",
+			one:    nil,
+			two:    nil,
+			result: true,
+		},
+		{
+			name:   "example with domains",
+			one:    []string{"example.com", "one.example.com", "two.example.com"},
+			two:    []string{"one.example.com", "two.example.com", "example.com"},
+			result: true,
+		},
+		{
+			name:   "exact same order",
+			one:    []string{"example.com", "one.example.com", "two.example.com"},
+			two:    []string{"example.com", "one.example.com", "two.example.com"},
+			result: true,
+		},
+		{
+			name:   "unequal parts",
+			one:    []string{"example.com"},
+			two:    []string{"otherexample.com"},
+			result: false,
+		},
+		{
+			name:   "unequal length",
+			one:    []string{"example.com", "otherexample.com"},
+			two:    []string{"otherexample.com"},
+			result: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := IsDiffStringSlice(tt.one, tt.two)
+			assert.Equal(t, tt.result, output)
+		})
+	}
+}
