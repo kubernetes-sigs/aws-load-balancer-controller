@@ -1132,8 +1132,15 @@ func TestBuildCertificates(t *testing.T) {
 				t.Errorf("buildCertificates() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if len(tt.want) != len(got) {
 				t.Errorf("buildCertificates() = %v, want %v", got, tt.want)
+			}
+			for i := range got {
+				gotArn, err := got[i].CertificateARN.Resolve(t.Context())
+				assert.NoError(t, err)
+				wantArn, err := tt.want[i].CertificateARN.Resolve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, wantArn, gotArn)
 			}
 		})
 	}
