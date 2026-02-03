@@ -7,6 +7,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
@@ -87,10 +88,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					ALPNPolicy: []string{"HTTP2Preferred"},
 					Certificates: []elbv2model.Certificate{
 						{
-							CertificateARN: awssdk.String("cert-arn1"),
+							CertificateARN: acmModel.NewExistingCertificate("cert-arn1").CertificateARN(),
 						},
 						{
-							CertificateARN: awssdk.String("cert-arn2"),
+							CertificateARN: acmModel.NewExistingCertificate("cert-arn2").CertificateARN(),
 						},
 					},
 				},
