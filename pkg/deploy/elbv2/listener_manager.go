@@ -447,8 +447,9 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Cer
 }
 
 func buildSDKCertificate(modelCert elbv2model.Certificate) elbv2types.Certificate {
+	cert, _ := modelCert.CertificateARN.Resolve(context.TODO())
 	return elbv2types.Certificate{
-		CertificateArn: modelCert.CertificateARN,
+		CertificateArn: &cert,
 	}
 }
 
