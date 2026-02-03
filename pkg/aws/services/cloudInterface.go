@@ -12,6 +12,9 @@ type Cloud interface {
 	// ACM provides API to AWS ACM
 	ACM() ACM
 
+	// Route53 provices API to AWS Route53
+	Route53() Route53
+
 	// WAFv2 provides API to AWS WAFv2
 	WAFv2() WAFv2
 
