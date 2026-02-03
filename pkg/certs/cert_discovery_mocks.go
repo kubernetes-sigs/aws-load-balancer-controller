@@ -35,16 +35,16 @@ func (m *MockCertDiscovery) EXPECT() *MockCertDiscoveryMockRecorder {
 }
 
 // Discover mocks base method.
-func (m *MockCertDiscovery) Discover(arg0 context.Context, arg1 []string) ([]string, error) {
+func (m *MockCertDiscovery) Discover(arg0 context.Context, arg1 []string, arg2 map[string]string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Discover", arg0, arg1)
+	ret := m.ctrl.Call(m, "Discover", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Discover indicates an expected call of Discover.
-func (mr *MockCertDiscoveryMockRecorder) Discover(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCertDiscoveryMockRecorder) Discover(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Discover", reflect.TypeOf((*MockCertDiscovery)(nil).Discover), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Discover", reflect.TypeOf((*MockCertDiscovery)(nil).Discover), arg0, arg1, arg2)
 }

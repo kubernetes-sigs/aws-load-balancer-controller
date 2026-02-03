@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -32,12 +33,11 @@ const (
 // CertDiscovery is responsible for auto-discover TLS certificates for tls hosts.
 type CertDiscovery interface {
 	// Discover will try to find valid certificateARNs for each tlsHost.
-	Discover(ctx context.Context, tlsHosts []string) ([]string, error)
+	Discover(ctx context.Context, tlsHosts []string, tags map[string]string) ([]string, error)
 }
 
 // NewACMCertDiscovery constructs new acmCertDiscovery
-func NewACMCertDiscovery(acmClient services.ACM, allowedCAARNs []string, logger logr.Logger) *acmCertDiscovery {
-
+func NewACMCertDiscovery(acmClient services.ACM, allowedCAARNs []string, enableCertificateManagement bool, logger logr.Logger) *acmCertDiscovery {
 	return &acmCertDiscovery{
 		acmClient: acmClient,
 		logger:    logger,
@@ -49,6 +49,7 @@ func NewACMCertDiscovery(acmClient services.ACM, allowedCAARNs []string, logger 
 		importedCertDomainsCacheTTL: defaultImportedCertDomainsCacheTTL,
 		privateCertDomainsCacheTTL:  defaultPrivateCertDomainsCacheTTL,
 		allowedCAARNs:               allowedCAARNs,
+		enableCertificateManagement: enableCertificateManagement,
 	}
 }
 
@@ -65,12 +66,13 @@ type acmCertDiscovery struct {
 	certARNsCacheTTL            time.Duration
 	certDomainsCache            *cache.Expiring
 	allowedCAARNs               []string
+	enableCertificateManagement bool
 	importedCertDomainsCacheTTL time.Duration
 	privateCertDomainsCacheTTL  time.Duration
 }
 
-func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]string, error) {
-	domainsByCertARN, err := d.loadDomainsForAllCertificates(ctx)
+func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string, ownerTags map[string]string) ([]string, error) {
+	domainsByCertARN, err := d.loadDomainsForAllCertificates(ctx, ownerTags)
 	if err != nil {
 		return nil, err
 	}
@@ -94,11 +96,11 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]s
 	return certARNs.List(), nil
 }
 
-func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context) (map[string]sets.String, error) {
+func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context, ownerTags map[string]string) (map[string]sets.String, error) {
 	d.loadDomainsByCertARNMutex.Lock()
 	defer d.loadDomainsByCertARNMutex.Unlock()
 
-	certARNs, err := d.loadAllCertificateARNs(ctx)
+	certARNs, err := d.loadAllCertificateARNs(ctx, ownerTags)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +118,7 @@ func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context) (m
 	return domainsByCertARN, nil
 }
 
-func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context) ([]string, error) {
+func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context, ownerTags map[string]string) ([]string, error) {
 	if rawCacheItem, ok := d.certARNsCache.Get(certARNsCacheKey); ok {
 		return rawCacheItem.([]string), nil
 	}
@@ -134,7 +136,22 @@ func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context) ([]string
 	var certARNs []string
 	for _, certSummary := range certSummaries {
 		certARN := awssdk.ToString(certSummary.CertificateArn)
-		certARNs = append(certARNs, certARN)
+		// if certificateManagement is enabled we filter all certificates owned by us
+		if d.enableCertificateManagement {
+			input := &acm.ListTagsForCertificateInput{
+				CertificateArn: certSummary.CertificateArn,
+			}
+			resp, err := d.acmClient.ListTagsForCertificate(ctx, input)
+			if err != nil {
+				return nil, err
+			}
+			certTags := convertTagsFromSDKTags(resp.Tags)
+			if !algorithm.ContainsSubMap(certTags, ownerTags) { // only add cert if there's no match
+				certARNs = append(certARNs, certARN)
+			}
+		} else {
+			certARNs = append(certARNs, certARN)
+		}
 	}
 	d.certARNsCache.Set(certARNsCacheKey, certARNs, d.certARNsCacheTTL)
 	return certARNs, nil
@@ -181,4 +198,16 @@ func (d *acmCertDiscovery) domainMatchesHost(domainName string, tlsHost string) 
 	}
 
 	return domainName == tlsHost
+}
+
+func convertTagsFromSDKTags(sdkTags []acmTypes.Tag) map[string]string {
+	if len(sdkTags) == 0 {
+		return nil
+	}
+	tags := make(map[string]string, len(sdkTags))
+
+	for _, tag := range sdkTags {
+		tags[awssdk.ToString(tag.Key)] = awssdk.ToString(tag.Value)
+	}
+	return tags
 }

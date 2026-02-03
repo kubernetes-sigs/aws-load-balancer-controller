@@ -267,7 +267,7 @@ func main() {
 		})
 		routeReconciler := gateway.NewRouteReconciler(delayingQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
-		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, ctrl.Log.WithName("gateway-cert-discovery"))
+		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, false, ctrl.Log.WithName("gateway-cert-discovery"))
 
 		gwControllerConfig := &gatewayControllerConfig{
 			cloud:                   cloud,
