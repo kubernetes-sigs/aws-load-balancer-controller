@@ -2,15 +2,16 @@ package ingress
 
 import (
 	"context"
-	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
-	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"reflect"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
@@ -33,6 +34,7 @@ import (
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -58,12 +60,14 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
-	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
-	certDiscovery := certs.NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
+	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
+	certDiscovery certs.CertDiscovery,
+) *defaultModelBuilder {
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
 		k8sClient:                  k8sClient,
 		eventRecorder:              eventRecorder,
+		acmClient:                  acmClient,
 		ec2Client:                  ec2Client,
 		elbv2Client:                elbv2Client,
 		vpcID:                      vpcID,
@@ -84,8 +88,10 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultSSLPolicy:           defaultSSLPolicy,
 		defaultTargetType:          elbv2model.TargetType(defaultTargetType),
 		defaultLoadBalancerScheme:  elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+		defaultCAArn:               defaultCAArn,
 		enableBackendSG:            enableBackendSG,
 		enableManageBackendSGRules: defaultEnableManageBackendSGRules,
+		enableACMCertificates:      enableACMCertificates,
 		disableRestrictedSGRules:   disableRestrictedSGRules,
 		enableIPTargetType:         enableIPTargetType,
 		targetGroupNameToArnMapper: targetGroupNameToArnMapper,
@@ -101,6 +107,7 @@ var _ ModelBuilder = &defaultModelBuilder{}
 type defaultModelBuilder struct {
 	k8sClient     client.Client
 	eventRecorder record.EventRecorder
+	acmClient     services.ACM
 	ec2Client     services.EC2
 	elbv2Client   services.ELBV2
 	wafv2Client   services.WAFv2
@@ -124,8 +131,10 @@ type defaultModelBuilder struct {
 	defaultSSLPolicy           string
 	defaultTargetType          elbv2model.TargetType
 	defaultLoadBalancerScheme  elbv2model.LoadBalancerScheme
+	defaultCAArn               string
 	enableBackendSG            bool
 	enableManageBackendSGRules bool
+	enableACMCertificates      bool
 	disableRestrictedSGRules   bool
 	enableIPTargetType         bool
 	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
@@ -142,6 +151,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 	task := &defaultModelBuildTask{
 		k8sClient:                  b.k8sClient,
 		eventRecorder:              b.eventRecorder,
+		acmClient:                  b.acmClient,
 		ec2Client:                  b.ec2Client,
 		elbv2Client:                b.elbv2Client,
 		wafv2Client:                b.wafv2Client,
@@ -161,6 +171,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		logger:                     b.logger,
 		enableBackendSG:            b.enableBackendSG,
 		enableManageBackendSGRules: b.enableManageBackendSGRules,
+		enableACMCertificates:      b.enableACMCertificates,
 		disableRestrictedSGRules:   b.disableRestrictedSGRules,
 		enableIPTargetType:         b.enableIPTargetType,
 		metricsCollector:           b.metricsCollector,
@@ -184,6 +195,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		defaultHealthCheckUnhealthyThresholdCount: 2,
 		defaultHealthCheckMatcherHTTPCode:         "200",
 		defaultHealthCheckMatcherGRPCCode:         "12",
+		defaultCAArn:                              b.defaultCAArn,
 
 		loadBalancer:               nil,
 		frontendNlb:                nil,
@@ -216,6 +228,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 type defaultModelBuildTask struct {
 	k8sClient              client.Client
 	eventRecorder          record.EventRecorder
+	acmClient              services.ACM
 	ec2Client              services.EC2
 	elbv2Client            services.ELBV2
 	wafv2Client            services.WAFv2
@@ -239,6 +252,7 @@ type defaultModelBuildTask struct {
 	stack                      core.Stack
 	backendSGIDToken           core.StringToken
 	backendSGAllocated         bool
+	enableACMCertificates      bool
 	enableBackendSG            bool
 	enableManageBackendSGRules bool
 	disableRestrictedSGRules   bool
@@ -260,8 +274,10 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckUnhealthyThresholdCount int32
 	defaultHealthCheckMatcherHTTPCode         string
 	defaultHealthCheckMatcherGRPCCode         string
+	defaultCAArn                              string
 
 	loadBalancer               *elbv2model.LoadBalancer
+	certificate                *acmModel.Certificate
 	tgByResID                  map[string]*elbv2model.TargetGroup
 	backendServices            map[types.NamespacedName]*corev1.Service
 	secretKeys                 []types.NamespacedName
@@ -294,8 +310,21 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	ingListByPort := make(map[int32][]ClassifiedIngress)
 	listenPortConfigsByPort := make(map[int32][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
+
+		// if feature is enabled and ingress requested a new certificate we add one to the model
+		var cert *acmModel.Certificate
+		var err error
+		var createCert bool
+		_, _ = t.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixCreateCertificate, &createCert, member.Ing.Annotations)
+		if t.enableACMCertificates && createCert {
+			cert, err = t.buildACMCertificates(ctx, &member)
+			if err != nil {
+				return ctrlerrors.NewErrorWithMetrics(controllerName, "build_certificate_error", err, t.metricsCollector)
+			}
+		}
+
 		ingKey := k8s.NamespacedName(member.Ing)
-		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member)
+		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member, cert)
 		if err != nil {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}
@@ -323,6 +352,11 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	lb, err := t.buildLoadBalancer(ctx, t.listenPortConfigByPort)
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
+	}
+
+	// add dependency for certificate ARN to resolve to a valid ARN (known after apply)
+	if t.certificate != nil {
+		t.stack.AddDependency(t.certificate, t.loadBalancer)
 	}
 
 	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, t.listenPortConfigByPort)
@@ -365,7 +399,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	var mergedSSLPolicyProvider *types.NamespacedName
 	var mergedSSLPolicy *string
 
-	var mergedTLSCerts []string
+	var mergedTLSCerts []core.StringToken
 
 	// Set the default cert as the first cert
 	// This process allows the same certificate to be specified for both the default certificate and the SNI certificate.
@@ -427,14 +461,15 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		}
 
 		for j, cert := range cfg.listenPortConfig.tlsCerts {
+			c, _ := cert.Resolve(context.TODO())
 			// The first certificate is ignored as it is the default certificate, which has already been added to the mergedTLSCerts.
 			if i == defaultCertMemberIndex && j == 0 {
 				continue
 			}
-			if mergedTLSCertsSet.Has(cert) {
+			if mergedTLSCertsSet.Has(c) {
 				continue
 			}
-			mergedTLSCertsSet.Insert(cert)
+			mergedTLSCertsSet.Insert(c)
 			mergedTLSCerts = append(mergedTLSCerts, cert)
 		}
 
