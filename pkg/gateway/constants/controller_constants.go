@@ -78,6 +78,7 @@ const (
 const (
 	GatewayAcceptedFalseMessage      = "Gateway is not accepted because there is an invalid listener."
 	GatewayProgrammedPendingMessage  = "Waiting for load balancer to be active."
+	GatewayReconcileErrorMessage     = "Check Gateway Events for more information."
 	ListenerAcceptedMessage          = "Listener is accepted."
 	ListenerNotAcceptedMessage       = "Listener is not accepted."
 	ListenerNoConflictMessage        = "Listener has no conflict."

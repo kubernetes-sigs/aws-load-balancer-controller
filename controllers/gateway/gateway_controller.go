@@ -259,6 +259,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns, isDeleting)
 
 	if err != nil {
+		r.handleReconcileError(ctx, gw, err)
 		return err
 	}
 	r.logger.V(1).Info("Got this addon config", "current", currentAddOns, "new addon", newAddOnConfig)
@@ -329,6 +330,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 
 	err := r.deployModel(ctx, gw, stack, secrets)
 	if err != nil {
+		r.handleReconcileError(ctx, gw, err)
 		return err
 	}
 
@@ -344,6 +346,22 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 	}
 	r.eventRecorder.Event(gw, corev1.EventTypeNormal, k8s.GatewayEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
+}
+
+// handleReconcileError updates the Gateway status when reconciliation fails.
+// It skips status updates for requeue errors since those are expected and will retry.
+// Uses a static message to avoid fast reconcile loops from dynamic error content like request IDs.
+func (r *gatewayReconciler) handleReconcileError(ctx context.Context, gw *gwv1.Gateway, err error) {
+	var requeueNeeded *ctrlerrors.RequeueNeeded
+	var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
+	if errors.As(err, &requeueNeeded) || errors.As(err, &requeueNeededAfter) {
+		return
+	}
+
+	statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, gateway_constants.GatewayReconcileErrorMessage, nil)
+	if statusErr != nil {
+		r.logger.Error(statusErr, "Unable to update gateway status on reconcile failure")
+	}
 }
 
 func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, secrets []types.NamespacedName) error {
