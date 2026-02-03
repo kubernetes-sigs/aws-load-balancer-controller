@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -173,7 +174,6 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	listenerSpec.ALPNPolicy = alpnPolicy
 
 	tgTuples, err := l.buildL4TargetGroupTuples(stack, routes, gw, port, listenerSpec.Protocol, lb.Spec.IPAddressType)
-
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
@@ -374,26 +374,25 @@ func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gat
 		}
 		for _, cert := range discoveredCerts {
 			certs = append(certs, elbv2model.Certificate{
-				CertificateARN: &cert,
+				CertificateARN: acmModel.NewExistingCertificate(cert).CertificateARN(),
 			})
 		}
 	}
 	return certs, nil
-
 }
 
 func (l listenerBuilderImpl) buildExplicitTLSCertARNs(ctx context.Context, listener elbv2gw.ListenerConfiguration) []elbv2model.Certificate {
 	var certs []elbv2model.Certificate
 	if listener.DefaultCertificate != nil {
 		certs = append(certs, elbv2model.Certificate{
-			CertificateARN: listener.DefaultCertificate,
+			CertificateARN: acmModel.NewExistingCertificate(*listener.DefaultCertificate).CertificateARN(),
 		})
 	}
 
 	if listener.Certificates != nil {
 		for _, cert := range listener.Certificates {
 			certs = append(certs, elbv2model.Certificate{
-				CertificateARN: cert,
+				CertificateARN: acmModel.NewExistingCertificate(*cert).CertificateARN(),
 			})
 		}
 	}
@@ -406,7 +405,7 @@ func (l listenerBuilderImpl) buildInferredTLSCertARNs(ctx context.Context, hostn
 		hosts.Insert(hostname)
 	}
 
-	return l.certDiscovery.Discover(ctx, hosts.List())
+	return l.certDiscovery.Discover(ctx, hosts.List(), nil)
 }
 
 // L7 listeners will always have 404 as default actions since we don't have dedicated backend
@@ -434,7 +433,6 @@ func buildL7ListenerNoBackendActions() elbv2model.Action {
 }
 
 func buildL4ListenerDefaultActions(tuples []elbv2model.TargetGroupTuple, lbLsCfg *elbv2gw.ListenerConfiguration) []elbv2model.Action {
-
 	var stickyConfig *elbv2model.TargetGroupStickinessConfig
 	if lbLsCfg != nil && lbLsCfg.TargetGroupStickiness != nil {
 		stickyConfig = &elbv2model.TargetGroupStickinessConfig{}
@@ -528,7 +526,6 @@ func buildListenerALPNPolicy(listenerProtocol elbv2model.Protocol, lbLsCfg *elbv
 			string(rawALPNPolicy), elbv2gw.ALPNPolicyNone, elbv2gw.ALPNPolicyHTTP1Only, elbv2gw.ALPNPolicyHTTP2Only,
 			elbv2gw.ALPNPolicyHTTP2Optional, elbv2gw.ALPNPolicyHTTP2Preferred)
 	}
-
 }
 
 // mapGatewayListenerConfigsByPort creates a mapping of ports to listener configurations from the Gateway listeners.
