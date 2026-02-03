@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -47,7 +48,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 	certs := make([]elbv2model.Certificate, 0, len(config.tlsCerts))
 	for _, certARN := range config.tlsCerts {
 		certs = append(certs, elbv2model.Certificate{
-			CertificateARN: awssdk.String(certARN),
+			CertificateARN: certARN,
 		})
 	}
 	lsAttributes, attributesErr := t.buildListenerAttributes(ctx, ingList, port, config.protocol)
@@ -125,12 +126,16 @@ type listenPortConfig struct {
 	inboundCIDRv6s       []string
 	prefixLists          []string
 	sslPolicy            *string
-	tlsCerts             []string
+	tlsCerts             []core.StringToken
 	mutualAuthentication *elbv2model.MutualAuthenticationAttributes
 }
 
-func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int32]listenPortConfig, error) {
+func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress, cert *acmModel.Certificate) (map[int32]listenPortConfig, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
+	// explicitly set ARNs on the IngressClass or Ingress take predecende over newly created certificates, avoid creating unneeded certs then
+	if len(explicitTLSCertARNs) == 0 && cert != nil {
+		explicitTLSCertARNs = []core.StringToken{cert.CertificateARN()}
+	}
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	prefixListIDs := t.computeIngressExplicitPrefixListIDs(ctx, ing)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
@@ -154,7 +159,8 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 			break
 		}
 	}
-	var inferredTLSCertARNs []string
+
+	var inferredTLSCertARNs []core.StringToken
 	if containsHTTPSPort && len(explicitTLSCertARNs) == 0 {
 		inferredTLSCertARNs, err = t.computeIngressInferredTLSCertARNs(ctx, ing.Ing)
 		if err != nil {
@@ -185,16 +191,26 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	return listenPortConfigByPort, nil
 }
 
-func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *ClassifiedIngress) []string {
+func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *ClassifiedIngress) []core.StringToken {
 	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.CertificateArn) != 0 {
-		return ing.IngClassConfig.IngClassParams.Spec.CertificateArn
+		var ingressClassCertificateARNs []core.StringToken
+		for _, arn := range ing.IngClassConfig.IngClassParams.Spec.CertificateArn {
+			ingressClassCertificateARNs = append(ingressClassCertificateARNs, acmModel.NewExistingCertificate(arn).CertificateARN())
+		}
+		return ingressClassCertificateARNs
 	}
 	var rawTLSCertARNs []string
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Ing.Annotations)
-	return rawTLSCertARNs
+
+	var rawTLSCertARNsPointers []core.StringToken
+	for _, arn := range rawTLSCertARNs {
+		rawTLSCertARNsPointers = append(rawTLSCertARNsPointers, acmModel.NewExistingCertificate(arn).CertificateARN())
+	}
+
+	return rawTLSCertARNsPointers
 }
 
-func (t *defaultModelBuildTask) computeIngressInferredTLSCertARNs(ctx context.Context, ing *networking.Ingress) ([]string, error) {
+func (t *defaultModelBuildTask) computeIngressInferredTLSCertARNs(ctx context.Context, ing *networking.Ingress) ([]core.StringToken, error) {
 	hosts := sets.NewString()
 	for _, r := range ing.Spec.Rules {
 		if len(r.Host) != 0 {
@@ -204,7 +220,18 @@ func (t *defaultModelBuildTask) computeIngressInferredTLSCertARNs(ctx context.Co
 	for _, t := range ing.Spec.TLS {
 		hosts.Insert(t.Hosts...)
 	}
-	return t.certDiscovery.Discover(ctx, hosts.List())
+
+	discoveredCerts, err := t.certDiscovery.Discover(ctx, hosts.List(), t.trackingProvider.StackTags(t.stack))
+	if err != nil {
+		return nil, err
+	}
+
+	var discoveredCertsPointers []core.StringToken
+	for _, arn := range discoveredCerts {
+		discoveredCertsPointers = append(discoveredCertsPointers, acmModel.NewExistingCertificate(arn).CertificateARN())
+	}
+
+	return discoveredCertsPointers, nil
 }
 
 func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing *networking.Ingress, preferTLS bool) (map[int32]elbv2model.Protocol, error) {
@@ -359,24 +386,24 @@ func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int32, m
 	if port < 1 || port > 65535 {
 		return errors.Errorf("listen port must be within [1, 65535]: %v", port)
 	}
-	//Verify if the mutualAuthentication mode is not empty for a port
+	// Verify if the mutualAuthentication mode is not empty for a port
 	if mode == "" {
 		return errors.Errorf("mutualAuthentication mode cannot be empty for port %v", port)
 	}
-	//Verify if the mutualAuthentication mode is valid
+	// Verify if the mutualAuthentication mode is valid
 	validMutualAuthenticationModes := []string{string(elbv2model.MutualAuthenticationOffMode), string(elbv2model.MutualAuthenticationPassthroughMode), string(elbv2model.MutualAuthenticationVerifyMode)}
 	if !slices.Contains(validMutualAuthenticationModes, mode) {
 		return errors.Errorf("mutualAuthentication mode value must be among [%v, %v, %v] for port %v : %s", elbv2model.MutualAuthenticationOffMode, elbv2model.MutualAuthenticationPassthroughMode, elbv2model.MutualAuthenticationVerifyMode, port, mode)
 	}
-	//Verify if the mutualAuthentication truststoreNameOrArn is not empty for Verify mode
+	// Verify if the mutualAuthentication truststoreNameOrArn is not empty for Verify mode
 	if mode == string(elbv2model.MutualAuthenticationVerifyMode) && truststoreNameOrArn == "" {
 		return errors.Errorf("trustStore is required when mutualAuthentication mode is verify for port %v", port)
 	}
-	//Verify if the mutualAuthentication truststoreNameOrArn is empty for Off and Passthrough modes
+	// Verify if the mutualAuthentication truststoreNameOrArn is empty for Off and Passthrough modes
 	if (mode == string(elbv2model.MutualAuthenticationOffMode) || mode == string(elbv2model.MutualAuthenticationPassthroughMode)) && truststoreNameOrArn != "" {
 		return errors.Errorf("Mutual Authentication mode %s does not support trustStore for port %v", mode, port)
 	}
-	//Verify if the mutualAuthentication ignoreClientCert is valid for Off and Passthrough modes
+	// Verify if the mutualAuthentication ignoreClientCert is valid for Off and Passthrough modes
 	if (mode == string(elbv2model.MutualAuthenticationOffMode) || mode == string(elbv2model.MutualAuthenticationPassthroughMode)) && ignoreClientCert != nil {
 		return errors.Errorf("Mutual Authentication mode %s does not support ignoring client certificate expiry for port %v", mode, port)
 	}
