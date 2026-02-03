@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
-	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -858,10 +859,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "certificates":[
                 {
-                   "certificateARN":"certArn1"
+									"certificateARN": {"$ref":"#/resources///status/certificateARN"}
                 },
                 {
-                   "certificateARN":"certArn2"
+									"certificateARN": {"$ref":"#/resources///status/certificateARN"}
                 }
              ]
           }
@@ -4195,10 +4196,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "certificates":[
                 {
-                   "certificateARN":"certArn1"
+									"certificateARN": {"$ref":"#/resources///status/certificateARN"}
                 },
                 {
-                   "certificateARN":"certArn2"
+									"certificateARN": {"$ref":"#/resources///status/certificateARN"}
                 }
              ]
           }
@@ -7202,7 +7203,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 
 				mockCollector := builder.metricsCollector.(*lbcmetrics.MockCollector)
 				assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
-
 			})
 		}
 	}

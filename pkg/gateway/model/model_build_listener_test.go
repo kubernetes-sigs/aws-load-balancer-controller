@@ -3,10 +3,11 @@ package model
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/go-logr/logr"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -890,7 +892,7 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/default-cert").CertificateARN(),
 				},
 			},
 		},
@@ -920,10 +922,10 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/extra-cert-1").CertificateARN(),
 				},
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/extra-cert-2").CertificateARN(),
 				},
 			},
 		},
@@ -954,13 +956,13 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/default-cert").CertificateARN(),
 				},
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/extra-cert-1").CertificateARN(),
 				},
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/extra-cert-2").CertificateARN(),
 				},
 			},
 		},
@@ -987,14 +989,14 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
 				mockCertDiscovery.EXPECT().
-					Discover(gomock.Any(), []string{"example.com"}).
+					Discover(gomock.Any(), []string{"example.com"}, nil).
 					Return([]string{
 						"arn:aws:acm:region:123456789012:certificate/cert-1",
 					}, nil)
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/cert-1").CertificateARN(),
 				},
 			},
 		},
@@ -1020,7 +1022,7 @@ func TestBuildCertificates(t *testing.T) {
 			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
 				// The hostnames will be sorted alphabetically by sets.NewString().List()
 				mockCertDiscovery.EXPECT().
-					Discover(gomock.Any(), []string{"*.example.org", "example.com"}).
+					Discover(gomock.Any(), []string{"*.example.org", "example.com"}, nil).
 					Return([]string{
 						"arn:aws:acm:region:123456789012:certificate/cert-1",
 						"arn:aws:acm:region:123456789012:certificate/cert-2",
@@ -1028,10 +1030,10 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/cert-1").CertificateARN(),
 				},
 				{
-					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/cert-2"),
+					CertificateARN: acmModel.NewExistingCertificate("arn:aws:acm:region:123456789012:certificate/cert-2").CertificateARN(),
 				},
 			},
 		},
@@ -1058,7 +1060,7 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
 				mockCertDiscovery.EXPECT().
-					Discover(gomock.Any(), []string{"example.com"}).
+					Discover(gomock.Any(), []string{"example.com"}, nil).
 					Return(nil, errors.New("certificate discovery failed"))
 			},
 			want:    []elbv2model.Certificate{},
@@ -2061,7 +2063,6 @@ func Test_BuildListenerRules(t *testing.T) {
 }
 
 func Test_buildL4TargetGroupTuples(t *testing.T) {
-
 	type tgValidation struct {
 		arn    string
 		weight int
