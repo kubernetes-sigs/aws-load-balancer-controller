@@ -71,8 +71,8 @@ type acmCertDiscovery struct {
 	privateCertDomainsCacheTTL  time.Duration
 }
 
-func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string, ownerTags map[string]string) ([]string, error) {
-	domainsByCertARN, err := d.loadDomainsForAllCertificates(ctx, ownerTags)
+func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string, filterTags map[string]string) ([]string, error) {
+	domainsByCertARN, err := d.loadDomainsForAllCertificates(ctx, filterTags)
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +96,11 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string, owne
 	return certARNs.List(), nil
 }
 
-func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context, ownerTags map[string]string) (map[string]sets.String, error) {
+func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context, filterTags map[string]string) (map[string]sets.String, error) {
 	d.loadDomainsByCertARNMutex.Lock()
 	defer d.loadDomainsByCertARNMutex.Unlock()
 
-	certARNs, err := d.loadAllCertificateARNs(ctx, ownerTags)
+	certARNs, err := d.loadAllCertificateARNs(ctx, filterTags)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context, ow
 	return domainsByCertARN, nil
 }
 
-func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context, ownerTags map[string]string) ([]string, error) {
+func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context, filterTags map[string]string) ([]string, error) {
 	if rawCacheItem, ok := d.certARNsCache.Get(certARNsCacheKey); ok {
 		return rawCacheItem.([]string), nil
 	}
@@ -146,7 +146,7 @@ func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context, ownerTags
 				return nil, err
 			}
 			certTags := convertTagsFromSDKTags(resp.Tags)
-			if !algorithm.ContainsSubMap(certTags, ownerTags) { // only add cert if there's no match
+			if !algorithm.ContainsSubMap(certTags, filterTags) { // only add cert if there's no match
 				certARNs = append(certARNs, certARN)
 			}
 		} else {
