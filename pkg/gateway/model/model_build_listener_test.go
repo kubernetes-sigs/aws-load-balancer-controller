@@ -1538,7 +1538,7 @@ func Test_BuildListenerRules(t *testing.T) {
 			},
 		},
 		{
-			name:             "redirect filter should result in redirect action",
+			name:             "redirect filter should result in redirect action - https",
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
@@ -1588,6 +1588,142 @@ func Test_BuildListenerRules(t *testing.T) {
 							Type: "redirect",
 							RedirectConfig: &elbv2model.RedirectActionConfig{
 								Protocol:   awssdk.String("HTTPS"),
+								Port:       awssdk.String("443"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "redirect filter should result in redirect action - http",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Filters: []gwv1.HTTPRouteFilter{
+										{
+											Type: gwv1.HTTPRouteFilterRequestRedirect,
+											RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+												Scheme:     awssdk.String("HTTP"),
+												StatusCode: awssdk.Int(301),
+											},
+										},
+									},
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "redirect",
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Protocol:   awssdk.String("HTTP"),
+								Port:       awssdk.String("80"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "redirect filter should result in redirect action - port specified",
+			port:             90,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
+			routes: map[int32][]routeutils.RouteDescriptor{
+				90: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Filters: []gwv1.HTTPRouteFilter{
+										{
+											Type: gwv1.HTTPRouteFilterRequestRedirect,
+											RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+												Scheme:     awssdk.String("HTTP"),
+												StatusCode: awssdk.Int(301),
+												Port:       (*gwv1.PortNumber)(awssdk.Int32(900)),
+											},
+										},
+									},
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "redirect",
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Protocol:   awssdk.String("HTTP"),
+								Port:       awssdk.String("900"),
 								StatusCode: "HTTP_301",
 							},
 						},

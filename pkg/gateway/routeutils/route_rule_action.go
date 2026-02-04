@@ -268,10 +268,23 @@ func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectCon
 	var protocol *string
 	if filter.Scheme != nil {
 		upperScheme := strings.ToUpper(*filter.Scheme)
-		if upperScheme != "HTTP" && upperScheme != "HTTPS" {
+
+		var defaultPort string
+		switch upperScheme {
+		case "HTTP":
+			defaultPort = "80"
+			break
+		case "HTTPS":
+			defaultPort = "443"
+			break
+		default:
 			return nil, errors.Errorf("unsupported redirect scheme: %v", upperScheme)
 		}
 		protocol = &upperScheme
+
+		if port == nil {
+			port = &defaultPort
+		}
 	}
 
 	var path *string
