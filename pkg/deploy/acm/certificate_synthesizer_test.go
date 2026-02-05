@@ -5,11 +5,340 @@ import (
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/acm"
 	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
+	route53types "github.com/aws/aws-sdk-go-v2/service/route53/types"
+	"github.com/go-logr/logr"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+func Test_Synthesizer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	logger := logr.New(&log.NullLogSink{})
+
+	tests := []struct {
+		name                     string
+		defaultCaArn             string
+		setup                    func(core.Stack, *services.MockACM, *services.MockRoute53, *tracking.MockProvider)
+		checkStack               func(s core.Stack)
+		wantErr                  error
+		wantToDeleteCertificates []CertificateWithTags
+	}{
+		{
+			name: "happy path with simple amazon issued certificate",
+			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
+				acmModel.NewCertificate(s, "amazon_issued/example.com", acmModel.CertificateSpec{
+					Type:                    acmtypes.CertificateTypeAmazonIssued,
+					DomainName:              "example.com",
+					SubjectAlternativeNames: []string{"example.com"},
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					Tags:                    map[string]string{},
+				})
+
+				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string{"foo": "bar"})
+
+				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
+
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+					Return([]acmtypes.CertificateSummary{}, nil)
+
+				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
+
+				mockTracking.EXPECT().ResourceTags(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(map[string]string{"foo": "bar"})
+
+				mockACM.EXPECT().RequestCertificateWithContext(gomock.Any(), gomock.Eq(&acm.RequestCertificateInput{
+					DomainName:              awssdk.String("example.com"),
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					SubjectAlternativeNames: []string{"example.com"},
+					Tags:                    []acmtypes.Tag{{Key: awssdk.String("foo"), Value: awssdk.String("bar")}},
+				})).Return(&acm.RequestCertificateOutput{CertificateArn: awssdk.String("arn-1")}, nil)
+
+				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
+					CertificateArn: awssdk.String("arn-1"),
+				})).Return(&acm.DescribeCertificateOutput{
+					Certificate: &acmtypes.CertificateDetail{
+						DomainValidationOptions: []acmtypes.DomainValidation{
+							{
+								ValidationMethod: acmtypes.ValidationMethodDns,
+								DomainName:       awssdk.String("example.com"),
+								ResourceRecord: &acmtypes.ResourceRecord{
+									Name:  awssdk.String("cname-name"),
+									Value: awssdk.String("cname-value"),
+									Type:  acmtypes.RecordTypeCname,
+								},
+							},
+						},
+					},
+				}, nil)
+
+				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+
+				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
+					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
+					ChangeBatch: &route53types.ChangeBatch{
+						Changes: []route53types.Change{
+							{
+								Action: "CREATE",
+								ResourceRecordSet: &route53types.ResourceRecordSet{
+									Name: awssdk.String("cname-name"),
+									Type: route53types.RRType(acmtypes.RecordTypeCname),
+									TTL:  awssdk.Int64(validationRecordTTL),
+									ResourceRecords: []route53types.ResourceRecord{
+										{Value: awssdk.String("cname-value")},
+									},
+								},
+							},
+						},
+					},
+				})).Return(nil, nil)
+
+				mockACM.EXPECT().WaitForCertificateIssuedWithContext(gomock.Any(), gomock.Eq("arn-1"), gomock.AssignableToTypeOf(time.Second)).Return(nil)
+			},
+			checkStack: func(s core.Stack) {
+				var resCerts []*acmModel.Certificate
+				err := s.ListResources(&resCerts)
+				assert.NoError(t, err)
+				assert.Len(t, resCerts, 1)
+				arn, err := resCerts[0].CertificateARN().Resolve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, arn, "arn-1")
+			},
+			wantErr:                  nil,
+			wantToDeleteCertificates: []CertificateWithTags(nil),
+		},
+		{
+			name: "happy path with existing certificate",
+			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
+				acmModel.NewCertificate(s, "amazon_issued/example.com", acmModel.CertificateSpec{
+					Type:                    acmtypes.CertificateTypeAmazonIssued,
+					DomainName:              "example.com",
+					SubjectAlternativeNames: []string{"example.com"},
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					Tags:                    map[string]string{},
+				})
+
+				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string{"foo": "bar"})
+
+				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
+
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+					Return([]acmtypes.CertificateSummary{{
+						CertificateArn:                  awssdk.String("arn-1"),
+						DomainName:                      awssdk.String("example.com"),
+						SubjectAlternativeNameSummaries: []string{"example.com"},
+						Type:                            acmtypes.CertificateTypeAmazonIssued,
+						Status:                          acmtypes.CertificateStatusIssued,
+					}}, nil)
+
+				mockACM.EXPECT().ListTagsForCertificate(gomock.Any(), gomock.Eq(&acm.ListTagsForCertificateInput{
+					CertificateArn: awssdk.String("arn-1"),
+				})).
+					Return(&acm.ListTagsForCertificateOutput{Tags: []acmtypes.Tag{
+						{
+							Key:   awssdk.String("foo"),
+							Value: awssdk.String("amazon_issued/example.com"),
+						},
+					}}, nil)
+
+				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
+				// no further describe/wait calls needed as the required cert is already present
+			},
+			checkStack: func(s core.Stack) {
+				var resCerts []*acmModel.Certificate
+				err := s.ListResources(&resCerts)
+				assert.NoError(t, err)
+				assert.Len(t, resCerts, 1)
+				arn, err := resCerts[0].CertificateARN().Resolve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, arn, "arn-1")
+			},
+			wantErr:                  nil,
+			wantToDeleteCertificates: []CertificateWithTags(nil),
+		},
+		{
+			name: "existing certificate but not enough SANs",
+			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
+				// add something to the stack
+				acmModel.NewCertificate(s, "amazon_issued/example.com", acmModel.CertificateSpec{
+					Type:                    acmtypes.CertificateTypeAmazonIssued,
+					DomainName:              "example.com",
+					SubjectAlternativeNames: []string{"example.com", "otherexample.com"},
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					Tags:                    map[string]string{},
+				})
+
+				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string{"foo": "bar"})
+
+				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
+
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+					Return([]acmtypes.CertificateSummary{{
+						CertificateArn:                  awssdk.String("arn-1"),
+						DomainName:                      awssdk.String("example.com"),
+						SubjectAlternativeNameSummaries: []string{"example.com"},
+						Type:                            acmtypes.CertificateTypeAmazonIssued,
+						Status:                          acmtypes.CertificateStatusIssued,
+					}}, nil)
+
+				mockACM.EXPECT().ListTagsForCertificate(gomock.Any(), gomock.Eq(&acm.ListTagsForCertificateInput{
+					CertificateArn: awssdk.String("arn-1"),
+				})).
+					Return(&acm.ListTagsForCertificateOutput{Tags: []acmtypes.Tag{
+						{
+							Key:   awssdk.String("foo"),
+							Value: awssdk.String("amazon_issued/example.com"),
+						},
+					}}, nil)
+
+				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
+
+				// calls for requesting a replacment cert
+				mockTracking.EXPECT().ResourceTags(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(map[string]string{"foo": "bar"})
+
+				mockACM.EXPECT().RequestCertificateWithContext(gomock.Any(), gomock.Eq(&acm.RequestCertificateInput{
+					DomainName:              awssdk.String("example.com"),
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					SubjectAlternativeNames: []string{"example.com", "otherexample.com"},
+					Tags:                    []acmtypes.Tag{{Key: awssdk.String("foo"), Value: awssdk.String("bar")}},
+				})).Return(&acm.RequestCertificateOutput{CertificateArn: awssdk.String("arn-2")}, nil)
+
+				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
+					CertificateArn: awssdk.String("arn-2"),
+				})).Return(&acm.DescribeCertificateOutput{
+					Certificate: &acmtypes.CertificateDetail{DomainValidationOptions: []acmtypes.DomainValidation{}},
+				}, nil)
+				//
+				// no call to route53 since we returned empty domain validation options
+				mockACM.EXPECT().WaitForCertificateIssuedWithContext(gomock.Any(), gomock.Eq("arn-2"), gomock.AssignableToTypeOf(time.Second)).Return(nil)
+			},
+			checkStack: func(s core.Stack) {
+				var resCerts []*acmModel.Certificate
+				err := s.ListResources(&resCerts)
+				assert.NoError(t, err)
+				assert.Len(t, resCerts, 1)
+				arn, err := resCerts[0].CertificateARN().Resolve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, arn, "arn-2")
+			},
+			wantErr: nil,
+			wantToDeleteCertificates: []CertificateWithTags{{
+				Certificate: &acmtypes.CertificateSummary{
+					CertificateArn:                  awssdk.String("arn-1"),
+					DomainName:                      awssdk.String("example.com"),
+					SubjectAlternativeNameSummaries: []string{"example.com"},
+					Status:                          acmtypes.CertificateStatusIssued,
+					Type:                            acmtypes.CertificateTypeAmazonIssued,
+				},
+				Tags: map[string]string{"foo": "amazon_issued/example.com"},
+			}},
+		},
+		{
+			name: "no certificate, cleaning orphaned resources",
+			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
+				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string{"foo": "bar"})
+
+				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
+
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+					Return([]acmtypes.CertificateSummary{{
+						CertificateArn:                  awssdk.String("arn-1"),
+						DomainName:                      awssdk.String("example.com"),
+						SubjectAlternativeNameSummaries: []string{"example.com"},
+						Type:                            acmtypes.CertificateTypeAmazonIssued,
+						Status:                          acmtypes.CertificateStatusIssued,
+					}}, nil)
+
+				mockACM.EXPECT().ListTagsForCertificate(gomock.Any(), gomock.Eq(&acm.ListTagsForCertificateInput{
+					CertificateArn: awssdk.String("arn-1"),
+				})).
+					Return(&acm.ListTagsForCertificateOutput{
+						Tags: []acmtypes.Tag{{
+							Key:   awssdk.String("foo"),
+							Value: awssdk.String("amazon_issued/example.com"),
+						}},
+					}, nil)
+
+				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
+			},
+			checkStack: func(s core.Stack) {
+				var resCerts []*acmModel.Certificate
+				err := s.ListResources(&resCerts)
+				assert.NoError(t, err)
+				assert.Len(t, resCerts, 0)
+			},
+			wantErr: nil,
+			wantToDeleteCertificates: []CertificateWithTags{{
+				Certificate: &acmtypes.CertificateSummary{
+					CertificateArn:                  awssdk.String("arn-1"),
+					DomainName:                      awssdk.String("example.com"),
+					SubjectAlternativeNameSummaries: []string{"example.com"},
+					Status:                          acmtypes.CertificateStatusIssued,
+					Type:                            acmtypes.CertificateTypeAmazonIssued,
+				},
+				Tags: map[string]string{"foo": "amazon_issued/example.com"},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "name"})
+			mockACM := services.NewMockACM(ctrl)
+			mockRoute53 := services.NewMockRoute53(ctrl)
+			mockTracking := tracking.NewMockProvider(ctrl)
+
+			// Setup stack and expectations
+			tt.setup(s, mockACM, mockRoute53, mockTracking)
+
+			m := &defaultCertificateManager{
+				acmClient:        mockACM,
+				route53Client:    mockRoute53,
+				logger:           logger,
+				trackingProvider: mockTracking,
+			}
+
+			if tt.defaultCaArn != "" {
+				m.defaultCaArn = tt.defaultCaArn
+			}
+
+			c := &certificateSynthesizer{
+				certificateManager: m,
+				logger:             logger,
+				stack:              s,
+				taggingManager: &defaultTaggingManager{
+					acmClient:            mockACM,
+					logger:               logger,
+					resourceTagsCache:    cache.NewExpiring(),
+					resourceTagsCacheTTL: defaultResourceTagsCacheTTL,
+				},
+				trackingProvider: mockTracking,
+			}
+
+			err := c.Synthesize(t.Context())
+
+			if tt.wantErr == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.EqualError(t, tt.wantErr, err.Error())
+			}
+			assert.Equal(t, tt.wantToDeleteCertificates, c.toDeleteCerts)
+
+			tt.checkStack(s)
+		})
+	}
+}
 
 func Test_matchResAndSDKCertificates(t *testing.T) {
 	stack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "name"})
