@@ -23,8 +23,10 @@ import (
 )
 
 const (
-	errNoValidationRecordsFound = "no validation records found"
-	validationRecordTTL         = 60
+	errNoValidationRecordsFound       = "no validation records found"
+	validationRecordTTL               = 60
+	retryIntervallDescribeCertificate = 5 * time.Second
+	retryTimeoutDescribeCertificate   = 30 * time.Second
 )
 
 // abstraction around certificate operations for ACM
@@ -78,7 +80,7 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 	}
 
 	var desc *acm.DescribeCertificateOutput
-	if err := runtime.RetryImmediateOnError(5*time.Second, 5*time.Second, isValidationRecordsNotFoundError, func() error {
+	if err := runtime.RetryImmediateOnError(retryIntervallDescribeCertificate, retryTimeoutDescribeCertificate, isValidationRecordsNotFoundError, func() error {
 		reqDesc := &acm.DescribeCertificateInput{
 			CertificateArn: resp.CertificateArn,
 		}
