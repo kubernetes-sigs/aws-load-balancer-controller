@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 
@@ -103,7 +102,6 @@ type defaultStackDeployer struct {
 	controllerName                      string
 	enableFrontendNLB                   bool
 	enableACMCertificates               bool
-	certDiscovery                       certs.CertDiscovery
 
 	logger logr.Logger
 }
@@ -144,7 +142,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 
 	// it's important that this synthesizer is called before the ListenerSynthesizer, due to the dependency
 	if d.enableACMCertificates {
-		synthesizers = append(synthesizers, acm.NewCertificateSynthesizer(d.acmManager, d.certDiscovery, d.trackingProvider, d.acmTaggingManager, d.logger, stack))
+		synthesizers = append(synthesizers, acm.NewCertificateSynthesizer(d.acmManager, d.trackingProvider, d.acmTaggingManager, d.logger, stack))
 	}
 
 	synthesizers = append(synthesizers,

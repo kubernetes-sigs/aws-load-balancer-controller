@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -31,14 +30,13 @@ const (
 )
 
 // NewCertificateSynthesizer( constructs new certificateSynthesizer
-func NewCertificateSynthesizer(certificateManager CertificateManager, certDiscovery certs.CertDiscovery, trackingProvider tracking.Provider, taggingManager TaggingManager, logger logr.Logger, stack core.Stack) *certificateSynthesizer {
+func NewCertificateSynthesizer(certificateManager CertificateManager, trackingProvider tracking.Provider, taggingManager TaggingManager, logger logr.Logger, stack core.Stack) *certificateSynthesizer {
 	return &certificateSynthesizer{
 		certificateManager: certificateManager,
 		trackingProvider:   trackingProvider,
 		taggingManager:     taggingManager,
 		logger:             logger,
 		stack:              stack,
-		certDiscovery:      certDiscovery,
 	}
 }
 
@@ -48,7 +46,6 @@ type certificateSynthesizer struct {
 	taggingManager     TaggingManager
 	logger             logr.Logger
 	stack              core.Stack
-	certDiscovery      certs.CertDiscovery
 	toDeleteCerts      []CertificateWithTags
 }
 
