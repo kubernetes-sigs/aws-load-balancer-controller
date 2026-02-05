@@ -21,7 +21,7 @@ import (
 
 const (
 	// cache ttl for tags on certificates.
-	defaultResourceTagsCacheTTL = 20 * time.Minute
+	defaultResourceTagsCacheTTL = 1 * time.Minute
 )
 
 type CertificateWithTags struct {
