@@ -25,8 +25,6 @@ const (
 	deleteWaitTimeout = 30 * time.Second
 
 	deleteWaitInterval = 5 * time.Second
-
-	privateCertSleepDuration = 10 * time.Second
 )
 
 // NewCertificateSynthesizer( constructs new certificateSynthesizer
