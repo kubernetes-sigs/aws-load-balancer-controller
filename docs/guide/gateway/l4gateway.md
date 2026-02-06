@@ -177,3 +177,16 @@ spec:
       value: "60"
 ```
 
+### QUIC Protocol Support
+
+The AWS Load Balancer Controller supports QUIC protocol for HTTP/3 traffic on Network Load Balancers. QUIC can be enabled for UDP and TCP_UDP listeners through the [LoadBalancerConfiguration](./loadbalancerconfig.md#quicenabled).
+
+**Key Features:**
+- Automatic protocol upgrade: UDP → QUIC, TCP_UDP → TCP_QUIC
+- HTTP/3 support for improved performance and reduced latency
+
+**Requirements:**
+- IP target type (instance target type not supported)
+- UDP or TCP_UDP protocol listeners
+
+
