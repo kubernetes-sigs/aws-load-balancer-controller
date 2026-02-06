@@ -13,22 +13,6 @@ The LBC Gateway API implementation supports the following Gateway API routes:
 
 The LBC is built for Gateway API version v1.3.0.
 
-## QUIC Protocol Support
-
-The AWS Load Balancer Controller supports QUIC protocol for HTTP/3 traffic on Network Load Balancers. QUIC can be enabled for UDP and TCP_UDP listeners through the [LoadBalancerConfiguration](./loadbalancerconfig.md#quicenabled).
-
-**Key Features:**
-- Automatic protocol upgrade: UDP → QUIC, TCP_UDP → TCP_QUIC
-- HTTP/3 support for improved performance and reduced latency
-- Compatible with existing Gateway API resources
-
-**Requirements:**
-- Network Load Balancer only
-- IP target type (instance target type not supported)
-- UDP or TCP_UDP protocol listeners
-
-See the [LoadBalancerConfiguration documentation](./loadbalancerconfig.md#quicenabled) for configuration details.
-
 ## Prerequisites
 * LBC >= v2.13.0
 * For `ip` target type:
