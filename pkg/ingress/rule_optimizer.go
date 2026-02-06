@@ -98,6 +98,10 @@ func isInfiniteRedirectRule(port int32, protocol elbv2model.Protocol, rule Rule)
 		case condition.Field == elbv2model.RuleConditionFieldHostHeader && condition.HostHeaderConfig != nil:
 			ruleHosts.Insert(condition.HostHeaderConfig.Values...)
 		case condition.Field == elbv2model.RuleConditionFieldPathPattern && condition.PathPatternConfig != nil:
+			// We dont check for infinite rules for regex paths
+			if len(condition.PathPatternConfig.RegexValues) > 0 {
+				return false
+			}
 			rulePaths.Insert(condition.PathPatternConfig.Values...)
 		}
 	}

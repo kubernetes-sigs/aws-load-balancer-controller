@@ -1286,6 +1286,38 @@ func Test_isInfiniteRedirectRule(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "isnt infinite redirect rule when for regex paths",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rule: Rule{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"www.example.com", "app.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/specific/path$"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "is infinite redirect rule when all fields are set to default value",
 			args: args{
 				port:     443,
