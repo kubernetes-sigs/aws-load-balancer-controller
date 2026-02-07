@@ -346,7 +346,7 @@ type Action struct {
 type Certificate struct {
 	// The Amazon Resource Name (ARN) of the certificate.
 	// +optional
-	CertificateARN *string `json:"certificateARN,omitempty"`
+	CertificateARN core.StringToken `json:"certificateARN,omitempty"`
 }
 
 // ALPNPolicy ALPN policy configuration for TLS listeners forwarding to TLS target groups

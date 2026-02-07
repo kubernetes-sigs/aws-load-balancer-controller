@@ -1023,6 +1023,35 @@ TLS support can be controlled with the following annotations:
     !!!warning "Trust stores limit per Application Load Balancer"
         A maximum of two different trust stores can be associated among listeners on the same ingress. See [Quotas for your Application Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html) in the AWS documentation for more details.
 
+## ACM Certificates
+
+!!!note
+    Please refer to the separate [ACM Certificates](./acm_certificates.md) feature documentation for prerequisites and behavior of these annotations.
+
+Creation of TLS ceritficates can be controlled using the following annotations:
+
+- <a name="create-acm-cert">`alb.ingress.kubernetes.io/create-acm-cert`</a> indicates that the controller is responsible for creating the necessary TLS certificate to fulfil TLS Listeners. By default amazon issued certificates are created.
+
+    !!!example
+          ```
+
+          alb.ingress.kubernetes.io/create-acm-cert: true
+
+
+          ```
+
+- <a name="acm-pca-arn">`alb.ingress.kubernetes.io/acm-pca-arn`</a> specifies the ARN of an Private Certificate Authority where ACM is authorized to issue certificates from.
+
+    !!!example
+          ```
+
+          alb.ingress.kubernetes.io/acm-pca-arn: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/3728f28c-b201-4dfd-b329-083833017297"
+
+
+          ```
+
+
+
 ## Custom attributes
 Custom attributes to LoadBalancers and TargetGroups can be controlled with following annotations:
 
