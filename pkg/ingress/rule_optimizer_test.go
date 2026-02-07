@@ -231,6 +231,886 @@ func Test_defaultRuleOptimizer_Optimize(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "catch-all regex rule should NOT overshadow specific regex rules",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/.*$"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("default.example.com"),
+									Path:       awssdk.String("/#{path}"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/api/.*"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeFixedResponse,
+								FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+									StatusCode:  "404",
+									MessageBody: awssdk.String("Not found"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/.*$"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("default.example.com"),
+								Path:       awssdk.String("/#{path}"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/api/.*"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeFixedResponse,
+							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+								StatusCode:  "404",
+								MessageBody: awssdk.String("Not found"),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "identical regex paths with different actions should be deduplicated",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/(sos/packages/embed-button)/.*$"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("b.example.com"),
+									Path:       awssdk.String("/#{path}"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/(sos/packages/embed-button)/.*$"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeFixedResponse,
+								FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+									StatusCode:  "403",
+									MessageBody: awssdk.String("403 permission denied"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/(sos/packages/embed-button)/.*$"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("b.example.com"),
+								Path:       awssdk.String("/#{path}"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "two different regex paths with redirect actions should be preserved",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/w/(custom_pin_code|form|survey)/?$"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("b.example.com"),
+									Path:       awssdk.String("/#{path}/not-found"),
+									Protocol:   awssdk.String("HTTPS"),
+									Port:       awssdk.String("443"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/(w/(survey|form|custom_pin_code)|sos/packages/embed-button)/.*"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("b.example.com"),
+									Path:       awssdk.String("/#{path}"),
+									Protocol:   awssdk.String("HTTPS"),
+									Port:       awssdk.String("443"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/w/(custom_pin_code|form|survey)/?$"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("b.example.com"),
+								Path:       awssdk.String("/#{path}/not-found"),
+								Protocol:   awssdk.String("HTTPS"),
+								Port:       awssdk.String("443"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/(w/(survey|form|custom_pin_code)|sos/packages/embed-button)/.*"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("b.example.com"),
+								Path:       awssdk.String("/#{path}"),
+								Protocol:   awssdk.String("HTTPS"),
+								Port:       awssdk.String("443"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "rules with different query strings should be preserved",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/api"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldQueryString,
+								QueryStringConfig: &elbv2model.QueryStringConditionConfig{
+									Values: []elbv2model.QueryStringKeyValuePair{
+										{Key: awssdk.String("version"), Value: "v1"},
+									},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("api-v1.example.com"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/api"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldQueryString,
+								QueryStringConfig: &elbv2model.QueryStringConditionConfig{
+									Values: []elbv2model.QueryStringKeyValuePair{
+										{Key: awssdk.String("version"), Value: "v2"},
+									},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("api-v2.example.com"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/api"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldQueryString,
+							QueryStringConfig: &elbv2model.QueryStringConditionConfig{
+								Values: []elbv2model.QueryStringKeyValuePair{
+									{Key: awssdk.String("version"), Value: "v1"},
+								},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("api-v1.example.com"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/api"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldQueryString,
+							QueryStringConfig: &elbv2model.QueryStringConditionConfig{
+								Values: []elbv2model.QueryStringKeyValuePair{
+									{Key: awssdk.String("version"), Value: "v2"},
+								},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("api-v2.example.com"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "rules with different HTTP methods should be preserved",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/api"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+								HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+									Values: []string{"GET"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("readonly.example.com"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/api"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+								HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+									Values: []string{"POST"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("writeapi.example.com"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/api"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+							HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+								Values: []string{"GET"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("readonly.example.com"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/api"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+							HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+								Values: []string{"POST"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("writeapi.example.com"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "rules with different source IPs should be preserved",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/admin"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldSourceIP,
+								SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+									Values: []string{"10.0.0.0/8"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("internal-admin.example.com"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/admin"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldSourceIP,
+								SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+									Values: []string{"192.168.0.0/16"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("vpn-admin.example.com"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/admin"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldSourceIP,
+							SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+								Values: []string{"10.0.0.0/8"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("internal-admin.example.com"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/admin"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldSourceIP,
+							SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+								Values: []string{"192.168.0.0/16"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("vpn-admin.example.com"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "complex scenario with mixed condition types",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/api/v[1-2]/users.*"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+								HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+									Values: []string{"GET"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("users-api.example.com"),
+									Path:       awssdk.String("/#{path}"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldHostHeader,
+								HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+									Values: []string{"a.example.com"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									RegexValues: []string{"^/api/v3/.*"},
+								},
+							},
+							{
+								Field: elbv2model.RuleConditionFieldQueryString,
+								QueryStringConfig: &elbv2model.QueryStringConditionConfig{
+									Values: []elbv2model.QueryStringKeyValuePair{
+										{Key: awssdk.String("beta"), Value: "true"},
+									},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("beta-api.example.com"),
+									Path:       awssdk.String("/#{path}"),
+									StatusCode: "HTTP_302",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/api/v[1-2]/users.*"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+							HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+								Values: []string{"GET"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("users-api.example.com"),
+								Path:       awssdk.String("/#{path}"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"a.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/api/v3/.*"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldQueryString,
+							QueryStringConfig: &elbv2model.QueryStringConditionConfig{
+								Values: []elbv2model.QueryStringKeyValuePair{
+									{Key: awssdk.String("beta"), Value: "true"},
+								},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("beta-api.example.com"),
+								Path:       awssdk.String("/#{path}"),
+								StatusCode: "HTTP_302",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -244,6 +1124,120 @@ func Test_defaultRuleOptimizer_Optimize(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+// TestIsSupersetConditions_DifferentRegexPaths tests that different regex paths are NOT considered supersets
+func TestIsSupersetConditions_DifferentRegexPaths(t *testing.T) {
+	tests := []struct {
+		name     string
+		lhsRules []elbv2model.RuleCondition
+		rhsRules []elbv2model.RuleCondition
+		expected bool
+	}{
+		{
+			name: "Different regex paths should NOT be supersets",
+			lhsRules: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						RegexValues: []string{"^/w/(custom_pin_code|form|survey)/?$"},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"a.example.com"},
+					},
+				},
+			},
+			rhsRules: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						RegexValues: []string{"^/(w/(survey|form|custom_pin_code)|sos/packages/embed-button)/.*"},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"a.example.com"},
+					},
+				},
+			},
+			expected: false, // Different regex patterns should NOT be superset
+		},
+		{
+			name: "Identical regex paths should be supersets",
+			lhsRules: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						RegexValues: []string{"^/(sos/packages/embed-button)/.*$"},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"a.example.com"},
+					},
+				},
+			},
+			rhsRules: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						RegexValues: []string{"^/(sos/packages/embed-button)/.*$"},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"a.example.com"},
+					},
+				},
+			},
+			expected: true, // Identical regex patterns should be superset
+		},
+		{
+			name: "Catch-all regex with other paths",
+			lhsRules: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						RegexValues: []string{"^/.*$"},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"a.example.com"},
+					},
+				},
+			},
+			rhsRules: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						RegexValues: []string{"^/specific/path$"},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"a.example.com"},
+					},
+				},
+			},
+			expected: false, // Different regex patterns, not superset
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSupersetConditions(tt.lhsRules, tt.rhsRules)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
@@ -290,6 +1284,38 @@ func Test_isInfiniteRedirectRule(t *testing.T) {
 				},
 			},
 			want: true,
+		},
+		{
+			name: "isnt infinite redirect rule when for regex paths",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rule: Rule{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: []string{"www.example.com", "app.example.com"},
+							},
+						},
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								RegexValues: []string{"^/specific/path$"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+				},
+			},
+			want: false,
 		},
 		{
 			name: "is infinite redirect rule when all fields are set to default value",
