@@ -98,6 +98,10 @@ func isInfiniteRedirectRule(port int32, protocol elbv2model.Protocol, rule Rule)
 		case condition.Field == elbv2model.RuleConditionFieldHostHeader && condition.HostHeaderConfig != nil:
 			ruleHosts.Insert(condition.HostHeaderConfig.Values...)
 		case condition.Field == elbv2model.RuleConditionFieldPathPattern && condition.PathPatternConfig != nil:
+			// We dont check for infinite rules for regex paths
+			if len(condition.PathPatternConfig.RegexValues) > 0 {
+				return false
+			}
 			rulePaths.Insert(condition.PathPatternConfig.Values...)
 		}
 	}
@@ -146,7 +150,11 @@ func isSupersetConditions(lhsConditions []elbv2model.RuleCondition, rhsCondition
 		case condition.Field == elbv2model.RuleConditionFieldHostHeader && condition.HostHeaderConfig != nil:
 			lhsHosts.Insert(condition.HostHeaderConfig.Values...)
 		case condition.Field == elbv2model.RuleConditionFieldPathPattern && condition.PathPatternConfig != nil:
-			lhsPaths.Insert(condition.PathPatternConfig.Values...)
+			if len(condition.PathPatternConfig.RegexValues) > 0 {
+				lhsPaths.Insert(condition.PathPatternConfig.RegexValues...)
+			} else {
+				lhsPaths.Insert(condition.PathPatternConfig.Values...)
+			}
 		default:
 			// if there are any other conditions, then we treat it as not superset.
 			return false
@@ -160,7 +168,11 @@ func isSupersetConditions(lhsConditions []elbv2model.RuleCondition, rhsCondition
 		case condition.Field == elbv2model.RuleConditionFieldHostHeader && condition.HostHeaderConfig != nil:
 			rhsHosts.Insert(condition.HostHeaderConfig.Values...)
 		case condition.Field == elbv2model.RuleConditionFieldPathPattern && condition.PathPatternConfig != nil:
-			rhsPaths.Insert(condition.PathPatternConfig.Values...)
+			if len(condition.PathPatternConfig.RegexValues) > 0 {
+				rhsPaths.Insert(condition.PathPatternConfig.RegexValues...)
+			} else {
+				rhsPaths.Insert(condition.PathPatternConfig.Values...)
+			}
 		}
 	}
 
