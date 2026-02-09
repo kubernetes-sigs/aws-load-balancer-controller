@@ -27,6 +27,7 @@ const (
 	TargetGroupBindingEventReasonFailedCleanup          = "FailedCleanup"
 	TargetGroupBindingEventReasonFailedNetworkReconcile = "FailedNetworkReconcile"
 	TargetGroupBindingEventReasonBackendNotFound        = "BackendNotFound"
+	TargetGroupBindingEventReasonFailedReconcile        = "FailedReconcile"
 	TargetGroupBindingEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
 
 	// Gateway events
