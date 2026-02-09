@@ -156,6 +156,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "update_status", updateTargetGroupBindingStatusFn)
 	if err != nil {
+		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "update_status_error", err, r.metricsCollector)
 	}
 
