@@ -213,7 +213,7 @@ func Test_buildHttpPathCondition(t *testing.T) {
 				{
 					Field: elbv2model.RuleConditionFieldPathPattern,
 					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
-						Values: []string{regexPathValue},
+						RegexValues: []string{regexPathValue},
 					},
 				},
 			},

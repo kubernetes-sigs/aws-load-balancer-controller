@@ -79,7 +79,14 @@ func buildHttpPathCondition(path *gwv1.HTTPPathMatch) ([]elbv2model.RuleConditio
 
 	// for regex match, we do not need special processing, it will be taken as it is
 	if pathType == gwv1.PathMatchRegularExpression {
-		pathValues = append(pathValues, pathValue)
+		return []elbv2model.RuleCondition{
+			{
+				Field: elbv2model.RuleConditionFieldPathPattern,
+				PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+					RegexValues: append(pathValues, pathValue),
+				},
+			},
+		}, nil
 	}
 
 	return []elbv2model.RuleCondition{
