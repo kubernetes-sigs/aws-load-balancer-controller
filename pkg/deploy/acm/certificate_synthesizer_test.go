@@ -245,6 +245,85 @@ func Test_Synthesizer(t *testing.T) {
 			}},
 		},
 		{
+			name: "existing certificate but not issued within reissueWaitTime",
+			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
+				// add something to the stack
+				acmModel.NewCertificate(s, "amazon_issued/example.com", acmModel.CertificateSpec{
+					Type:                    acmtypes.CertificateTypeAmazonIssued,
+					DomainName:              "example.com",
+					SubjectAlternativeNames: []string{"example.com"},
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					Tags:                    map[string]string{},
+				})
+
+				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string{"foo": "bar"})
+
+				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
+
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+					Return([]acmtypes.CertificateSummary{{
+						CertificateArn:                  awssdk.String("arn-1"),
+						DomainName:                      awssdk.String("example.com"),
+						SubjectAlternativeNameSummaries: []string{"example.com"},
+						Type:                            acmtypes.CertificateTypeAmazonIssued,
+						CreatedAt:                       awssdk.Time(time.Now().Add(-reissueWaitTime)),
+						Status:                          acmtypes.CertificateStatusPendingValidation,
+					}}, nil)
+
+				mockACM.EXPECT().ListTagsForCertificate(gomock.Any(), gomock.Eq(&acm.ListTagsForCertificateInput{
+					CertificateArn: awssdk.String("arn-1"),
+				})).
+					Return(&acm.ListTagsForCertificateOutput{Tags: []acmtypes.Tag{
+						{
+							Key:   awssdk.String("foo"),
+							Value: awssdk.String("amazon_issued/example.com"),
+						},
+					}}, nil)
+
+				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
+
+				// calls for requesting a replacment cert
+				mockTracking.EXPECT().ResourceTags(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(map[string]string{"foo": "bar"})
+
+				// the describe before the delete
+				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
+					CertificateArn: awssdk.String("arn-1"),
+				})).Return(&acm.DescribeCertificateOutput{
+					Certificate: &acmtypes.CertificateDetail{DomainValidationOptions: []acmtypes.DomainValidation{}},
+				}, nil)
+
+				mockACM.EXPECT().DeleteCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DeleteCertificateInput{CertificateArn: awssdk.String("arn-1")})).Return(&acm.DeleteCertificateOutput{}, nil)
+
+				mockACM.EXPECT().RequestCertificateWithContext(gomock.Any(), gomock.Eq(&acm.RequestCertificateInput{
+					DomainName:              awssdk.String("example.com"),
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					SubjectAlternativeNames: []string{"example.com"},
+					Tags:                    []acmtypes.Tag{{Key: awssdk.String("foo"), Value: awssdk.String("bar")}},
+				})).Return(&acm.RequestCertificateOutput{CertificateArn: awssdk.String("arn-2")}, nil)
+
+				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
+					CertificateArn: awssdk.String("arn-2"),
+				})).Return(&acm.DescribeCertificateOutput{
+					Certificate: &acmtypes.CertificateDetail{DomainValidationOptions: []acmtypes.DomainValidation{}},
+				}, nil)
+				//
+				// no call to route53 since we returned empty domain validation options
+				mockACM.EXPECT().WaitForCertificateIssuedWithContext(gomock.Any(), gomock.Eq("arn-2"), gomock.AssignableToTypeOf(time.Second)).Return(nil)
+			},
+			checkStack: func(s core.Stack) {
+				var resCerts []*acmModel.Certificate
+				err := s.ListResources(&resCerts)
+				assert.NoError(t, err)
+				assert.Len(t, resCerts, 1)
+				arn, err := resCerts[0].CertificateARN().Resolve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, arn, "arn-2")
+			},
+			wantErr:                  nil,
+			wantToDeleteCertificates: []CertificateWithTags(nil),
+		},
+		{
 			name: "no certificate, cleaning orphaned resources",
 			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
 				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string{"foo": "bar"})
@@ -560,29 +639,29 @@ func Test_matchResAndSDKCertificates(t *testing.T) {
 				},
 				resourceIDTagKey: "ingress.k8s.aws/resource",
 			},
-			want1: []*acmModel.Certificate{
+			want: []resAndSDKCertificatePair{
 				{
-					ResourceMeta: core.NewResourceMeta(stack, "AWS::ACM::Certificate", "id-4"),
-					Spec: acmModel.CertificateSpec{
-						Type:                    acmtypes.CertificateTypeAmazonIssued,
-						DomainName:              "example.com",
-						SubjectAlternativeNames: []string{"example.com"},
-						ValidationMethod:        acmtypes.ValidationMethodDns,
+					resCert: &acmModel.Certificate{
+						ResourceMeta: core.NewResourceMeta(stack, "AWS::ACM::Certificate", "id-4"),
+						Spec: acmModel.CertificateSpec{
+							Type:                    acmtypes.CertificateTypeAmazonIssued,
+							DomainName:              "example.com",
+							SubjectAlternativeNames: []string{"example.com"},
+							ValidationMethod:        acmtypes.ValidationMethodDns,
+						},
 					},
-				},
-			},
-			want2: []CertificateWithTags{
-				{
-					Certificate: &acmtypes.CertificateSummary{
-						CertificateArn:                  awssdk.String("arn-4"),
-						DomainName:                      awssdk.String("example.com"),
-						SubjectAlternativeNameSummaries: []string{"example.com"},
-						Type:                            acmtypes.CertificateTypeAmazonIssued,
-						Status:                          acmtypes.CertificateStatusPendingValidation,
-						CreatedAt:                       awssdk.Time(createdAtTimeBefore),
-					},
-					Tags: map[string]string{
-						"ingress.k8s.aws/resource": "id-4",
+					sdkCert: CertificateWithTags{
+						Certificate: &acmtypes.CertificateSummary{
+							CertificateArn:                  awssdk.String("arn-4"),
+							DomainName:                      awssdk.String("example.com"),
+							SubjectAlternativeNameSummaries: []string{"example.com"},
+							Type:                            acmtypes.CertificateTypeAmazonIssued,
+							Status:                          acmtypes.CertificateStatusPendingValidation,
+							CreatedAt:                       awssdk.Time(createdAtTimeBefore),
+						},
+						Tags: map[string]string{
+							"ingress.k8s.aws/resource": "id-4",
+						},
 					},
 				},
 			},
