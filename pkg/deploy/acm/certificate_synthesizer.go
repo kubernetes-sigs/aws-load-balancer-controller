@@ -89,17 +89,44 @@ func (c *certificateSynthesizer) Synthesize(ctx context.Context) error {
 		cert.SetStatus(certStatus)
 	}
 
-	// Matched certs are 100% identical but might not be issued yet (but we know they aren't older then reissueTime) based on isSDKCertificateRequiresReplacement
-	// we try to wait for them again and then set their ARN so that the model can proceed
+	// Matched certs are 100% identical but might not be fully issued yet
+	// we try to wait for them again or if they haven't been come issued within reissueWaitTime we recreate them
 	for _, cert := range matchedCerts {
+		certStatus := &acmModel.CertificateStatus{CertificateARN: *cert.sdkCert.Certificate.CertificateArn}
 		if cert.sdkCert.Certificate.Status != acmtypes.CertificateStatusIssued {
-			c.logger.Info("waiting for existing certificate to become issued", "certificateARN", cert.sdkCert.Certificate.CertificateArn, "status", cert.sdkCert.Certificate.Status, "requested_at", cert.sdkCert.Certificate.CreatedAt)
-			err := c.certificateManager.WaitForCertificateIssuedWithContext(ctx, *cert.sdkCert.Certificate.CertificateArn, validateWaitTime)
+			if cert.sdkCert.Certificate.CreatedAt.Add(reissueWaitTime).Compare(time.Now()) < 0 {
+				// certs not yet issued can't be in-use yet, so we can recreate them without retry
+				if cert.sdkCert.Certificate.Type == acmtypes.CertificateTypeAmazonIssued {
+					err = c.certificateManager.DeleteWithValidationRecords(ctx, awssdk.ToString(cert.sdkCert.Certificate.CertificateArn))
+					if err != nil {
+						return err
+					}
+
+					certStatus, err = c.certificateManager.CreateWithValidationRecords(ctx, cert.resCert)
+					if err != nil {
+						return err
+					}
+				} else {
+					err = c.certificateManager.Delete(ctx, awssdk.ToString(cert.sdkCert.Certificate.CertificateArn))
+					if err != nil {
+						return err
+					}
+
+					certStatus, err = c.certificateManager.Create(ctx, cert.resCert)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+			c.logger.Info("waiting for certificate to become issued", "certificateARN", cert.sdkCert.Certificate.CertificateArn)
+			err := c.certificateManager.WaitForCertificateIssuedWithContext(ctx, certStatus.CertificateARN, validateWaitTime)
 			if err != nil {
 				return err
 			}
 		}
-		cert.resCert.SetStatus(&acmModel.CertificateStatus{CertificateARN: *cert.sdkCert.Certificate.CertificateArn})
+
+		cert.resCert.SetStatus(certStatus)
 	}
 
 	return nil
@@ -202,11 +229,6 @@ func matchResAndSDKCertificates(resCerts []*acmModel.Certificate, sdkCerts []Cer
 func isSDKCertificateRequiresReplacement(sdkCert CertificateWithTags, resCert *acmModel.Certificate) bool {
 	// ensure all SANs are identical
 	if !algorithm.IsDiffStringSlice(sdkCert.Certificate.SubjectAlternativeNameSummaries, resCert.Spec.SubjectAlternativeNames) {
-		return true
-	}
-
-	// ensure it's issued (we also accept PENDING_VALIDATION certs that aren't older than reissueWaitTime, they might become valid during Synthesize)
-	if sdkCert.Certificate.Status != acmtypes.CertificateStatusIssued && sdkCert.Certificate.CreatedAt.Add(reissueWaitTime).Compare(time.Now()) < 0 {
 		return true
 	}
 
