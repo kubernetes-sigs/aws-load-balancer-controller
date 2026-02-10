@@ -1954,4 +1954,150 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 		})
 	})
+	Context("with ALB ip target configuration with HTTPRoute path match types (Exact, Prefix, RegularExpression)", func() {
+		BeforeEach(func() {})
+		It("should create listener rules with correct path-pattern condition types on the ALB", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "test-listener",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+				},
+			}
+
+			httpr := BuildHTTPRoute([]string{}, httpRouteRulesWithPathMatchers, nil)
+			By("deploying stack", func() {
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS loadbalancer resources", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:      "HTTP",
+						Port:          80,
+						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						TargetType:    "ip",
+						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+					},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying listener rules have correct path condition types", func() {
+				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, int32(gwListeners[0].Port), []verifier.ListenerRuleExpectation{
+					{
+						// Rule 1: Exact path match uses Values
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{testExactPath},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         awssdk.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 1,
+					},
+					{
+						// Rule 2: Prefix path match uses Values with wildcard expansion
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{testPrefixPath, fmt.Sprintf("%s/*", testPrefixPath)},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         awssdk.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 2,
+					},
+					{
+						// Rule 3: RegularExpression path match uses RegexValues
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									RegexValues: []string{testRegexPath},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         awssdk.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 3,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
 })

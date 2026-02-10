@@ -318,4 +318,45 @@ const (
 	testOidcAuthorizationEndpoint = "https://test-oidc-provider.example.com/oauth2/authorize"
 	testOidcTokenEndpoint         = "https://test-oidc-provider.example.com/oauth2/token"
 	testOidcUserInfoEndpoint      = "https://test-oidc-provider.example.com/oauth2/userinfo"
+	// constants used in path matcher tests
+	testExactPath  = "/exact-match-path"
+	testPrefixPath = "/prefix-match"
+	testRegexPath  = "/regex/[a-z]+/items"
 )
+
+// httpRouteRulesWithPathMatchers defines HTTPRoute rules exercising Exact, Prefix, and RegularExpression path types.
+var httpRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
+	{
+		Matches: []gwv1.HTTPRouteMatch{
+			{
+				Path: &gwv1.HTTPPathMatch{
+					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchExact}[0],
+					Value: awssdk.String(testExactPath),
+				},
+			},
+		},
+		BackendRefs: DefaultHttpRouteRuleBackendRefs,
+	},
+	{
+		Matches: []gwv1.HTTPRouteMatch{
+			{
+				Path: &gwv1.HTTPPathMatch{
+					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
+					Value: awssdk.String(testPrefixPath),
+				},
+			},
+		},
+		BackendRefs: DefaultHttpRouteRuleBackendRefs,
+	},
+	{
+		Matches: []gwv1.HTTPRouteMatch{
+			{
+				Path: &gwv1.HTTPPathMatch{
+					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchRegularExpression}[0],
+					Value: awssdk.String(testRegexPath),
+				},
+			},
+		},
+		BackendRefs: DefaultHttpRouteRuleBackendRefs,
+	},
+}
