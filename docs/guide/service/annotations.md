@@ -91,9 +91,12 @@ Traffic Routing can be controlled with following annotations:
     !!!note ""
         - [Deprecated] For type `nlb-ip`, the controller will provision an NLB with targets registered by IP address. This value is supported for backwards compatibility.
         - For type `external`, the NLB target type depends on the [nlb-target-type](#nlb-target-type) annotation.
+        - `nlb` is **not** a valid value for this annotation.
 
-    !!!warning "limitations"
-        - This annotation should not be modified after service creation.
+    !!!warning "Limitations"
+        - Do not add this annotation to an existing Service.
+        - Do not modify this annotation on an existing Service.
+        - Adding or modifying this annotation on an existing Service can lead to leaked resources or security issues such as unintentionally exposing your NLB to the Internet.
 
     !!!example
         ```
