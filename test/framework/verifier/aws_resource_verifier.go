@@ -490,6 +490,9 @@ func verifyListenerRuleConditions(actual, expected []elbv2types.RuleCondition) e
 					if !slices.Equal(actualCondition.PathPatternConfig.Values, expectedCondition.PathPatternConfig.Values) {
 						return errors.Errorf("expected listener rule condition path-pattern values %v, got %v", expectedCondition.PathPatternConfig.Values, actualCondition.PathPatternConfig.Values)
 					}
+					if !slices.Equal(actualCondition.PathPatternConfig.RegexValues, expectedCondition.PathPatternConfig.RegexValues) {
+						return errors.Errorf("expected listener rule condition path-pattern regex values %v, got %v", expectedCondition.PathPatternConfig.RegexValues, actualCondition.PathPatternConfig.RegexValues)
+					}
 				}
 			}
 			if !foundPath {
