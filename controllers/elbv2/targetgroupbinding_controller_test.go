@@ -132,3 +132,130 @@ func TestTargetGroupBindingReconciler_Delete_Stuck(t *testing.T) {
 		assert.Equal(t, "cleanup failed due to AWS error", condition.Message)
 	}
 }
+
+func TestTargetGroupBindingReconciler_Reconcile_FailedReconcile(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	elbv2api.AddToScheme(scheme)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tgb",
+			Namespace: "default",
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/test/123",
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(tgb).WithRuntimeObjects(tgb).Build()
+
+	// Setup Mocks
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
+	mockFinalizerManager.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	mockResMgr := targetgroupbinding.NewMockResourceManager(ctrl)
+	mockResMgr.EXPECT().Reconcile(gomock.Any(), gomock.Any()).Return(false, errors.New("target group not found"))
+
+	fakeRecorder := record.NewFakeRecorder(10)
+
+	reconciler := &targetGroupBindingReconciler{
+		k8sClient:                            k8sClient,
+		eventRecorder:                        fakeRecorder,
+		finalizerManager:                     mockFinalizerManager,
+		tgbResourceManager:                   mockResMgr,
+		deferredTargetGroupBindingReconciler: &mockDeferredReconciler{},
+		logger:                               log.Log.WithName("controllers").WithName("TargetGroupBinding"),
+		metricsCollector:                     &mockMetricCollector{},
+		reconcileCounters:                    metricsutil.NewReconcileCounters(),
+	}
+
+	req := reconcile.Request{
+		NamespacedName: client.ObjectKey{
+			Namespace: "default",
+			Name:      "test-tgb",
+		},
+	}
+
+	// EXECUTE
+	_, err := reconciler.Reconcile(context.Background(), req)
+
+	// VERIFY
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "target group not found")
+
+	// Verify FailedReconcile event was emitted
+	select {
+	case event := <-fakeRecorder.Events:
+		assert.Contains(t, event, "FailedReconcile")
+		assert.Contains(t, event, "target group not found")
+	default:
+		t.Fatal("expected FailedReconcile event but none was emitted")
+	}
+}
+
+func TestTargetGroupBindingReconciler_Reconcile_Success(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	elbv2api.AddToScheme(scheme)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tgb",
+			Namespace: "default",
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/test/123",
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(tgb).WithRuntimeObjects(tgb).Build()
+
+	// Setup Mocks
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
+	mockFinalizerManager.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	mockResMgr := targetgroupbinding.NewMockResourceManager(ctrl)
+	mockResMgr.EXPECT().Reconcile(gomock.Any(), gomock.Any()).Return(false, nil)
+
+	fakeRecorder := record.NewFakeRecorder(10)
+
+	reconciler := &targetGroupBindingReconciler{
+		k8sClient:                            k8sClient,
+		eventRecorder:                        fakeRecorder,
+		finalizerManager:                     mockFinalizerManager,
+		tgbResourceManager:                   mockResMgr,
+		deferredTargetGroupBindingReconciler: &mockDeferredReconciler{},
+		logger:                               log.Log.WithName("controllers").WithName("TargetGroupBinding"),
+		metricsCollector:                     &mockMetricCollector{},
+		reconcileCounters:                    metricsutil.NewReconcileCounters(),
+	}
+
+	req := reconcile.Request{
+		NamespacedName: client.ObjectKey{
+			Namespace: "default",
+			Name:      "test-tgb",
+		},
+	}
+
+	// EXECUTE
+	_, err := reconciler.Reconcile(context.Background(), req)
+
+	// VERIFY
+	assert.NoError(t, err)
+
+	// Verify SuccessfullyReconciled event was emitted
+	select {
+	case event := <-fakeRecorder.Events:
+		assert.Contains(t, event, "SuccessfullyReconciled")
+		assert.Contains(t, event, "Successfully reconciled")
+	default:
+		t.Fatal("expected SuccessfullyReconciled event but none was emitted")
+	}
+}
