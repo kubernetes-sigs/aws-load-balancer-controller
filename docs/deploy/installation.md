@@ -11,7 +11,9 @@ The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" fun
 !!!warning "When using AWS Load Balancer Controller v2.5+"
     The AWS LBC provides a mutating webhook for service resources to set the `spec.loadBalancerClass` field for service of type LoadBalancer on create.
     This makes the AWS LBC the **default controller for service** of type LoadBalancer. You can disable this feature and revert to set Cloud Controller Manager (in-tree controller) as the default by setting the helm chart value **enableServiceMutatorWebhook to false** with `--set enableServiceMutatorWebhook=false` .
-    You will no longer be able to provision new Classic Load Balancer (CLB) from your kubernetes service unless you disable this feature. Existing CLB will continue to work fine.
+    You will no longer be able to provision new Classic Load Balancer (CLB) from your kubernetes service unless you disable this feature. Existing CLB will continue to work fine. 
+
+    If you are updating the `type` of an existing Service to `LoadBalancer`, the webhook **will not** run. If you want to use the LBC, you must specify it. [See instructions](/docs/guide/service/nlb.md).
 
 ## Supported Kubernetes versions
 * AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15-1.21

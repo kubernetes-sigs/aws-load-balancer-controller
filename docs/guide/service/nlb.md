@@ -93,10 +93,10 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
 
     When you specify the [`service.beta.kubernetes.io/aws-load-balancer-type` annotation](./annotations.md#lb-type) to be `external` on a Kubernetes Service resource of type `LoadBalancer`, the in-tree controller ignores the Service resource. In addition, if you specify the [`service.beta.kubernetes.io/aws-load-balancer-nlb-target-type` annotation](./annotations.md#nlb-target-type) on the Service resource, the LBC takes charge of reconciliation by provisioning an NLB.
 
-    !!! warning
-        - It's not recommended to modify or add the `service.beta.kubernetes.io/aws-load-balancer-type` annotation on an existing Service resource. If a change is desired, delete the existing Service resource and create a new one instead of modifying an existing Service.
-
-        - If you modify this annotation on an existing Service resource, you might end up with leaked LBC resources.
+    !!! danger
+        - Do not modify or add the `service.beta.kubernetes.io/aws-load-balancer-type` annotation on an existing Service resource. 
+        - Doing so can lead to leaked resources or security issues such as unintentionally exposing your NLB to the Internet.
+        - If a change is desired, delete the existing Service resource and create a new one instead of modifying an existing Service.
 
     !!! note "backwards compatibility for `nlb-ip` type"
         For backwards compatibility, both the in-tree and LBC controller supports `nlb-ip` as a value for the `service.beta.kubernetes.io/aws-load-balancer-type` annotation. The controllers treats it as if you specified both of the following annotations:
