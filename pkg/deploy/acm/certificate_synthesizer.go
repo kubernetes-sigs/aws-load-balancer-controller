@@ -198,20 +198,16 @@ func matchResAndSDKCertificates(resCerts []*acmModel.Certificate, sdkCerts []Cer
 	for _, resID := range resCertIDs.Intersection(sdkCertIDs).List() {
 		resCert := resCertsByID[resID]
 		sdkCerts := sdkCertsByID[resID]
-		foundMatch := false
 		for _, sdkCert := range sdkCerts {
 			if isSDKCertificateRequiresReplacement(sdkCert, resCert) {
 				unmatchedSDKCerts = append(unmatchedSDKCerts, sdkCert)
 				unmatchedResCerts = append(unmatchedResCerts, resCert)
 				continue
-			}
-			matchedCerts = append(matchedCerts, resAndSDKCertificatePair{
-				resCert: resCert,
-				sdkCert: sdkCert,
-			})
-			foundMatch = true
-			if !foundMatch {
-				unmatchedResCerts = append(unmatchedResCerts, resCert)
+			} else {
+				matchedCerts = append(matchedCerts, resAndSDKCertificatePair{
+					resCert: resCert,
+					sdkCert: sdkCert,
+				})
 			}
 		}
 	}
