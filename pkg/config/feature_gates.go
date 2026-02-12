@@ -39,6 +39,7 @@ const (
 	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
 	ALBTargetControlAgent         Feature = "ALBTargetControlAgent"
 	GatewayListenerSet            Feature = "GatewayListenerSet"
+	EnableCertificateManagement   Feature = "EnableCertificateManagement"
 )
 
 type FeatureGates interface {
@@ -58,8 +59,10 @@ type FeatureGates interface {
 	BindFlags(fs *pflag.FlagSet)
 }
 
-var _ FeatureGates = (*defaultFeatureGates)(nil)
-var _ pflag.Value = (*defaultFeatureGates)(nil)
+var (
+	_ FeatureGates = (*defaultFeatureGates)(nil)
+	_ pflag.Value  = (*defaultFeatureGates)(nil)
+)
 
 type defaultFeatureGates struct {
 	featureState map[Feature]FeatureStatus
@@ -90,6 +93,7 @@ func NewFeatureGates() FeatureGates {
 			EnableDefaultTagsLowPriority:  generateDefaultFeatureStatus(false),
 			ALBTargetControlAgent:         generateDefaultFeatureStatus(false),
 			GatewayListenerSet:            generateDefaultFeatureStatus(true),
+			EnableCertificateManagement:   generateDefaultFeatureStatus(false),
 		},
 	}
 }
