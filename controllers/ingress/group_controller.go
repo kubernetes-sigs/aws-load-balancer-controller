@@ -63,14 +63,14 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, controllerConfig.IngressConfig.TolerateNonExistentBackendService, controllerConfig.IngressConfig.TolerateNonExistentBackendAction)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
-	certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.IngressConfig.EnableACMCertificates, logger)
+	certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
 		cloud.EC2(), cloud.ELBV2(), cloud.WAFv2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.IngressConfig.EnableACMCertificates, controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, logger, metricsCollector, certDiscovery)
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, logger, metricsCollector, certDiscovery)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
 		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector, true)

@@ -1026,7 +1026,7 @@ TLS support can be controlled with the following annotations:
 ## ACM Certificates
 
 !!!note
-    Please refer to the separate [ACM Certificates](./acm_certificates.md) feature documentation for prerequisites and behavior of these annotations.
+    Please refer to the separate [Certificates Management](./certificate_management.md) feature documentation for prerequisites and behavior of these annotations.
 
 Creation of TLS ceritficates can be controlled using the following annotations:
 
