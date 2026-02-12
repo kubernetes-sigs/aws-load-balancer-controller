@@ -277,7 +277,6 @@ type defaultModelBuildTask struct {
 	defaultCAArn                              string
 
 	loadBalancer               *elbv2model.LoadBalancer
-	certificate                *acmModel.Certificate
 	tgByResID                  map[string]*elbv2model.TargetGroup
 	backendServices            map[types.NamespacedName]*corev1.Service
 	secretKeys                 []types.NamespacedName
@@ -352,11 +351,6 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	lb, err := t.buildLoadBalancer(ctx, t.listenPortConfigByPort)
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
-	}
-
-	// add dependency for certificate ARN to resolve to a valid ARN (known after apply)
-	if t.certificate != nil {
-		t.stack.AddDependency(t.certificate, t.loadBalancer)
 	}
 
 	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, t.listenPortConfigByPort)
