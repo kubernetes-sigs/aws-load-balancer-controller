@@ -69,7 +69,6 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		metricsCollector:                    metricsCollector,
 		controllerName:                      controllerName,
 		enableFrontendNLB:                   enableFrontendNLB,
-		enableACMCertificates:               config.IngressConfig.EnableACMCertificates,
 	}
 }
 
@@ -101,7 +100,6 @@ type defaultStackDeployer struct {
 	metricsCollector                    lbcmetrics.MetricCollector
 	controllerName                      string
 	enableFrontendNLB                   bool
-	enableACMCertificates               bool
 
 	logger logr.Logger
 }
@@ -141,7 +139,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 	}
 
 	// it's important that this synthesizer is called before the ListenerSynthesizer, due to the dependency
-	if d.enableACMCertificates {
+	if d.featureGates.Enabled(config.EnableCertificateManagement) {
 		synthesizers = append(synthesizers, acm.NewCertificateSynthesizer(d.acmManager, d.trackingProvider, d.acmTaggingManager, d.logger, stack))
 	}
 

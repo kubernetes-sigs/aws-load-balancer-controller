@@ -1,10 +1,10 @@
-# ACM Certificates Management
+# ACM Certificate Management
 
 TLS certificates for ALB Listeners can be automatically created with hostnames from Ingress resources if enabled.
 
 ## Enabling Certificate Management
 
-To enable the controller to automatically create TLS certificates in ACM, set the `--enable-acm-certificates` flag on the deployment.
+To enable the controller to automatically create TLS certificates in ACM, set the [EnableCertificateManagement](../../deploy/configurations.md#feature-gates) feature gate.
 
 !!!note "Permisisons"
     This feature also requires additional permissions in the IAM role of the controller. You can find an appropriate policy statement to attach to the existing IAM role [here](../../install/iam_policy_acm_certs.json).
