@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/shield"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -20,13 +21,16 @@ import (
 
 // NewLoadBalancerSynthesizer constructs loadBalancerSynthesizer
 func NewLoadBalancerSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	lbManager LoadBalancerManager, logger logr.Logger, featureGates config.FeatureGates, controllerConfig config.ControllerConfig, stack core.Stack) *loadBalancerSynthesizer {
+	lbManager LoadBalancerManager, logger logr.Logger, featureGates config.FeatureGates, controllerConfig config.ControllerConfig,
+	shieldProtectionManager shield.ProtectionManager, shieldProtectionCleanupEnabled bool, stack core.Stack) *loadBalancerSynthesizer {
 	return &loadBalancerSynthesizer{
 		elbv2Client:                    elbv2Client,
 		trackingProvider:               trackingProvider,
 		taggingManager:                 taggingManager,
 		lbManager:                      lbManager,
 		logger:                         logger,
+		shieldProtectionManager:        shieldProtectionManager,
+		shieldProtectionCleanupEnabled: shieldProtectionCleanupEnabled,
 		stack:                          stack,
 		featureGates:                   featureGates,
 		controllerConfig:               controllerConfig,
@@ -42,6 +46,8 @@ type loadBalancerSynthesizer struct {
 	taggingManager                 TaggingManager
 	lbManager                      LoadBalancerManager
 	logger                         logr.Logger
+	shieldProtectionManager        shield.ProtectionManager
+	shieldProtectionCleanupEnabled bool
 	stack                          core.Stack
 	featureGates                   config.FeatureGates
 	controllerConfig               config.ControllerConfig
@@ -67,6 +73,9 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 	//  * we can avoid the operation to detach a targetGroup from unmatched LBs. (a targetGroup can only attach to one LB).
 	// I don't like this, but it's the easiest solution to meet our requirement :D.
 	for _, sdkLB := range unmatchedSDKLBs {
+		if err := s.deleteManagedShieldProtection(ctx, sdkLB); err != nil {
+			return err
+		}
 		if err := s.lbManager.Delete(ctx, sdkLB); err != nil {
 			errMessage := err.Error()
 			if strings.Contains(errMessage, "OperationNotPermitted") && strings.Contains(errMessage, "deletion protection") {
@@ -105,6 +114,38 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 			})
 		}
 		resAndSDKLB.resLB.SetStatus(lbStatus)
+	}
+	return nil
+}
+
+func (s *loadBalancerSynthesizer) deleteManagedShieldProtection(ctx context.Context, sdkLB LoadBalancerWithTags) error {
+	if !s.shieldProtectionCleanupEnabled || s.shieldProtectionManager == nil {
+		return nil
+	}
+	if sdkLB.LoadBalancer == nil || sdkLB.LoadBalancer.Type != elbv2types.LoadBalancerTypeEnumApplication {
+		return nil
+	}
+	lbARN := awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn)
+	if lbARN == "" {
+		return nil
+	}
+
+	protectionInfo, err := s.shieldProtectionManager.GetProtection(ctx, lbARN)
+	if err != nil {
+		return errors.Wrap(err, "failed to get shield protection on LoadBalancer")
+	}
+	if protectionInfo == nil {
+		return nil
+	}
+	if !shield.IsManagedProtectionName(protectionInfo.Name) {
+		s.logger.Info("ignoring unmanaged shield protection",
+			"resourceARN", lbARN,
+			"protectionName", protectionInfo.Name,
+			"protectionID", protectionInfo.ID)
+		return nil
+	}
+	if err := s.shieldProtectionManager.DeleteProtection(ctx, lbARN, protectionInfo.ID); err != nil {
+		return errors.Wrap(err, "failed to delete shield protection on LoadBalancer")
 	}
 	return nil
 }
