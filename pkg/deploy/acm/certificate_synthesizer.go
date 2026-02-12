@@ -20,7 +20,7 @@ import (
 const (
 	reissueWaitTime = 5 * time.Minute
 
-	validateWaitTime = 5 * time.Minute
+	validateWaitTime = 30 * time.Minute
 
 	deleteWaitTimeout = 30 * time.Second
 
