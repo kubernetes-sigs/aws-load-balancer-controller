@@ -32,7 +32,6 @@ func (t *defaultModelBuildTask) buildACMCertificates(ctx context.Context, ing *C
 	certID := t.buildCertificateResourceID(certSpec)
 
 	cert := acmModel.NewCertificate(t.stack, certID, *certSpec)
-	t.certificate = cert
 	return cert, nil
 }
 

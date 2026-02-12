@@ -34,7 +34,9 @@ This reconciliation might fail if there are no certificates present to autodisco
 
 ### Certificate Validation
 
-Amazon Issued certificates are currently validated using DNS Method and Route53 records. E-Mail validation is not supported due to significant higher delays between requesting a certificate and it's issuance. When using a PCA, certificates don't have to be validated.
+Amazon Issued certificates are currently validated using DNS Method and Route53 records. Validation can take [up to 30 minutes](https://docs.aws.amazon.com/acm/latest/userguide/dns-validation.html). 
+E-Mail validation is not supported due to significant higher delays between requesting a certificate and it's issuance. 
+When using a PCA, certificates don't have to be validated.
 
 ## PCA-Support
 
