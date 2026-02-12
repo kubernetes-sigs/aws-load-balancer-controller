@@ -102,6 +102,10 @@ Generate certificates for webhook
 caCert: {{ .Values.webhookTLS.caCert | b64enc }}
 clientCert: {{ .Values.webhookTLS.cert | b64enc }}
 clientKey: {{ .Values.webhookTLS.key | b64enc }}
+{{- else if and .Values.keepTLSSecret (not .Values.enableCertManager) $secret -}}
+caCert: {{ index $secret.data "ca.crt" }}
+clientCert: {{ index $secret.data "tls.crt" }}
+clientKey: {{ index $secret.data "tls.key" }}
 {{- else -}}
 {{- $altNames := list (printf "%s.%s" $serviceName .Release.Namespace) (printf "%s.%s.svc" $serviceName .Release.Namespace) (printf "%s.%s.svc.%s" $serviceName .Release.Namespace .Values.cluster.dnsDomain) -}}
 {{- $ca := genCA "aws-load-balancer-controller-ca" 3650 -}}
