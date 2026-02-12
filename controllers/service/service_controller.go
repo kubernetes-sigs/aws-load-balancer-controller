@@ -49,7 +49,7 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
-	serviceUtils := service.NewServiceUtils(annotationParser, shared_constants.ServiceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
+	serviceUtils := service.NewServiceUtils(annotationParser, shared_constants.ServiceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates, logger)
 	enhancedBackendBuilder := service.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, logger)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
 		elbv2TaggingManager, cloud.EC2(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
