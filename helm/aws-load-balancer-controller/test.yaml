@@ -172,6 +172,9 @@ logLevel:
 # The address the metric endpoint binds to. (default ":8080")
 metricsBindAddr: ""
 
+# The address the health endpoint binds to. (default ":61779")
+healthProbeBindAddr: ":61779"
+
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
 
@@ -223,7 +226,6 @@ livenessProbe:
   failureThreshold: 2
   httpGet:
     path: /healthz
-    port: 61779
     scheme: HTTP
   initialDelaySeconds: 30
   timeoutSeconds: 10
