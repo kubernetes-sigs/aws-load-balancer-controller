@@ -12,4 +12,6 @@ const (
 
 	// IngressReconcileTimeout is the timeout we expected the controller finishes reconcile for Ingresses.
 	IngressReconcileTimeout = 1 * time.Minute
+	// CertReconcileTimeout is the timeout we expect the controller finishes reconcile ACM certificates for it's Ingress objects
+	CertReconcileTimeout = 30 * time.Minute
 )

@@ -34,12 +34,17 @@ type Options struct {
 	ControllerImage string
 
 	// Additional parameters for e2e tests
-	S3BucketName       string
-	CertificateARNs    string
-	IPFamily           string
-	TestImageRegistry  string
-	EnableGatewayTests bool
-	EnableAGATests     bool
+	S3BucketName        string
+	CertificateARNs     string
+	IPFamily            string
+	TestImageRegistry   string
+	EnableGatewayTests  bool
+	EnableAGATests      bool
+	EnableCertMgmtTests bool
+
+	// ACM Certificate Management configuration for e2e test
+	Route53ValidationDomain string
+	PCAARN                  string
 
 	// Cognito configuration for e2e tests
 	CognitoUserPoolArn      string
@@ -68,6 +73,10 @@ func (options *Options) BindFlags() {
 
 	flag.BoolVar(&options.EnableGatewayTests, "enable-gateway-tests", false, "enables gateway tests")
 	flag.BoolVar(&options.EnableAGATests, "enable-aga-tests", false, "enables AWS Global Accelerator tests")
+	flag.BoolVar(&options.EnableCertMgmtTests, "enable-cert-tests", false, "enables AWS ACM Certificate Management tests")
+
+	flag.StringVar(&options.Route53ValidationDomain, "route53-validation-domain", "", `Route53 domain that can be used for requesting amazon_issued certificates`)
+	flag.StringVar(&options.PCAARN, "pca-arn", "", `PCA ARN of CA that can be used to request private certificates`)
 
 	flag.StringVar(&options.CognitoUserPoolArn, "cognito-user-pool-arn", "", `Cognito User Pool ARN for authenticate-cognito tests`)
 	flag.StringVar(&options.CognitoUserPoolClientId, "cognito-user-pool-client-id", "", `Cognito User Pool Client ID for authenticate-cognito tests`)

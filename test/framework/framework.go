@@ -37,6 +37,7 @@ type Framework struct {
 	DPManager               k8sresources.DeploymentManager
 	SVCManager              k8sresources.ServiceManager
 	INGManager              k8sresources.IngressManager
+	CertManager             awsresources.CertificateManager
 	LBManager               awsresources.LoadBalancerManager
 	TGManager               awsresources.TargetGroupManager
 
@@ -93,6 +94,7 @@ func InitFramework() (*Framework, error) {
 		INGManager:              k8sresources.NewDefaultIngressManager(k8sClient, logger),
 		LBManager:               awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger),
 		TGManager:               awsresources.NewDefaultTargetGroupManager(cloud.ELBV2(), logger),
+		CertManager:             awsresources.NewDefaultCertificateManager(cloud.ACM(), logger),
 
 		HTTPVerifier: http.NewDefaultVerifier(),
 		UDPVerifier:  udp.NewDefaultVerifier(),
