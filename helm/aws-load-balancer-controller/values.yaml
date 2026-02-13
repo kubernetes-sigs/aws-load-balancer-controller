@@ -464,10 +464,35 @@ serviceMutatorWebhookConfig:
   - CREATE
     # - UPDATE
 
-# podMutatorWebhookConfig contains configurations specific to the service mutator webhook
+# podMutatorWebhookConfig contains configurations specific to the pod mutator webhook
 podMutatorWebhookConfig:
   # whether or not to fail the pod creation if the webhook fails
   failurePolicy: Ignore
+
+# podServerIdMutatorWebhookConfig contains configurations specific to the pod service id mutator webhook
+podServerIdMutatorWebhookConfig:
+  # whether or not to fail the pod creation if the webhook fails
+  failurePolicy: Fail
+
+# tgbMutatorWebhookConfig contains configurations specific to the targetgroupbinding webhook
+tgbMutatorWebhookConfig:
+  # whether or not to fail the tgb creation if the webhook fails
+  failurePolicy: Fail
+
+# ingressClassParamsValidatorWebhookConfig contains configurations specific to the ingress class params validator webhook
+ingressClassParamsValidatorWebhookConfig:
+  # whether or not to fail the ingress creation if the webhook fails
+  failurePolicy: Fail
+
+# tgbValidatorWebhookConfig contains configurations specific to the targetgroupbinding webhook
+tgbValidatorWebhookConfig:
+  # whether or not to fail the tgb creation if the webhook fails
+  failurePolicy: Fail
+
+# ingressValidatorWebhookConfig contains configurations specific to the ingress validator webhook
+ingressValidatorWebhookConfig:
+  # whether or not to fail the ingress creation if the webhook fails
+  failurePolicy: Fail
 
 # serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
 serviceTargetENISGTags:
