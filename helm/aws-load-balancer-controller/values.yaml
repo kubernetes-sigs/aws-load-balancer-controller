@@ -226,6 +226,9 @@ logLevel:
 # The address the metric endpoint binds to. (default ":8080")
 metricsBindAddr: ""
 
+# The address the health probe endpoint binds to. (default ":61779")
+healthProbeBindAddr: ""
+
 webhookConfig:
   # disableIngressValidation disables the validation of resources of kind Ingress, false by default
   disableIngressValidation:
@@ -285,22 +288,20 @@ tolerateNonExistentBackendAction:
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
 
-# Liveness probe configuration for the controller
+# Liveness probe configuration for the controller. Port is derived from healthProbeBindAddr.
 livenessProbe:
   failureThreshold: 2
   httpGet:
     path: /healthz
-    port: 61779
     scheme: HTTP
   initialDelaySeconds: 30
   timeoutSeconds: 10
 
-# readiness probe configuration for the controller
+# Readiness probe configuration for the controller. Port is derived from healthProbeBindAddr.
 readinessProbe:
   failureThreshold: 2
   httpGet:
     path: /readyz
-    port: 61779
     scheme: HTTP
   successThreshold: 1
   initialDelaySeconds: 10
