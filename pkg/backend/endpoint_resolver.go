@@ -3,20 +3,36 @@ package backend
 import (
 	"context"
 	"fmt"
+	"math"
+	"reflect"
+	"sort"
+	"sync"
+	"time"
 
+	"codeberg.org/miekg/dns"
+	"codeberg.org/miekg/dns/dnsconf"
+	"codeberg.org/miekg/dns/dnsutil"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var ErrNotFound = errors.New("backend not found")
+
+// resolvConf variable is only meant to be changed for testing
+var resolvConf = "/etc/resolv.conf"
+
+// dnsPort variable is only meant to be changed for testing
+var dnsPort = 53
 
 // TODO: for pod endpoints, we currently rely on endpoints events, we might change to use pod events directly in the future.
 // under current implementation with pod readinessGate enabled, an unready endpoint but not match our inclusionCriteria won't be registered,
@@ -33,6 +49,8 @@ type EndpointResolver interface {
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
 	ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
 		opts ...EndpointResolveOption) ([]NodePortEndpoint, error)
+
+	Cleanup(ctx context.Context, svcKey *elbv2api.TargetGroupBinding)
 }
 
 // NewDefaultEndpointResolver constructs new defaultEndpointResolver
@@ -43,6 +61,10 @@ func NewDefaultEndpointResolver(k8sClient client.Client, podInfoRepo k8s.PodInfo
 		failOpenEnabled:      failOpenEnabled,
 		endpointSliceEnabled: endpointSliceEnabled,
 		logger:               logger,
+
+		externalNameServices:    make(map[types.NamespacedName]string),
+		externalNameReconcilers: make(map[string]*externalNameReconciler),
+		externalNameMutex:       sync.Mutex{},
 	}
 }
 
@@ -58,15 +80,70 @@ type defaultEndpointResolver struct {
 	// [Pod Endpoint] whether to use endpointSlice instead of endpoints
 	endpointSliceEnabled bool
 	logger               logr.Logger
+
+	externalNameServices    map[types.NamespacedName]string
+	externalNameReconcilers map[string]*externalNameReconciler
+	externalNameMutex       sync.Mutex
+}
+
+type externalNameReconciler struct {
+	cancel   context.CancelFunc
+	services map[types.NamespacedName]int32
+}
+
+func (r *defaultEndpointResolver) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) {
+	qualifiedSvcName := types.NamespacedName{
+		Namespace: tgb.Namespace,
+		Name:      tgb.Spec.ServiceRef.Name,
+	}
+	r.externalNameMutex.Lock()
+	defer r.externalNameMutex.Unlock()
+	externalName, ok := r.externalNameServices[qualifiedSvcName]
+	if !ok {
+		return
+	}
+	delete(r.externalNameServices, qualifiedSvcName)
+	r.removeReconciler(externalName, qualifiedSvcName)
+	go func() {
+		if err := r.k8sClient.DeleteAllOf(ctx, &discovery.EndpointSlice{},
+			client.InNamespace(tgb.Namespace),
+			client.MatchingLabels{
+				discovery.LabelServiceName: tgb.Spec.ServiceRef.Name,
+				discovery.LabelManagedBy:   "aws-load-balancer-controller",
+			}); err != nil {
+			r.logger.Error(err, "failed to delete EndpointSlices", "service", tgb.Spec.ServiceRef.Name)
+		}
+	}()
+}
+
+func (r *defaultEndpointResolver) removeReconciler(externalName string, qualifiedSvcName types.NamespacedName) {
+	reconciler, ok := r.externalNameReconcilers[externalName]
+	if !ok {
+		return
+	}
+	delete(reconciler.services, qualifiedSvcName)
+	if len(reconciler.services) > 0 {
+		return
+	}
+	reconciler.cancel()
+	delete(r.externalNameReconcilers, externalName)
+	// Delete endpoint slice generated for ExternalName service
+	return
 }
 
 func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...EndpointResolveOption) ([]PodEndpoint, bool, error) {
 	resolveOpts := defaultEndpointResolveOptions()
 	resolveOpts.ApplyOptions(opts)
 
-	_, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
+	svc, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
 	if err != nil {
 		return nil, false, err
+	}
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		err = r.startReconcileExternalNameEndpointSlice(ctx, svc, svcPort.TargetPort)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to reconcile external name service: %w", err)
+		}
 	}
 	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey)
 	if err != nil {
@@ -147,67 +224,75 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 
 	for _, epsData := range endpointsDataList {
 		for _, port := range epsData.Ports {
-			if len(svcPort.Name) != 0 && svcPort.Name != awssdk.ToString(port.Name) {
+			epsPortName := awssdk.ToString(port.Name)
+			if len(svcPort.Name) != 0 && len(epsPortName) != 0 && svcPort.Name != epsPortName {
 				continue
 			}
 			epPort := awssdk.ToInt32(port.Port)
 			for _, ep := range epsData.Endpoints {
-				if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
-					continue
-				}
 				if len(ep.Addresses) == 0 {
 					continue // this should never happen per specification.
 				}
-				epAddr := ep.Addresses[0]
 
-				podNamespace := svcKey.Namespace
-				if ep.TargetRef.Namespace != "" {
-					podNamespace = ep.TargetRef.Namespace
-				}
-				podKey := types.NamespacedName{Namespace: podNamespace, Name: ep.TargetRef.Name}
-				pod, exists, err := r.podInfoRepo.Get(ctx, podKey)
-				if err != nil {
-					return nil, false, err
-				}
-				if !exists {
-					r.logger.Info("the pod in endpoint is not found in pod cache yet, will keep retrying", "podKey", podKey.String())
-					containsPotentialReadyEndpoints = true
-					continue
-				}
-
-				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)
-				// Recommendation from Kubernetes is to consider unknown ready status as ready (ready == nil)
-				if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
-					readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
-					continue
-				}
-
-				if !pod.IsContainersReady() {
-					if pod.HasAnyOfReadinessGates(podReadinessGates) {
+				if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
+					for _, epAddr := range ep.Addresses {
+						readyPodEndpoints = append(readyPodEndpoints,
+							PodEndpoint{
+								IP:   epAddr,
+								Port: epPort,
+							})
+					}
+				} else {
+					epAddr := ep.Addresses[0]
+					podNamespace := svcKey.Namespace
+					if ep.TargetRef.Namespace != "" {
+						podNamespace = ep.TargetRef.Namespace
+					}
+					podKey := types.NamespacedName{Namespace: podNamespace, Name: ep.TargetRef.Name}
+					pod, exists, err := r.podInfoRepo.Get(ctx, podKey)
+					if err != nil {
+						return nil, false, err
+					}
+					if !exists {
+						r.logger.Info("the pod in endpoint is not found in pod cache yet, will keep retrying", "podKey", podKey.String())
 						containsPotentialReadyEndpoints = true
+						continue
 					}
-					continue
-				}
 
-				node := &corev1.Node{}
-				if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
-					r.logger.Error(err, "ignore pod Endpoint without non-exist nodeInfo", "podKey", podKey.String())
-					continue
-				}
-
-				nodeReadyCondStatus := corev1.ConditionFalse
-				if readyCond := k8s.GetNodeCondition(node, corev1.NodeReady); readyCond != nil {
-					nodeReadyCondStatus = readyCond.Status
-				}
-				switch nodeReadyCondStatus {
-				case corev1.ConditionTrue:
-					// start from 1.22+, terminating pods are included in endpointSlices,
-					// and we don't want to include these pods if the node is known to be healthy.
-					if ep.Conditions.Terminating == nil || !*ep.Conditions.Terminating {
+					podEndpoint := buildPodEndpoint(pod, epAddr, epPort)
+					// Recommendation from Kubernetes is to consider unknown ready status as ready (ready == nil)
+					if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
 						readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
+						continue
 					}
-				case corev1.ConditionUnknown:
-					unknownPodEndpoints = append(unknownPodEndpoints, podEndpoint)
+
+					if !pod.IsContainersReady() {
+						if pod.HasAnyOfReadinessGates(podReadinessGates) {
+							containsPotentialReadyEndpoints = true
+						}
+						continue
+					}
+
+					node := &corev1.Node{}
+					if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
+						r.logger.Error(err, "ignore pod Endpoint without non-exist nodeInfo", "podKey", podKey.String())
+						continue
+					}
+
+					nodeReadyCondStatus := corev1.ConditionFalse
+					if readyCond := k8s.GetNodeCondition(node, corev1.NodeReady); readyCond != nil {
+						nodeReadyCondStatus = readyCond.Status
+					}
+					switch nodeReadyCondStatus {
+					case corev1.ConditionTrue:
+						// start from 1.22+, terminating pods are included in endpointSlices,
+						// and we don't want to include these pods if the node is known to be healthy.
+						if ep.Conditions.Terminating == nil || !*ep.Conditions.Terminating {
+							readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
+						}
+					case corev1.ConditionUnknown:
+						unknownPodEndpoints = append(unknownPodEndpoints, podEndpoint)
+					}
 				}
 			}
 		}
@@ -291,7 +376,7 @@ func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
 	return PodEndpoint{
 		IP:           epAddr,
 		Port:         port,
-		Pod:          pod,
+		Pod:          &pod,
 		QuicServerID: pod.GetQUICServerID(port),
 	}
 }
@@ -335,4 +420,186 @@ func convertCoreEndpointAddressToDiscoveryEndpoint(endpoint corev1.EndpointAddre
 		ep.Hostname = awssdk.String(endpoint.Hostname)
 	}
 	return ep
+}
+
+func (r *defaultEndpointResolver) watchExternalName(ctx context.Context, externalName string, reconciler *externalNameReconciler) {
+	ttl, err := r.reconcileExternalNameEndpointSlice(ctx, externalName, reconciler)
+	if ttl == math.MaxUint32 || ttl < 10 {
+		// Try again in 10 seconds if no valid TTL was found. Don't query in less than 10 seconds to avoid churn
+		ttl = 10
+	}
+	ticker := time.NewTicker(time.Second * time.Duration(ttl))
+	defer ticker.Stop()
+
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+	case _ = <-ticker.C:
+		go r.watchExternalName(ctx, externalName, reconciler)
+	}
+
+	if err != nil && err != context.Canceled {
+		r.logger.Error(err, "failure in watching externalname",
+			"externalname", externalName)
+	}
+}
+
+func (r *defaultEndpointResolver) startReconcileExternalNameEndpointSlice(ctx context.Context, svc *corev1.Service, port intstr.IntOrString) error {
+	if !r.endpointSliceEnabled {
+		return fmt.Errorf("using external name service is not supported when endpoint slice is disabled")
+	}
+	qualifiedSvcName := k8s.NamespacedName(svc)
+	r.externalNameMutex.Lock()
+	defer r.externalNameMutex.Unlock()
+
+	externalName, ok := r.externalNameServices[qualifiedSvcName]
+	if externalName == svc.Spec.ExternalName {
+		return nil
+	}
+	if ok {
+		r.removeReconciler(externalName, qualifiedSvcName)
+	}
+
+	currentExternalName := svc.Spec.ExternalName
+	r.externalNameServices[qualifiedSvcName] = currentExternalName
+	reconciler, ok := r.externalNameReconcilers[currentExternalName]
+	if ok {
+		reconciler.cancel()
+		reconciler.services[qualifiedSvcName] = port.IntVal
+	} else {
+		reconciler = &externalNameReconciler{
+			services: map[types.NamespacedName]int32{qualifiedSvcName: port.IntVal},
+		}
+		r.externalNameReconcilers[currentExternalName] = reconciler
+	}
+	cancelCtx, cancel := context.WithCancel(ctx)
+	reconciler.cancel = cancel
+	go r.watchExternalName(cancelCtx, currentExternalName, reconciler)
+	return nil
+}
+
+func (r *defaultEndpointResolver) reconcileExternalNameEndpointSlice(ctx context.Context, externalName string, reconciler *externalNameReconciler) (uint32, error) {
+	dnsConf, err := dnsconf.FromFile(resolvConf)
+	if err != nil {
+		return 0, fmt.Errorf("failing to read /etc/resolv.conf: %w", err)
+	}
+
+	addresses, minTTL := r.resolveExternalName(ctx, dnsConf, externalName)
+	for svcKey, portNumber := range reconciler.services {
+		labels := map[string]string{
+			discovery.LabelManagedBy:   "aws-load-balancer-controller",
+			discovery.LabelServiceName: svcKey.Name,
+		}
+		epSliceList := &discovery.EndpointSliceList{}
+		if err := r.k8sClient.List(ctx, epSliceList,
+			client.InNamespace(svcKey.Namespace),
+			client.MatchingLabels(labels)); err != nil {
+			return minTTL, fmt.Errorf("failing to list EndpointSlices: %w", err)
+		}
+		sort.Strings(addresses)
+		if len(epSliceList.Items) == 0 {
+			if len(addresses) == 0 {
+				return minTTL, nil
+			}
+			// Create EndPointSlice
+			epSlice := &discovery.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:    svcKey.Namespace,
+					GenerateName: svcKey.Name + "-",
+					Labels:       labels,
+				},
+				AddressType: discovery.AddressTypeIPv4,
+				Endpoints: []discovery.Endpoint{
+					{
+						Addresses: addresses,
+					},
+				},
+				Ports: []discovery.EndpointPort{
+					{
+						Port: &portNumber,
+					},
+				},
+			}
+			r.logger.V(1).Info("creating EndpointSlice",
+				"addresses", addresses,
+				"service", svcKey.Name,
+				"namespace", svcKey.Namespace,
+			)
+			if err := r.k8sClient.Create(ctx, epSlice); err != nil {
+				return minTTL, fmt.Errorf("failing to create EndpointSlice: %w", err)
+			}
+		} else if len(epSliceList.Items) == 1 {
+			// Synchronize EndPointSlice
+			persistedES := epSliceList.Items[0]
+			if len(addresses) == 0 {
+				if err = r.k8sClient.Delete(ctx, &persistedES); err != nil {
+					return minTTL, fmt.Errorf("failing to delete EndpointSlice: %w", err)
+				}
+			} else {
+				persistedAddresses := persistedES.Endpoints[0].Addresses
+				if !reflect.DeepEqual(persistedAddresses, addresses) {
+					persistedES.Endpoints[0].Addresses = addresses
+					r.logger.V(1).Info("updating EndpointSlice",
+						"name", persistedES.GetName(),
+						"addresses", addresses,
+						"service", svcKey.Name,
+						"namespace", svcKey.Namespace,
+					)
+					if err = r.k8sClient.Update(ctx, &persistedES); err != nil {
+						return minTTL, fmt.Errorf("failing to update EndpointSlice: %w", err)
+					}
+				}
+			}
+		} else {
+			return minTTL, errors.New("multiple endpoint slice resources found")
+		}
+	}
+	return minTTL, nil
+}
+
+func (r *defaultEndpointResolver) resolveExternalName(ctx context.Context, dnsConf *dnsconf.Config, externalName string) ([]string, uint32) {
+	var addresses []string
+	var minTTL uint32
+	minTTL = math.MaxUint32
+	c := new(dns.Client)
+
+	for _, server := range dnsConf.Servers {
+		for _, domain := range dnsConf.NameList(externalName) {
+			// Since svc.Spec.IPFamilies is nil for services with svc.Spec.Type = corev1.ServiceTypeExternalName
+			// targetGroup.Spec.IPAddressType = "ipv4". To support AAAA the logic for setting IPAddressType would need to be changed.
+			qtype := dns.TypeA
+			m := dns.NewMsg(dnsutil.Fqdn(domain), qtype)
+			m.RecursionDesired = true
+			resp, _, err := c.Exchange(ctx, m, "udp", fmt.Sprintf("%s:%d", server, dnsPort))
+			if err != nil {
+				r.logger.V(1).Info("DNS query for external name failed",
+					"server", server,
+					"domain", domain,
+					"error", err)
+				continue
+			}
+			if resp.Rcode != dns.RcodeSuccess {
+				r.logger.V(1).Info("DNS query for external name failed",
+					"server", server,
+					"domain", domain,
+					"error", dns.RcodeToString[resp.Rcode])
+				continue
+			}
+
+			for _, ans := range resp.Answer {
+				minTTL = min(ans.Header().TTL, minTTL)
+				if a, ok := ans.(*dns.A); ok {
+					addresses = append(addresses, a.A.String())
+				}
+			}
+			if addresses != nil {
+				r.logger.V(1).Info("got DNS response for external name",
+					"server", server,
+					"addresses", addresses,
+					"domain", domain)
+				return addresses, minTTL
+			}
+		}
+	}
+	return nil, minTTL
 }
