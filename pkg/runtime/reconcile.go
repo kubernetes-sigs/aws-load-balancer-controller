@@ -29,6 +29,19 @@ func HandleReconcileError(inputErr error, log logr.Logger) (ctrl.Result, error) 
 	return ctrl.Result{}, inputErr
 }
 
+// IsRequeueError returns true when err indicates a requeue (expected retry).
+func IsRequeueError(err error) bool {
+	var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
+	if errors.As(err, &requeueNeededAfter) {
+		return true
+	}
+	var requeueNeeded *ctrlerrors.RequeueNeeded
+	if errors.As(err, &requeueNeeded) {
+		return true
+	}
+	return false
+}
+
 func handleNestedError(err error) error {
 	if err == nil {
 		return nil

@@ -141,7 +141,9 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "reconcile_targetgroupbinding", tgbResourceFn)
 	if err != nil {
-		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedReconcile, fmt.Sprintf("Failed reconcile due to %v", err))
+		if !runtime.IsRequeueError(err) {
+			r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedReconcile, fmt.Sprintf("Failed reconcile due to %v", err))
+		}
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "reconcile_targetgroupbinding_error", err, r.metricsCollector)
 	}
 
