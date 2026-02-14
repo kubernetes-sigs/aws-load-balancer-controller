@@ -2,6 +2,7 @@ package service
 
 import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -224,7 +225,7 @@ func Test_defaultServiceUtils_IsServiceSupported(t *testing.T) {
 			if tt.restrictToTypeLoadBalancer {
 				featureGates.Enable(config.ServiceTypeLoadBalancerOnly)
 			}
-			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
+			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates, logr.Discard())
 			got := serviceUtils.IsServiceSupported(tt.svc)
 			assert.Equal(t, tt.want, got)
 		})
@@ -273,7 +274,7 @@ func Test_defaultServiceUtils_IsServicePendingFinalization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			featureGates := config.NewFeatureGates()
-			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
+			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates, logr.Discard())
 			got := serviceUtils.IsServicePendingFinalization(tt.svc)
 			assert.Equal(t, tt.want, got)
 		})

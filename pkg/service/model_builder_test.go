@@ -7153,7 +7153,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				for _, call := range tt.fetchVPCInfoCalls {
 					vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 				}
-				serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
+				serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates, logr.Discard())
 				defaultTargetType := tt.defaultTargetType
 				if defaultTargetType == "" {
 					defaultTargetType = "instance"

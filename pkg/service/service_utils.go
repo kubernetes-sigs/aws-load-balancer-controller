@@ -1,6 +1,9 @@
 package service
 
 import (
+	"fmt"
+
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -17,12 +20,13 @@ type ServiceUtils interface {
 }
 
 func NewServiceUtils(annotationsParser annotations.Parser, serviceFinalizer string, loadBalancerClass string,
-	featureGates config.FeatureGates) *defaultServiceUtils {
+	featureGates config.FeatureGates, logger logr.Logger) *defaultServiceUtils {
 	return &defaultServiceUtils{
 		annotationParser:  annotationsParser,
 		serviceFinalizer:  serviceFinalizer,
 		loadBalancerClass: loadBalancerClass,
 		featureGates:      featureGates,
+		logger:            logger,
 	}
 }
 
@@ -33,6 +37,7 @@ type defaultServiceUtils struct {
 	serviceFinalizer  string
 	loadBalancerClass string
 	featureGates      config.FeatureGates
+	logger            logr.Logger
 }
 
 // IsServicePendingFinalization returns true if service has the aws-load-balancer-controller finalizer
@@ -63,15 +68,24 @@ func (u *defaultServiceUtils) IsServiceSupported(service *corev1.Service) bool {
 
 func (u *defaultServiceUtils) checkAWSLoadBalancerTypeAnnotation(service *corev1.Service) bool {
 	lbType := ""
-	_ = u.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations)
+	lbTypeExists := u.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations)
 	if lbType == LoadBalancerTypeNLBIP {
 		return true
 	}
 	var lbTargetType string
-	_ = u.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, service.Annotations)
+	targetTypeExists := u.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, service.Annotations)
 	if lbType == LoadBalancerTypeExternal && (lbTargetType == LoadBalancerTargetTypeIP ||
 		lbTargetType == LoadBalancerTargetTypeInstance) {
 		return true
 	}
+
+	if targetTypeExists {
+		u.logger.Info(fmt.Sprintf("Service %+v is using unrecognized load balancer (%s) type and target type (%s)",
+			k8s.NamespacedName(service), lbType, lbTargetType))
+	} else if lbTypeExists {
+		u.logger.Info(fmt.Sprintf("Service %+v is using unrecognized load balancer (%s) type",
+			k8s.NamespacedName(service), lbType))
+	}
+
 	return false
 }
