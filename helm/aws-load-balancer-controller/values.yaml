@@ -239,6 +239,9 @@ webhookTLS:
   cert:
   key:
 
+# keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade when cert-manager is not being used
+keepTLSSecret: false
+
 # array of namespace selectors for the pod mutator webhook
 webhookNamespaceSelectors:
 # - key: elbv2.k8s.aws/pod-readiness-gate-inject
