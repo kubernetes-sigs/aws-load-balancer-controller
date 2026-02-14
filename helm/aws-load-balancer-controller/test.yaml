@@ -173,7 +173,7 @@ logLevel:
 metricsBindAddr: ""
 
 # The address the health endpoint binds to. (default ":61779")
-healthProbeBindAddr: ":61779"
+healthProbeBindAddr: ""
 
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
