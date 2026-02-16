@@ -114,11 +114,12 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 
 	// validate listeners configuration and get listener status
-	listenerValidationResults := validateListeners(gw.Spec.Listeners, controllerName)
+	listeners := gw.Spec.Listeners
+	listenerValidationResults := validateListeners(listeners, controllerName)
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, gw.Spec.Listeners, loadedRoutes)
+	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, listeners, loadedRoutes)
 
 	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
 
@@ -147,7 +148,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	return &LoaderResult{
 		Routes:            loadedRoute,
-		Listeners:         gw.Spec.Listeners,
+		Listeners:         listeners,
 		AttachedRoutesMap: attachedRouteMap,
 		ValidationResults: listenerValidationResults,
 	}, nil

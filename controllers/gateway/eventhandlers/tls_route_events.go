@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -12,12 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // NewEnqueueRequestsForTLSRouteEvent creates handler for TLSRoute resources
 func NewEnqueueRequestsForTLSRouteEvent(
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwalpha2.TLSRoute, reconcile.Request] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gatewayv1.TLSRoute, reconcile.Request] {
 	return &enqueueRequestsForTLSRouteEvent{
 		k8sClient:     k8sClient,
 		eventRecorder: eventRecorder,
@@ -25,7 +26,7 @@ func NewEnqueueRequestsForTLSRouteEvent(
 	}
 }
 
-var _ handler.TypedEventHandler[*gwalpha2.TLSRoute, reconcile.Request] = (*enqueueRequestsForTLSRouteEvent)(nil)
+var _ handler.TypedEventHandler[*gatewayv1.TLSRoute, reconcile.Request] = (*enqueueRequestsForTLSRouteEvent)(nil)
 
 // enqueueRequestsForTLSRouteEvent handles TLSRoute events
 type enqueueRequestsForTLSRouteEvent struct {
@@ -34,31 +35,31 @@ type enqueueRequestsForTLSRouteEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForTLSRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwalpha2.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForTLSRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	routeNew := e.Object
 	h.logger.V(1).Info("enqueue tlsroute create event", "tlsroute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)
 }
 
-func (h *enqueueRequestsForTLSRouteEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gwalpha2.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForTLSRouteEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gatewayv1.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	routeNew := e.ObjectNew
 	h.logger.V(1).Info("enqueue tlsroute update event", "tlsroute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)
 }
 
-func (h *enqueueRequestsForTLSRouteEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gwalpha2.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForTLSRouteEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gatewayv1.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	route := e.Object
 	h.logger.V(1).Info("enqueue tlsroute delete event", "tlsroute", route.Name)
 	h.enqueueImpactedGateways(ctx, route, queue)
 }
 
-func (h *enqueueRequestsForTLSRouteEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwalpha2.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForTLSRouteEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gatewayv1.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	route := e.Object
 	h.logger.V(1).Info("enqueue tlsroute generic event", "tlsroute", route.Name)
 	h.enqueueImpactedGateways(ctx, route, queue)
 }
 
-func (h *enqueueRequestsForTLSRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gwalpha2.TLSRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForTLSRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gatewayv1.TLSRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	gateways, err := gatewayutils.GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.NLBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "tlsroute", route.Name, "error", err)

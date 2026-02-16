@@ -163,16 +163,16 @@ func Test_ListL4Routes(t *testing.T) {
 						},
 					},
 				})
-				k8sClient.Create(context.Background(), &gwalpha2.TLSRoute{
+				k8sClient.Create(context.Background(), &gwv1.TLSRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "foo1",
 						Namespace: "bar1",
 					},
-					Spec: gwalpha2.TLSRouteSpec{
+					Spec: gwv1.TLSRouteSpec{
 						Hostnames: []gwv1.Hostname{
 							"host1",
 						},
-						Rules: []gwalpha2.TLSRouteRule{
+						Rules: []gwv1.TLSRouteRule{
 							{
 								BackendRefs: []gwalpha2.BackendRef{
 									{},
@@ -204,7 +204,7 @@ func Test_ListL4Routes(t *testing.T) {
 				// Setup mock responses for TCP, UDP, and TLS routes
 				mockClient.EXPECT().List(gomock.Any(), &gwalpha2.TCPRouteList{}).Return(fmt.Errorf("TCP error"))
 				mockClient.EXPECT().List(gomock.Any(), &gwalpha2.UDPRouteList{}).Return(nil)
-				mockClient.EXPECT().List(gomock.Any(), &gwalpha2.TLSRouteList{}).Return(nil)
+				mockClient.EXPECT().List(gomock.Any(), &gwv1.TLSRouteList{}).Return(nil)
 				return mockClient
 			},
 			expectedRoutes: 0,

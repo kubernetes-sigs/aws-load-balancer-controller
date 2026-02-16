@@ -12,7 +12,7 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwalpha2.TLSRoute, baseName string, namespaceLabels map[string]string) *nlbResourceStack {
+func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *nlbResourceStack {
 
 	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
 	return &nlbResourceStack{
@@ -28,7 +28,7 @@ type nlbResourceStack struct {
 	commonStack *commonResourceStack
 	tcprs       []*gwalpha2.TCPRoute
 	udprs       []*gwalpha2.UDPRoute
-	tlsrs       []*gwalpha2.TLSRoute
+	tlsrs       []*gwv1.TLSRoute
 }
 
 func (s *nlbResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {

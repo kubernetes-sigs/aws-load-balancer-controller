@@ -22,7 +22,7 @@ func NewEnqueueRequestsForServiceEvent(httpRouteEventChan chan<- event.TypedGene
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute],
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute],
-	tlsRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute], k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
+	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute], k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &enqueueRequestsForServiceEvent{
 		httpRouteEventChan: httpRouteEventChan,
 		grpcRouteEventChan: grpcRouteEventChan,
@@ -43,7 +43,7 @@ type enqueueRequestsForServiceEvent struct {
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute]
 	tcpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
 	udpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute]
-	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute]
+	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute]
 	k8sClient          client.Client
 	eventRecorder      record.EventRecorder
 	logger             logr.Logger
@@ -116,8 +116,8 @@ func (h *enqueueRequestsForServiceEvent) enqueueImpactedL4Routes(
 			h.logger.V(1).Info("enqueue tlsroute for service event",
 				"service", svc.Name,
 				"tlsroute", route.GetRouteNamespacedName())
-			h.tlsRouteEventChan <- event.TypedGenericEvent[*gwalpha2.TLSRoute]{
-				Object: route.GetRawRoute().(*gwalpha2.TLSRoute),
+			h.tlsRouteEventChan <- event.TypedGenericEvent[*gatewayv1.TLSRoute]{
+				Object: route.GetRawRoute().(*gatewayv1.TLSRoute),
 			}
 		}
 	}
