@@ -311,7 +311,7 @@ func TestValidateListeners(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validateListeners(tt.gateway, tt.controllerName)
+			result := validateListeners(tt.gateway.Spec.Listeners, tt.controllerName)
 
 			assert.Equal(t, tt.expectedErrors, result.HasErrors)
 			assert.Equal(t, tt.expectedCount, len(result.Results))

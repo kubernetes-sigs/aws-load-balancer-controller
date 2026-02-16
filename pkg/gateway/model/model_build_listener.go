@@ -31,7 +31,7 @@ type gwListenerConfig struct {
 }
 
 type listenerBuilder interface {
-	buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbConf elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error)
+	buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, listeners []gwv1.Listener, routes map[int32][]routeutils.RouteDescriptor, lbConf elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error)
 }
 
 type listenerBuilderImpl struct {
@@ -48,8 +48,8 @@ type listenerBuilderImpl struct {
 	logger                     logr.Logger
 }
 
-func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
-	gwLsCfgs, err := mapGatewayListenerConfigsByPort(gw, routes)
+func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, listeners []gwv1.Listener, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
+	gwLsCfgs, err := mapGatewayListenerConfigsByPort(listeners, routes)
 	if err != nil {
 		return nil, err
 	}
@@ -532,9 +532,9 @@ func buildListenerALPNPolicy(listenerProtocol elbv2model.Protocol, lbLsCfg *elbv
 }
 
 // mapGatewayListenerConfigsByPort creates a mapping of ports to listener configurations from the Gateway listeners.
-func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) (map[int32]gwListenerConfig, error) {
+func mapGatewayListenerConfigsByPort(listeners []gwv1.Listener, routes map[int32][]routeutils.RouteDescriptor) (map[int32]gwListenerConfig, error) {
 	gwListenerConfigs := make(map[int32]gwListenerConfig)
-	for _, listener := range gw.Spec.Listeners {
+	for _, listener := range listeners {
 		port := int32(listener.Port)
 		protocol := elbv2model.Protocol(listener.Protocol)
 

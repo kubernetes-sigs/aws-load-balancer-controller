@@ -67,7 +67,7 @@ func Test_buildListenerStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildListenerStatus(tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults, tt.isProgrammed)
+			result := buildListenerStatus(tt.gateway, tt.gateway.Spec.Listeners, tt.attachedRoutesMap, tt.validateListenerResults, tt.isProgrammed)
 
 			assert.Len(t, result, tt.expectedListenerCount)
 

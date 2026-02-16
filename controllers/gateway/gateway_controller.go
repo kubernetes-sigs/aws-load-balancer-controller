@@ -256,7 +256,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		}
 	}
 
-	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns, isDeleting)
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, loaderResults.Listeners, allRoutes, currentAddOns, isDeleting)
 
 	if err != nil {
 		r.handleReconcileError(ctx, gw, err)
@@ -380,8 +380,8 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
-	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig, r.secretsManager, r.targetGroupNameToArnMapper, isDelete)
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listeners []gwv1.Listener, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listeners, listenerToRoute, currentAddonConfig, r.secretsManager, r.targetGroupNameToArnMapper, isDelete)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, nil, false, nil, err
@@ -428,7 +428,7 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses := buildListenerStatus(*gw, loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed)
+	ListenerStatuses := buildListenerStatus(*gw, loaderResults.Listeners, loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
@@ -456,7 +456,7 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
 		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses := buildListenerStatus(*gw, attachedRoutesMap, listenerValidationResults, false)
+		ListenerStatuses := buildListenerStatus(*gw, loadResults.Listeners, attachedRoutesMap, listenerValidationResults, false)
 		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true
