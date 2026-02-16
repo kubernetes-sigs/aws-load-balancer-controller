@@ -400,6 +400,7 @@ controllerConfig:
   # EnhancedDefaultBehavior: false
   # EnableDefaultTagsLowPriority: false
   # ALBTargetControlAgent: false
+  # EnableCertificateManagement: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
