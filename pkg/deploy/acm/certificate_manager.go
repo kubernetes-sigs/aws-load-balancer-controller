@@ -90,6 +90,9 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 		}
 
 		// look for missing record infos
+		if len(desc.Certificate.DomainValidationOptions) == 0 {
+			return fmt.Errorf(errNoValidationRecordsFound)
+		}
 		for _, opts := range desc.Certificate.DomainValidationOptions {
 			if opts.ValidationMethod == acmtypes.ValidationMethodDns {
 				if opts.ResourceRecord == nil {
