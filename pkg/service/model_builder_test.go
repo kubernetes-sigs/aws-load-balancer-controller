@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
-	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -243,8 +244,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -396,8 +396,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -619,8 +618,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-62f81639fc",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -687,8 +685,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-3ede6b28b6",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -969,8 +966,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-62f81639fc",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -1022,8 +1018,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-77ea0c7734",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -1307,8 +1302,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-instance-0c68c79423",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -1350,8 +1344,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-instance-c200165858",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -1592,8 +1585,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-trafficl-d2b8571b2f",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -1665,8 +1657,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-trafficl-4be0ac1fb8",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -1857,8 +1848,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -2023,7 +2013,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
               }
             },
             "metadata": {
-              "creationTimestamp": null,
               "namespace": "default",
               "name": "k8s-default-iptarget-cc40ce9c73"
             }
@@ -2194,7 +2183,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
               }
             },
             "metadata": {
-              "creationTimestamp": null,
               "namespace": "default",
               "name": "k8s-default-defaulti-cc40ce9c73"
             }
@@ -2497,7 +2485,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "template":{
                 "metadata":{
-                   "creationTimestamp":null,
                    "name":"k8s-app-tcpudppr-2213a0d759",
                    "namespace":"app"
                 },
@@ -2547,8 +2534,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-tcpudppr-c200165858",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -2845,8 +2831,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-default-trafficl-060a48475d",
-              "namespace": "default",
-              "creationTimestamp": null
+              "namespace": "default"
             },
             "spec": {
               "targetGroupARN": {
@@ -2997,8 +2982,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-default-trafficl-060a48475d",
-              "namespace": "default",
-              "creationTimestamp": null
+              "namespace": "default"
             },
             "spec": {
               "targetGroupARN": {
@@ -3202,8 +3186,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-awesome-lbwithcl-081c7df2ca",
-              "namespace": "awesome",
-              "creationTimestamp": null
+              "namespace": "awesome"
             },
             "spec": {
               "targetGroupARN": {
@@ -3372,8 +3355,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-manualsg-4f421e4c8d",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -3528,8 +3510,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -3713,8 +3694,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -3969,8 +3949,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-62f81639fc",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -4016,8 +3995,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-3ede6b28b6",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -4312,8 +4290,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-62f81639fc",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -4355,8 +4332,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-77ea0c7734",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -4619,8 +4595,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-instance-0c68c79423",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -4663,8 +4638,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-instance-c200165858",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -4962,8 +4936,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-trafficl-d2b8571b2f",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -5011,8 +4984,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-trafficl-4be0ac1fb8",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -5315,8 +5287,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-trafficl-5f852f95c2",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -5364,8 +5335,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-app-trafficl-5eafb7edb6",
-                   "namespace":"app",
-                   "creationTimestamp":null
+                   "namespace":"app"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -5550,8 +5520,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -5730,7 +5699,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
               }
             },
             "metadata": {
-              "creationTimestamp": null,
               "namespace": "default",
               "name": "k8s-default-iptarget-cc40ce9c73"
             }
@@ -5947,8 +5915,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-default-trafficl-060a48475d",
-              "namespace": "default",
-              "creationTimestamp": null
+              "namespace": "default"
             },
             "spec": {
               "targetGroupARN": {
@@ -6133,8 +6100,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-default-trafficl-060a48475d",
-              "namespace": "default",
-              "creationTimestamp": null
+              "namespace": "default"
             },
             "spec": {
               "targetGroupARN": {
@@ -6318,8 +6284,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-awesome-lbwithcl-081c7df2ca",
-              "namespace": "awesome",
-              "creationTimestamp": null
+              "namespace": "awesome"
             },
             "spec": {
               "targetGroupARN": {
@@ -6516,8 +6481,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-default-manualse-d4818dcd51",
-              "namespace": "default",
-              "creationTimestamp": null
+              "namespace": "default"
             },
             "spec": {
               "targetGroupARN": {
@@ -6658,8 +6622,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "template": {
             "metadata": {
               "name": "k8s-default-manualse-d4818dcd51",
-              "namespace": "default",
-              "creationTimestamp": null
+              "namespace": "default"
             },
             "spec": {
               "targetGroupARN": {
@@ -6918,8 +6881,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{
@@ -7070,8 +7032,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "template":{
                 "metadata":{
                    "name":"k8s-default-nlbipsvc-d4818dcd51",
-                   "namespace":"default",
-                   "creationTimestamp":null
+                   "namespace":"default"
                 },
                 "spec":{
                    "targetGroupARN":{

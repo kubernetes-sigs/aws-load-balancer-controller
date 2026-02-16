@@ -53,7 +53,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 			Name:     "port443",
 			Port:     443,
 			Protocol: gwv1.TLSProtocolType,
-			TLS: &gwv1.GatewayTLSConfig{
+			TLS: &gwv1.ListenerTLSConfig{
 				Mode: &tlsMode,
 				CertificateRefs: []gwv1.SecretObjectReference{
 					{
@@ -117,7 +117,7 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 					Name:     "port443",
 					Port:     443,
 					Protocol: gwv1.TLSProtocolType,
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsMode,
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{

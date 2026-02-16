@@ -405,7 +405,7 @@ func Test_kindCheck(t *testing.T) {
 			route: &tcpRouteDescription{},
 			listener: gwv1.Listener{
 				Protocol: gwv1.TLSProtocolType,
-				TLS: &gwv1.GatewayTLSConfig{
+				TLS: &gwv1.ListenerTLSConfig{
 					Mode: &term,
 				},
 			},
@@ -416,7 +416,7 @@ func Test_kindCheck(t *testing.T) {
 			route: &tcpRouteDescription{},
 			listener: gwv1.Listener{
 				Protocol: gwv1.TLSProtocolType,
-				TLS: &gwv1.GatewayTLSConfig{
+				TLS: &gwv1.ListenerTLSConfig{
 					Mode: &pt,
 				},
 			},
@@ -427,7 +427,7 @@ func Test_kindCheck(t *testing.T) {
 			route: &tlsRouteDescription{},
 			listener: gwv1.Listener{
 				Protocol: gwv1.TLSProtocolType,
-				TLS: &gwv1.GatewayTLSConfig{
+				TLS: &gwv1.ListenerTLSConfig{
 					Mode: &pt,
 				},
 			},

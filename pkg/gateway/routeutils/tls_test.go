@@ -16,7 +16,7 @@ import (
 
 func Test_ConvertTLSRuleToRouteRule(t *testing.T) {
 
-	rule := &gwalpha2.TLSRouteRule{
+	rule := &gwv1.TLSRouteRule{
 		Name:        (*gwv1.SectionName)(awssdk.String("my-name")),
 		BackendRefs: []gwalpha2.BackendRef{},
 	}
@@ -28,22 +28,22 @@ func Test_ConvertTLSRuleToRouteRule(t *testing.T) {
 	result := convertTLSRouteRule(rule, backends)
 
 	assert.Equal(t, backends, result.GetBackends())
-	assert.Equal(t, rule, result.GetRawRouteRule().(*gwalpha2.TLSRouteRule))
+	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.TLSRouteRule))
 }
 
 func Test_ListTLSRoutes(t *testing.T) {
 	k8sClient := testutils.GenerateTestClient()
 
-	k8sClient.Create(context.Background(), &gwalpha2.TLSRoute{
+	k8sClient.Create(context.Background(), &gwv1.TLSRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo1",
 			Namespace: "bar1",
 		},
-		Spec: gwalpha2.TLSRouteSpec{
+		Spec: gwv1.TLSRouteSpec{
 			Hostnames: []gwv1.Hostname{
 				"host1",
 			},
-			Rules: []gwalpha2.TLSRouteRule{
+			Rules: []gwv1.TLSRouteRule{
 				{
 					BackendRefs: []gwalpha2.BackendRef{
 						{},
@@ -65,12 +65,12 @@ func Test_ListTLSRoutes(t *testing.T) {
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.TLSRoute{
+	k8sClient.Create(context.Background(), &gwv1.TLSRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo2",
 			Namespace: "bar2",
 		},
-		Spec: gwalpha2.TLSRouteSpec{
+		Spec: gwv1.TLSRouteSpec{
 			Hostnames: []gwv1.Hostname{
 				"host2",
 			},
@@ -78,7 +78,7 @@ func Test_ListTLSRoutes(t *testing.T) {
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.TLSRoute{
+	k8sClient.Create(context.Background(), &gwv1.TLSRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo3",
 			Namespace: "bar3",
@@ -136,8 +136,8 @@ func Test_TLS_LoadAttachedRules(t *testing.T) {
 	}
 
 	routeDescription := tlsRouteDescription{
-		route: &gwalpha2.TLSRoute{
-			Spec: gwalpha2.TLSRouteSpec{Rules: []gwalpha2.TLSRouteRule{
+		route: &gwv1.TLSRoute{
+			Spec: gwv1.TLSRouteSpec{Rules: []gwv1.TLSRouteRule{
 				{
 					BackendRefs: []gwalpha2.BackendRef{
 						{},
@@ -158,7 +158,7 @@ func Test_TLS_LoadAttachedRules(t *testing.T) {
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](mockLoader, mockListenerRuleConfigLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.TLSRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)

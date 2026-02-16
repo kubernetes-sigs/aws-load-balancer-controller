@@ -603,7 +603,7 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
 	tcpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.TCPRoute])
 	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.UDPRoute])
-	tlsRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.TLSRoute])
+	tlsRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.TLSRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, tcpRouteEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("TargetGroupConfiguration"))
@@ -647,7 +647,7 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.UDPRoute{}, udpRouteEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.TLSRoute{}, tlsRouteEventHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TLSRoute{}, tlsRouteEventHandler)); err != nil {
 		return err
 	}
 	return nil

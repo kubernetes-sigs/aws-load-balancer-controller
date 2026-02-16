@@ -111,7 +111,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 							Name:     "tcp",
 							Port:     443,
 							Protocol: gwv1.TLSProtocolType,
-							TLS: &gwv1.GatewayTLSConfig{
+							TLS: &gwv1.ListenerTLSConfig{
 								Mode: (*gwv1.TLSModeType)(awssdk.String("Passthrough")),
 							},
 						},
@@ -135,7 +135,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 							Name:     "tcp",
 							Port:     443,
 							Protocol: gwv1.TLSProtocolType,
-							TLS: &gwv1.GatewayTLSConfig{
+							TLS: &gwv1.ListenerTLSConfig{
 								Mode: (*gwv1.TLSModeType)(awssdk.String("Terminate")),
 							},
 						},

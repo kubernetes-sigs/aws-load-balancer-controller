@@ -92,7 +92,7 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	case "TCPRoute":
 		route = &gwalpha2.TCPRoute{}
 	case "TLSRoute":
-		route = &gwalpha2.TLSRoute{}
+		route = &gwv1.TLSRoute{}
 	}
 
 	if err := d.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: routeNamespace, Name: routeName}, route); err != nil {
@@ -149,7 +149,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 		originalRouteStatus = r.Status.Parents
 		ParentRefs = r.Spec.ParentRefs
-	case *gwalpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		if r.Status.Parents == nil {
 			r.Status.Parents = []gwv1.RouteParentStatus{}
 		}
@@ -197,7 +197,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		r.Status.Parents = newRouteStatus
 	case *gwv1.GRPCRoute:
 		r.Status.Parents = newRouteStatus
-	case *gwalpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		r.Status.Parents = newRouteStatus
 	case *gwalpha2.UDPRoute:
 		r.Status.Parents = newRouteStatus
@@ -347,7 +347,7 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 		routeStatus = r.Status.Parents
 	case *gwv1.GRPCRoute:
 		routeStatus = r.Status.Parents
-	case *gwalpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		routeStatus = r.Status.Parents
 	case *gwalpha2.UDPRoute:
 		routeStatus = r.Status.Parents

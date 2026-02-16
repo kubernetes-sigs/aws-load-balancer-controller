@@ -3,6 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -21,7 +22,7 @@ func NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan chan<- event.Ty
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute],
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute],
-	tlsRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute],
+	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute],
 	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] {
 	return &enqueueRequestsForReferenceGrantEvent{
 		httpRouteEventChan: httpRouteEventChan,
@@ -43,7 +44,7 @@ type enqueueRequestsForReferenceGrantEvent struct {
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute]
 	tcpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
 	udpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute]
-	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute]
+	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute]
 	k8sClient          client.Client
 	eventRecorder      record.EventRecorder
 	logger             logr.Logger
@@ -157,8 +158,8 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 			routes, err := routeutils.ListTLSRoutes(ctx, h.k8sClient, &client.ListOptions{Namespace: string(impactedFrom.Namespace)})
 			if err == nil {
 				for _, route := range routes {
-					h.tlsRouteEventChan <- event.TypedGenericEvent[*gwalpha2.TLSRoute]{
-						Object: route.GetRawRoute().(*gwalpha2.TLSRoute),
+					h.tlsRouteEventChan <- event.TypedGenericEvent[*gatewayv1.TLSRoute]{
+						Object: route.GetRawRoute().(*gatewayv1.TLSRoute),
 					}
 				}
 
