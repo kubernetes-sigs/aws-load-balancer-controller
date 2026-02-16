@@ -217,10 +217,69 @@ func Test_Synthesizer(t *testing.T) {
 				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
 					CertificateArn: awssdk.String("arn-2"),
 				})).Return(&acm.DescribeCertificateOutput{
-					Certificate: &acmtypes.CertificateDetail{DomainValidationOptions: []acmtypes.DomainValidation{}},
+					Certificate: &acmtypes.CertificateDetail{
+						DomainValidationOptions: []acmtypes.DomainValidation{
+							{
+								ValidationMethod: acmtypes.ValidationMethodDns,
+								DomainName:       awssdk.String("example.com"),
+								ResourceRecord: &acmtypes.ResourceRecord{
+									Name:  awssdk.String("cname-name"),
+									Value: awssdk.String("cname-value"),
+									Type:  acmtypes.RecordTypeCname,
+								},
+							},
+							{
+								ValidationMethod: acmtypes.ValidationMethodDns,
+								DomainName:       awssdk.String("otherexample.com"),
+								ResourceRecord: &acmtypes.ResourceRecord{
+									Name:  awssdk.String("cname-name"),
+									Value: awssdk.String("cname-value"),
+									Type:  acmtypes.RecordTypeCname,
+								},
+							},
+						},
+					},
 				}, nil)
-				//
-				// no call to route53 since we returned empty domain validation options
+
+				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("otherexample.com")).Return(awssdk.String("Z0922506B3S0MGK4SALX"), nil)
+				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
+					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
+					ChangeBatch: &route53types.ChangeBatch{
+						Changes: []route53types.Change{
+							{
+								Action: "CREATE",
+								ResourceRecordSet: &route53types.ResourceRecordSet{
+									Name: awssdk.String("cname-name"),
+									Type: route53types.RRType(acmtypes.RecordTypeCname),
+									TTL:  awssdk.Int64(validationRecordTTL),
+									ResourceRecords: []route53types.ResourceRecord{
+										{Value: awssdk.String("cname-value")},
+									},
+								},
+							},
+						},
+					},
+				})).Return(nil, nil)
+				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
+					HostedZoneId: awssdk.String("Z0922506B3S0MGK4SALX"),
+					ChangeBatch: &route53types.ChangeBatch{
+						Changes: []route53types.Change{
+							{
+								Action: "CREATE",
+								ResourceRecordSet: &route53types.ResourceRecordSet{
+									Name: awssdk.String("cname-name"),
+									Type: route53types.RRType(acmtypes.RecordTypeCname),
+									TTL:  awssdk.Int64(validationRecordTTL),
+									ResourceRecords: []route53types.ResourceRecord{
+										{Value: awssdk.String("cname-value")},
+									},
+								},
+							},
+						},
+					},
+				})).Return(nil, nil)
+
 				mockACM.EXPECT().WaitForCertificateIssuedWithContext(gomock.Any(), gomock.Eq("arn-2"), gomock.AssignableToTypeOf(time.Second)).Return(nil)
 			},
 			checkStack: func(s core.Stack) {
@@ -290,11 +349,44 @@ func Test_Synthesizer(t *testing.T) {
 				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
 					CertificateArn: awssdk.String("arn-1"),
 				})).Return(&acm.DescribeCertificateOutput{
-					Certificate: &acmtypes.CertificateDetail{DomainValidationOptions: []acmtypes.DomainValidation{}},
+					Certificate: &acmtypes.CertificateDetail{
+						DomainValidationOptions: []acmtypes.DomainValidation{
+							{
+								ValidationMethod: acmtypes.ValidationMethodDns,
+								DomainName:       awssdk.String("example.com"),
+								ResourceRecord: &acmtypes.ResourceRecord{
+									Name:  awssdk.String("cname-name"),
+									Value: awssdk.String("cname-value"),
+									Type:  acmtypes.RecordTypeCname,
+								},
+							},
+						},
+					},
 				}, nil)
+
+				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
+					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
+					ChangeBatch: &route53types.ChangeBatch{
+						Changes: []route53types.Change{
+							{
+								Action: "DELETE",
+								ResourceRecordSet: &route53types.ResourceRecordSet{
+									Name: awssdk.String("cname-name"),
+									Type: route53types.RRType(acmtypes.RecordTypeCname),
+									TTL:  awssdk.Int64(validationRecordTTL),
+									ResourceRecords: []route53types.ResourceRecord{
+										{Value: awssdk.String("cname-value")},
+									},
+								},
+							},
+						},
+					},
+				})).Return(nil, nil)
 
 				mockACM.EXPECT().DeleteCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DeleteCertificateInput{CertificateArn: awssdk.String("arn-1")})).Return(&acm.DeleteCertificateOutput{}, nil)
 
+				// create new cert
 				mockACM.EXPECT().RequestCertificateWithContext(gomock.Any(), gomock.Eq(&acm.RequestCertificateInput{
 					DomainName:              awssdk.String("example.com"),
 					ValidationMethod:        acmtypes.ValidationMethodDns,
@@ -305,10 +397,40 @@ func Test_Synthesizer(t *testing.T) {
 				mockACM.EXPECT().DescribeCertificateWithContext(gomock.Any(), gomock.Eq(&acm.DescribeCertificateInput{
 					CertificateArn: awssdk.String("arn-2"),
 				})).Return(&acm.DescribeCertificateOutput{
-					Certificate: &acmtypes.CertificateDetail{DomainValidationOptions: []acmtypes.DomainValidation{}},
+					Certificate: &acmtypes.CertificateDetail{
+						DomainValidationOptions: []acmtypes.DomainValidation{{
+							ValidationMethod: acmtypes.ValidationMethodDns,
+							DomainName:       awssdk.String("example.com"),
+							ResourceRecord: &acmtypes.ResourceRecord{
+								Name:  awssdk.String("cname-name"),
+								Value: awssdk.String("cname-value"),
+								Type:  acmtypes.RecordTypeCname,
+							},
+						}},
+					},
 				}, nil)
-				//
-				// no call to route53 since we returned empty domain validation options
+
+				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+
+				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
+					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
+					ChangeBatch: &route53types.ChangeBatch{
+						Changes: []route53types.Change{
+							{
+								Action: "CREATE",
+								ResourceRecordSet: &route53types.ResourceRecordSet{
+									Name: awssdk.String("cname-name"),
+									Type: route53types.RRType(acmtypes.RecordTypeCname),
+									TTL:  awssdk.Int64(validationRecordTTL),
+									ResourceRecords: []route53types.ResourceRecord{
+										{Value: awssdk.String("cname-value")},
+									},
+								},
+							},
+						},
+					},
+				})).Return(nil, nil)
+
 				mockACM.EXPECT().WaitForCertificateIssuedWithContext(gomock.Any(), gomock.Eq("arn-2"), gomock.AssignableToTypeOf(time.Second)).Return(nil)
 			},
 			checkStack: func(s core.Stack) {
