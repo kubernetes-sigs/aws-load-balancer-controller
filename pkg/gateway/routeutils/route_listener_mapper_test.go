@@ -441,7 +441,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				},
 				logger: logr.Discard(),
 			}
-			result, compatibleHostnames, statusUpdates, _, routesPerListener, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
+			result, compatibleHostnames, statusUpdates, _, routesPerListener, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.gw.Spec.Listeners, tc.routes)
 
 			if tc.expectErr {
 				assert.Error(t, err)

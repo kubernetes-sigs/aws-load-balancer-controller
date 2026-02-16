@@ -11,10 +11,10 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func buildListenerStatus(gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults routeutils.ListenerValidationResults, isProgrammed bool) []gwv1.ListenerStatus {
+func buildListenerStatus(gateway gwv1.Gateway, listeners []gwv1.Listener, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults routeutils.ListenerValidationResults, isProgrammed bool) []gwv1.ListenerStatus {
 	var listenerStatuses []gwv1.ListenerStatus
 
-	for _, listener := range gateway.Spec.Listeners {
+	for _, listener := range listeners {
 		listenerValidationResult := validateListenerResults.Results[listener.Name]
 		conditions := getListenerConditions(gateway, listenerValidationResult, isProgrammed)
 

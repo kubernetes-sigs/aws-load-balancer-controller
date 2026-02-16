@@ -5,12 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"regexp"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -38,7 +39,7 @@ type securityGroupOutput struct {
 }
 
 type securityGroupBuilder interface {
-	buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error)
+	buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error)
 }
 
 type securityGroupBuilderImpl struct {
@@ -64,7 +65,7 @@ func newSecurityGroupBuilder(tagHelper tagHelper, clusterName string, loadBalanc
 	}
 }
 
-func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var sgNameOrIds []string
 	if lbConf.Spec.SecurityGroups != nil {
 		sgNameOrIds = *lbConf.Spec.SecurityGroups
@@ -75,15 +76,15 @@ func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context
 	}
 
 	if len(sgNameOrIds) == 0 {
-		return builder.handleManagedSecurityGroup(ctx, stack, lbConf, gw, ipAddressType)
+		return builder.handleManagedSecurityGroup(ctx, stack, lbConf, gw, listeners, ipAddressType)
 	}
 
 	return builder.handleExplicitSecurityGroups(ctx, lbConf, gw, sgNameOrIds)
 }
 
-func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var lbSGTokens []core.StringToken
-	managedSG, err := builder.buildManagedSecurityGroup(stack, lbConf, gw, ipAddressType)
+	managedSG, err := builder.buildManagedSecurityGroup(stack, lbConf, gw, listeners, ipAddressType)
 	if err != nil {
 		return securityGroupOutput{}, err
 	}
@@ -148,14 +149,14 @@ func (builder *securityGroupBuilderImpl) getBackendSecurityGroup(ctx context.Con
 	return core.LiteralStringToken(backendSGID), nil
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
 	name := builder.buildManagedSecurityGroupName(gw)
 	tags, err := builder.tagHelper.getLoadBalancerTags(lbConf)
 	if err != nil {
 		return nil, err
 	}
 
-	ingressPermissions := builder.buildManagedSecurityGroupIngressPermissions(lbConf, gw, ipAddressType)
+	ingressPermissions := builder.buildManagedSecurityGroupIngressPermissions(lbConf, listeners, ipAddressType)
 	return ec2model.NewSecurityGroup(stack, resourceIDManagedSecurityGroup, ec2model.SecurityGroupSpec{
 		GroupName:   name,
 		Description: managedSGDescription,
@@ -177,7 +178,7 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupName(gw *gwv1.
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf elbv2gw.LoadBalancerConfiguration, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
 	var permissions []ec2model.IPPermission
 
 	// Default to 0.0.0.0/0 and ::/0
@@ -205,7 +206,7 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermiss
 	includeIPv6 := isIPv6Supported(ipAddressType)
 
 	//listener loop
-	for _, listener := range gw.Spec.Listeners {
+	for _, listener := range listeners {
 		port := int32(listener.Port)
 		protocol := getSgRuleProtocol(listener.Protocol)
 		// CIDR Loop

@@ -26,19 +26,19 @@ type ListenerValidationResults struct {
 // It checks for supported route kinds, valid port ranges (1-65535), controller-compatible protocols
 // (ALB: HTTP/HTTPS/GRPC, NLB: TCP/UDP/TLS), protocol conflicts on same ports (except TCP+UDP),
 // hostname conflicts - same port trying to use same hostname
-func validateListeners(gw gwv1.Gateway, controllerName string) ListenerValidationResults {
+func validateListeners(listeners []gwv1.Listener, controllerName string) ListenerValidationResults {
 	results := ListenerValidationResults{
 		Results: make(map[gwv1.SectionName]ListenerValidationResult),
 	}
 
-	if len(gw.Spec.Listeners) == 0 {
+	if len(listeners) == 0 {
 		return results
 	}
 
 	portHostnameMap := make(map[string]bool)
 	portProtocolMap := make(map[gwv1.PortNumber]gwv1.ProtocolType)
 
-	for _, listener := range gw.Spec.Listeners {
+	for _, listener := range listeners {
 		// check supported kinds
 		supportedKinds, isKindSupported := getSupportedKinds(controllerName, listener)
 		result := ListenerValidationResult{
