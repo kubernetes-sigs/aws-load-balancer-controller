@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
@@ -415,13 +416,14 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionTrue, string(gwv1.GatewayConditionAccepted), "") || needPatch
+	normalizedDNSName := strings.ToLower(lbStatus.DNSName)
 	if len(gw.Status.Addresses) != 1 ||
-		gw.Status.Addresses[0].Value != lbStatus.DNSName {
+		gw.Status.Addresses[0].Value != normalizedDNSName {
 		ipAddressType := gwv1.HostnameAddressType
 		gw.Status.Addresses = []gwv1.GatewayStatusAddress{
 			{
 				Type:  &ipAddressType,
-				Value: lbStatus.DNSName,
+				Value: normalizedDNSName,
 			},
 		}
 		needPatch = true
