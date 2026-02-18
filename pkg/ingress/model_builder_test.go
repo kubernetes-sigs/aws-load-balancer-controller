@@ -644,10 +644,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -725,10 +726,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -932,13 +934,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/scheme": "internet-facing",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/scheme": "internet-facing",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -1036,15 +1039,16 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/scheme":                "internet-facing",
-									"alb.ingress.kubernetes.io/certificate-arn":       "arn:aws:acm:us-east-1:9999999:certificate/11111111,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/22222222,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
-									"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}]`,
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/scheme":                "internet-facing",
+										"alb.ingress.kubernetes.io/certificate-arn":       "arn:aws:acm:us-east-1:9999999:certificate/11111111,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/22222222,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
+										"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}]`,
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -1131,16 +1135,16 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"certificates": [
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						},
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/33333333"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						},
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/22222222"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						},
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						}
 					],
 					"defaultActions": [
@@ -1325,15 +1329,16 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/scheme":                "internet-facing",
-									"alb.ingress.kubernetes.io/certificate-arn":       "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
-									"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}]`,
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/scheme":                "internet-facing",
+										"alb.ingress.kubernetes.io/certificate-arn":       "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
+										"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}]`,
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -1420,13 +1425,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"certificates": [
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/22222222"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						},
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/33333333"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						},
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						}
 					],
 					"defaultActions": [
@@ -1611,10 +1616,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -1825,13 +1831,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/inbound-cidrs": "20.0.0.0/8",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/inbound-cidrs": "20.0.0.0/8",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -1948,14 +1955,15 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/11111111",
-									"alb.ingress.kubernetes.io/ssl-policy":      "annotated-ssl-policy",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/11111111",
+										"alb.ingress.kubernetes.io/ssl-policy":      "annotated-ssl-policy",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -2042,7 +2050,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"certificates": [
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/11111111"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						}
 					],
 					"defaultActions": [
@@ -2214,13 +2222,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/annotated-certificate-arn",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/annotated-certificate-arn",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -2307,7 +2316,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"certificates": [
 						{
-							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/ingress-class-certificate-arn"
+							"certificateARN": {"$ref": "#/resources///status/certificateARN"}
 						}
 					],
 					"defaultActions": [
@@ -2479,13 +2488,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/target-type": string(v1beta1.TargetTypeInstance),
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/target-type": string(v1beta1.TargetTypeInstance),
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -2794,10 +2804,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -2948,10 +2959,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -3290,14 +3302,15 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/target-type":     "ip",
-									"alb.ingress.kubernetes.io/ip-address-type": "dualstack",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/target-type":     "ip",
+										"alb.ingress.kubernetes.io/ip-address-type": "dualstack",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -3494,13 +3507,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/target-type": "ip",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/target-type": "ip",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -3548,13 +3562,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/target-type": "ip",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/target-type": "ip",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -3601,13 +3616,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/target-type": "ip",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/target-type": "ip",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -3769,10 +3785,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -3940,11 +3957,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Spec: v1beta1.IngressClassParamsSpec{},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "ns-1",
-								Name:        "ing-1",
-								Annotations: map[string]string{},
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "ns-1",
+									Name:        "ing-1",
+									Annotations: map[string]string{},
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4049,13 +4067,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Spec: v1beta1.IngressClassParamsSpec{},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ip-address-type": "dualstack",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ip-address-type": "dualstack",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4182,13 +4201,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4308,13 +4328,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4429,13 +4450,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Spec: v1beta1.IngressClassParamsSpec{},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4540,14 +4562,15 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Spec: v1beta1.IngressClassParamsSpec{},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/inbound-cidrs":               "20.45.16.0/26",
-									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/inbound-cidrs":               "20.45.16.0/26",
+										"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4658,10 +4681,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4881,7 +4905,6 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			}
 			mockCollector := b.metricsCollector.(*lbcmetrics.MockCollector)
 			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
-
 		})
 	}
 }
@@ -4907,10 +4930,11 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -4960,13 +4984,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5026,10 +5051,11 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5082,13 +5108,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "8443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "8443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5138,13 +5165,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "80",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "80",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5194,10 +5222,11 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5225,10 +5254,11 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-2",
-								Name:      "ing-2",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-2",
+									Name:      "ing-2",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5278,13 +5308,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5312,10 +5343,11 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-2",
-								Name:      "ing-2",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-2",
+									Name:      "ing-2",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5375,11 +5407,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "ns-1",
-								Name:        "ing-1",
-								Annotations: map[string]string{},
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "ns-1",
+									Name:        "ing-1",
+									Annotations: map[string]string{},
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5407,10 +5440,11 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-2",
-								Name:      "ing-2",
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-2",
+									Name:      "ing-2",
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5470,11 +5504,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 									},
 								},
 							},
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace:   "ns-1",
-								Name:        "ing-1",
-								Annotations: map[string]string{},
-							},
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "ns-1",
+									Name:        "ing-1",
+									Annotations: map[string]string{},
+								},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5502,13 +5537,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-2",
-								Name:      "ing-2",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-2",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5561,13 +5597,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5595,13 +5632,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-2",
-								Name:      "ing-2",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-2",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5654,13 +5692,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 					ID: GroupID{Namespace: "", Name: "awesome-group"},
 					Members: []ClassifiedIngress{
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5688,13 +5727,14 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 							},
 						},
 						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-2",
-								Name:      "ing-2",
-								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/ssl-redirect": "8443",
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-2",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ssl-redirect": "8443",
+									},
 								},
-							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
 										{
@@ -5857,7 +5897,6 @@ func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) 
 			}
 		})
 	}
-
 }
 
 func Test_defaultModelBuildTask_buildResourceTagsPriority(t *testing.T) {

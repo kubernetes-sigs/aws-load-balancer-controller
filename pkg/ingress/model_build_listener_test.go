@@ -2,8 +2,9 @@ package ingress
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
@@ -11,6 +12,8 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -57,7 +60,6 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 			want: []WantStruct{{port: 443, mutualAuth: &(elbv2.MutualAuthenticationAttributes{Mode: "off", TrustStoreArn: nil, IgnoreClientCertificateExpiry: nil})}, {port: 80, mutualAuth: &(elbv2.MutualAuthenticationAttributes{Mode: "passthrough", TrustStoreArn: nil, IgnoreClientCertificateExpiry: nil})}},
 		},
 		{
-
 			name: "Listener Config when MutualAuthentication annotation is not specified",
 			fields: fields{
 				ingGroup: Group{
@@ -135,11 +137,10 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
-			got, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0])
+			got, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0], &acmModel.Certificate{})
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
-
 				for i := 0; i < len(tt.want); i++ {
 					port := tt.want[i].port
 					mutualAuth := tt.want[i].mutualAuth
@@ -155,11 +156,164 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 					}
 
 				}
-
 			}
 		})
 	}
 }
+
+func Test_computeIngressListenPortConfigByPort_Certificates(t *testing.T) {
+	type fields struct {
+		ingGroup Group
+	}
+	type WantStruct struct {
+		port         int32
+		certificates []core.StringToken
+	}
+
+	tests := []struct {
+		name      string
+		fields    fields
+		modelCert *acmModel.Certificate // cert as the model_build_certificates would have generated it based on annotations
+
+		wantErr        bool
+		mutualAuthMode string
+		want           []WantStruct
+	}{
+		{
+			name: "Listener Config for non-tls ingress",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP": 80}]`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			modelCert: nil,
+			want:      []WantStruct{{port: 80, certificates: nil}},
+		},
+		{
+			name: "Listener Config for tls ingress with certificate-arn annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/certificate-arn": `arn:aws:iam::123456789:server-certificate/new-clb-cert`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			modelCert: nil,
+			want:      []WantStruct{{port: 80, certificates: nil}, {port: 443, certificates: []core.StringToken{acmModel.NewExistingCertificate("arn:aws:iam::123456789:server-certificate/new-clb-cert").CertificateARN()}}},
+		},
+		{
+			name: "Listener Config for tls ingress with certificate-arn annotation and cert in model",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/certificate-arn": `arn:aws:iam::123456789:server-certificate/new-clb-cert`,
+										"alb.ingress.kubernetes.io/create-acm-cert": `true`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			modelCert: &acmModel.Certificate{Status: &acmModel.CertificateStatus{CertificateARN: "arn:aws:iam::123456789:server-certificate/some-other-cert"}},
+			want:      []WantStruct{{port: 80, certificates: nil}, {port: 443, certificates: []core.StringToken{acmModel.NewExistingCertificate("arn:aws:iam::123456789:server-certificate/new-clb-cert").CertificateARN()}}},
+		},
+		{
+			name: "Listener Config for tls ingress with cert in model",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert": `true`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			modelCert: &acmModel.Certificate{Status: &acmModel.CertificateStatus{CertificateARN: "arn:aws:iam::123456789:server-certificate/some-other-cert"}},
+			want:      []WantStruct{{port: 80, certificates: nil}, {port: 443, certificates: []core.StringToken{acmModel.NewExistingCertificate("arn:aws:iam::123456789:server-certificate/some-other-cert").CertificateARN()}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.fields.ingGroup,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0], tt.modelCert)
+			if tt.wantErr {
+				assert.Error(t, err)
+				// assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				for i := 0; i < len(tt.want); i++ {
+					port := tt.want[i].port
+					certificates := tt.want[i].certificates
+					if certificates != nil {
+
+						var certARNs []string
+						for _, cert := range certificates {
+							arn, err := cert.Resolve(t.Context())
+							assert.NoError(t, err) // we assume all certs are pre-known or in case of model certs, get an empty string
+							certARNs = append(certARNs, arn)
+						}
+						var gotCertARNs []string
+						for _, cert := range got[port].tlsCerts {
+							arn, err := cert.Resolve(t.Context())
+							assert.NoError(t, err) // we assume all certs are pre-known or in case of model certs, get an empty string
+							gotCertARNs = append(gotCertARNs, arn)
+						}
+
+						assert.Equal(t, certARNs, gotCertARNs)
+
+					} else {
+						assert.Equal(t, certificates, got[port].tlsCerts) // this will do a memory pointer comparison, not very useful
+					}
+
+				}
+			}
+		})
+	}
+}
+
 func Test_buildListenerAttributes(t *testing.T) {
 	type fields struct {
 		ingGroup Group
@@ -426,7 +580,6 @@ func Test_buildListenerAttributes(t *testing.T) {
 			} else {
 				assert.ElementsMatch(t, tt.wantValue, listenerAttributes)
 			}
-
 		})
 	}
 }

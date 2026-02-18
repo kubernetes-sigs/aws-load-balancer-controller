@@ -5,20 +5,17 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-var (
-	validMultiProtocolSet = sets.New(string(elbv2model.ProtocolTCP), string(elbv2model.ProtocolUDP))
-)
+var validMultiProtocolSet = sets.New(string(elbv2model.ProtocolTCP), string(elbv2model.ProtocolUDP))
 
 func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
-
 	if t.shouldUseTCPUDP() {
 		return t.buildListenersWithTCPUDPSupport(ctx, scheme)
 	}
@@ -82,7 +79,8 @@ func (t *defaultModelBuildTask) buildListenersWithTCPUDPSupport(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
-	scheme elbv2model.LoadBalancerScheme) (*elbv2model.Listener, error) {
+	scheme elbv2model.LoadBalancerScheme,
+) (*elbv2model.Listener, error) {
 	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
 	if err != nil {
 		return nil, err
@@ -93,8 +91,8 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 }
 
 func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
-	scheme elbv2model.LoadBalancerScheme) (elbv2model.ListenerSpec, error) {
-
+	scheme elbv2model.LoadBalancerScheme,
+) (elbv2model.ListenerSpec, error) {
 	var tgProtocol elbv2model.Protocol
 	var listenerProtocol elbv2model.Protocol
 
@@ -244,7 +242,8 @@ func (t *defaultModelBuildTask) buildListenerDefaultActionsViaAnnotation(actionC
 			ForwardConfig: &elbv2model.ForwardActionConfig{
 				TargetGroups:                targetGroupTuples,
 				TargetGroupStickinessConfig: stickinessCfg,
-			}},
+			},
+		},
 	}
 }
 
@@ -262,7 +261,7 @@ func (t *defaultModelBuildTask) buildListenerCertificates(_ context.Context) []e
 
 	var certificates []elbv2model.Certificate
 	for _, cert := range rawCertificateARNs {
-		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+		certificates = append(certificates, elbv2model.Certificate{CertificateARN: acmModel.NewExistingCertificate(cert).CertificateARN()})
 	}
 	return certificates
 }
@@ -298,7 +297,6 @@ func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.Set[st
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLPorts, &rawTLSPorts, t.service.Annotations)
 
 	err := validateTLSPortsSet(rawTLSPorts, t.service.Spec.Ports)
-
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +317,8 @@ func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
 }
 
 func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, listenerProtocol elbv2model.Protocol,
-	targetGroupProtocol elbv2model.Protocol) ([]string, error) {
+	targetGroupProtocol elbv2model.Protocol,
+) ([]string, error) {
 	if listenerProtocol != elbv2model.ProtocolTLS {
 		return nil, nil
 	}
