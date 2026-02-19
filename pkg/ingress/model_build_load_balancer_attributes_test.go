@@ -22,6 +22,39 @@ func Test_defaultModelBuildTask_buildIngressGroupLoadBalancerAttributes(t *testi
 		wantErr error
 	}{
 		{
+			name: "deletion protection from IngressClassParams is applied without ingress annotation",
+			args: args{
+				ingList: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "awesome-ns",
+								Name:      "awesome-ing",
+							},
+						},
+						IngClassConfig: ClassConfiguration{
+							IngClassParams: &elbv2api.IngressClassParams{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "awesome-class",
+								},
+								Spec: elbv2api.IngressClassParamsSpec{
+									LoadBalancerAttributes: []elbv2api.Attribute{
+										{
+											Key:   "deletion_protection.enabled",
+											Value: "true",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string]string{
+				"deletion_protection.enabled": "true",
+			},
+		},
+		{
 			name: "attributes from multiple Ingress that do not conflict",
 			args: args{
 				ingList: []ClassifiedIngress{

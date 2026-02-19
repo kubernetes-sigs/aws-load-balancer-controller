@@ -277,7 +277,7 @@ type defaultModelBuildTask struct {
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	for _, inactiveMember := range t.ingGroup.InactiveMembers {
 		if !inactiveMember.DeletionTimestamp.IsZero() {
-			deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(inactiveMember)
+			deletionProtectionEnabled, err := t.getDeletionProtectionForIngress(ctx, inactiveMember)
 			if err != nil {
 				return err
 			}
@@ -511,20 +511,68 @@ func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, list
 	}, nil
 }
 
-func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(ing *networking.Ingress) (bool, error) {
+func (t *defaultModelBuildTask) getDeletionProtectionForIngress(ctx context.Context, ing *networking.Ingress) (bool, error) {
+	annotationDeletionProtectionEnabled, annotationSpecified, err := t.getDeletionProtectionViaAnnotationForIngress(ing)
+	if err != nil {
+		return false, err
+	}
+
+	ingClassDeletionProtectionEnabled, ingClassSpecified, err := t.getDeletionProtectionViaIngressClassParams(ctx, ing)
+	if err != nil {
+		return false, err
+	}
+
+	// Keep precedence consistent with buildIngressLoadBalancerAttributes: IngressClassParams > annotation.
+	if ingClassSpecified {
+		return ingClassDeletionProtectionEnabled, nil
+	}
+	if annotationSpecified {
+		return annotationDeletionProtectionEnabled, nil
+	}
+	return false, nil
+}
+
+func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotationForIngress(ing *networking.Ingress) (bool, bool, error) {
 	var lbAttributes map[string]string
 	_, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &lbAttributes, ing.Annotations)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	if _, deletionProtectionSpecified := lbAttributes[shared_constants.LBAttributeDeletionProtection]; deletionProtectionSpecified {
 		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[shared_constants.LBAttributeDeletionProtection])
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
-		return deletionProtectionEnabled, nil
+		return deletionProtectionEnabled, true, nil
 	}
-	return false, nil
+	return false, false, nil
+}
+
+func (t *defaultModelBuildTask) getDeletionProtectionViaIngressClassParams(ctx context.Context, ing *networking.Ingress) (bool, bool, error) {
+	if t.k8sClient == nil {
+		return false, false, nil
+	}
+	classLoader := NewDefaultClassLoader(t.k8sClient, true)
+	ingClassConfig, err := classLoader.Load(ctx, ing.DeepCopy())
+	if err != nil {
+		// Tolerate ErrInvalidIngressClass as "not specified", but propagate other errors.
+		if errors.Is(err, ErrInvalidIngressClass) {
+			return false, false, nil
+		}
+		return false, false, err
+	}
+	ingClassAttributes, err := t.buildIngressClassLoadBalancerAttributes(ingClassConfig)
+	if err != nil {
+		return false, false, err
+	}
+	if _, deletionProtectionSpecified := ingClassAttributes[shared_constants.LBAttributeDeletionProtection]; deletionProtectionSpecified {
+		deletionProtectionEnabled, err := strconv.ParseBool(ingClassAttributes[shared_constants.LBAttributeDeletionProtection])
+		if err != nil {
+			return false, false, err
+		}
+		return deletionProtectionEnabled, true, nil
+	}
+	return false, false, nil
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {

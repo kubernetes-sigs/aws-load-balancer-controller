@@ -6248,3 +6248,325 @@ func Test_defaultModelBuildTask_buildResourceTagsPriority(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_run_doesNotBlockDeletionWithoutIngressAnnotation(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	ingClassName := "alb"
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "ing-without-lb-annotation",
+						Finalizers: []string{
+							"ingress.k8s.aws/resources",
+						},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: &ingClassName,
+					},
+				},
+			},
+		},
+	}
+
+	// k8sClient is intentionally nil, so this verifies annotation-only baseline behavior.
+	err := task.run(context.Background())
+	assert.NoError(t, err)
+}
+
+func Test_defaultModelBuildTask_run_blocksDeletionWhenIngressAnnotationEnablesProtection(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "ing-with-protection-annotation",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=true",
+						},
+						Finalizers: []string{
+							"ingress.k8s.aws/resources",
+						},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+				},
+			},
+		},
+	}
+
+	err := task.run(context.Background())
+	assert.EqualError(t, err, "deletion_protection is enabled, cannot delete the ingress: ing-with-protection-annotation")
+}
+
+func Test_defaultModelBuildTask_run_blocksDeletionWhenIngressClassParamsEnablesProtection(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	ingClassName := "alb"
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	v1beta1.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	ingClassParams := &v1beta1.IngressClassParams{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alb-params",
+		},
+		Spec: v1beta1.IngressClassParamsSpec{
+			LoadBalancerAttributes: []v1beta1.Attribute{
+				{
+					Key:   shared_constants.LBAttributeDeletionProtection,
+					Value: "true",
+				},
+			},
+		},
+	}
+	ingClass := &networking.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alb",
+		},
+		Spec: networking.IngressClassSpec{
+			Controller: IngressClassControllerALB,
+			Parameters: &networking.IngressClassParametersReference{
+				APIGroup: awssdk.String(v1beta1.GroupVersion.Group),
+				Kind:     "IngressClassParams",
+				Name:     "alb-params",
+			},
+		},
+	}
+	assert.NoError(t, k8sClient.Create(context.Background(), ingClassParams))
+	assert.NoError(t, k8sClient.Create(context.Background(), ingClass))
+
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		k8sClient:        k8sClient,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "ing-with-class-protection",
+						Finalizers: []string{
+							"ingress.k8s.aws/resources",
+						},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: &ingClassName,
+					},
+				},
+			},
+		},
+	}
+
+	err := task.run(context.Background())
+	assert.EqualError(t, err, "deletion_protection is enabled, cannot delete the ingress: ing-with-class-protection")
+}
+
+func Test_defaultModelBuildTask_run_prefersIngressClassParamsOverAnnotationForDeletionProtection_trueOverFalse(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	ingClassName := "alb"
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	v1beta1.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	ingClassParams := &v1beta1.IngressClassParams{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alb-params",
+		},
+		Spec: v1beta1.IngressClassParamsSpec{
+			LoadBalancerAttributes: []v1beta1.Attribute{
+				{
+					Key:   shared_constants.LBAttributeDeletionProtection,
+					Value: "true",
+				},
+			},
+		},
+	}
+	ingClass := &networking.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alb",
+		},
+		Spec: networking.IngressClassSpec{
+			Controller: IngressClassControllerALB,
+			Parameters: &networking.IngressClassParametersReference{
+				APIGroup: awssdk.String(v1beta1.GroupVersion.Group),
+				Kind:     "IngressClassParams",
+				Name:     "alb-params",
+			},
+		},
+	}
+	assert.NoError(t, k8sClient.Create(context.Background(), ingClassParams))
+	assert.NoError(t, k8sClient.Create(context.Background(), ingClass))
+
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		k8sClient:        k8sClient,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "ing-class-true-annotation-false",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=false",
+						},
+						Finalizers:        []string{"ingress.k8s.aws/resources"},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: &ingClassName,
+					},
+				},
+			},
+		},
+	}
+
+	err := task.run(context.Background())
+	assert.EqualError(t, err, "deletion_protection is enabled, cannot delete the ingress: ing-class-true-annotation-false")
+}
+
+func Test_defaultModelBuildTask_run_prefersIngressClassParamsOverAnnotationForDeletionProtection_falseOverTrue(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	ingClassName := "alb"
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	v1beta1.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	ingClassParams := &v1beta1.IngressClassParams{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alb-params",
+		},
+		Spec: v1beta1.IngressClassParamsSpec{
+			LoadBalancerAttributes: []v1beta1.Attribute{
+				{
+					Key:   shared_constants.LBAttributeDeletionProtection,
+					Value: "false",
+				},
+			},
+		},
+	}
+	ingClass := &networking.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alb",
+		},
+		Spec: networking.IngressClassSpec{
+			Controller: IngressClassControllerALB,
+			Parameters: &networking.IngressClassParametersReference{
+				APIGroup: awssdk.String(v1beta1.GroupVersion.Group),
+				Kind:     "IngressClassParams",
+				Name:     "alb-params",
+			},
+		},
+	}
+	assert.NoError(t, k8sClient.Create(context.Background(), ingClassParams))
+	assert.NoError(t, k8sClient.Create(context.Background(), ingClass))
+
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		k8sClient:        k8sClient,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "ing-class-false-annotation-true",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=true",
+						},
+						Finalizers:        []string{"ingress.k8s.aws/resources"},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: &ingClassName,
+					},
+				},
+			},
+		},
+	}
+
+	err := task.run(context.Background())
+	assert.NoError(t, err)
+}
+
+func Test_defaultModelBuildTask_run_toleratesInvalidIngressClassConfigurationForDeletionProtection(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	ingClassName := "missing-class"
+
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	v1beta1.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		k8sClient:        k8sClient,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:         "default",
+						Name:              "ing-with-invalid-class-config",
+						Finalizers:        []string{"ingress.k8s.aws/resources"},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: &ingClassName,
+					},
+				},
+			},
+		},
+	}
+
+	// ErrInvalidIngressClass is treated as "not specified" (annotation-only fallback).
+	err := task.run(context.Background())
+	assert.NoError(t, err)
+}
+
+func Test_defaultModelBuildTask_run_returnsErrorOnNonInvalidIngressClassLoadFailureForDeletionProtection(t *testing.T) {
+	annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+	ingClassName := "alb"
+
+	// Use an empty scheme to force a non-ErrInvalidIngressClass load error path.
+	k8sClient := testclient.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
+
+	task := &defaultModelBuildTask{
+		annotationParser: annotationParser,
+		k8sClient:        k8sClient,
+		ingGroup: Group{
+			ID: GroupID{Name: "test-group"},
+			InactiveMembers: []*networking.Ingress{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:         "default",
+						Name:              "ing-class-load-non-invalid-error",
+						Finalizers:        []string{"ingress.k8s.aws/resources"},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: &ingClassName,
+					},
+				},
+			},
+		},
+	}
+
+	err := task.run(context.Background())
+	assert.Error(t, err)
+}
