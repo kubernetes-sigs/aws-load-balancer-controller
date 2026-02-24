@@ -9,4 +9,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: public.ecr.aws/eks/aws-load-balancer-controller
-  newTag: v3.0.0
+  newTag: v3.1.0
