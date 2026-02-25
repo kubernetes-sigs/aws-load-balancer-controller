@@ -2,6 +2,7 @@ package targetgroupbinding
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,10 +35,16 @@ type TargetsManager interface {
 	ListTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) ([]TargetInfo, error)
 }
 
-// NewCachedTargetsManager constructs new cachedTargetsManager
-func NewCachedTargetsManager(elbv2Client services.ELBV2, logger logr.Logger) *cachedTargetsManager {
+// ELBV2ClientProvider returns an ELBV2 client configured for the given region.
+type ELBV2ClientProvider func(region string) (services.ELBV2, error)
+
+// NewCachedTargetsManager constructs new cachedTargetsManager.
+// elbv2Provider is optional; when set, cross-region target group ARNs are resolved to a regional ELBV2 client.
+func NewCachedTargetsManager(elbv2Client services.ELBV2, defaultRegion string, elbv2Provider ELBV2ClientProvider, logger logr.Logger) *cachedTargetsManager {
 	return &cachedTargetsManager{
 		elbv2Client:                elbv2Client,
+		defaultRegion:              defaultRegion,
+		elbv2Provider:              elbv2Provider,
 		targetsCache:               cache.NewExpiring(),
 		targetsCacheTTL:            defaultTargetsCacheTTL,
 		registerTargetsChunkSize:   defaultRegisterTargetsChunkSize,
@@ -53,7 +60,9 @@ var _ TargetsManager = &cachedTargetsManager{}
 // When list Targets with RefreshTargets list Option set,
 // only targets with ongoing TargetHealth(unknown/initial/draining) TargetHealth will be refreshed.
 type cachedTargetsManager struct {
-	elbv2Client services.ELBV2
+	elbv2Client   services.ELBV2
+	defaultRegion string
+	elbv2Provider ELBV2ClientProvider
 
 	// cache of targets by targetGroupARN.
 	// NOTE: since this cache implementation will automatically GC expired entries, we don't need to GC entries.
@@ -70,6 +79,22 @@ type cachedTargetsManager struct {
 	deregisterTargetsChunkSize int
 
 	logger logr.Logger
+}
+
+// resolveELBV2 returns the ELBV2 client for the region encoded in the target group ARN.
+// Falls back to the default client if the provider is nil or the region matches the default.
+func (m *cachedTargetsManager) resolveELBV2(tgARN string) (services.ELBV2, error) {
+	if m.elbv2Provider == nil || tgARN == "" {
+		return m.elbv2Client, nil
+	}
+	parts := strings.SplitN(tgARN, ":", 6)
+	if len(parts) >= 5 {
+		arnRegion := parts[3]
+		if arnRegion != "" && arnRegion != m.defaultRegion {
+			return m.elbv2Provider(arnRegion)
+		}
+	}
+	return m.elbv2Client, nil
 }
 
 // cache entry for targetsCache
@@ -92,7 +117,11 @@ func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2ap
 			"arn", tgARN,
 			"targets", targetsChunk)
 
-		clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+		regionalClient, err := m.resolveELBV2(tgARN)
+		if err != nil {
+			return err
+		}
+		clientToUse, err := regionalClient.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
 		if err != nil {
 			return err
 		}
@@ -120,7 +149,11 @@ func (m *cachedTargetsManager) DeregisterTargets(ctx context.Context, tgb *elbv2
 		m.logger.Info("deRegistering targets",
 			"arn", tgARN,
 			"targets", targetsChunk)
-		clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+		regionalClient, err := m.resolveELBV2(tgARN)
+		if err != nil {
+			return err
+		}
+		clientToUse, err := regionalClient.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
 		if err != nil {
 			return err
 		}
@@ -213,7 +246,11 @@ func (m *cachedTargetsManager) listTargetsFromAWS(ctx context.Context, tgb *elbv
 		TargetGroupArn: aws.String(tgARN),
 		Targets:        targetByIdPort(targets),
 	}
-	clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+	regionalClient, err := m.resolveELBV2(tgARN)
+	if err != nil {
+		return nil, err
+	}
+	clientToUse, err := regionalClient.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
 	if err != nil {
 		return nil, err
 	}

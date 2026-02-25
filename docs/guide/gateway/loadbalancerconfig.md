@@ -65,6 +65,26 @@ Defines the LoadBalancer Scheme.
 
 **Default** internal
 
+#### Region
+
+`region`
+
+The AWS region where the load balancer will be deployed. When unset, the controller's default region (from `--aws-region` or environment) is used. When set to a different region, you must specify the VPC in that region using one of: `vpcId`, `vpcSelector`, or `loadBalancerSubnets` with subnet identifiers so the controller can resolve the VPC.
+
+**Default** Controller's default region
+
+#### VpcID
+
+`vpcId`
+
+The VPC ID in the target region. Used when `region` is set, especially when it differs from the controller default. Required (or use `vpcSelector` / `loadBalancerSubnets` with identifiers) when deploying to a non-default region.
+
+#### VpcSelector
+
+`vpcSelector`
+
+Selects the VPC in the target region by tags. Same shape as `loadBalancerSubnetsSelector`: each key is a tag name, the value list is the allowed tag values. A VPC matches if it has each tag key with one of the corresponding values. Exactly one VPC must match in the target region. Use when `region` is set and you prefer tag-based selection over a fixed `vpcId`.
+
 #### IpAddressType
 
 `ipAddressType`

@@ -502,13 +502,14 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name         string
-		vpcInfoCalls int
-		assumeRole   string
-		vpcInfo      networking.VPCInfo
-		vpcInfoError error
-		ipTestCases  []ipTestCase
-		expectErr    bool
+		name            string
+		vpcInfoCalls    int
+		assumeRole      string
+		controllerVPCID string
+		vpcInfo         networking.VPCInfo
+		vpcInfoError    error
+		ipTestCases     []ipTestCase
+		expectErr       bool
 	}{
 		{
 			name:         "standard case ipv4",
@@ -665,10 +666,11 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			},
 		},
 		{
-			name:         "not found error from vpc info should be propagated when not using assume role",
-			vpcInfoCalls: 1,
-			vpcInfoError: &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound", Message: ""},
-			expectErr:    true,
+			name:            "not found error from vpc info should be propagated when not using assume role and local vpc",
+			controllerVPCID: vpcId,
+			vpcInfoCalls:    1,
+			vpcInfoError:    &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound", Message: ""},
+			expectErr:       true,
 		},
 		{
 			name:         "assume role case peered vpc other error should get propagated",
@@ -676,6 +678,26 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			assumeRole:   "foo",
 			vpcInfoError: &smithy.GenericAPIError{Code: "other error", Message: ""},
 			expectErr:    true,
+		},
+		{
+			name:            "cross-region vpc not found should override AZ for all IPs",
+			controllerVPCID: "different-vpc",
+			vpcInfoCalls:    1,
+			vpcInfoError:    &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound", Message: ""},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("172.0.0.0"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.1"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:0:0:0:0:0:0"),
+					result: true,
+				},
+			},
 		},
 	}
 
@@ -689,6 +711,7 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 				logger:          logr.New(&log.NullLogSink{}),
 				invalidVpcCache: cache.NewExpiring(),
 				vpcInfoProvider: vpcInfoProvider,
+				vpcID:           tc.controllerVPCID,
 			}
 
 			returnedFn, err := m.generateOverrideAzFn(context.Background(), vpcId, tc.assumeRole)

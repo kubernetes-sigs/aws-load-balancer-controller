@@ -421,6 +421,22 @@ func Test_buildTargetGroupBindingNetworking_standardBuilder(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "nil backend SG token (cross-region) returns nil networking",
+			sgOutput: securityGroupOutput{
+				securityGroupTokens:           []core.StringToken{core.LiteralStringToken("sg-remote-region")},
+				backendSecurityGroupToken:     nil,
+				backendSecurityGroupAllocated: false,
+			},
+			tgSpec: elbv2model.TargetGroupSpec{
+				Protocol: elbv2model.ProtocolHTTP,
+				HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+					Port: &intstr80,
+				},
+			},
+			targetPort: intstr80,
+			expected:   nil,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

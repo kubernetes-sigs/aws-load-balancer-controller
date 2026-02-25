@@ -733,6 +733,11 @@ spec:
                 required:
                 - capacityUnits
                 type: object
+              region:
+                description: |-
+                  region is the AWS region where the load balancer will be deployed. When unset, the controller's default region is used.
+                  When set to a different region, vpcId, vpcSelector, or loadBalancerSubnets with identifiers must be set so the VPC can be resolved.
+                type: string
               scheme:
                 description: scheme defines the type of LB to provision. If unspecified,
                   it will be automatically inferred.
@@ -771,6 +776,19 @@ spec:
                 additionalProperties:
                   type: string
                 description: Tags the AWS Tags on all related resources to the gateway.
+                type: object
+              vpcId:
+                description: vpcId is the VPC ID in the target region. Used when region
+                  is set (and especially when it differs from the controller default).
+                type: string
+              vpcSelector:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: |-
+                  vpcSelector selects the VPC in the target region by tags. Each key is a tag name; the value list is the allowed tag values.
+                  A VPC matches if it has each tag key with one of the corresponding values. Exactly one VPC must match in the target region.
                 type: object
               wafV2:
                 description: WAFv2 define the AWS WAFv2 settings for a Gateway [Application
