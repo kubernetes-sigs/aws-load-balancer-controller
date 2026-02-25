@@ -10,6 +10,7 @@ const (
 	IngressEventReasonFailedBuildModel        = "FailedBuildModel"
 	IngressEventReasonFailedDeployModel       = "FailedDeployModel"
 	IngressEventReasonSuccessfullyReconciled  = "SuccessfullyReconciled"
+	IngressEventReasonCertificateErrorSkipped = "CertificateErrorSkipped"
 
 	// Service events
 	ServiceEventReasonFailedAddFinalizer     = "FailedAddFinalizer"

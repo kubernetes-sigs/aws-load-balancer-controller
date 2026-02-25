@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networking "k8s.io/api/networking/v1"
@@ -10,6 +11,17 @@ import (
 
 // GroupID is the unique identifier for an IngressGroup within cluster.
 type GroupID types.NamespacedName
+
+// SkippedIngress represents an Ingress that was skipped during reconciliation
+// due to a certificate error when the skip-on-cert-error annotation is enabled.
+type SkippedIngress struct {
+	// Ingress is the reference to the original Ingress object that was skipped
+	Ingress *networking.Ingress
+	// Reason is the certificate error message explaining why the Ingress was skipped
+	Reason string
+	// FailedHosts is the list of TLS hosts that failed certificate discovery
+	FailedHosts []string
+}
 
 // IsExplicit tests whether this is an explicit group.
 // Explicit groups are defined by either:
@@ -64,4 +76,8 @@ type Group struct {
 
 	// InactiveMembers are Ingresses that no longer belong to this group, but still hold the finalizers.
 	InactiveMembers []*networking.Ingress
+
+	// SkippedMembers are Ingresses that were skipped during reconciliation due to certificate errors
+	// when the skip-on-cert-error annotation is enabled.
+	SkippedMembers []SkippedIngress
 }

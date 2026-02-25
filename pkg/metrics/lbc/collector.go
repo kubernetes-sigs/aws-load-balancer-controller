@@ -25,6 +25,8 @@ type MetricCollector interface {
 	ObserveControllerReconcileLatency(controller string, stage string, fn func())
 	ObserveWebhookValidationError(webhookName string, errorType string)
 	ObserveWebhookMutationError(webhookName string, errorType string)
+	// ObserveIngressCertErrorSkipped increments the counter when an Ingress is skipped due to certificate error
+	ObserveIngressCertErrorSkipped(namespace, ingressName, groupName string)
 	StartCollectTopTalkers(ctx context.Context)
 	StartCollectCacheSize(ctx context.Context)
 }
@@ -63,6 +65,9 @@ func (n *noOpCollector) StartCollectTopTalkers(_ context.Context) {
 }
 
 func (n *noOpCollector) StartCollectCacheSize(_ context.Context) {
+}
+
+func (n *noOpCollector) ObserveIngressCertErrorSkipped(_, _, _ string) {
 }
 
 func NewCollector(registerer prometheus.Registerer, mgr ctrl.Manager, reconcileCounters *metricsutil.ReconcileCounters, logger logr.Logger) MetricCollector {
@@ -122,6 +127,14 @@ func (c *collector) ObserveWebhookMutationError(webhookName string, errorCategor
 	c.instruments.webhookMutationFailure.With(prometheus.Labels{
 		labelWebhookName:   webhookName,
 		labelErrorCategory: errorCategory,
+	}).Inc()
+}
+
+func (c *collector) ObserveIngressCertErrorSkipped(namespace, ingressName, groupName string) {
+	c.instruments.ingressCertErrorSkipped.With(prometheus.Labels{
+		labelNamespace:   namespace,
+		labelIngressName: ingressName,
+		labelGroupName:   groupName,
 	}).Inc()
 }
 

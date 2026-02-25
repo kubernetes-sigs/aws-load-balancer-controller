@@ -2,8 +2,9 @@ package ingress
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
@@ -135,10 +136,11 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
-			got, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0])
+			got, skipInfo, err := task.computeIngressListenPortConfigByPort(context.Background(), &tt.fields.ingGroup.Members[0])
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
+				assert.Nil(t, skipInfo)
 
 				for i := 0; i < len(tt.want); i++ {
 					port := tt.want[i].port

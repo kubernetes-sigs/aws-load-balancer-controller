@@ -26,6 +26,8 @@ const (
 	MetricControllerTopTalkers = "controller_top_talkers"
 	// MetricQuicTargetMissingServerId tracks the total number of QUIC targets attempted to be registered without a generated server id.
 	MetricQuicTargetMissingServerId = "quic_target_missing_server_id"
+	// MetricIngressCertErrorSkipped tracks the total number of Ingresses skipped due to certificate errors
+	MetricIngressCertErrorSkipped = "ingress_cert_error_skipped_total"
 )
 
 const (
@@ -36,6 +38,8 @@ const (
 	labelReconcileStage = "reconcile_stage"
 	labelWebhookName    = "webhook_name"
 	LabelResource       = "resource"
+	labelIngressName    = "ingress_name"
+	labelGroupName      = "group_name"
 )
 
 type instruments struct {
@@ -47,6 +51,7 @@ type instruments struct {
 	webhookMutationFailure        *prometheus.CounterVec
 	controllerCacheObjectCount    *prometheus.GaugeVec
 	controllerReconcileTopTalkers *prometheus.GaugeVec
+	ingressCertErrorSkipped       *prometheus.CounterVec
 }
 
 // newInstruments allocates and register new metrics to registerer
@@ -101,7 +106,13 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		Help:      "Counts the number of reconciliations triggered per resource",
 	}, []string{labelController, labelNamespace, labelName})
 
-	registerer.MustRegister(podReadinessFlipSeconds, controllerReconcileErrors, controllerReconcileStageDuration, webhookValidationFailure, webhookMutationFailure, controllerCacheObjectCount, controllerReconcileTopTalkers)
+	ingressCertErrorSkipped := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: metricSubsystem,
+		Name:      MetricIngressCertErrorSkipped,
+		Help:      "Counts the total number of Ingresses skipped due to certificate errors.",
+	}, []string{labelNamespace, labelIngressName, labelGroupName})
+
+	registerer.MustRegister(podReadinessFlipSeconds, controllerReconcileErrors, controllerReconcileStageDuration, webhookValidationFailure, webhookMutationFailure, controllerCacheObjectCount, controllerReconcileTopTalkers, ingressCertErrorSkipped)
 	return &instruments{
 		podReadinessFlipSeconds:       podReadinessFlipSeconds,
 		controllerReconcileErrors:     controllerReconcileErrors,
@@ -111,5 +122,6 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		controllerCacheObjectCount:    controllerCacheObjectCount,
 		controllerReconcileTopTalkers: controllerReconcileTopTalkers,
 		quicTargetsMissingServerId:    controllerQuicTargetMissingServerId,
+		ingressCertErrorSkipped:       ingressCertErrorSkipped,
 	}
 }

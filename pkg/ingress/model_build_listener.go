@@ -129,22 +129,22 @@ type listenPortConfig struct {
 	mutualAuthentication *elbv2model.MutualAuthenticationAttributes
 }
 
-func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int32]listenPortConfig, error) {
+func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int32]listenPortConfig, *CertErrorSkipInfo, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	prefixListIDs := t.computeIngressExplicitPrefixListIDs(ctx, ing)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	mutualAuthenticationAttributes, err := t.computeIngressMutualAuthentication(ctx, ing)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	preferTLS := len(explicitTLSCertARNs) != 0
 	listenPorts, err := t.computeIngressListenPorts(ctx, ing.Ing, preferTLS)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	containsHTTPSPort := false
@@ -158,7 +158,18 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	if containsHTTPSPort && len(explicitTLSCertARNs) == 0 {
 		inferredTLSCertARNs, err = t.computeIngressInferredTLSCertARNs(ctx, ing.Ing)
 		if err != nil {
-			return nil, err
+			// Check if skip-on-cert-error annotation is enabled
+			if ShouldSkipOnCertError(ing.Ing, t.annotationParser, t.logger) {
+				// Return skip info instead of error
+				skipInfo := &CertErrorSkipInfo{
+					Ingress:     ing.Ing,
+					Error:       err,
+					FailedHosts: GetIngressTLSHosts(ing.Ing),
+				}
+				return nil, skipInfo, nil
+			}
+			// Skip annotation not enabled, propagate error as before
+			return nil, nil, err
 		}
 	}
 
@@ -182,7 +193,7 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 		listenPortConfigByPort[port] = cfg
 	}
 
-	return listenPortConfigByPort, nil
+	return listenPortConfigByPort, nil, nil
 }
 
 func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *ClassifiedIngress) []string {

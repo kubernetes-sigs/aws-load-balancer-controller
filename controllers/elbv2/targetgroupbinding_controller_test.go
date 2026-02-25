@@ -57,8 +57,10 @@ func (m *mockMetricCollector) ObserveControllerReconcileLatency(controller strin
 }
 func (m *mockMetricCollector) ObserveWebhookValidationError(webhookName string, errorType string) {}
 func (m *mockMetricCollector) ObserveWebhookMutationError(webhookName string, errorType string)   {}
-func (m *mockMetricCollector) StartCollectTopTalkers(ctx context.Context)                         {}
-func (m *mockMetricCollector) StartCollectCacheSize(ctx context.Context)                          {}
+func (m *mockMetricCollector) ObserveIngressCertErrorSkipped(namespace, ingressName, groupName string) {
+}
+func (m *mockMetricCollector) StartCollectTopTalkers(ctx context.Context) {}
+func (m *mockMetricCollector) StartCollectCacheSize(ctx context.Context)  {}
 
 // --- Test ---
 
