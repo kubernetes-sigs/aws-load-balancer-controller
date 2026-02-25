@@ -2,15 +2,16 @@ package ingress
 
 import (
 	"context"
-	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
-	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"reflect"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
@@ -47,7 +48,8 @@ const (
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
 	// build mode stack for a IngressGroup.
-	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, []int32, error)
+	// Returns: stack, loadBalancer, secrets, backendSGRequired, frontendNlb, listenerPorts, skippedMembers, error
+	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, []int32, []SkippedIngress, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -136,7 +138,7 @@ type defaultModelBuilder struct {
 }
 
 // build mode stack for a IngressGroup.
-func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, []int32, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, []int32, []SkippedIngress, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 
 	task := &defaultModelBuildTask{
@@ -194,7 +196,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		localFrontendNlbData:       make(map[string]*elbv2model.FrontendNlbTargetGroupState),
 	}
 	if err := task.run(ctx); err != nil {
-		return nil, nil, nil, false, nil, nil, err
+		return nil, nil, nil, false, nil, nil, nil, err
 	}
 
 	// Extract just the port numbers from listenPortConfigByPort
@@ -209,7 +211,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 	})
 
 	_ = elbv2model.NewFrontendNlbTargetGroupDesiredState(task.stack, task.localFrontendNlbData)
-	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, task.frontendNlb, listenerPorts, nil
+	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, task.frontendNlb, listenerPorts, task.ingGroup.SkippedMembers, nil
 }
 
 // the default model build task
@@ -293,13 +295,37 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	listenerPortConfigByIngress := make(map[types.NamespacedName]map[int32]listenPortConfig)
 	ingListByPort := make(map[int32][]ClassifiedIngress)
 	listenPortConfigsByPort := make(map[int32][]listenPortConfigWithIngress)
+	var skippedMembers []SkippedIngress
+	var processedMembers []ClassifiedIngress
+
 	for _, member := range t.ingGroup.Members {
 		ingKey := k8s.NamespacedName(member.Ing)
-		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member)
+		listenPortConfigByPortForIngress, skipInfo, err := t.computeIngressListenPortConfigByPort(ctx, &member)
 		if err != nil {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}
 
+		// Check if this Ingress should be skipped due to certificate error
+		if skipInfo != nil {
+			// Log warning about skipped Ingress (using Info level which is V(0) - always visible)
+			t.logger.Info("Warning: Skipping Ingress due to certificate discovery error",
+				"namespace", ingKey.Namespace,
+				"name", ingKey.Name,
+				"error", skipInfo.Error.Error(),
+				"failedHosts", skipInfo.FailedHosts)
+
+			// Emit metric for skipped Ingress
+			t.metricsCollector.ObserveIngressCertErrorSkipped(ingKey.Namespace, ingKey.Name, t.ingGroup.ID.Name)
+
+			skippedMembers = append(skippedMembers, SkippedIngress{
+				Ingress:     skipInfo.Ingress,
+				Reason:      skipInfo.Error.Error(),
+				FailedHosts: skipInfo.FailedHosts,
+			})
+			continue
+		}
+
+		processedMembers = append(processedMembers, member)
 		listenerPortConfigByIngress[ingKey] = listenPortConfigByPortForIngress
 
 		for port, cfg := range listenPortConfigByPortForIngress {
@@ -309,6 +335,14 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 				listenPortConfig: cfg,
 			})
 		}
+	}
+
+	// Update the ingGroup with skipped members for later processing (events, metrics, status)
+	t.ingGroup.SkippedMembers = skippedMembers
+
+	// If all Ingresses were skipped, handle as empty group scenario
+	if len(processedMembers) == 0 {
+		return nil
 	}
 
 	t.listenPortConfigByPort = make(map[int32]listenPortConfig)

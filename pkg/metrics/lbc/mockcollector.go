@@ -75,6 +75,13 @@ func (m *MockCollector) ObserveWebhookMutationError(webhookName string, errorCat
 	})
 }
 
+func (m *MockCollector) ObserveIngressCertErrorSkipped(namespace, ingressName, groupName string) {
+	m.Invocations[MetricIngressCertErrorSkipped] = append(m.Invocations[MetricIngressCertErrorSkipped], MockCounterMetric{
+		labelNamespace: namespace,
+		labelName:      ingressName,
+	})
+}
+
 func (m *MockCollector) ObserveControllerCacheSize(resource string, count int) {
 	m.Invocations[MetricControllerCacheObjectCount] = append(m.Invocations[MetricControllerCacheObjectCount], MockCounterMetric{
 		resource: resource,
@@ -166,6 +173,7 @@ func NewMockCollector() MetricCollector {
 	mockInvocations[MetricWebhookMutationFailure] = make([]interface{}, 0)
 	mockInvocations[MetricControllerCacheObjectCount] = make([]interface{}, 0)
 	mockInvocations[MetricControllerTopTalkers] = make([]interface{}, 0)
+	mockInvocations[MetricIngressCertErrorSkipped] = make([]interface{}, 0)
 
 	return &MockCollector{
 		Invocations: mockInvocations,

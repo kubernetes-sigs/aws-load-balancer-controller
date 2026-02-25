@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
@@ -153,10 +154,13 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "add_group_finalizer_error", err, r.metricsCollector)
 	}
 
-	_, lb, frontendNlb, listenerPorts, err := r.buildAndDeployModel(ctx, ingGroup)
+	_, lb, frontendNlb, listenerPorts, skippedMembers, err := r.buildAndDeployModel(ctx, ingGroup)
 	if err != nil {
 		return err
 	}
+
+	// Emit Warning events for skipped Ingresses due to certificate errors
+	r.recordSkippedIngressEvents(ctx, skippedMembers)
 
 	if len(ingGroup.Members) > 0 && lb != nil {
 		var statusErr error
@@ -200,7 +204,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 	return nil
 }
 
-func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingress.Group) (core.Stack, *elbv2model.LoadBalancer, *elbv2model.LoadBalancer, []int32, error) {
+func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingress.Group) (core.Stack, *elbv2model.LoadBalancer, *elbv2model.LoadBalancer, []int32, []ingress.SkippedIngress, error) {
 	var stack core.Stack
 	var lb *elbv2model.LoadBalancer
 	var secrets []types.NamespacedName
@@ -208,18 +212,19 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	var err error
 	var frontendNlb *elbv2model.LoadBalancer
 	var listenerPorts []int32
+	var skippedMembers []ingress.SkippedIngress
 	buildModelFn := func() {
-		stack, lb, secrets, backendSGRequired, frontendNlb, listenerPorts, err = r.modelBuilder.Build(ctx, ingGroup, r.metricsCollector)
+		stack, lb, secrets, backendSGRequired, frontendNlb, listenerPorts, skippedMembers, err = r.modelBuilder.Build(ctx, ingGroup, r.metricsCollector)
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "build_model", buildModelFn)
 	if err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "build_model_error", err, r.metricsCollector)
+		return nil, nil, nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "build_model_error", err, r.metricsCollector)
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
 
@@ -230,10 +235,10 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	if err != nil {
 		var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
 		if errors.As(err, &requeueNeededAfter) {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
-		return nil, nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
+		return nil, nil, nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
 	r.secretsManager.MonitorSecrets(ingGroup.ID.String(), secrets)
@@ -243,14 +248,22 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 		inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(ingGroup.Members)...)
 	}
 	if err := r.backendSGProvider.Release(ctx, networkingpkg.ResourceTypeIngress, inactiveResources); err != nil {
-		return nil, nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
+		return nil, nil, nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
 	}
-	return stack, lb, frontendNlb, listenerPorts, nil
+	return stack, lb, frontendNlb, listenerPorts, skippedMembers, nil
 }
 
 func (r *groupReconciler) recordIngressGroupEvent(_ context.Context, ingGroup ingress.Group, eventType string, reason string, message string) {
 	for _, member := range ingGroup.Members {
 		r.eventRecorder.Event(member.Ing, eventType, reason, message)
+	}
+}
+
+// recordSkippedIngressEvents emits Warning events for Ingresses that were skipped due to certificate errors
+func (r *groupReconciler) recordSkippedIngressEvents(_ context.Context, skippedMembers []ingress.SkippedIngress) {
+	for _, skipped := range skippedMembers {
+		message := fmt.Sprintf("Skipped due to certificate error: %s. Failed hosts: %v", skipped.Reason, skipped.FailedHosts)
+		r.eventRecorder.Event(skipped.Ingress, corev1.EventTypeWarning, k8s.IngressEventReasonCertificateErrorSkipped, message)
 	}
 }
 
