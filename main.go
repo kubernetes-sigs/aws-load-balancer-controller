@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
@@ -174,6 +176,10 @@ func main() {
 		setupLog.Error(err, "unable to obtain clientSet")
 		os.Exit(1)
 	}
+
+	// Gateway API CRD auto-detection: check which CRDs are installed and disable
+	// feature flags for missing CRDs before any controller setup reads them.
+	crddetect.ApplyGatewayCRDDetection(clientSet.Discovery(), controllerCFG.FeatureGates, setupLog)
 
 	nlbGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI)
 	albGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI)

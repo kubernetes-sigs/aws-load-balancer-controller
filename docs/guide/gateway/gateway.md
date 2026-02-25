@@ -24,14 +24,17 @@ The LBC is built for Gateway API version v1.3.0.
 
 ## Configuration
 
-By default, the LBC will _not_ listen to Gateway API CRDs. To enable support, specify the following feature flag(s) in the LBC deployment:
+The Load Balancer Controller (LBC) will attempt to detect Gateway CRDs. 
+If they are present, the respective controller will be enabled. 
+To explicitly disable these controllers, use the following feature gates:
 
-* `NLBGatewayAPI`: For enabling L4 Routing
-* `ALBGatewayAPI`: For enabling L7 Routing
+```--feature-gates=NLBGatewayAPI=false,ALBGatewayAPI=false```
 
-```
-- --feature-gates=NLBGatewayAPI=true,ALBGatewayAPI=true
-```
+For the NLB Gateway controller (Layer 4) to be enabled, ensure the following CRDs are installed:
+`Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, and `TLSRoute`
+
+For the ALB Gateway controller (Layer 7) to be enabled, ensure the following CRDs are installed:
+`Gateway`, `GatewayClass`, `HTTPRoute`, and `GRPCRoute`
 
 ## Subnet tagging requirements
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring Elastic Load Balancing for public or private placement.
