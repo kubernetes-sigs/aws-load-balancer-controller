@@ -298,6 +298,32 @@ func WaitUntilTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbA
 	return nil
 }
 
+// WaitUntilAllTargetsAreHealthy checks all target groups for the load balancer
+// and waits until the total number of healthy targets across all TGs equals expectedTargetCount.
+func WaitUntilAllTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbARN string, expectedTargetCount int) error {
+	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(len(targetGroups)).To(Not(BeZero()))
+
+	Eventually(func() (bool, error) {
+		totalHealthy := 0
+		for _, tg := range targetGroups {
+			tgARN := awssdk.ToString(tg.TargetGroupArn)
+			targets, err := f.TGManager.GetCurrentTargets(ctx, tgARN)
+			if err != nil {
+				return false, err
+			}
+			for _, thd := range targets {
+				if thd.TargetHealth.State == elbv2types.TargetHealthStateEnumHealthy {
+					totalHealthy++
+				}
+			}
+		}
+		return totalHealthy == expectedTargetCount, nil
+	}, utils.PollTimeoutLong, utils.PollIntervalMedium).Should(BeTrue())
+	return nil
+}
+
 func GetTargetGroupHealthCheckProtocol(ctx context.Context, f *framework.Framework, lbARN string) string {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())

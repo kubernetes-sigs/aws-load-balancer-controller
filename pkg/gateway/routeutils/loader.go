@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -159,6 +160,16 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 	loadedRouteData := make(map[int32][]RouteDescriptor)
 	failedRoutes := make([]RouteData, 0)
 
+	// Look up the Gateway-level TargetGroupConfiguration once per reconcile cycle.
+	// This is passed to all route loaders as a fallback when a Service-level TGC is not found.
+	gatewayDefaultTGConfig, err := LookUpTargetGroupConfiguration(ctx, l.k8sClient, gatewayKind, types.NamespacedName{
+		Namespace: gw.Namespace,
+		Name:      gw.Name,
+	})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "Unable to fetch gateway default target group configuration")
+	}
+
 	for port, preloadedRouteList := range preloadedRoutes {
 		for _, preloadedRoute := range preloadedRouteList {
 			namespacedNameRoute := preloadedRoute.GetRouteNamespacedName()
@@ -171,6 +182,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				continue
 			}
 
+			preloadedRoute.setGatewayDefaultTGConfig(gatewayDefaultTGConfig)
 			generatedRoute, loadAttachedRulesErrors := preloadedRoute.loadAttachedRules(ctx, l.k8sClient)
 			if len(loadAttachedRulesErrors) > 0 {
 				for _, lare := range loadAttachedRulesErrors {

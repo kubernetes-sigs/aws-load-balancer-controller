@@ -288,3 +288,78 @@ func validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf *framework.Framew
 		},
 	})
 }
+
+// DeployGatewayTGC deploys a two-service ALB stack with a single Gateway-level TGC.
+// Both services inherit target group settings from the Gateway TGC.
+func (s *ALBTestStack) DeployGatewayTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, gwTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	svc1 := buildServiceSpec(map[string]string{})
+	svc2 := buildServiceSpec(map[string]string{})
+	svc2.Name = defaultName + "-2"
+	dp1 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2.Name = defaultName + "-2"
+	dp2.Spec.Selector.MatchLabels = map[string]string{"app": defaultName + "-2"}
+	dp2.Spec.Template.Labels = map[string]string{"app": defaultName + "-2"}
+	svc2.Spec.Selector = map[string]string{"app": defaultName + "-2"}
+
+	gwTgc := buildGatewayTargetGroupConfig("gw-tgconfig-e2e", gwTgSpec, defaultName)
+
+	gwListeners := []gwv1.Listener{
+		{
+			Name:     "test-listener",
+			Port:     80,
+			Protocol: gwv1.HTTPProtocolType,
+		},
+	}
+
+	svc1Port := gwv1.PortNumber(80)
+	svc2Port := gwv1.PortNumber(80)
+	httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{
+		{
+			BackendRefs: []gwv1.HTTPBackendRef{
+				{BackendRef: gwv1.BackendRef{BackendObjectReference: gwv1.BackendObjectReference{Name: gwv1.ObjectName(svc1.Name), Port: &svc1Port}}},
+				{BackendRef: gwv1.BackendRef{BackendObjectReference: gwv1.BackendObjectReference{Name: gwv1.ObjectName(svc2.Name), Port: &svc2Port}}},
+			},
+		},
+	}, &gwListeners[0].Name)
+
+	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{httpr}, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{dp1, dp2}, []*corev1.Service{svc1, svc2}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{gwTgc}, elbv2gw.ListenerRuleConfigurationSpec{}, nil, readinessGateEnabled)
+}
+
+// DeployGatewayTGCOverride deploys a two-service ALB stack with a Gateway-level TGC
+// and a service-level TGC for svc2 that overrides the gateway defaults.
+func (s *ALBTestStack) DeployGatewayTGCOverride(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, gwTgSpec elbv2gw.TargetGroupConfigurationSpec, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	svc1 := buildServiceSpec(map[string]string{})
+	svc2 := buildServiceSpec(map[string]string{})
+	svc2.Name = defaultName + "-2"
+	dp1 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2.Name = defaultName + "-2"
+	dp2.Spec.Selector.MatchLabels = map[string]string{"app": defaultName + "-2"}
+	dp2.Spec.Template.Labels = map[string]string{"app": defaultName + "-2"}
+	svc2.Spec.Selector = map[string]string{"app": defaultName + "-2"}
+
+	gwTgc := buildGatewayTargetGroupConfig("gw-tgconfig-e2e", gwTgSpec, defaultName)
+	svcTgc := buildTargetGroupConfig("svc-tgconfig-e2e", svcTgSpec, svc2)
+
+	gwListeners := []gwv1.Listener{
+		{
+			Name:     "test-listener",
+			Port:     80,
+			Protocol: gwv1.HTTPProtocolType,
+		},
+	}
+
+	svc1Port := gwv1.PortNumber(80)
+	svc2Port := gwv1.PortNumber(80)
+	httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{
+		{
+			BackendRefs: []gwv1.HTTPBackendRef{
+				{BackendRef: gwv1.BackendRef{BackendObjectReference: gwv1.BackendObjectReference{Name: gwv1.ObjectName(svc1.Name), Port: &svc1Port}}},
+				{BackendRef: gwv1.BackendRef{BackendObjectReference: gwv1.BackendObjectReference{Name: gwv1.ObjectName(svc2.Name), Port: &svc2Port}}},
+			},
+		},
+	}, &gwListeners[0].Name)
+
+	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{httpr}, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{dp1, dp2}, []*corev1.Service{svc1, svc2}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{gwTgc, svcTgc}, elbv2gw.ListenerRuleConfigurationSpec{}, nil, readinessGateEnabled)
+}

@@ -10,7 +10,9 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -51,6 +53,10 @@ func (m *mockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
 
 func (m *mockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	m.CompatibleHostnamesByPort = hostnamesByPort
+}
+
+func (m *mockRoute) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	// no-op for mock
 }
 
 func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -366,6 +372,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				allRouteLoaders: allRouteLoaders,
 				logger:          logr.Discard(),
 				routeSubmitter:  routeReconciler,
+				k8sClient:       testutils.GenerateTestClient(),
 			}
 
 			filter := &routeFilterImpl{acceptedKinds: tc.acceptedKinds}

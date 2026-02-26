@@ -55,10 +55,15 @@ type httpRouteDescription struct {
 	rules                     []RouteRule
 	ruleAccumulator           attachedRuleAccumulator[gwv1.HTTPRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
+	gatewayDefaultTGConfig    *elbv2gw.TargetGroupConfiguration
 }
 
 func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
 	return httpRoute.rules
+}
+
+func (httpRoute *httpRouteDescription) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	httpRoute.gatewayDefaultTGConfig = cfg
 }
 
 func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -78,7 +83,7 @@ func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8
 				})
 		}, func(hrr *gwv1.HTTPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 			return convertHTTPRouteRule(hrr, backends, listenerRuleConfiguration)
-		})
+		}, httpRoute.gatewayDefaultTGConfig)
 	httpRoute.rules = convertedRules
 	return httpRoute, allErrors
 }
