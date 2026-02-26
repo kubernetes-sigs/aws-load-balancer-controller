@@ -198,6 +198,20 @@ type LoadBalancerConfigurationSpec struct {
 	// +optional
 	MergingMode *LoadBalancerConfigMergeMode `json:"mergingMode,omitempty"`
 
+	// region is the AWS region where the load balancer will be deployed. When unset, the controller's default region is used.
+	// When set to a different region, vpcId, vpcSelector, or loadBalancerSubnets with identifiers must be set so the VPC can be resolved.
+	// +optional
+	Region *string `json:"region,omitempty"`
+
+	// vpcId is the VPC ID in the target region. Used when region is set (and especially when it differs from the controller default).
+	// +optional
+	VpcID *string `json:"vpcId,omitempty"`
+
+	// vpcSelector selects the VPC in the target region by tags. Each key is a tag name; the value list is the allowed tag values.
+	// A VPC matches if it has each tag key with one of the corresponding values. Exactly one VPC must match in the target region.
+	// +optional
+	VpcSelector *map[string][]string `json:"vpcSelector,omitempty"`
+
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=32
 	// loadBalancerName defines the name of the LB to provision. If unspecified, it will be automatically generated.

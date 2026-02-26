@@ -37,10 +37,13 @@ const (
 var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
-func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingValidator {
+// elbv2Provider is optional; when set, cross-region target group ARNs are resolved to a regional ELBV2 client.
+func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, defaultRegion string, elbv2Provider ELBV2ClientProvider, vpcID string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
 		k8sClient:        k8sClient,
 		elbv2Client:      elbv2Client,
+		defaultRegion:    defaultRegion,
+		elbv2Provider:    elbv2Provider,
 		logger:           logger,
 		vpcID:            vpcID,
 		metricsCollector: metricsCollector,
@@ -52,6 +55,8 @@ var _ webhook.Validator = &targetGroupBindingValidator{}
 type targetGroupBindingValidator struct {
 	k8sClient        client.Client
 	elbv2Client      services.ELBV2
+	defaultRegion    string
+	elbv2Provider    ELBV2ClientProvider
 	logger           logr.Logger
 	vpcID            string
 	metricsCollector lbcmetrics.MetricCollector
@@ -64,15 +69,21 @@ func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Ob
 func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 
+	elbv2ForTGB, err := resolveELBV2ForTGB(v.elbv2Client, v.defaultRegion, v.elbv2Provider, tgb.Spec.TargetGroupARN)
+	if err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "resolveELBV2ForTGB")
+		return errors.Wrapf(err, "unable to create ELBV2 client for target group %s", tgb.Spec.TargetGroupARN)
+	}
+
 	targetGroupCache := sync.OnceValue(func() tgCacheObject {
-		targetGroup, err := getTargetGroupFromAWS(ctx, v.elbv2Client, tgb)
+		targetGroup, err := getTargetGroupFromAWS(ctx, elbv2ForTGB, tgb)
 		return tgCacheObject{
 			tg:    targetGroup,
 			error: err,
 		}
 	})
 
-	if err := v.checkRequiredFields(ctx, tgb); err != nil {
+	if err := v.checkRequiredFields(ctx, tgb, elbv2ForTGB); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkRequiredFields")
 		return err
 	}
@@ -109,7 +120,14 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	oldTgb := oldObj.(*elbv2api.TargetGroupBinding)
-	if err := v.checkRequiredFields(ctx, tgb); err != nil {
+
+	elbv2ForTGB, err := resolveELBV2ForTGB(v.elbv2Client, v.defaultRegion, v.elbv2Provider, tgb.Spec.TargetGroupARN)
+	if err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "resolveELBV2ForTGB")
+		return errors.Wrapf(err, "unable to create ELBV2 client for target group %s", tgb.Spec.TargetGroupARN)
+	}
+
+	if err := v.checkRequiredFields(ctx, tgb, elbv2ForTGB); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkRequiredFields")
 		return err
 	}
@@ -137,7 +155,8 @@ func (v *targetGroupBindingValidator) ValidateDelete(ctx context.Context, obj ru
 }
 
 // checkRequiredFields will check required fields are not absent.
-func (v *targetGroupBindingValidator) checkRequiredFields(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+// elbv2ForTGB is the ELBV2 client scoped to the correct region for this TGB.
+func (v *targetGroupBindingValidator) checkRequiredFields(ctx context.Context, tgb *elbv2api.TargetGroupBinding, elbv2ForTGB services.ELBV2) error {
 	var absentRequiredFields []string
 	if tgb.Spec.TargetGroupARN == "" {
 		if tgb.Spec.TargetGroupName == "" {
@@ -154,7 +173,7 @@ func (v *targetGroupBindingValidator) checkRequiredFields(ctx context.Context, t
 				By changing the object here I guarantee as early as possible that that assumption is true.
 			*/
 
-			tgObj, err := getTargetGroupsByNameFromAWS(ctx, v.elbv2Client, tgb)
+			tgObj, err := getTargetGroupsByNameFromAWS(ctx, elbv2ForTGB, tgb)
 			if err != nil {
 				return fmt.Errorf("searching TargetGroup with name %s: %w", tgb.Spec.TargetGroupName, err)
 			}
