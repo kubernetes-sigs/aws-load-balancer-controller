@@ -947,7 +947,7 @@ func Test_defaultResourceManager_registerPodEndpoints_RetryWithCache(t *testing.
 		{
 			IP:   "172.16.0.1",
 			Port: 8080,
-			Pod: k8s.PodInfo{
+			Pod: &k8s.PodInfo{
 				Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
 				NodeName: "node-1",
 			},
@@ -1014,7 +1014,7 @@ func Test_defaultResourceManager_registerPodEndpoints_RetryWithCache(t *testing.
 		{
 			IP:   "172.16.0.2",
 			Port: 8080,
-			Pod: k8s.PodInfo{
+			Pod: &k8s.PodInfo{
 				Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
 				NodeName: "node-1",
 			},
@@ -1069,7 +1069,7 @@ func Test_defaultResourceManager_registerPodEndpoints_RetryFails(t *testing.T) {
 		{
 			IP:   "172.16.0.1",
 			Port: 8080,
-			Pod: k8s.PodInfo{
+			Pod: &k8s.PodInfo{
 				Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
 				NodeName: "node-1",
 			},
@@ -1157,7 +1157,7 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 				{
 					IP:   "172.16.0.1",
 					Port: 8080,
-					Pod: k8s.PodInfo{
+					Pod: &k8s.PodInfo{
 						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
 						NodeName: "node-1",
 					},
@@ -1182,7 +1182,7 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 				{
 					IP:   "172.16.0.1",
 					Port: 8080,
-					Pod: k8s.PodInfo{
+					Pod: &k8s.PodInfo{
 						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
 						NodeName: "node-1",
 					},
@@ -1207,7 +1207,7 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 				{
 					IP:   "172.16.0.1",
 					Port: 8080,
-					Pod: k8s.PodInfo{
+					Pod: &k8s.PodInfo{
 						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
 						NodeName: "node-1",
 					},
@@ -1231,7 +1231,7 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 				{
 					IP:   "172.16.0.1",
 					Port: 8080,
-					Pod: k8s.PodInfo{
+					Pod: &k8s.PodInfo{
 						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
 						NodeName: "node-1",
 					},
