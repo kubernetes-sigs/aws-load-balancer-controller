@@ -253,7 +253,7 @@ func (r *defaultSubnetsResolver) listSubnetsByNameOrIDs(ctx context.Context, sub
 	}
 
 	subnetByID := make(map[string]ec2types.Subnet)
-	subnetByName := make(map[string]ec2types.Subnet)
+	subnetsByName := make(map[string][]ec2types.Subnet)
 
 	if len(subnetIDs) > 0 {
 		subnets, err := r.listSubnetsByIDs(ctx, subnetIDs)
@@ -279,13 +279,16 @@ func (r *defaultSubnetsResolver) listSubnetsByNameOrIDs(ctx context.Context, sub
 				}
 			}
 			if subnetName != "" {
-				subnetByName[subnetName] = subnet
+				// Use a slice to support multiple subnets with the same Name tag
+				subnetsByName[subnetName] = append(subnetsByName[subnetName], subnet)
 			}
 		}
 	}
 
 	// Reconstruct the subnet list in the original requested order
 	resolvedSubnets := make([]ec2types.Subnet, 0, len(subnetNameOrIDs))
+	// Track how many times we've used each subnet name to handle duplicates
+	nameUsageCount := make(map[string]int)
 	for _, nameOrID := range subnetNameOrIDs {
 		if strings.HasPrefix(nameOrID, "subnet-") {
 			if subnet, ok := subnetByID[nameOrID]; ok {
@@ -294,8 +297,14 @@ func (r *defaultSubnetsResolver) listSubnetsByNameOrIDs(ctx context.Context, sub
 				return nil, fmt.Errorf("subnet ID not found: %s", nameOrID)
 			}
 		} else {
-			if subnet, ok := subnetByName[nameOrID]; ok {
-				resolvedSubnets = append(resolvedSubnets, subnet)
+			if subnets, ok := subnetsByName[nameOrID]; ok {
+				// Get the next available subnet with this name
+				usageIndex := nameUsageCount[nameOrID]
+				if usageIndex >= len(subnets) {
+					return nil, fmt.Errorf("subnet with Name tag %q requested %d times but only %d subnet(s) found with that name", nameOrID, usageIndex+1, len(subnets))
+				}
+				resolvedSubnets = append(resolvedSubnets, subnets[usageIndex])
+				nameUsageCount[nameOrID]++
 			} else {
 				return nil, fmt.Errorf("subnet with Name tag not found: %s", nameOrID)
 			}
@@ -320,6 +329,16 @@ func (r *defaultSubnetsResolver) listSubnetsByIDs(ctx context.Context, subnetIDs
 }
 
 func (r *defaultSubnetsResolver) listSubnetsByNames(ctx context.Context, subnetNames []string) ([]ec2types.Subnet, error) {
+	// Deduplicate subnet names for the AWS query while preserving order
+	seen := make(map[string]bool)
+	deduplicatedNames := make([]string, 0, len(subnetNames))
+	for _, name := range subnetNames {
+		if !seen[name] {
+			deduplicatedNames = append(deduplicatedNames, name)
+			seen[name] = true
+		}
+	}
+
 	req := &ec2sdk.DescribeSubnetsInput{
 		Filters: []ec2types.Filter{
 			{
@@ -328,7 +347,7 @@ func (r *defaultSubnetsResolver) listSubnetsByNames(ctx context.Context, subnetN
 			},
 			{
 				Name:   awssdk.String("tag:Name"),
-				Values: subnetNames,
+				Values: deduplicatedNames,
 			},
 		},
 	}
@@ -336,9 +355,29 @@ func (r *defaultSubnetsResolver) listSubnetsByNames(ctx context.Context, subnetN
 	if err != nil {
 		return nil, err
 	}
-	if len(subnets) != len(subnetNames) {
-		return nil, fmt.Errorf("couldn't find all subnets, want: %v, found: %v", subnetNames, extractSubnetIDs(subnets))
+
+	// Verify we found at least one subnet for each unique name
+	// Note: There may be multiple subnets with the same Name tag, which is valid
+	foundNames := make(map[string]bool)
+	for _, subnet := range subnets {
+		for _, tag := range subnet.Tags {
+			if awssdk.ToString(tag.Key) == "Name" {
+				foundNames[awssdk.ToString(tag.Value)] = true
+				break
+			}
+		}
 	}
+
+	var missingNames []string
+	for name := range seen {
+		if !foundNames[name] {
+			missingNames = append(missingNames, name)
+		}
+	}
+	if len(missingNames) > 0 {
+		return nil, fmt.Errorf("couldn't find all subnets, missing names: %v", missingNames)
+	}
+
 	return subnets, nil
 }
 
