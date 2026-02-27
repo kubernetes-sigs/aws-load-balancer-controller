@@ -31,6 +31,7 @@ const (
 	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
 	ALBTargetControlAgent         Feature = "ALBTargetControlAgent"
+	EnableCertificateManagement   Feature = "EnableCertificateManagement"
 )
 
 type FeatureGates interface {
@@ -47,8 +48,10 @@ type FeatureGates interface {
 	BindFlags(fs *pflag.FlagSet)
 }
 
-var _ FeatureGates = (*defaultFeatureGates)(nil)
-var _ pflag.Value = (*defaultFeatureGates)(nil)
+var (
+	_ FeatureGates = (*defaultFeatureGates)(nil)
+	_ pflag.Value  = (*defaultFeatureGates)(nil)
+)
 
 type defaultFeatureGates struct {
 	featureState map[Feature]bool
@@ -78,6 +81,7 @@ func NewFeatureGates() FeatureGates {
 			EnhancedDefaultBehavior:       false,
 			EnableDefaultTagsLowPriority:  false,
 			ALBTargetControlAgent:         false,
+			EnableCertificateManagement:   false,
 		},
 	}
 }

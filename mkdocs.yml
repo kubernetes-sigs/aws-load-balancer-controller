@@ -23,6 +23,7 @@ nav:
           - Specification: guide/ingress/spec.md
           - IngressClass: guide/ingress/ingress_class.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
+          - Certificate Management: guide/ingress/certificate_management.md
       - Service:
           - Network Load Balancer: guide/service/nlb.md
           - Annotations: guide/service/annotations.md

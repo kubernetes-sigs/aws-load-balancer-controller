@@ -36,7 +36,18 @@ CLUSTER_INSTANCE_TYPE="m5.xlarge"
 CLUSTER_NODE_COUNT="4"
 CLUSTER_KUBECONFIG=${CLUSTER_KUBECONFIG:-"/tmp/lb-controller-e2e/clusters/${CLUSTER_NAME}.kubeconfig"}
 
-HELM_DIR="$(cd $(dirname "${BASH_SOURCE[0]}")/../helm ; pwd)"
+HELM_DIR="$(
+  cd $(dirname "${BASH_SOURCE[0]}")/../helm
+  pwd
+)"
+
+# Certificate Management tests
+ENABLE_CERT_MGMT_TESTS=${ENABLE_CERT_MGMT_TESTS:-"false"}
+CONTROLLER_IAM_CERT_POLICY_FILE="$(dirname "${BASH_SOURCE[0]}")/../docs/install/iam_policy_acm_certs.json"
+CONTROLLER_IAM_CERT_POLICY_NAME="lb-controller-e2e-certs-${PULL_NUMBER}-$BUILD_ID"
+CONTROLLER_IAM_CERT_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
+ROUTE53_VALIDATION_DOMAIN=${ROUTE53_VALIDATION_DOMAIN:-""}
+PCA_ARN=${PCA_ARN:-""}
 
 #######################################
 # Build and push ECR image for AWS Load Balancer Controller
@@ -152,7 +163,25 @@ setup_controller_iam_sa() {
     echo "created IAM policy for controller: ${CONTROLLER_IAM_POLICY_ARN}"
   fi
 
-  if ! eksctl::create_iamserviceaccount "${CLUSTER_NAME}" "${AWS_REGION}" "${CONTROLLER_SA_NAMESPACE}" "${CONTROLLER_SA_NAME}" "${CONTROLLER_IAM_POLICY_ARN}"; then
+  if [[ -z "${CONTROLLER_IAM_CERT_POLICY_ARN}" ]] && [[ "${ENABLE_CERT_MGMT_TESTS}" != "false" ]]; then
+    echo "creating additional IAM policy for cert management feature"
+
+    CONTROLLER_IAM_CERT_POLICY_ARN=$(iam::create_policy "${CONTROLLER_IAM_CERT_POLICY_NAME}" "${CONTROLLER_IAM_CERT_POLICY_FILE}" "${AWS_REGION}")
+    if [[ $? -ne 0 ]]; then
+      echo "unable to create cert IAM policy for controller" >&2
+      return 1
+    fi
+
+    echo "created cert IAM policy for controller: ${CONTROLLER_IAM_CERT_POLICY_ARN}"
+
+  fi
+
+  CONTROLLER_IAM_POLICY_ARNS="${CONTROLLER_IAM_POLICY_ARN}"
+  if [[ ! -z "${CONTROLLER_IAM_CERT_POLICY_ARN}" ]]; then
+    CONTROLLER_IAM_POLICY_ARNS="${CONTROLLER_IAM_POLICY_ARN},${CONTROLLER_IAM_CERT_POLICY_ARN}"
+  fi
+
+  if ! eksctl::create_iamserviceaccount "${CLUSTER_NAME}" "${AWS_REGION}" "${CONTROLLER_SA_NAMESPACE}" "${CONTROLLER_SA_NAME}" "${CONTROLLER_IAM_POLICY_ARNS}"; then
     echo "unable to create IAM role and service account for controller" >&2
     return 1
   fi
@@ -220,9 +249,11 @@ test_controller_image() {
     --helm-chart=${HELM_DIR}/aws-load-balancer-controller \
     --controller-image=${CONTROLLER_IMAGE_NAME} \
     --s3-bucket-name=${S3_BUCKET} \
-    --certificate-arns=${CERTIFICATE_ARNS}
+    --certificate-arns=${CERTIFICATE_ARNS} \
+    --enable-cert-tests=${ENABLE_CERT_MGMT_TESTS} \
+    --route53-validation-domain=${ROUTE53_VALIDATION_DOMAIN} \
+    --pca-arn=${PCA_ARN}
 }
-
 
 #######################################
 # Dump controller logs

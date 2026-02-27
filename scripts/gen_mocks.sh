@@ -13,6 +13,7 @@ $MOCKGEN -package=services -destination=./pkg/aws/services/shield_mocks.go sigs.
 $MOCKGEN -package=services -destination=./pkg/aws/services/wafregional_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services WAFRegional
 $MOCKGEN -package=services -destination=./pkg/aws/services/wafv2_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services WAFv2
 $MOCKGEN -package=services -destination=./pkg/aws/services/globalaccelerator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services GlobalAccelerator
+$MOCKGEN -package=services -destination=./pkg/aws/services/route53_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services Route53
 $MOCKGEN -package=webhook -destination=./pkg/webhook/mutator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Mutator
 $MOCKGEN -package=webhook -destination=./pkg/webhook/validator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Validator
 $MOCKGEN -package=k8s -destination=./pkg/k8s/finalizer_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s FinalizerManager

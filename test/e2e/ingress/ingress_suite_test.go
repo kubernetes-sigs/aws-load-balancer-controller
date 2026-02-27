@@ -1,11 +1,12 @@
 package ingress
 
 import (
+	"testing"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	framework "sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"testing"
-	"time"
 )
 
 var tf *framework.Framework
@@ -21,7 +22,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	if tf.Options.ControllerImage != "" {
-		err = tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, true)
+		err = tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, true, tf.Options.EnableCertMgmtTests)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(60 * time.Second)
 	}

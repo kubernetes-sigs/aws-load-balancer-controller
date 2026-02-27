@@ -3,12 +3,13 @@ package aws
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/cache"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -101,6 +102,7 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 		cfg:               cfg,
 		clusterName:       clusterName,
 		ec2:               ec2Service,
+		route53:           services.NewRoute53(awsClientsProvider),
 		acm:               services.NewACM(awsClientsProvider),
 		wafv2:             services.NewWAFv2(awsClientsProvider),
 		wafRegional:       services.NewWAFRegional(awsClientsProvider, cfg.Region),
@@ -197,6 +199,7 @@ var _ services.Cloud = &defaultCloud{}
 type defaultCloud struct {
 	cfg CloudConfig
 
+	route53           services.Route53
 	ec2               services.EC2
 	elbv2             services.ELBV2
 	acm               services.ACM
@@ -292,6 +295,10 @@ func (c *defaultCloud) Shield() services.Shield {
 
 func (c *defaultCloud) RGT() services.RGT {
 	return c.rgt
+}
+
+func (c *defaultCloud) Route53() services.Route53 {
+	return c.route53
 }
 
 func (c *defaultCloud) GlobalAccelerator() services.GlobalAccelerator {

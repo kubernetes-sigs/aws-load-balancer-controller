@@ -54,6 +54,12 @@ func (ls *Listener) ListenerARN() core.StringToken {
 
 // register dependencies for Listener.
 func (ls *Listener) registerDependencies(stack core.Stack) {
+	for _, cert := range ls.Spec.Certificates {
+		for _, dep := range cert.CertificateARN.Dependencies() {
+			stack.AddDependency(dep, ls)
+		}
+	}
+
 	for _, dep := range ls.Spec.LoadBalancerARN.Dependencies() {
 		stack.AddDependency(dep, ls)
 	}
@@ -346,7 +352,7 @@ type Action struct {
 type Certificate struct {
 	// The Amazon Resource Name (ARN) of the certificate.
 	// +optional
-	CertificateARN *string `json:"certificateARN,omitempty"`
+	CertificateARN core.StringToken `json:"certificateARN,omitempty"`
 }
 
 // ALPNPolicy ALPN policy configuration for TLS listeners forwarding to TLS target groups
