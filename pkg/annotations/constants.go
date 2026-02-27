@@ -110,6 +110,7 @@ const (
 	SvcLBSuffixTargetGroupAttributes                     = "aws-load-balancer-target-group-attributes"
 	SvcLBSuffixSubnets                                   = "aws-load-balancer-subnets"
 	SvcLBSuffixEIPAllocations                            = "aws-load-balancer-eip-allocations"
+	SvcLBSuffixEIPTags                                   = "aws-load-balancer-eip-tags"
 	SvcLBSuffixPrivateIpv4Addresses                      = "aws-load-balancer-private-ipv4-addresses"
 	SvcLBSuffixIpv6Addresses                             = "aws-load-balancer-ipv6-addresses"
 	SvcLBSuffixALPNPolicy                                = "aws-load-balancer-alpn-policy"

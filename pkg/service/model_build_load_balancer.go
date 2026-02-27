@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/pkg/errors"
@@ -338,6 +340,8 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []ec2types.Subnet, enablePrefixForIpv6SourceNat elbv2model.EnablePrefixForIpv6SourceNat) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
+	var eipTags string
+	eipTagsConfigured := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEIPTags, &eipTags, t.service.Annotations)
 	if eipConfigured {
 		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
 			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
@@ -345,6 +349,51 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 		if len(eipAllocation) != len(ec2Subnets) {
 			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
 		}
+	} else if eipTagsConfigured {
+		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+			return nil, errors.Errorf("EIP tags can only be set for internet facing load balancers")
+		}
+		// Parse tags string into map
+		tagMap := make(map[string]string)
+		for _, kv := range regexp.MustCompile(`,`).Split(eipTags, -1) {
+			parts := regexp.MustCompile(`=`).Split(kv, 2)
+			if len(parts) == 2 {
+				tagMap[parts[0]] = parts[1]
+			}
+		}
+		// Build EC2 filter for DescribeAddresses
+		var filters []ec2types.Filter
+		for k, v := range tagMap {
+			filters = append(filters, ec2types.Filter{
+				Name:   awssdk.String(fmt.Sprintf("tag:%s", k)),
+				Values: []string{v},
+			})
+		}
+		filters = append(filters, ec2types.Filter{
+			Name:   awssdk.String("domain"),
+			Values: []string{"vpc"},
+		})
+		addresses, err := t.ec2Client.DescribeAddressesAsList(context.Background(), &ec2.DescribeAddressesInput{
+			Filters: filters,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to describe EIPs by tags")
+		}
+		// Filter unassociated EIPs client-side
+		var unassociatedAddresses []ec2types.Address
+		for _, addr := range addresses {
+			if addr.AssociationId == nil || awssdk.ToString(addr.AssociationId) == "" {
+				unassociatedAddresses = append(unassociatedAddresses, addr)
+			}
+		}
+		if len(unassociatedAddresses) < len(ec2Subnets) {
+			return nil, errors.Errorf("not enough unassociated EIPs with specified tags; needed %d, found %d", len(ec2Subnets), len(unassociatedAddresses))
+		}
+		eipAllocation = make([]string, len(ec2Subnets))
+		for i := range ec2Subnets {
+			eipAllocation[i] = awssdk.ToString(unassociatedAddresses[i].AllocationId)
+		}
+		eipConfigured = true
 	}
 
 	var ipv4Addresses []netip.Addr
