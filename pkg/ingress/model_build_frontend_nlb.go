@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -161,7 +162,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 		}
 		var rawEIP []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAlloactions, &rawEIP, member.Ing.Annotations); exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAllocations, &rawEIP, member.Ing.Annotations); exists {
 			eipAllocationsList = append(eipAllocationsList, rawEIP)
 		}
 	}
@@ -211,6 +212,45 @@ func (t *defaultModelBuildTask) buildFrontendNlb(ctx context.Context, scheme elb
 	return nil
 }
 
+func (t *defaultModelBuildTask) buildFrontendNlbAttributes() ([]elbv2model.LoadBalancerAttribute, error) {
+	loadBalancerAttributes, err := t.getFrontendNlbAttributes()
+	if err != nil {
+		return []elbv2model.LoadBalancerAttribute{}, err
+	}
+	return shared_utils.MakeAttributesSliceFromMap(loadBalancerAttributes), nil
+}
+
+func (t *defaultModelBuildTask) getFrontendNlbAttributes() (map[string]string, error) {
+	var chosenAttributes map[string]string
+	for _, member := range t.ingGroup.Members {
+		var attributes map[string]string
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixFrontendNlbAttributes, &attributes, member.Ing.Annotations); err != nil {
+			return nil, err
+		}
+		if chosenAttributes == nil {
+			chosenAttributes = attributes
+		} else {
+			if !cmp.Equal(chosenAttributes, attributes) {
+				return nil, errors.Errorf("conflicting frontend NLB attributes: %v | %v", chosenAttributes, attributes)
+			}
+		}
+	}
+
+	dnsRecordClientRoutingPolicy, exists := chosenAttributes[shared_constants.LBAttributeLoadBalancingDnsClientRoutingPolicy]
+	if exists {
+		switch dnsRecordClientRoutingPolicy {
+		case shared_constants.LBAttributeAvailabilityZoneAffinity:
+		case shared_constants.LBAttributePartialAvailabilityZoneAffinity:
+		case shared_constants.LBAttributeAnyAvailabilityZone:
+		default:
+			return nil, errors.Errorf("invalid dns_record.client_routing_policy set in annotation %s: got '%s' expected one of ['%s', '%s', '%s']",
+				annotations.SvcLBSuffixLoadBalancerAttributes, dnsRecordClientRoutingPolicy,
+				shared_constants.LBAttributeAnyAvailabilityZone, shared_constants.LBAttributePartialAvailabilityZoneAffinity, shared_constants.LBAttributeAvailabilityZoneAffinity)
+		}
+	}
+	return chosenAttributes, nil
+}
+
 func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme,
 	alb *elbv2model.LoadBalancer) (elbv2model.LoadBalancerSpec, error) {
 	securityGroups, err := t.buildFrontendNlbSecurityGroups(ctx)
@@ -238,14 +278,20 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
+	lbAttributes, err := t.buildFrontendNlbAttributes()
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	spec := elbv2model.LoadBalancerSpec{
-		Name:           name,
-		Type:           elbv2model.LoadBalancerTypeNetwork,
-		Scheme:         scheme,
-		IPAddressType:  alb.Spec.IPAddressType,
-		SecurityGroups: securityGroups,
-		SubnetMappings: subnetMappings,
-		Tags:           tags,
+		Name:                   name,
+		Type:                   elbv2model.LoadBalancerTypeNetwork,
+		Scheme:                 scheme,
+		IPAddressType:          alb.Spec.IPAddressType,
+		LoadBalancerAttributes: lbAttributes,
+		SecurityGroups:         securityGroups,
+		SubnetMappings:         subnetMappings,
+		Tags:                   tags,
 	}
 
 	return spec, nil
@@ -808,7 +854,7 @@ func buildFrontendNlbResourceID(resourceType string, protocol elbv2model.Protoco
 	if port != nil && protocol != "" {
 		return fmt.Sprintf("FrontendNlb-%s-%v-%v", resourceType, protocol, *port)
 	}
-	return fmt.Sprintf("FrontendNlb")
+	return "FrontendNlb"
 }
 
 func mergeHealthCheckField[T comparable](fieldName string, finalValue **T, currentValue *T, explicit map[string]bool, explicitFields map[string]bool, configIndex int) error {

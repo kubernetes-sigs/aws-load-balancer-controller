@@ -61,19 +61,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   lbAttrsAccessLogsS3Enabled,
+					Key:   shared_constants.LBAttributeAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Bucket,
+					Key:   shared_constants.LBAttributeAccessLogsS3Bucket,
 					Value: "nlb-bucket",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Prefix,
+					Key:   shared_constants.LBAttributeAccessLogsS3Prefix,
 					Value: "bkt-pfx",
 				},
 				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Key:   shared_constants.LBAttributeLoadBalancingCrossZoneEnabled,
 					Value: "true",
 				},
 				{
@@ -95,19 +95,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   lbAttrsAccessLogsS3Enabled,
+					Key:   shared_constants.LBAttributeAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Bucket,
+					Key:   shared_constants.LBAttributeAccessLogsS3Bucket,
 					Value: "nlb-bucket",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Prefix,
+					Key:   shared_constants.LBAttributeAccessLogsS3Prefix,
 					Value: "bkt-pfx",
 				},
 				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Key:   shared_constants.LBAttributeLoadBalancingCrossZoneEnabled,
 					Value: "true",
 				},
 				{
@@ -115,8 +115,8 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsLoadBalancingDnsClientRoutingPolicy,
-					Value: availabilityZoneAffinity,
+					Key:   shared_constants.LBAttributeLoadBalancingDnsClientRoutingPolicy,
+					Value: shared_constants.LBAttributeAvailabilityZoneAffinity,
 				},
 			},
 		},
@@ -137,19 +137,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   lbAttrsAccessLogsS3Enabled,
+					Key:   shared_constants.LBAttributeAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Bucket,
+					Key:   shared_constants.LBAttributeAccessLogsS3Bucket,
 					Value: "overridden-nlb-bucket",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Prefix,
+					Key:   shared_constants.LBAttributeAccessLogsS3Prefix,
 					Value: "overridden-bkt-pfx",
 				},
 				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Key:   shared_constants.LBAttributeLoadBalancingCrossZoneEnabled,
 					Value: "false",
 				},
 			},

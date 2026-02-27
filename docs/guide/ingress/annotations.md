@@ -88,6 +88,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/frontend-nlb-tags](#frontend-nlb-tags) | stringMap | N/A | Ingress | Exclusive |
 | [alb.ingress.kubernetes.io/frontend-nlb-eip-allocations](#frontend-nlb-eip-allocations) | stringList                                     |200| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}](#target-control-port)                                       | integer                                    |N/A| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-attributes](#frontend-nlb-attributes) | stringList                                     |N/A| Ingress | N/A           |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -1381,3 +1382,30 @@ When this option is set to true, the controller will automatically provision a N
             ```
             alb.ingress.kubernetes.io/target-control-port.alb-target-control.80: "3000"
             ```
+
+- <a name="frontend-nlb-attributes">`alb.ingress.kubernetes.io/frontend-nlb-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the ALB.
+
+    !!!warning ""
+        Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
+
+    !!!note ""
+        - If `deletion_protection.enabled=true` is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to `deletion_protection.enabled=false` during reconciliation, the deployer will force delete the resource.
+        - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
+
+    !!!example
+        - enable access log to s3
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
+        ```
+        - enable NLB deletion protection
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: deletion_protection.enabled=true
+        ```
+        - enable cross zone load balancing
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: load_balancing.cross_zone.enabled=true
+        ```
+        - enable client availability zone affinity
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-attributes: dns_record.client_routing_policy=availability_zone_affinity
+        ```
