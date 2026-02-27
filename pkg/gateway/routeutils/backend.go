@@ -60,15 +60,15 @@ type Backend struct {
 }
 
 type attachedRuleAccumulator[RuleType any] interface {
-	accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, listenerRuleConfigRefs func(RuleType) []gwv1.LocalObjectReference, ruleConverter func(*RuleType, []Backend, *elbv2gw.ListenerRuleConfiguration) RouteRule) ([]RouteRule, []routeLoadError)
+	accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, listenerRuleConfigRefs func(RuleType) []gwv1.LocalObjectReference, ruleConverter func(*RuleType, []Backend, *elbv2gw.ListenerRuleConfiguration) RouteRule, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) ([]RouteRule, []routeLoadError)
 }
 
 type attachedRuleAccumulatorImpl[RuleType any] struct {
-	backendLoader            func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	backendLoader            func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*Backend, error, error)
 	listenerRuleConfigLoader func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error)
 }
 
-func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error),
+func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*Backend, error, error),
 	listenerRuleConfigLoader func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error)) attachedRuleAccumulator[RuleType] {
 	return &attachedRuleAccumulatorImpl[RuleType]{
 		backendLoader:            backendLoader,
@@ -76,7 +76,7 @@ func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Con
 	}
 }
 
-func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, listenerRuleConfigRefs func(RuleType) []gwv1.LocalObjectReference, ruleConverter func(*RuleType, []Backend, *elbv2gw.ListenerRuleConfiguration) RouteRule) ([]RouteRule, []routeLoadError) {
+func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, listenerRuleConfigRefs func(RuleType) []gwv1.LocalObjectReference, ruleConverter func(*RuleType, []Backend, *elbv2gw.ListenerRuleConfiguration) RouteRule, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) ([]RouteRule, []routeLoadError) {
 	convertedRules := make([]RouteRule, 0)
 	allErrors := make([]routeLoadError, 0)
 	for _, rule := range rules {
@@ -98,7 +98,7 @@ func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Co
 		// If ListenerRuleConfig is loaded properly without any warning errors, then only load backends, else it should be treated as no valid backend to send with fixed 503 response
 		if lrcWarningErr == nil {
 			for _, backend := range backendRefIterator(rule) {
-				convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
+				convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, route.GetRouteNamespacedName(), route.GetRouteKind(), gatewayDefaultTGConfig)
 				if warningErr != nil {
 					allErrors = append(allErrors, routeLoadError{
 						Err: warningErr,
@@ -127,7 +127,7 @@ func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Co
 // warning error -> continue with reconcile cycle.
 // fatal error -> stop reconcile cycle (probably k8s api outage)
 // commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
-func commonBackendLoader(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
+func commonBackendLoader(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*Backend, error, error) {
 
 	var serviceBackend *ServiceBackendConfig
 	var literalTargetGroup *LiteralTargetGroupConfig
@@ -136,7 +136,7 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, backendRe
 	var fatal error
 	// We only support references of type service.
 	if backendRef.Kind == nil || *backendRef.Kind == serviceKind {
-		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, routeIdentifier, routeKind, backendRef)
+		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, routeIdentifier, routeKind, backendRef, gatewayDefaultTGConfig)
 	} else if string(*backendRef.Kind) == targetGroupNameBackend {
 		literalTargetGroup, warn, fatal = literalTargetGroupLoader(backendRef)
 	} else if string(*backendRef.Kind) == gatewayKind {

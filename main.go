@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
@@ -444,6 +445,7 @@ func main() {
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.VpcID(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupConfigurationValidator(mgr.GetClient(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 
 	// Setup GlobalAccelerator validator only if enabled
 	if aga.IsGlobalAcceleratorControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {

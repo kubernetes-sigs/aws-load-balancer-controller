@@ -55,6 +55,11 @@ type grpcRouteDescription struct {
 	rules                     []RouteRule
 	ruleAccumulator           attachedRuleAccumulator[gwv1.GRPCRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
+	gatewayDefaultTGConfig    *elbv2gw.TargetGroupConfiguration
+}
+
+func (grpcRoute *grpcRouteDescription) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	grpcRoute.gatewayDefaultTGConfig = cfg
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -73,7 +78,7 @@ func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8
 			})
 		}, func(grr *gwv1.GRPCRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 			return convertGRPCRouteRule(grr, backends, listenerRuleConfiguration)
-		})
+		}, grpcRoute.gatewayDefaultTGConfig)
 	grpcRoute.rules = convertedRules
 	return grpcRoute, allErrors
 }

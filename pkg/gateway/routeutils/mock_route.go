@@ -36,6 +36,7 @@ type MockRoute struct {
 	CreationTime              time.Time
 	Rules                     []RouteRule
 	CompatibleHostnamesByPort map[int32][]gwv1.Hostname
+	GatewayDefaultTGConfig    *elbv2gw.TargetGroupConfiguration
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
@@ -99,6 +100,10 @@ func (m *MockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
 
 func (m *MockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	m.CompatibleHostnamesByPort = hostnamesByPort
+}
+
+func (m *MockRoute) setGatewayDefaultTGConfig(config *elbv2gw.TargetGroupConfiguration) {
+	m.GatewayDefaultTGConfig = config
 }
 
 var _ RouteDescriptor = &MockRoute{}

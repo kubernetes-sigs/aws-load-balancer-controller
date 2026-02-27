@@ -688,3 +688,102 @@ func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStac
 		},
 	})
 }
+
+// DeployGatewayTGC deploys a two-service NLB stack with a single Gateway-level TGC.
+// Both services inherit target group settings from the Gateway TGC.
+func (s *NLBTestStack) DeployGatewayTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, gwTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool, namespaceLabels map[string]string) error {
+	svc1 := buildServiceSpec(map[string]string{})
+	svc2 := buildServiceSpec(map[string]string{})
+	svc2.Name = defaultName + "-2"
+	dp1 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2.Name = defaultName + "-2"
+	dp2.Spec.Selector.MatchLabels = map[string]string{"app": defaultName + "-2"}
+	dp2.Spec.Template.Labels = map[string]string{"app": defaultName + "-2"}
+	svc2.Spec.Selector = map[string]string{"app": defaultName + "-2"}
+
+	gwTgc := buildGatewayTargetGroupConfig("gw-tgconfig-e2e", gwTgSpec, defaultName)
+
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	listeners := []gwv1.Listener{
+		{
+			Name:     "port80",
+			Port:     80,
+			Protocol: gwv1.TCPProtocolType,
+		},
+	}
+	gw := buildBasicGatewaySpec(gwc, listeners)
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+
+	svc2Port := gwalpha2.PortNumber(80)
+	tcpr := buildTCPRoute(
+		[]gwv1.ParentReference{{Name: defaultName, SectionName: (*gwv1.SectionName)(awssdk.String("port80"))}},
+		[]gwalpha2.BackendRef{
+			{BackendObjectReference: gwalpha2.BackendObjectReference{Name: gwalpha2.ObjectName(svc1.Name), Port: &svc2Port}},
+			{BackendObjectReference: gwalpha2.BackendObjectReference{Name: gwalpha2.ObjectName(svc2.Name), Port: &svc2Port}},
+		},
+	)
+
+	s.nlbResourceStack = newNLBResourceStack(
+		[]*appsv1.Deployment{dp1, dp2},
+		[]*corev1.Service{svc1, svc2},
+		gwc, gw, lbc,
+		[]*elbv2gw.TargetGroupConfiguration{gwTgc},
+		[]*gwalpha2.TCPRoute{tcpr},
+		nil, nil,
+		"nlb-gw-tgc-e2e",
+		namespaceLabels,
+	)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+// DeployGatewayTGCOverride deploys a two-service NLB stack with a Gateway-level TGC
+// and a service-level TGC for svc2 that overrides the gateway defaults.
+func (s *NLBTestStack) DeployGatewayTGCOverride(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, gwTgSpec elbv2gw.TargetGroupConfigurationSpec, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool, namespaceLabels map[string]string) error {
+	svc1 := buildServiceSpec(map[string]string{})
+	svc2 := buildServiceSpec(map[string]string{})
+	svc2.Name = defaultName + "-2"
+	dp1 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2 := buildDeploymentSpec(f.Options.TestImageRegistry)
+	dp2.Name = defaultName + "-2"
+	dp2.Spec.Selector.MatchLabels = map[string]string{"app": defaultName + "-2"}
+	dp2.Spec.Template.Labels = map[string]string{"app": defaultName + "-2"}
+	svc2.Spec.Selector = map[string]string{"app": defaultName + "-2"}
+
+	gwTgc := buildGatewayTargetGroupConfig("gw-tgconfig-e2e", gwTgSpec, defaultName)
+	svcTgc := buildTargetGroupConfig("svc-tgconfig-e2e", svcTgSpec, svc2)
+
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	listeners := []gwv1.Listener{
+		{
+			Name:     "port80",
+			Port:     80,
+			Protocol: gwv1.TCPProtocolType,
+		},
+	}
+	gw := buildBasicGatewaySpec(gwc, listeners)
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+
+	svc2Port := gwalpha2.PortNumber(80)
+	tcpr := buildTCPRoute(
+		[]gwv1.ParentReference{{Name: defaultName, SectionName: (*gwv1.SectionName)(awssdk.String("port80"))}},
+		[]gwalpha2.BackendRef{
+			{BackendObjectReference: gwalpha2.BackendObjectReference{Name: gwalpha2.ObjectName(svc1.Name), Port: &svc2Port}},
+			{BackendObjectReference: gwalpha2.BackendObjectReference{Name: gwalpha2.ObjectName(svc2.Name), Port: &svc2Port}},
+		},
+	)
+
+	s.nlbResourceStack = newNLBResourceStack(
+		[]*appsv1.Deployment{dp1, dp2},
+		[]*corev1.Service{svc1, svc2},
+		gwc, gw, lbc,
+		[]*elbv2gw.TargetGroupConfiguration{gwTgc, svcTgc},
+		[]*gwalpha2.TCPRoute{tcpr},
+		nil, nil,
+		"nlb-gw-tgc-override-e2e",
+		namespaceLabels,
+	)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}

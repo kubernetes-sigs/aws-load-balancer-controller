@@ -18,10 +18,55 @@ spec:
 Defines the Kubernetes object to attach the Target Group settings to.
 
 - **group**: The group of the referent. For example, "gateway.networking.k8s.io". When unspecified or empty string, core API group is inferred.
-- **kind**: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified.
+- **kind**: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified. Supported values: `Service`, `Gateway`.
 - **name**: The name of the referent.
 
 **Default** No default, required field
+
+## Gateway-Level Default TargetGroupConfiguration
+
+You can create a TargetGroupConfiguration that references a Gateway instead of a Service. This acts as a default configuration for all Service backends attached to that Gateway via HTTPRoute, GRPCRoute, TCPRoute, UDPRoute, or TLSRoute.
+
+This is useful when you want to set common target group defaults (such as `targetType: ip`, health check settings, or deregistration delay) for all services on a Gateway without requiring each service to have its own TargetGroupConfiguration.
+
+### Example
+
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: gateway-defaults
+  namespace: gateway-system   # must be in the same namespace as the Gateway
+spec:
+  targetReference:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-alb-gateway
+  defaultConfiguration:
+    targetType: ip
+    healthCheckConfig:
+      healthCheckInterval: 5
+      healthyThresholdCount: 2
+    targetGroupAttributes:
+      - key: deregistration_delay.timeout_seconds
+        value: "31"
+```
+
+### Resolution Priority
+
+When the controller builds a target group for a Service backend, it resolves configuration in this order:
+
+1. **Service-level TargetGroupConfiguration** — A TGC in the Service's namespace with `targetReference.kind: Service` (or unset) and `targetReference.name` matching the Service name. If found, this is used exclusively.
+2. **Gateway-level TargetGroupConfiguration** — A TGC in the Gateway's namespace with `targetReference.kind: Gateway` and `targetReference.name` matching the Gateway name. Used as a fallback when no Service-level TGC exists.
+3. **Controller defaults** — Hardcoded defaults (e.g., `targetType: instance`) and the `--default-target-type` controller flag.
+
+There is no cross-TGC field-level merging. If a Service has its own TGC, the Gateway-level TGC is not consulted at all.
+
+### Constraints
+
+- Only one Gateway-scoped TargetGroupConfiguration is allowed per Gateway in the same namespace.
+- The `routeConfigurations` field works the same way as for Service-level TGCs — you can use it to provide route-specific overrides within the Gateway-level TGC.
+
 
 ### DefaultConfiguration
 

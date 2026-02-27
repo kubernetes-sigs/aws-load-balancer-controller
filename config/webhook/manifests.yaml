@@ -192,6 +192,27 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
+        path: /validate-gateway-k8s-aws-v1beta1-targetgroupconfiguration
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: vtargetgroupconfiguration.gateway.k8s.aws
+    rules:
+      - apiGroups:
+          - gateway.k8s.aws
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - targetgroupconfigurations
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
         path: /validate-networking-v1-ingress
     failurePolicy: Fail
     matchPolicy: Equivalent

@@ -139,7 +139,7 @@ func (s *ServiceBackendConfig) GetProtocolVersion() *elbv2model.ProtocolVersion 
 	}
 }
 
-func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
+func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*ServiceBackendConfig, error, error) {
 	if backendRef.Port == nil {
 		initialErrorMessage := "Port is required"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
@@ -218,7 +218,11 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 	var tgProps *elbv2gw.TargetGroupProps
 
 	if tgConfig != nil {
+		// Service has its own TGC — use it (highest priority)
 		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
+	} else if gatewayDefaultTGConfig != nil {
+		// Fall back to Gateway-level TGC (medium priority)
+		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(gatewayDefaultTGConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
 	}
 
 	return NewServiceBackendConfig(svc, tgProps, servicePort), nil, nil
