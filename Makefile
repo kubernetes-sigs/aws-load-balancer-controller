@@ -73,12 +73,11 @@ manifests: controller-gen kustomize
 crds: manifests
 	$(MOVE_GATEWAY_CRDS)
 	$(MOVE_AGA_CRDS)
-	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
-	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
+	echo '---' > helm/aws-load-balancer-controller/crds/crds.yaml
+	$(KUSTOMIZE) build config/crd >> helm/aws-load-balancer-controller/crds/crds.yaml
 	echo '---' > config/crd/gateway/gateway-crds.yaml
 	$(KUSTOMIZE) build config/crd/gateway >> config/crd/gateway/gateway-crds.yaml
 	$(COPY_GATEWAY_CRDS_TO_HELM)
-	$(KUSTOMIZE) build config/crd/aga > config/crd/aga/aga-crds.yaml
 	echo '---' > config/crd/aga/aga-crds.yaml
 	$(KUSTOMIZE) build config/crd/aga >> config/crd/aga/aga-crds.yaml
 
