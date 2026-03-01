@@ -59,8 +59,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.17 h1:HGErhhrx
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.17/go.mod h1:RkZEx4l0EHYDJpWppMJ3nD9wZJAa8/0lq9aVC+r2UII=
 github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3 h1:ByynKMsGZGmpUpnQ99y+lS7VxZrNt3mdagCnHd011Kk=
 github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3/go.mod h1:ZR4h87npHPuVQ2SEeoWMe+CO/HcS9g2iYMLnT5HawW8=
-github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.31.7 h1:mHdnEFOQ0JVjsbjHGqkuE0pmEpnk/aWz8YxyyB4e2+E=
-github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.31.7/go.mod h1:JsD+G3R0ZMWqjt7VDggNsc5SFl4hw+Sk8KQaRN1sltI=
+github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.39.17 h1:ITbjAlXNOkkawki6h3pqQvbiT216gxuoA5CfmjJW8pw=
+github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.39.17/go.mod h1:3rS31ijj+ZlrPMQwOgxE3KVUwrzl/InN6U2/2qH+WHg=
 github.com/aws/aws-sdk-go-v2/service/shield v1.27.3 h1:SfjI6FuphzspGPvcRD8hjMD6wLUAE6vtJLGrui19j2s=
 github.com/aws/aws-sdk-go-v2/service/shield v1.27.3/go.mod h1:JpxjPa91y1hRb3G8xxzhOQFcK/r90it41jA/hD0q+Gg=
 github.com/aws/aws-sdk-go-v2/service/sso v1.22.4 h1:BXx0ZIxvrJdSgSvKTZ+yRBeSqqgPM89VPlulEcl37tM=
