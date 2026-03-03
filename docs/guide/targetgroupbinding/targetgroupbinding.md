@@ -3,6 +3,15 @@ TargetGroupBinding is a [custom resource (CR)](https://kubernetes.io/docs/concep
 
 This allows you to provision the load balancer infrastructure completely outside of Kubernetes but still manage the targets with Kubernetes Service.
 
+
+!!!warning "Usage in multi-tenant clusters"
+TargetGroupBinding allows users to reference any TargetGroup in the AWS account where the EKS cluster resides. In multi-tenant environments, this means tenants can potentially import arbitrary TargetGroups from the account into their namespace, subject to the controller's IAM permissions.
+
+**Security risk**: Tenants could route traffic to TargetGroups belonging to other workloads or services causing unintended traffic routing.
+    
+**Recommendation**: Cluster administrators should restrict TargetGroupBinding creation using Kubernetes RBAC: Use Kubernetes RBAC to deny `create` and `update` permissions on TargetGroupBinding resources for untrusted users.
+
+
 !!!tip "usage to support Ingress and Service"
 The AWS LoadBalancer controller internally uses TargetGroupBinding to support the functionality for Ingress, Service, and Gateway resources as well.
 It automatically creates TargetGroupBinding in the same namespace of the Service used.
