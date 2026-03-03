@@ -314,3 +314,46 @@ We recommend using the Helm chart to install the controller. The chart supports 
 The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.
 
 You can upgrade using [`helm upgrade`](https://helm.sh/docs/helm/helm_upgrade/) or another strategy to manage the controller deployment.
+
+## ArgoCD users
+
+[Reference Issue](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/4605)
+
+Users utilizing ArgoCD or similar GitOps tools may encounter webhook certificate issues during deployments.
+When ArgoCD syncs resources, it regenerates the TLS secret used by the AWS Load Balancer Controller webhook.
+This causes the webhook to stop responding because the certificate in the secret no longer matches the
+certificate mounted in the controller pod, breaking the webhook's TLS handshake.
+
+**Recommended solution:** Use [Cert Manager](https://cert-manager.io/) to manage webhook certificates,
+which handles certificate rotation properly.
+
+**Alternative solution:** If Cert Manager cannot be used, configure ArgoCD to ignore the webhook TLS
+resources and let the AWS Load Balancer Controller Helm installation manage them.
+
+Add the following to your ArgoCD Application's `ignoreDifferences` section:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+spec:
+  ignoreDifferences:
+    - kind: Secret
+      name: aws-load-balancer-tls
+      jqPathExpressions:
+        - .data
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+```
+
+This prevents ArgoCD from overwriting the certificate data and CA bundles that the controller manages.
+
