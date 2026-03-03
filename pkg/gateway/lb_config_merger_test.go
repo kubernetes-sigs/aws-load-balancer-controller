@@ -510,6 +510,61 @@ func Test_Merge(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "region and vpc merge - prefer gateway class",
+			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					MergingMode: &mergeModeGWC,
+					Region:      awssdk.String("us-east-1"),
+					VpcID:       awssdk.String("vpc-111"),
+					VpcSelector: &map[string][]string{"Environment": {"prod"}},
+					Tags:        &map[string]string{},
+				},
+			},
+			gwLbConfig: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					Region:      awssdk.String("eu-west-1"),
+					VpcID:       awssdk.String("vpc-222"),
+					VpcSelector: &map[string][]string{"Purpose": {"shared"}},
+					Tags:        &map[string]string{},
+				},
+			},
+			expected: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					Region:                 awssdk.String("us-east-1"),
+					VpcID:                  awssdk.String("vpc-111"),
+					VpcSelector:            &map[string][]string{"Environment": {"prod"}},
+					LoadBalancerAttributes: []elbv2gw.LoadBalancerAttribute{},
+					Tags:                   &map[string]string{},
+				},
+			},
+		},
+		{
+			name: "region and vpc merge - prefer gateway",
+			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					MergingMode: &mergeModeGW,
+					Region:      awssdk.String("us-east-1"),
+					VpcID:       awssdk.String("vpc-111"),
+					Tags:        &map[string]string{},
+				},
+			},
+			gwLbConfig: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					Region: awssdk.String("eu-west-1"),
+					VpcID:  awssdk.String("vpc-222"),
+					Tags:   &map[string]string{},
+				},
+			},
+			expected: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					Region:                 awssdk.String("eu-west-1"),
+					VpcID:                  awssdk.String("vpc-222"),
+					LoadBalancerAttributes: []elbv2gw.LoadBalancerAttribute{},
+					Tags:                   &map[string]string{},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {

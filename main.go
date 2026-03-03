@@ -31,6 +31,8 @@ import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
+	gatewaypkg "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
@@ -121,6 +123,9 @@ type gatewayControllerConfig struct {
 	targetGroupCollector    awsmetrics.TargetGroupCollector
 	targetGroupARNMapper    shared_utils.TargetGroupARNMapper
 	certDiscovery           certs.CertDiscovery
+	cloudProvider           gatewaypkg.CloudProvider
+	stackDeployerFactoryALB func(cloud services.Cloud) deploy.StackDeployer
+	stackDeployerFactoryNLB func(cloud services.Cloud) deploy.StackDeployer
 }
 
 func main() {
@@ -204,7 +209,11 @@ func main() {
 
 	tgArnMapper := shared_utils.NewTargetGroupNameToArnMapper(cloud.ELBV2())
 
-	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
+	elbv2ForRegion := func(region string) (services.ELBV2, error) {
+		return aws.NewELBV2ForRegion(controllerCFG.AWSConfig, region, awsMetricsCollector, ctrl.Log.WithName("elbv2-"+region), aws.DefaultLbStabilizationTime)
+	}
+
+	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.Region(), elbv2ForRegion,
 		podInfoRepo, networkingManager, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
 		cloud.VpcID(), controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices,
 		mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log, controllerCFG.MaxTargetsPerTargetGroup)
@@ -269,6 +278,20 @@ func main() {
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
 		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, ctrl.Log.WithName("gateway-cert-discovery"))
 
+		cloudProvider := gatewaypkg.NewDefaultCloudProvider(cloud, subnetResolver, vpcInfoProvider, controllerCFG.AWSConfig, controllerCFG, mgr.GetClient(), awsMetricsCollector, ctrl.Log.WithName("cloud-provider"))
+		// Use region-scoped networking SG manager and reconciler per cloud so the deployer lists/finds SGs and reconciles ingress in the target region (fixes cross-region Duplicate and DescribeSecurityGroups NotFound).
+		stackDeployerFactoryALB := func(c services.Cloud) deploy.StackDeployer {
+			deployLogger := ctrl.Log.WithName("deploy").WithName(c.Region())
+			networkingSGManagerForCloud := networking.NewDefaultSecurityGroupManager(c.EC2(), deployLogger)
+			sgReconcilerForCloud := networking.NewDefaultSecurityGroupReconciler(networkingSGManagerForCloud, deployLogger)
+			return deploy.NewDefaultStackDeployer(c, mgr.GetClient(), networkingManager, networkingSGManagerForCloud, sgReconcilerForCloud, elbv2deploy.NewDefaultTaggingManager(c.ELBV2(), c.VpcID(), controllerCFG.FeatureGates, c.RGT(), ctrl.Log), controllerCFG, gateway_constants.ALBGatewayTagPrefix, ctrl.Log, lbcMetricsCollector, gateway_constants.ALBGatewayController, true, targetGroupCollector, false)
+		}
+		stackDeployerFactoryNLB := func(c services.Cloud) deploy.StackDeployer {
+			deployLogger := ctrl.Log.WithName("deploy").WithName(c.Region())
+			networkingSGManagerForCloud := networking.NewDefaultSecurityGroupManager(c.EC2(), deployLogger)
+			sgReconcilerForCloud := networking.NewDefaultSecurityGroupReconciler(networkingSGManagerForCloud, deployLogger)
+			return deploy.NewDefaultStackDeployer(c, mgr.GetClient(), networkingManager, networkingSGManagerForCloud, sgReconcilerForCloud, elbv2deploy.NewDefaultTaggingManager(c.ELBV2(), c.VpcID(), controllerCFG.FeatureGates, c.RGT(), ctrl.Log), controllerCFG, gateway_constants.NLBGatewayTagPrefix, ctrl.Log, lbcMetricsCollector, gateway_constants.NLBGatewayController, true, targetGroupCollector, true)
+		}
 		gwControllerConfig := &gatewayControllerConfig{
 			cloud:                   cloud,
 			k8sClient:               mgr.GetClient(),
@@ -288,6 +311,9 @@ func main() {
 			targetGroupCollector:    targetGroupCollector,
 			targetGroupARNMapper:    tgArnMapper,
 			certDiscovery:           certDiscovery,
+			cloudProvider:           cloudProvider,
+			stackDeployerFactoryALB: stackDeployerFactoryALB,
+			stackDeployerFactoryNLB: stackDeployerFactoryNLB,
 		}
 
 		enabledControllers := sets.Set[string]{}
@@ -447,8 +473,8 @@ func main() {
 	}
 	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewIngressClassParamsValidator(lbcMetricsCollector).SetupWithManager(mgr)
-	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
-	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.VpcID(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), cloud.Region(), elbv2ForRegion, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.Region(), elbv2ForRegion, cloud.VpcID(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 
 	// Setup GlobalAccelerator validator only if enabled
@@ -520,6 +546,8 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.reconcileCounters,
 			cfg.targetGroupCollector,
 			cfg.targetGroupARNMapper,
+			cfg.cloudProvider,
+			cfg.stackDeployerFactoryNLB,
 		)
 	case gateway_constants.ALBGatewayController:
 		reconciler = gateway.NewALBGatewayReconciler(
@@ -544,6 +572,8 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.reconcileCounters,
 			cfg.targetGroupCollector,
 			cfg.targetGroupARNMapper,
+			cfg.cloudProvider,
+			cfg.stackDeployerFactoryALB,
 		)
 	default:
 		return fmt.Errorf("unknown controller type: %s", controllerType)

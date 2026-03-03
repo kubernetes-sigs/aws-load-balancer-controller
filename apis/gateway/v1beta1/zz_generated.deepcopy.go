@@ -655,6 +655,36 @@ func (in *LoadBalancerConfigurationSpec) DeepCopyInto(out *LoadBalancerConfigura
 		*out = new(LoadBalancerConfigMergeMode)
 		**out = **in
 	}
+	if in.Region != nil {
+		in, out := &in.Region, &out.Region
+		*out = new(string)
+		**out = **in
+	}
+	if in.VpcID != nil {
+		in, out := &in.VpcID, &out.VpcID
+		*out = new(string)
+		**out = **in
+	}
+	if in.VpcSelector != nil {
+		in, out := &in.VpcSelector, &out.VpcSelector
+		*out = new(map[string][]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string][]string, len(*in))
+			for key, val := range *in {
+				var outVal []string
+				if val == nil {
+					(*out)[key] = nil
+				} else {
+					inVal := (*in)[key]
+					in, out := &inVal, &outVal
+					*out = make([]string, len(*in))
+					copy(*out, *in)
+				}
+				(*out)[key] = outVal
+			}
+		}
+	}
 	if in.LoadBalancerName != nil {
 		in, out := &in.LoadBalancerName, &out.LoadBalancerName
 		*out = new(string)

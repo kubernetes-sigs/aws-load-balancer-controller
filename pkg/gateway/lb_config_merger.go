@@ -136,6 +136,24 @@ func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw
 		merged.LoadBalancerSubnetsSelector = lowPriority.Spec.LoadBalancerSubnetsSelector
 	}
 
+	if highPriority.Spec.Region != nil {
+		merged.Region = highPriority.Spec.Region
+	} else {
+		merged.Region = lowPriority.Spec.Region
+	}
+
+	if highPriority.Spec.VpcID != nil {
+		merged.VpcID = highPriority.Spec.VpcID
+	} else {
+		merged.VpcID = lowPriority.Spec.VpcID
+	}
+
+	if highPriority.Spec.VpcSelector != nil {
+		merged.VpcSelector = highPriority.Spec.VpcSelector
+	} else {
+		merged.VpcSelector = lowPriority.Spec.VpcSelector
+	}
+
 	if highPriority.Spec.SecurityGroups != nil {
 		merged.SecurityGroups = highPriority.Spec.SecurityGroups
 	} else {

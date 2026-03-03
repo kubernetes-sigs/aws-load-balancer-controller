@@ -460,6 +460,9 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `mergingMode` _[LoadBalancerConfigMergeMode](#loadbalancerconfigmergemode)_ | mergingMode defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration.<br />This field is only honored for the configuration attached to the GatewayClass. |  | Enum: [prefer-gateway prefer-gateway-class] <br /> |
+| `region` _string_ | region is the AWS region where the load balancer will be deployed. When unset, the controller's default region is used. When set to a different region, set vpcId, vpcSelector, or loadBalancerSubnets with identifiers so the VPC can be resolved. |  |  |
+| `vpcId` _string_ | vpcId is the VPC ID in the target region. Used when region is set (especially when it differs from the controller default). |  |  |
+| `vpcSelector` _map[string][]string_ | vpcSelector selects the VPC in the target region by tags. Each key is a tag name; the value list is the allowed tag values. Exactly one VPC must match in the target region. |  |  |
 | `loadBalancerName` _string_ | loadBalancerName defines the name of the LB to provision. If unspecified, it will be automatically generated. |  | MaxLength: 32 <br />MinLength: 1 <br /> |
 | `scheme` _[LoadBalancerScheme](#loadbalancerscheme)_ | scheme defines the type of LB to provision. If unspecified, it will be automatically inferred. |  | Enum: [internal internet-facing] <br /> |
 | `ipAddressType` _[LoadBalancerIpAddressType](#loadbalanceripaddresstype)_ | loadBalancerIPType defines what kind of load balancer to provision (ipv4, dual stack) |  | Enum: [ipv4 dualstack dualstack-without-public-ipv4] <br /> |
@@ -472,7 +475,6 @@ _Appears in:_
 | `securityGroups` _string_ | securityGroups an optional list of security group ids or names to apply to the LB |  |  |
 | `securityGroupPrefixes` _string_ | securityGroupPrefixes an optional list of prefixes that are allowed to access the LB. |  |  |
 | `sourceRanges` _string_ | sourceRanges an optional list of CIDRs that are allowed to access the LB. |  |  |
-| `vpcId` _string_ | vpcId is the ID of the VPC for the load balancer. |  |  |
 | `loadBalancerAttributes` _[LoadBalancerAttribute](#loadbalancerattribute) array_ | LoadBalancerAttributes defines the attribute of LB |  |  |
 | `tags` _map[string]string_ | Tags the AWS Tags on all related resources to the gateway. |  |  |
 | `enableICMP` _boolean_ | EnableICMP [Network LoadBalancer]<br />enables the creation of security group rules to the managed security group<br />to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs |  |  |

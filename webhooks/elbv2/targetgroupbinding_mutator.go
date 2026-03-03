@@ -27,9 +27,12 @@ type tgCacheObject struct {
 }
 
 // NewTargetGroupBindingMutator returns a mutator for TargetGroupBinding CRD.
-func NewTargetGroupBindingMutator(elbv2Client services.ELBV2, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingMutator {
+// elbv2Provider is optional; when set, cross-region target group ARNs are resolved to a regional ELBV2 client.
+func NewTargetGroupBindingMutator(elbv2Client services.ELBV2, defaultRegion string, elbv2Provider ELBV2ClientProvider, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingMutator {
 	return &targetGroupBindingMutator{
 		elbv2Client:      elbv2Client,
+		defaultRegion:    defaultRegion,
+		elbv2Provider:    elbv2Provider,
 		logger:           logger,
 		metricsCollector: metricsCollector,
 	}
@@ -39,6 +42,8 @@ var _ webhook.Mutator = &targetGroupBindingMutator{}
 
 type targetGroupBindingMutator struct {
 	elbv2Client      services.ELBV2
+	defaultRegion    string
+	elbv2Provider    ELBV2ClientProvider
 	logger           logr.Logger
 	metricsCollector lbcmetrics.MetricCollector
 }
@@ -51,14 +56,6 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 
-	targetGroupCache := sync.OnceValue(func() tgCacheObject {
-		targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
-		return tgCacheObject{
-			tg:    targetGroup,
-			error: err,
-		}
-	})
-
 	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "checkTargetGroupArnOrName")
 		return nil, errors.Errorf("must provide either TargetGroupARN or TargetGroupName")
@@ -67,6 +64,20 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "getArnFromNameIfNeeded")
 		return nil, err
 	}
+
+	elbv2ForTGB, err := resolveELBV2ForTGB(m.elbv2Client, m.defaultRegion, m.elbv2Provider, tgb.Spec.TargetGroupARN)
+	if err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "resolveELBV2ForTGB")
+		return nil, errors.Wrapf(err, "unable to create ELBV2 client for target group %s", tgb.Spec.TargetGroupARN)
+	}
+
+	targetGroupCache := sync.OnceValue(func() tgCacheObject {
+		targetGroup, err := getTargetGroupFromAWS(ctx, elbv2ForTGB, tgb)
+		return tgCacheObject{
+			tg:    targetGroup,
+			error: err,
+		}
+	})
 	if err := m.defaultingTargetType(tgb, targetGroupCache); err != nil {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingTargetType")
 		return nil, err

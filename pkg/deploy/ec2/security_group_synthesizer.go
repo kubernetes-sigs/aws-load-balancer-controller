@@ -2,6 +2,12 @@ package ec2
 
 import (
 	"context"
+	"strings"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -57,6 +63,21 @@ func (s *securityGroupSynthesizer) Synthesize(ctx context.Context) error {
 	for _, resSG := range unmatchedResSGs {
 		sgStatus, err := s.sgManager.Create(ctx, resSG)
 		if err != nil {
+			if isInvalidGroupDuplicateError(err) {
+				sdkSG, findErr := s.findExistingSecurityGroupByName(ctx, resSG.Spec.GroupName)
+				if findErr != nil {
+					return errors.Wrapf(err, "Create failed with Duplicate and finding existing SG by name failed: %v", findErr)
+				}
+				if sdkSG != nil {
+					s.logger.Info("adopting existing security group after Duplicate", "groupName", resSG.Spec.GroupName, "securityGroupID", sdkSG.SecurityGroupID)
+					sgStatus, updateErr := s.sgManager.Update(ctx, resSG, *sdkSG)
+					if updateErr != nil {
+						return errors.Wrapf(updateErr, "failed to update adopted security group %s", sdkSG.SecurityGroupID)
+					}
+					resSG.SetStatus(sgStatus)
+					continue
+				}
+			}
 			return err
 		}
 		resSG.SetStatus(sgStatus)
@@ -147,4 +168,31 @@ func mapSDKSecurityGroupByResourceID(sdkSGs []networking.SecurityGroupInfo, reso
 		sdkSGsByID[resourceID] = append(sdkSGsByID[resourceID], sdkSG)
 	}
 	return sdkSGsByID, nil
+}
+
+func isInvalidGroupDuplicateError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "InvalidGroup.Duplicate"
+	}
+	return strings.Contains(err.Error(), "InvalidGroup.Duplicate")
+}
+
+// findExistingSecurityGroupByName describes SGs in the synthesizer's VPC by group name and returns the first match, or nil if not found.
+func (s *securityGroupSynthesizer) findExistingSecurityGroupByName(ctx context.Context, groupName string) (*networking.SecurityGroupInfo, error) {
+	req := &ec2sdk.DescribeSecurityGroupsInput{
+		Filters: []ec2types.Filter{
+			{Name: awssdk.String("vpc-id"), Values: []string{s.vpcID}},
+			{Name: awssdk.String("group-name"), Values: []string{groupName}},
+		},
+	}
+	sgs, err := s.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(sgs) == 0 {
+		return nil, nil
+	}
+	info := networking.NewRawSecurityGroupInfo(sgs[0])
+	return &info, nil
 }

@@ -31,10 +31,25 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// ReconcileContextInterface provides Cloud and resolvers for a reconcile.
+// Always passed to Build(); for the default region, getters return the default implementations
+// and IsCrossRegion() returns false. For non-default regions, all fields are region-scoped.
+type ReconcileContextInterface interface {
+	GetCloud() services.Cloud
+	GetSubnetsResolver() networking.SubnetsResolver
+	GetVPCInfoProvider() networking.VPCInfoProvider
+	GetElbv2TaggingManager() elbv2deploy.TaggingManager
+	GetBackendSGProvider() networking.BackendSGProvider
+	GetSecurityGroupResolver() networking.SecurityGroupResolver
+	GetCertDiscovery() certs.CertDiscovery
+	GetTargetGroupARNMapper() shared_utils.TargetGroupARNMapper
+	IsCrossRegion() bool
+}
+
 // Builder builds the model stack for a Gateway resource.
 type Builder interface {
 	// Build model stack for a gateway
-	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error)
+	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool, rc ReconcileContextInterface) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error)
 }
 
 // NewModelBuilder construct a new baseModelBuilder
@@ -58,6 +73,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 		backendSGProvider:        backendSGProvider,
 		tgPropertiesConstructor:  tgConfigConstructor,
 		sgResolver:               sgResolver,
+		enableBackendSG:          enableBackendSG,
 		vpcInfoProvider:          vpcInfoProvider,
 		elbv2TaggingManager:      elbv2TaggingManager,
 		featureGates:             featureGates,
@@ -115,6 +131,7 @@ type baseModelBuilder struct {
 
 	subnetBuilder           subnetModelBuilder
 	securityGroupBuilder    securityGroupBuilder
+	enableBackendSG         bool
 	tgPropertiesConstructor config2.TargetGroupConfigConstructor
 
 	addOnBuilder modelAddons.AddOnBuilder
@@ -123,7 +140,12 @@ type baseModelBuilder struct {
 	defaultIPType             elbv2model.IPAddressType
 }
 
-func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
+func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool, rc ReconcileContextInterface) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
+	effectiveVpcID := rc.GetCloud().VpcID()
+	effectiveSubnetsResolver := rc.GetSubnetsResolver()
+	effectiveVpcInfoProvider := rc.GetVPCInfoProvider()
+	effectiveELBV2 := rc.GetCloud().ELBV2()
+
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	if isDelete {
 		if baseBuilder.isDeleteProtected(lbConf) {
@@ -151,15 +173,43 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	/* Subnets */
 
-	subnets, err := baseBuilder.subnetBuilder.buildLoadBalancerSubnets(ctx, lbConf.Spec.LoadBalancerSubnets, lbConf.Spec.LoadBalancerSubnetsSelector, scheme, ipAddressType, stack)
+	taggingManager := rc.GetElbv2TaggingManager()
+	if taggingManager == nil {
+		taggingManager = baseBuilder.subnetBuilder.(*subnetModelBuilderImpl).elbv2TaggingManager
+	}
+	subnetBuilderForBuild := newSubnetModelBuilder(baseBuilder.loadBalancerType, baseBuilder.subnetBuilder.(*subnetModelBuilderImpl).trackingProvider, effectiveSubnetsResolver, taggingManager)
+	subnets, err := subnetBuilderForBuild.buildLoadBalancerSubnets(ctx, lbConf.Spec.LoadBalancerSubnets, lbConf.Spec.LoadBalancerSubnetsSelector, scheme, ipAddressType, stack)
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}
 
 	/* Security Groups */
-	securityGroups, err := baseBuilder.securityGroupBuilder.buildSecurityGroups(ctx, stack, lbConf, gw, ipAddressType)
+	effectiveBackendSGProvider := baseBuilder.backendSGProvider
+	effectiveSGResolver := baseBuilder.sgResolver
+	if rc.GetBackendSGProvider() != nil {
+		effectiveBackendSGProvider = rc.GetBackendSGProvider()
+	}
+	if rc.GetSecurityGroupResolver() != nil {
+		effectiveSGResolver = rc.GetSecurityGroupResolver()
+	}
+	enableBackendSGForBuild := baseBuilder.enableBackendSG
+	if rc.IsCrossRegion() {
+		enableBackendSGForBuild = false
+	}
+	sgBuilder := baseBuilder.securityGroupBuilder
+	if effectiveBackendSGProvider != baseBuilder.backendSGProvider || effectiveSGResolver != baseBuilder.sgResolver || enableBackendSGForBuild != baseBuilder.enableBackendSG {
+		sgBuilder = newSecurityGroupBuilder(baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.loadBalancerType, enableBackendSGForBuild, effectiveSGResolver, effectiveBackendSGProvider, baseBuilder.logger)
+	}
+	securityGroups, err := sgBuilder.buildSecurityGroups(ctx, stack, lbConf, gw, ipAddressType)
 	if err != nil {
 		return nil, nil, nil, false, nil, err
+	}
+
+	if rc.IsCrossRegion() {
+		baseBuilder.logger.Info("Cross-region gateway detected, disabling backend SG networking for TGBs",
+			"effectiveVpcID", effectiveVpcID, "defaultVpcID", baseBuilder.vpcID)
+		securityGroups.backendSecurityGroupToken = nil
+		securityGroups.backendSecurityGroupAllocated = false
 	}
 
 	/* Combine everything to form a LoadBalancer */
@@ -179,9 +229,18 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	}
 	lb := elbv2model.NewLoadBalancer(stack, shared_constants.ResourceIDLoadBalancer, spec)
 
-	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, baseBuilder.vpcID, spec.Scheme, lbConf.Spec.SourceRanges, securityGroups, subnets.ec2Result, baseBuilder.vpcInfoProvider)
-	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, tgbNetworkingBuilder, baseBuilder.tgPropertiesConstructor, baseBuilder.defaultTargetType, targetGroupNameToArnMapper)
-	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.certDiscovery, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.k8sClient, secretsManager, baseBuilder.logger)
+	effectiveTGMapper := targetGroupNameToArnMapper
+	if rc.GetTargetGroupARNMapper() != nil {
+		effectiveTGMapper = rc.GetTargetGroupARNMapper()
+	}
+
+	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, effectiveVpcID, spec.Scheme, lbConf.Spec.SourceRanges, securityGroups, subnets.ec2Result, effectiveVpcInfoProvider)
+	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, effectiveVpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, tgbNetworkingBuilder, baseBuilder.tgPropertiesConstructor, baseBuilder.defaultTargetType, effectiveTGMapper)
+	effectiveCertDiscovery := baseBuilder.certDiscovery
+	if rc.GetCertDiscovery() != nil {
+		effectiveCertDiscovery = rc.GetCertDiscovery()
+	}
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, effectiveCertDiscovery, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, effectiveELBV2, baseBuilder.k8sClient, secretsManager, baseBuilder.logger)
 
 	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, gw, routes, lbConf)
 	if err != nil {

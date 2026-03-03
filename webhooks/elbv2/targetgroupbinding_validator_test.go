@@ -766,7 +766,7 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 				logger:           logr.New(&log.NullLogSink{}),
 				metricsCollector: mockMetricsCollector,
 			}
-			err := v.checkRequiredFields(context.Background(), tt.args.tgb)
+			err := v.checkRequiredFields(context.Background(), tt.args.tgb, nil)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

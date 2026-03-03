@@ -46,13 +46,14 @@ type ResourceManager interface {
 }
 
 // NewDefaultResourceManager constructs new defaultResourceManager.
-func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2,
+// elbv2Provider is optional; when set, cross-region target group ARNs are resolved to a regional ELBV2 client.
+func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, defaultRegion string, elbv2Provider ELBV2ClientProvider,
 	podInfoRepo k8s.PodInfoRepo, networkingManager networking.NetworkingManager,
 	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
 	vpcID string, failOpenEnabled bool, endpointSliceEnabled bool,
 	eventRecorder record.EventRecorder, logger logr.Logger, maxTargetsPerTargetGroup int) *defaultResourceManager {
 
-	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
+	targetsManager := NewCachedTargetsManager(elbv2Client, defaultRegion, elbv2Provider, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 	return &defaultResourceManager{
 		k8sClient:                k8sClient,
@@ -731,13 +732,14 @@ func (m *defaultResourceManager) generateOverrideAzFn(ctx context.Context, vpcID
 		}
 	}
 
+	usingNonLocalVPC := vpcID != m.vpcID
 	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
 	if err != nil {
-		// A VPC Not Found Error along with cross-account usage means that the VPC either, is not shared with the assume
-		// role account OR this falls into case (1) from above where the VPC is just peered but not shared with RAM.
-		// As we can't differentiate if RAM sharing wasn't set up correctly OR the VPC is set up via peering, we will
-		// just default to assume that the VPC is peered but not shared.
-		if isVPCNotFoundError(err) && usingCrossAccount {
+		// A VPC Not Found Error means either:
+		// 1. Cross-account with peered VPC (not RAM-shared) — the VPC isn't visible to the controller.
+		// 2. Cross-region — the VPC is in a different region and can't be described by the local EC2 client.
+		// In both cases, pod IPs are outside the TG's VPC, so we override AZ to "all" for all targets.
+		if isVPCNotFoundError(err) && (usingCrossAccount || usingNonLocalVPC) {
 			m.invalidVpcCacheMutex.Lock()
 			m.invalidVpcCache.Set(invalidVPCCacheKey, true, m.invalidVpcCacheTTL)
 			m.invalidVpcCacheMutex.Unlock()
