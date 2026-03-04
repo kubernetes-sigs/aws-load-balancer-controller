@@ -3,6 +3,8 @@ package model
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
@@ -16,7 +18,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_BuildSecurityGroups_Specified(t *testing.T) {
@@ -220,7 +221,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 			builder := newSecurityGroupBuilder(mockTagger, clusterName, tc.lbType, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
 
-			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, tc.ipAddressType)
+			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, gw.Spec.Listeners, tc.ipAddressType)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -325,7 +326,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 			builder := newSecurityGroupBuilder(mockTagger, clusterName, elbv2model.LoadBalancerTypeApplication, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
 
-			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, tc.ipAddressType)
+			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, gw.Spec.Listeners, tc.ipAddressType)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -993,7 +994,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := &securityGroupBuilderImpl{}
-			permissions := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.gateway, tc.ipAddressType)
+			permissions := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.gateway.Spec.Listeners, tc.ipAddressType)
 			assert.ElementsMatch(t, tc.expected, permissions, fmt.Sprintf("%+v", permissions))
 		})
 	}

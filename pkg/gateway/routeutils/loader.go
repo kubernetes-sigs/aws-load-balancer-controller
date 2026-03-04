@@ -54,6 +54,7 @@ type Loader interface {
 
 type LoaderResult struct {
 	Routes            map[int32][]RouteDescriptor
+	Listeners         []gwv1.Listener
 	AttachedRoutesMap map[gwv1.SectionName]int32
 	ValidationResults ListenerValidationResults
 }
@@ -113,11 +114,12 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 
 	// validate listeners configuration and get listener status
-	listenerValidationResults := validateListeners(gw, controllerName)
+	listeners := gw.Spec.Listeners
+	listenerValidationResults := validateListeners(listeners, controllerName)
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes)
+	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, listeners, loadedRoutes)
 
 	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
 
@@ -146,6 +148,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	return &LoaderResult{
 		Routes:            loadedRoute,
+		Listeners:         listeners,
 		AttachedRoutesMap: attachedRouteMap,
 		ValidationResults: listenerValidationResults,
 	}, nil

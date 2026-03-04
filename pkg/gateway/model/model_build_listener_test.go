@@ -3,10 +3,11 @@ package model
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/go-logr/logr"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -110,7 +111,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 							Name:     "tcp",
 							Port:     443,
 							Protocol: gwv1.TLSProtocolType,
-							TLS: &gwv1.GatewayTLSConfig{
+							TLS: &gwv1.ListenerTLSConfig{
 								Mode: (*gwv1.TLSModeType)(awssdk.String("Passthrough")),
 							},
 						},
@@ -134,7 +135,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 							Name:     "tcp",
 							Port:     443,
 							Protocol: gwv1.TLSProtocolType,
-							TLS: &gwv1.GatewayTLSConfig{
+							TLS: &gwv1.ListenerTLSConfig{
 								Mode: (*gwv1.TLSModeType)(awssdk.String("Terminate")),
 							},
 						},
@@ -508,7 +509,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mapGatewayListenerConfigsByPort(tt.gateway, tt.routes)
+			got, err := mapGatewayListenerConfigsByPort(tt.gateway.Spec.Listeners, tt.routes)
 
 			if tt.wantErr {
 				assert.Error(t, err)
