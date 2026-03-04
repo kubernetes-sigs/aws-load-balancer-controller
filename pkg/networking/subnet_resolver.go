@@ -269,6 +269,10 @@ func (r *defaultSubnetsResolver) listSubnetsByNameOrIDs(ctx context.Context, sub
 		if err != nil {
 			return nil, err
 		}
+		// Sort by subnet ID for deterministic ordering when multiple subnets share the same Name tag.
+		// AWS DescribeSubnets does not guarantee a stable order, so sorting ensures consistent
+		// subnet-to-name assignment across reconciliation loops.
+		sortSubnetsByID(subnets)
 		for _, subnet := range subnets {
 			// Extract the Name tag value for mapping
 			var subnetName string

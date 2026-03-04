@@ -51,3 +51,6 @@ This project was formerly known as "AWS ALB Ingress Controller", we rebranded it
 
 ## Documentation
 Checkout our [Live Docs](https://kubernetes-sigs.github.io/aws-load-balancer-controller/)!
+
+## Contributing
+We welcome contributions! For non-trivial changes (new features, API changes, refactors), please open an issue or discussion before submitting a PR so the maintainers can provide early feedback. See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
