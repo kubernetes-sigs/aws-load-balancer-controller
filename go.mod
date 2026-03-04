@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.54.0
 	github.com/aws/aws-sdk-go-v2/service/globalaccelerator v1.26.3
 	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3
-	github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.31.7
+	github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.39.17
 	github.com/aws/aws-sdk-go-v2/service/shield v1.27.3
 	github.com/aws/aws-sdk-go-v2/service/sts v1.30.3
 	github.com/aws/aws-sdk-go-v2/service/wafregional v1.23.3
