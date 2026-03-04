@@ -2737,6 +2737,150 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 			wantErr: errors.New("failed to list subnets by names or IDs: subnet with Name tag \"my-subnet\" requested 3 times but only 2 subnet(s) found with that name"),
 		},
 		{
+			name: "duplicate Name tags - deterministic ordering regardless of AWS return order",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-dummy"},
+								},
+								{
+									Name:   awssdk.String("tag:Name"),
+									Values: []string{"my-shared-subnet"},
+								},
+							},
+						},
+						// AWS returns subnets in reverse order (subnet-3 first) to verify sorting
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-3"),
+								AvailabilityZone:        awssdk.String("us-west-2c"),
+								AvailabilityZoneId:      awssdk.String("usw2-az3"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("Name"),
+										Value: awssdk.String("my-shared-subnet"),
+									},
+								},
+							},
+							{
+								SubnetId:                awssdk.String("subnet-1"),
+								AvailabilityZone:        awssdk.String("us-west-2a"),
+								AvailabilityZoneId:      awssdk.String("usw2-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("Name"),
+										Value: awssdk.String("my-shared-subnet"),
+									},
+								},
+							},
+							{
+								SubnetId:                awssdk.String("subnet-2"),
+								AvailabilityZone:        awssdk.String("us-west-2b"),
+								AvailabilityZoneId:      awssdk.String("usw2-az2"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("Name"),
+										Value: awssdk.String("my-shared-subnet"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az3"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az3": {
+								ZoneId:   awssdk.String("usw2-az3"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				nameOrIDs: []string{"my-shared-subnet", "my-shared-subnet", "my-shared-subnet"},
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			// Even though AWS returned subnet-3 first, sorting by ID means we always get subnet-1, subnet-2, subnet-3
+			want: []ec2types.Subnet{
+				{
+					SubnetId:                awssdk.String("subnet-1"),
+					AvailabilityZone:        awssdk.String("us-west-2a"),
+					AvailabilityZoneId:      awssdk.String("usw2-az1"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String("my-shared-subnet"),
+						},
+					},
+				},
+				{
+					SubnetId:                awssdk.String("subnet-2"),
+					AvailabilityZone:        awssdk.String("us-west-2b"),
+					AvailabilityZoneId:      awssdk.String("usw2-az2"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String("my-shared-subnet"),
+						},
+					},
+				},
+				{
+					SubnetId:                awssdk.String("subnet-3"),
+					AvailabilityZone:        awssdk.String("us-west-2c"),
+					AvailabilityZoneId:      awssdk.String("usw2-az3"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("Name"),
+							Value: awssdk.String("my-shared-subnet"),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "subnets specified are in same AZ",
 			fields: fields{
 				clusterTagCheckEnabled:         true,
