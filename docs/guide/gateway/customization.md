@@ -82,6 +82,25 @@ The `TargetGroupConfiguration` CRD enables granular customization of the AWS Tar
 
 For a comprehensive overview of configurable parameters, please refer to the  [TargetGroupConfiguration CRD documentation](./targetgroupconfig.md).
 
+`TargetGroupConfiguration` can be applied at three levels, listed from broadest to most specific:
+
+1. **GatewayClass-level defaults** — Defaults that apply to all Gateways that belong to a GatewayClass.
+2. **Gateway-level defaults** — Per-Gateway defaults applied to all Service backends behind that Gateway.
+3. **Service-level** — Configuration targeting a specific Service, with optional route-specific overrides.
+
+The controller resolves configuration using the [Configuration Resolution Order](./targetgroupconfig.md#configuration-resolution-order). When configurations exist at multiple levels, they are merged field-by-field — see [GatewayClass + Gateway Default TGC Merging](./targetgroupconfig.md#gatewayclass--gateway-default-tgc-merging) for details on how conflicts between levels are resolved.
+
+#### GatewayClass and Gateway Level Default Target Group Configuration
+
+In addition to per-Service configuration, you can set default target group properties at the Gateway or GatewayClass level. This is done by creating a `TargetGroupConfiguration` without a `targetReference` and referencing it via the [`defaultTargetGroupConfiguration`](./loadbalancerconfig.md#defaulttargetgroupconfiguration) field on a `LoadBalancerConfiguration`.
+
+- **GatewayClass-level**: Attach the `LoadBalancerConfiguration` to a `GatewayClass` to set org-wide defaults for all Gateways in that class. See the [GatewayClass-Level Defaults example](./targetgroupconfig.md#example-gatewayclass-level-defaults).
+- **Gateway-level**: Attach the `LoadBalancerConfiguration` to a `Gateway` via `infrastructure.parametersRef` to set defaults for all Service backends behind that specific Gateway. See the [Gateway-Level Defaults example](./targetgroupconfig.md#example-gateway-level-defaults-via-loadbalancerconfiguration).
+
+Service-level TGCs only need to specify the fields they want to override — all other fields are inherited from the Gateway/GatewayClass-level default TGC automatically.
+
+#### Service-Level Target Group Configuration
+
 **Example: Default Target Group Configuration for a Service**
 
 To configure the target groups for a specific service (e.g., `my-service`) to use `IP` mode and custom health checks across all routes referencing it, employ the following configuration:

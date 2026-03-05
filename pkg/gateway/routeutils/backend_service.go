@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -139,7 +140,7 @@ func (s *ServiceBackendConfig) GetProtocolVersion() *elbv2model.ProtocolVersion 
 	}
 }
 
-func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
+func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*ServiceBackendConfig, error, error) {
 	if backendRef.Port == nil {
 		initialErrorMessage := "Port is required"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
@@ -217,9 +218,20 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 
 	var tgProps *elbv2gw.TargetGroupProps
 
-	if tgConfig != nil {
-		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
+	// Resolve Gateway-level default TGC (from LBC reference)
+	var gatewayProps *elbv2gw.TargetGroupProps
+	if gatewayDefaultTGConfig != nil {
+		gatewayProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(gatewayDefaultTGConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
 	}
+
+	// Resolve Service-level TGC
+	var serviceProps *elbv2gw.TargetGroupProps
+	if tgConfig != nil {
+		serviceProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
+	}
+
+	// Cross-TGC merge: service fields win, gateway default fields as fallback
+	tgProps = tgConfigConstructor.MergeProps(serviceProps, gatewayProps)
 
 	return NewServiceBackendConfig(svc, tgProps, servicePort), nil, nil
 }

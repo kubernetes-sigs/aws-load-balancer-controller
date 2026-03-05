@@ -2,12 +2,13 @@ package routeutils
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"time"
 )
 
 /*
@@ -61,7 +62,7 @@ func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
 	return httpRoute.rules
 }
 
-func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	convertedRules, allErrors := httpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, httpRoute, httpRoute.route.Spec.Rules,
 		func(rule gwv1.HTTPRouteRule) []gwv1.BackendRef {
 			refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
@@ -78,7 +79,7 @@ func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8
 				})
 		}, func(hrr *gwv1.HTTPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 			return convertHTTPRouteRule(hrr, backends, listenerRuleConfiguration)
-		})
+		}, gatewayDefaultTGConfig)
 	httpRoute.rules = convertedRules
 	return httpRoute, allErrors
 }

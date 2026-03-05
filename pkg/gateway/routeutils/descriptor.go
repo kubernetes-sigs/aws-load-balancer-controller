@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -44,7 +45,7 @@ type routeLoadError struct {
 // loadAttachedRules() to generate a full route description.
 type preLoadRouteDescriptor interface {
 	routeMetadataDescriptor
-	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError)
+	loadAttachedRules(context context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError)
 }
 
 // RouteDescriptor is a type agnostic representation of a Gateway Route.

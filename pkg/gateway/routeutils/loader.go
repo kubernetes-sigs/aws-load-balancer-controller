@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -49,7 +50,7 @@ var L7RouteFilter LoadRouteFilter = &routeFilterImpl{
 // Loader will load all data Kubernetes that are pertinent to a gateway (Routes, Services, Target Group Configurations).
 // It will output the data using a map which maps listener port to the various routing rules for that port.
 type Loader interface {
-	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string) (*LoaderResult, error)
+	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string, defaultTGConfig *elbv2gw.TargetGroupConfiguration) (*LoaderResult, error)
 }
 
 type LoaderResult struct {
@@ -80,7 +81,7 @@ func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter,
 }
 
 // LoadRoutesForGateway loads all relevant data for a single Gateway.
-func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string) (*LoaderResult, error) {
+func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string, defaultTGConfig *elbv2gw.TargetGroupConfiguration) (*LoaderResult, error) {
 	// 1. Load all relevant routes according to the filter
 
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
@@ -128,7 +129,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 
 	// 3. Load the underlying resource(s) for each route that is configured.
-	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw, matchedParentRefs)
+	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw, matchedParentRefs, defaultTGConfig)
 	routeStatusUpdates = append(routeStatusUpdates, childRouteLoadUpdates...)
 	if err != nil {
 		return nil, err
@@ -155,7 +156,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
-func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string][]gwv1.Hostname, gw gwv1.Gateway, matchedParentRefs map[string][]gwv1.ParentReference) (map[int32][]RouteDescriptor, []RouteData, error) {
+func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string][]gwv1.Hostname, gw gwv1.Gateway, matchedParentRefs map[string][]gwv1.ParentReference, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (map[int32][]RouteDescriptor, []RouteData, error) {
 	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
@@ -174,7 +175,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				continue
 			}
 
-			generatedRoute, loadAttachedRulesErrors := preloadedRoute.loadAttachedRules(ctx, l.k8sClient)
+			generatedRoute, loadAttachedRulesErrors := preloadedRoute.loadAttachedRules(ctx, l.k8sClient, gatewayDefaultTGConfig)
 			if len(loadAttachedRulesErrors) > 0 {
 				for _, lare := range loadAttachedRulesErrors {
 					var loaderErr LoaderError

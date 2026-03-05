@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,6 +112,19 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		}
 	}
 
+	if tgConf.Spec.TargetReference == nil {
+		// TGC without targetReference is a default TGC (used via LBC reference).
+		// Check if any LoadBalancerConfiguration still references this TGC before allowing deletion.
+		inUse, err := r.isDefaultTGCInUse(context.Background(), tgConf)
+		if err != nil {
+			return err
+		}
+		if inUse {
+			return fmt.Errorf("default targetgroup configuration [%+v] is still in use", k8s.NamespacedName(tgConf))
+		}
+		return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
+	}
+
 	svcReference := types.NamespacedName{
 		Namespace: tgConf.Namespace,
 		Name:      tgConf.Spec.TargetReference.Name,
@@ -137,6 +151,31 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		}
 	}
 	return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
+}
+
+// isDefaultTGCInUse checks if any LoadBalancerConfiguration in the same namespace references
+// this TGC as its defaultTargetGroupConfiguration, and if that LBC is in use by any Gateway or GatewayClass.
+func (r *targetgroupConfigurationReconciler) isDefaultTGCInUse(ctx context.Context, tgConf *elbv2gw.TargetGroupConfiguration) (bool, error) {
+	lbConfigList := &elbv2gw.LoadBalancerConfigurationList{}
+	if err := r.k8sClient.List(ctx, lbConfigList, client.InNamespace(tgConf.Namespace)); err != nil {
+		return false, err
+	}
+
+	for i := range lbConfigList.Items {
+		lbConfig := &lbConfigList.Items[i]
+		if lbConfig.Spec.DefaultTargetGroupConfiguration == nil || lbConfig.Spec.DefaultTargetGroupConfiguration.Name != tgConf.Name {
+			continue
+		}
+
+		inUse, err := gatewayutils.IsLBConfigInUse(ctx, lbConfig, r.k8sClient, constants.FullGatewayControllerSet)
+		if err != nil {
+			return false, err
+		}
+		if inUse {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *targetgroupConfigurationReconciler) SetupWithManager(_ context.Context, mgr ctrl.Manager) (controller.Controller, error) {

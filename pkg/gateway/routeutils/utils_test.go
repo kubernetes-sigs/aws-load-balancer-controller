@@ -8,6 +8,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -92,7 +93,7 @@ func (m mockPreLoadRouteDescriptor) setCompatibleHostnamesByPort(hostnamesByPort
 	}
 }
 
-func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	//TODO implement me
 	panic("implement me")
 }

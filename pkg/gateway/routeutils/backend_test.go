@@ -3,6 +3,8 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +15,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"testing"
 )
 
 func TestCommonBackendLoader_Service(t *testing.T) {
@@ -35,7 +36,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 			Namespace: namespaceToUse,
 		},
 		Spec: elbv2gw.TargetGroupConfigurationSpec{
-			TargetReference: elbv2gw.Reference{
+			TargetReference: &elbv2gw.Reference{
 				Kind: awssdk.String(serviceKind),
 				Name: svcNameToUse,
 			},
@@ -51,7 +52,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 			Namespace: namespaceToUse,
 		},
 		Spec: elbv2gw.TargetGroupConfigurationSpec{
-			TargetReference: elbv2gw.Reference{
+			TargetReference: &elbv2gw.Reference{
 				Kind: awssdk.String(serviceKind),
 				Name: "other-svc-name",
 			},
@@ -64,7 +65,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 			Namespace: "differentNs",
 		},
 		Spec: elbv2gw.TargetGroupConfigurationSpec{
-			TargetReference: elbv2gw.Reference{
+			TargetReference: &elbv2gw.Reference{
 				Kind: awssdk.String(serviceKind),
 				Name: svcNameToUse,
 			},
@@ -374,7 +375,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 				assert.NoError(t, err, fmt.Sprintf("%+v", g))
 			}
 
-			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, kind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, kind, nil)
 
 			if tc.expectWarning {
 				assert.Error(t, warningErr)
@@ -441,7 +442,7 @@ func TestCommonBackendLoader_TargetGroupName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			k8sClient := testutils.GenerateTestClient()
 
-			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, HTTPRouteKind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, HTTPRouteKind, nil)
 
 			if tc.expectWarning {
 				assert.Error(t, warningErr)
@@ -479,7 +480,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String(serviceKind),
 							Name: "svc1",
 						},
@@ -496,7 +497,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					Namespace: "namespace",
 				},
 				Spec: elbv2gw.TargetGroupConfigurationSpec{
-					TargetReference: elbv2gw.Reference{
+					TargetReference: &elbv2gw.Reference{
 						Kind: awssdk.String(serviceKind),
 						Name: "svc1",
 					},
@@ -513,7 +514,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String(gatewayKind),
 							Name: "svc1",
 						},
@@ -530,7 +531,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					Namespace: "namespace",
 				},
 				Spec: elbv2gw.TargetGroupConfigurationSpec{
-					TargetReference: elbv2gw.Reference{
+					TargetReference: &elbv2gw.Reference{
 						Kind: awssdk.String(gatewayKind),
 						Name: "svc1",
 					},
@@ -547,7 +548,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Name: "svc1",
 						},
 					},
@@ -563,7 +564,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					Namespace: "namespace",
 				},
 				Spec: elbv2gw.TargetGroupConfigurationSpec{
-					TargetReference: elbv2gw.Reference{
+					TargetReference: &elbv2gw.Reference{
 						Name: "svc1",
 					},
 				},
@@ -579,7 +580,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String(serviceKind),
 							Name: "svc2",
 						},
@@ -601,7 +602,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String("cat"),
 							Name: "svc2",
 						},
@@ -623,7 +624,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String(serviceKind),
 							Name: "foo",
 						},
@@ -635,7 +636,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String(serviceKind),
 							Name: "baz",
 						},
@@ -647,7 +648,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 						Namespace: "namespace",
 					},
 					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						TargetReference: elbv2gw.Reference{
+						TargetReference: &elbv2gw.Reference{
 							Kind: awssdk.String(serviceKind),
 							Name: "bar",
 						},

@@ -11,6 +11,12 @@ const (
 
 type TargetGroupConfigConstructor interface {
 	ConstructTargetGroupConfigForRoute(tgConfig *elbv2gw.TargetGroupConfiguration, name, namespace, kind string) *elbv2gw.TargetGroupProps
+	// MergeProps merges two TargetGroupProps, with highPriority fields winning over lowPriority fields.
+	// This is used for cross-TGC merging (e.g., Service TGC over LBC default TGC).
+	MergeProps(highPriority, lowPriority *elbv2gw.TargetGroupProps) *elbv2gw.TargetGroupProps
+	// MergeDefaultTGCs merges two default TargetGroupConfigurations (from GatewayClass LBC and Gateway LBC)
+	// based on the mergingMode. Returns nil if both are nil.
+	MergeDefaultTGCs(gwClassDefaultTGC, gwDefaultTGC *elbv2gw.TargetGroupConfiguration, mergeMode elbv2gw.LoadBalancerConfigMergeMode) *elbv2gw.TargetGroupConfiguration
 }
 
 type targetGroupConfigConstructorImpl struct {
@@ -134,4 +140,43 @@ func (t *targetGroupConfigConstructorImpl) performTakeOneMerges(merged, highPrio
 
 func NewTargetGroupConfigConstructor() TargetGroupConfigConstructor {
 	return &targetGroupConfigConstructorImpl{}
+}
+
+func (t *targetGroupConfigConstructorImpl) MergeProps(highPriority, lowPriority *elbv2gw.TargetGroupProps) *elbv2gw.TargetGroupProps {
+	if highPriority == nil {
+		return lowPriority
+	}
+	if lowPriority == nil {
+		return highPriority
+	}
+	return t.merge(highPriority, lowPriority)
+}
+
+func (t *targetGroupConfigConstructorImpl) MergeDefaultTGCs(gwClassDefaultTGC, gwDefaultTGC *elbv2gw.TargetGroupConfiguration, mergeMode elbv2gw.LoadBalancerConfigMergeMode) *elbv2gw.TargetGroupConfiguration {
+	if gwClassDefaultTGC == nil && gwDefaultTGC == nil {
+		return nil
+	}
+	if gwClassDefaultTGC == nil {
+		return gwDefaultTGC
+	}
+	if gwDefaultTGC == nil {
+		return gwClassDefaultTGC
+	}
+
+	var highPriority, lowPriority *elbv2gw.TargetGroupConfiguration
+	if mergeMode == elbv2gw.MergeModePreferGateway {
+		highPriority = gwDefaultTGC
+		lowPriority = gwClassDefaultTGC
+	} else {
+		highPriority = gwClassDefaultTGC
+		lowPriority = gwDefaultTGC
+	}
+
+	mergedProps := t.MergeProps(&highPriority.Spec.DefaultConfiguration, &lowPriority.Spec.DefaultConfiguration)
+
+	merged := highPriority.DeepCopy()
+	if mergedProps != nil {
+		merged.Spec.DefaultConfiguration = *mergedProps
+	}
+	return merged
 }
