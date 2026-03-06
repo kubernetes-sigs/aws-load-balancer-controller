@@ -92,7 +92,10 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 	}
 
 	// Resolve default TGCs from both LBCs before merging.
-	resolvedDefaultTGC := resolver.resolveAndMergeDefaultTGCs(ctx, k8sClient, gatewayClassLBConfig, gatewayLBConfig)
+	resolvedDefaultTGC, err := resolver.resolveAndMergeDefaultTGCs(ctx, k8sClient, gatewayClassLBConfig, gatewayLBConfig)
+	if err != nil {
+		return elbv2gw.LoadBalancerConfiguration{}, nil, err
+	}
 
 	var mergedLBConfig elbv2gw.LoadBalancerConfiguration
 	if gatewayClassLBConfig == nil && gatewayLBConfig == nil {
@@ -109,9 +112,8 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 }
 
 // resolveAndMergeDefaultTGCs resolves the default TGC from both the GatewayClass LBC and Gateway LBC,
-// then merges their props based on mergingMode. For the Gateway LBC, the TGC must be in the same namespace
-// as the Gateway; otherwise it is treated as nil.
-func (resolver *gatewayConfigResolverImpl) resolveAndMergeDefaultTGCs(ctx context.Context, k8sClient client.Client, gwClassLBC *elbv2gw.LoadBalancerConfiguration, gwLBC *elbv2gw.LoadBalancerConfiguration) *elbv2gw.TargetGroupConfiguration {
+// then merges their props based on mergingMode. Returns an error if a referenced TGC is not found.
+func (resolver *gatewayConfigResolverImpl) resolveAndMergeDefaultTGCs(ctx context.Context, k8sClient client.Client, gwClassLBC *elbv2gw.LoadBalancerConfiguration, gwLBC *elbv2gw.LoadBalancerConfiguration) (*elbv2gw.TargetGroupConfiguration, error) {
 	var gwClassDefaultTGC *elbv2gw.TargetGroupConfiguration
 	var gwDefaultTGC *elbv2gw.TargetGroupConfiguration
 
@@ -119,24 +121,20 @@ func (resolver *gatewayConfigResolverImpl) resolveAndMergeDefaultTGCs(ctx contex
 	if gwClassLBC != nil && gwClassLBC.Spec.DefaultTargetGroupConfiguration != nil {
 		tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gwClassLBC.Spec.DefaultTargetGroupConfiguration.Name, gwClassLBC.Namespace)
 		if err != nil {
-			resolver.logger.Error(fmt.Errorf("TargetGroupConfiguration %q not found in namespace %q",
-				gwClassLBC.Spec.DefaultTargetGroupConfiguration.Name, gwClassLBC.Namespace),
-				"default TargetGroupConfiguration referenced by GatewayClass LoadBalancerConfiguration not found, proceeding without GatewayClass-level defaults")
-		} else if tgc != nil {
-			gwClassDefaultTGC = tgc
+			return nil, fmt.Errorf("default TargetGroupConfiguration %q referenced by GatewayClass LoadBalancerConfiguration %q not found in namespace %q",
+				gwClassLBC.Spec.DefaultTargetGroupConfiguration.Name, gwClassLBC.Name, gwClassLBC.Namespace)
 		}
+		gwClassDefaultTGC = tgc
 	}
 
 	// Resolve Gateway-level default TGC (looked up in the LBC's namespace, which is the same as the Gateway's namespace)
 	if gwLBC != nil && gwLBC.Spec.DefaultTargetGroupConfiguration != nil {
 		tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gwLBC.Spec.DefaultTargetGroupConfiguration.Name, gwLBC.Namespace)
 		if err != nil {
-			resolver.logger.Error(fmt.Errorf("TargetGroupConfiguration %q not found in namespace %q",
-				gwLBC.Spec.DefaultTargetGroupConfiguration.Name, gwLBC.Namespace),
-				"default TargetGroupConfiguration referenced by Gateway LoadBalancerConfiguration not found, the TGC must be in the same namespace as the LBC")
-		} else if tgc != nil {
-			gwDefaultTGC = tgc
+			return nil, fmt.Errorf("default TargetGroupConfiguration %q referenced by Gateway LoadBalancerConfiguration %q not found in namespace %q",
+				gwLBC.Spec.DefaultTargetGroupConfiguration.Name, gwLBC.Name, gwLBC.Namespace)
 		}
+		gwDefaultTGC = tgc
 	}
 
 	mergeMode := elbv2gw.MergeModePreferGatewayClass
@@ -144,7 +142,7 @@ func (resolver *gatewayConfigResolverImpl) resolveAndMergeDefaultTGCs(ctx contex
 		mergeMode = *gwClassLBC.Spec.MergingMode
 	}
 
-	return resolver.tgConfigConstructor.MergeDefaultTGCs(gwClassDefaultTGC, gwDefaultTGC, mergeMode)
+	return resolver.tgConfigConstructor.MergeDefaultTGCs(gwClassDefaultTGC, gwDefaultTGC, mergeMode), nil
 }
 
 func lookUpDefaultTGCByName(ctx context.Context, k8sClient client.Client, name, namespace string) (*elbv2gw.TargetGroupConfiguration, error) {

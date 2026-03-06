@@ -792,6 +792,6 @@ The referenced TGC may omit `targetReference` to serve purely as a set of defaul
 
 When both a GatewayClass LBC and a Gateway LBC define a `defaultTargetGroupConfiguration`, the controller resolves both TGCs and merges their `defaultConfiguration` props field-by-field. The `mergingMode` on the GatewayClass LBC controls which one wins on overlapping fields — non-overlapping fields from both are always preserved. See [TargetGroupConfiguration — GatewayClass + Gateway Default TGC Merging](targetgroupconfig.md#gatewayclass--gateway-default-tgc-merging) for details.
 
-> **Important:** The referenced TGC must exist in the same namespace as the LoadBalancerConfiguration. Cross-namespace references are not supported — the `defaultTargetGroupConfiguration` field only accepts a `name`, not a `namespace`. If the referenced TGC is not found in the LBC's namespace, the controller logs an error and proceeds without defaults for that level.
+> **Important:** The referenced TGC must exist in the same namespace as the LoadBalancerConfiguration. Cross-namespace references are not supported — the `defaultTargetGroupConfiguration` field only accepts a `name`, not a `namespace`. If the referenced TGC is not found in the LBC's namespace, the controller will error the Gateway reconciliation until the TGC is created or the reference is removed.
 
 **Default** No default target group configuration

@@ -35,7 +35,10 @@ When both a Service-level TGC and a Gateway-level default TGC exist, the control
 
 This means a Service-level TGC only needs to specify the fields it wants to override — all other fields are inherited from the Gateway-level default TGC automatically.
 
-> **Note:** The merge is shallow at the `TargetGroupProps` field level. For example, if a Service TGC sets `healthCheckConfig`, the entire health check block comes from the Service TGC — individual sub-fields like `healthCheckInterval` are not merged from the default TGC. `tags` and `targetGroupAttributes` are the exception: these are merged at the key level across both TGCs.
+> **Note:**
+>
+> - The default TGC provides fallback values, not enforced policies. A Service-level TGC can always override any field set by the default TGC. The `mergingMode` on the GatewayClass LBC only controls precedence between the GatewayClass and Gateway default TGCs — it does not prevent Service-level overrides.
+> - The merge is shallow at the `TargetGroupProps` field level. For example, if a Service TGC sets `healthCheckConfig`, the entire health check block comes from the Service TGC — individual sub-fields like `healthCheckInterval` are not merged from the default TGC. `tags` and `targetGroupAttributes` are the exception: these are merged at the key level across both TGCs.
 
 ### GatewayClass + Gateway Default TGC Merging
 
@@ -45,6 +48,8 @@ When both the GatewayClass LBC and the Gateway LBC define a `defaultTargetGroupC
 - `prefer-gateway`: Gateway TGC fields win on overlap. GatewayClass TGC fills in unset fields.
 
 Non-overlapping fields from both TGCs are always preserved regardless of `mergingMode`.
+
+> **Note:** Only `defaultConfiguration` props are merged field-by-field across the two default TGCs. `routeConfigurations` are **not** merged — the high-priority TGC's `routeConfigurations` are used entirely, and the low-priority TGC's route configs are discarded. If you need route-specific overrides from both levels, define them in the winning TGC.
 
 The Gateway LBC's default TGC must be in the same namespace as the Gateway. If it is in a different namespace, it is ignored and the GatewayClass default TGC is used alone.
 

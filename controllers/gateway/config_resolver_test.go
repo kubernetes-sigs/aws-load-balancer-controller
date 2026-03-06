@@ -507,10 +507,10 @@ func Test_resolveAndMergeDefaultTGCs(t *testing.T) {
 			expectedTT: &instanceTargetType,
 		},
 		{
-			name:       "Gateway LBC references TGC not found — treated as nil with error log",
+			name:       "Gateway LBC references TGC not found — returns error",
 			gwClassLBC: nil,
 			gwLBC: &elbv2gw.LoadBalancerConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "team-a"},
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-lbc", Namespace: "team-a"},
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					DefaultTargetGroupConfiguration: &elbv2gw.DefaultTargetGroupConfigurationReference{Name: "nonexistent-tgc"},
 				},
@@ -597,15 +597,15 @@ func Test_resolveAndMergeDefaultTGCs(t *testing.T) {
 			expectedHC: strPtr("/gw-health"),
 		},
 		{
-			name: "TGC referenced by GatewayClass LBC does not exist — only GW TGC used",
+			name: "TGC referenced by GatewayClass LBC does not exist — returns error",
 			gwClassLBC: &elbv2gw.LoadBalancerConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system"},
+				ObjectMeta: metav1.ObjectMeta{Name: "class-lbc", Namespace: "kube-system"},
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					DefaultTargetGroupConfiguration: &elbv2gw.DefaultTargetGroupConfigurationReference{Name: "nonexistent"},
 				},
 			},
 			gwLBC: &elbv2gw.LoadBalancerConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "team-a"},
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-lbc", Namespace: "team-a"},
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					DefaultTargetGroupConfiguration: &elbv2gw.DefaultTargetGroupConfigurationReference{Name: "gw-tgc"},
 				},
@@ -618,7 +618,7 @@ func Test_resolveAndMergeDefaultTGCs(t *testing.T) {
 					},
 				},
 			},
-			expectedTT: &instanceTargetType,
+			expectedNil: true,
 		},
 	}
 
@@ -637,13 +637,18 @@ func Test_resolveAndMergeDefaultTGCs(t *testing.T) {
 				logger:              logr.Discard(),
 			}
 
-			result := resolver.resolveAndMergeDefaultTGCs(context.Background(), k8sClient, tc.gwClassLBC, tc.gwLBC)
+			result, err := resolver.resolveAndMergeDefaultTGCs(context.Background(), k8sClient, tc.gwClassLBC, tc.gwLBC)
 
 			if tc.expectedNil {
+				if err != nil {
+					assert.Nil(t, result)
+					return
+				}
 				assert.Nil(t, result)
 				return
 			}
 
+			assert.NoError(t, err)
 			assert.NotNil(t, result)
 			assert.Equal(t, tc.expectedTT, result.Spec.DefaultConfiguration.TargetType)
 
