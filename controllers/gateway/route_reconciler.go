@@ -56,7 +56,6 @@ func (d *routeReconcilerImpl) Run() {
 }
 
 func (d *routeReconcilerImpl) enqueue(routeData routeutils.RouteData) {
-	d.logger.Info("Enqueuing Route", "route", routeData.RouteMetadata.RouteName, "routedd", routeData.RouteStatusInfo)
 	d.queue.Add(routeData)
 }
 
@@ -109,7 +108,6 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
 		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
-			d.logger.Info(fmt.Sprintf("Failed to patch status update for route %+v", getRouteStatus(routeOld)))
 			d.logger.Error(err, "Failed to patch route status", "route", route)
 			return err
 		}
@@ -197,8 +195,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 		newRouteStatus = append(newRouteStatus, newRouteParentStatus)
 	}
-
-	d.logger.Info(fmt.Sprintf("Updating route status: %+v for route %+v", newRouteStatus, routeData.RouteMetadata.RouteNamespace))
+	
 	switch r := route.(type) {
 	case *gwv1.HTTPRoute:
 		r.Status.Parents = newRouteStatus
