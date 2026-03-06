@@ -2,7 +2,6 @@ package crddetect
 
 import (
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 )
@@ -15,78 +14,44 @@ const (
 )
 
 var (
-	albKinds = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}}
-	nlbKinds = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, GatewayV1Alpha2GroupVersion: {"TCPRoute", "UDPRoute"}}
+	// StandardCRDKinds lists the CRD kinds required for ALB Gateway API support.
+	StandardCRDKinds = []string{"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}
+	// ExperimentalCRDKinds lists the CRD kinds required for NLB Gateway API support.
+	ExperimentalCRDKinds = []string{"TCPRoute", "UDPRoute", "TLSRoute"}
 )
 
 // ApplyGatewayCRDDetection checks for the presence of Gateway API CRDs and
 // disables the corresponding feature flags when required CRDs are missing.
 // It is called from main() after the k8s client is ready and before any
 // controller reads the feature flags.
-func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.FeatureGates, logger logr.Logger) error {
+func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.FeatureGates, logger logr.Logger) {
+	standardResult := k8s.DetectCRDs(client, GatewayV1GroupVersion, StandardCRDKinds)
+	experimentalResult := k8s.DetectCRDs(client, GatewayV1Alpha2GroupVersion, ExperimentalCRDKinds)
 
-	if !featureGates.GetFeatureStatus(config.ALBGatewayAPI).IsDefaulted && !featureGates.GetFeatureStatus(config.NLBGatewayAPI).IsDefaulted {
-		// User set this flags directly, do nothing.
-		return nil
-	}
-
-	combinedRequest := make(map[string]sets.Set[string])
-	generateCombinedRequest(albKinds, combinedRequest)
-	generateCombinedRequest(nlbKinds, combinedRequest)
-
-	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1Alpha2GroupVersion, GatewayV1GroupVersion))
-	if err != nil {
-		return err
-	}
-
-	applyGatewayFeatureFlags(availableResources, featureGates, logger)
-	return nil
+	ApplyGatewayFeatureFlags(standardResult, experimentalResult, featureGates, logger)
 }
 
-func applyGatewayFeatureFlags(availableResources map[string]sets.Set[string], featureGates config.FeatureGates, logger logr.Logger) {
-
-	albMissingKinds := missingKinds(albKinds, availableResources)
-	if len(albMissingKinds) > 0 {
+// ApplyGatewayFeatureFlags applies the Gateway CRD detection results to the
+// feature gates. Extracted for testability — accepts pre-computed results.
+func ApplyGatewayFeatureFlags(standardResult, experimentalResult k8s.CRDGroupResult, featureGates config.FeatureGates, logger logr.Logger) {
+	if !standardResult.AllPresent {
 		logger.Info("Disabling ALBGatewayAPI: missing standard Gateway API CRDs",
-			"missing", albMissingKinds)
+			"groupVersion", standardResult.GroupVersion,
+			"missing", standardResult.MissingKinds)
 		featureGates.Disable(config.ALBGatewayAPI)
+	} else {
+		logger.Info("All standard Gateway API CRDs detected, ALBGatewayAPI remains enabled",
+			"groupVersion", standardResult.GroupVersion)
 	}
 
-	nlbMissingKinds := missingKinds(nlbKinds, availableResources)
-	if len(nlbMissingKinds) > 0 {
+	if !standardResult.AllPresent || !experimentalResult.AllPresent {
 		logger.Info("Disabling NLBGatewayAPI: missing required Gateway API CRDs",
-			"missing", nlbMissingKinds)
+			"missingStandard", standardResult.MissingKinds,
+			"missingExperimental", experimentalResult.MissingKinds)
 		featureGates.Disable(config.NLBGatewayAPI)
-	}
-}
-
-func missingKinds(desiredKinds map[string][]string, availableResources map[string]sets.Set[string]) []string {
-	missing := make([]string, 0)
-
-	for apiVersion, kinds := range desiredKinds {
-		var ok bool
-		var availableKinds sets.Set[string]
-		if availableKinds, ok = availableResources[apiVersion]; !ok {
-			missing = append(missing, kinds...)
-			continue
-		}
-		for _, kind := range kinds {
-			if !availableKinds.Has(kind) {
-				missing = append(missing, kind)
-			}
-		}
-	}
-
-	return missing
-}
-
-func generateCombinedRequest(productSpecific map[string][]string, req map[string]sets.Set[string]) {
-	for version, kinds := range productSpecific {
-		if _, ok := req[version]; !ok {
-			req[version] = sets.New[string]()
-		}
-		for _, kind := range kinds {
-			req[version].Insert(kind)
-		}
+	} else {
+		logger.Info("All required Gateway API CRDs detected, NLBGatewayAPI remains enabled",
+			"standardGroupVersion", standardResult.GroupVersion,
+			"experimentalGroupVersion", experimentalResult.GroupVersion)
 	}
 }

@@ -5,120 +5,106 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 )
 
-func TestApplyGatewayFeatureFlags(t *testing.T) {
-	testCases := []struct {
-		name         string
-		presentKinds map[string]sets.Set[string]
-		albEnabled   bool
-		nlbEnabled   bool
-	}{
-		{
-			name:         "no kinds present",
-			presentKinds: map[string]sets.Set[string]{},
-			albEnabled:   false,
-			nlbEnabled:   false,
-		},
-		{
-			name: "v1 present",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion: sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-			},
-			albEnabled: true,
-			nlbEnabled: false,
-		},
-		{
-			name: "alpha2 present",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: false,
-			nlbEnabled: false,
-		},
-		{
-			name: "all present",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: true,
-			nlbEnabled: true,
-		},
-		{
-			name: "gateway missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: false,
-			nlbEnabled: false,
-		},
-		{
-			name: "gateway class missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: false,
-			nlbEnabled: false,
-		},
-		{
-			name: "httproute missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: false,
-			nlbEnabled: true,
-		},
-		{
-			name: "grpcroute missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: false,
-			nlbEnabled: true,
-		},
-		{
-			name: "tlsroute missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled: true,
-			nlbEnabled: false,
-		},
-		{
-			name: "tcproute missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("UDPRoute"),
-			},
-			albEnabled: true,
-			nlbEnabled: false,
-		},
-		{
-			name: "udproute missing",
-			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute"),
-			},
-			albEnabled: true,
-			nlbEnabled: false,
-		},
+func TestApplyGatewayFeatureFlags_StandardMissing(t *testing.T) {
+	fg := config.NewFeatureGates()
+	assert.True(t, fg.Enabled(config.ALBGatewayAPI), "precondition: ALBGatewayAPI should default to true")
+	assert.True(t, fg.Enabled(config.NLBGatewayAPI), "precondition: NLBGatewayAPI should default to true")
+
+	standardResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1",
+		AllPresent:   false,
+		MissingKinds: []string{"HTTPRoute"},
+	}
+	experimentalResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1alpha2",
+		AllPresent:   true,
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := config.NewFeatureGates()
-			applyGatewayFeatureFlags(tc.presentKinds, cfg, logr.Discard())
+	ApplyGatewayFeatureFlags(standardResult, experimentalResult, fg, logr.Discard())
 
-			assert.Equal(t, tc.albEnabled, cfg.Enabled(config.ALBGatewayAPI))
-			assert.Equal(t, tc.nlbEnabled, cfg.Enabled(config.NLBGatewayAPI))
-		})
+	assert.False(t, fg.Enabled(config.ALBGatewayAPI), "ALBGatewayAPI should be disabled when standard CRDs are missing")
+	assert.False(t, fg.Enabled(config.NLBGatewayAPI), "NLBGatewayAPI should be disabled when standard CRDs are missing")
+}
+
+func TestApplyGatewayFeatureFlags_ExperimentalMissing_StandardPresent(t *testing.T) {
+	fg := config.NewFeatureGates()
+
+	standardResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1",
+		AllPresent:   true,
 	}
+	experimentalResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1alpha2",
+		AllPresent:   false,
+		MissingKinds: []string{"TCPRoute"},
+	}
+
+	ApplyGatewayFeatureFlags(standardResult, experimentalResult, fg, logr.Discard())
+
+	assert.True(t, fg.Enabled(config.ALBGatewayAPI), "ALBGatewayAPI should remain enabled when standard CRDs are present")
+	assert.False(t, fg.Enabled(config.NLBGatewayAPI), "NLBGatewayAPI should be disabled when experimental CRDs are missing")
+}
+
+func TestApplyGatewayFeatureFlags_BothPresent(t *testing.T) {
+	fg := config.NewFeatureGates()
+
+	standardResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1",
+		AllPresent:   true,
+	}
+	experimentalResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1alpha2",
+		AllPresent:   true,
+	}
+
+	ApplyGatewayFeatureFlags(standardResult, experimentalResult, fg, logr.Discard())
+
+	assert.True(t, fg.Enabled(config.ALBGatewayAPI), "ALBGatewayAPI should remain enabled")
+	assert.True(t, fg.Enabled(config.NLBGatewayAPI), "NLBGatewayAPI should remain enabled")
+}
+
+func TestApplyGatewayFeatureFlags_BothMissing(t *testing.T) {
+	fg := config.NewFeatureGates()
+
+	standardResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1",
+		AllPresent:   false,
+		MissingKinds: []string{"Gateway", "GatewayClass"},
+	}
+	experimentalResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1alpha2",
+		AllPresent:   false,
+		MissingKinds: []string{"TCPRoute", "UDPRoute"},
+	}
+
+	ApplyGatewayFeatureFlags(standardResult, experimentalResult, fg, logr.Discard())
+
+	assert.False(t, fg.Enabled(config.ALBGatewayAPI), "ALBGatewayAPI should be disabled")
+	assert.False(t, fg.Enabled(config.NLBGatewayAPI), "NLBGatewayAPI should be disabled")
+}
+
+func TestApplyGatewayFeatureFlags_ExplicitlyEnabledStillDisabledWhenCRDsMissing(t *testing.T) {
+	fg := config.NewFeatureGates()
+	// Simulate explicit --feature-gates ALBGatewayAPI=true,NLBGatewayAPI=true
+	fg.Enable(config.ALBGatewayAPI)
+	fg.Enable(config.NLBGatewayAPI)
+
+	standardResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1",
+		AllPresent:   false,
+		MissingKinds: []string{"GRPCRoute"},
+	}
+	experimentalResult := k8s.CRDGroupResult{
+		GroupVersion: "gateway.networking.k8s.io/v1alpha2",
+		AllPresent:   true,
+	}
+
+	ApplyGatewayFeatureFlags(standardResult, experimentalResult, fg, logr.Discard())
+
+	assert.False(t, fg.Enabled(config.ALBGatewayAPI), "ALBGatewayAPI should be force-disabled even when explicitly enabled")
+	assert.False(t, fg.Enabled(config.NLBGatewayAPI), "NLBGatewayAPI should be force-disabled even when explicitly enabled")
 }

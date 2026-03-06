@@ -179,11 +179,7 @@ func main() {
 
 	// Gateway API CRD auto-detection: check which CRDs are installed and disable
 	// feature flags for missing CRDs before any controller setup reads them.
-	err = crddetect.ApplyGatewayCRDDetection(clientSet.Discovery(), controllerCFG.FeatureGates, setupLog)
-	if err != nil {
-		setupLog.Error(err, "unable to obtain CRD information")
-		os.Exit(1)
-	}
+	crddetect.ApplyGatewayCRDDetection(clientSet.Discovery(), controllerCFG.FeatureGates, setupLog)
 
 	nlbGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI)
 	albGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI)

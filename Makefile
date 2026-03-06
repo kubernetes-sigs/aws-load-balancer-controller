@@ -44,10 +44,6 @@ all: controller
 test: generate fmt vet manifests helm-lint
 	go test -race ./pkg/... ./webhooks/... ./controllers/... -coverprofile cover.out
 
-# Run tests
-fast-unit-test:
-	go test -race ./pkg/... ./webhooks/... ./controllers/... -coverprofile cover.out
-
 # Build controller binary
 controller: generate fmt vet
 	go build -o bin/controller main.go
