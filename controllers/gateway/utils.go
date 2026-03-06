@@ -27,19 +27,24 @@ const (
 	maxMessageLength = 32700
 )
 
+// computeProcessedConfigVersion computes a composite version string from the LBC and optional TGC resource versions.
+func computeProcessedConfigVersion(lbConf *elbv2gw.LoadBalancerConfiguration, tgConf *elbv2gw.TargetGroupConfiguration) string {
+	if lbConf == nil {
+		return ""
+	}
+	version := lbConf.ResourceVersion
+	if tgConf != nil {
+		version = version + "-" + tgConf.ResourceVersion
+	}
+	return version
+}
+
 // updateGatewayClassLastProcessedConfig updates the gateway class annotations with the last processed lb config resource version or "" if no lb config is attached to the gatewayclass.
 // When a default TargetGroupConfiguration is referenced by the LBC, its resource version is included in the calculated version
 // so that TGC changes also trigger downstream Gateway reconciliation.
 func updateGatewayClassLastProcessedConfig(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, lbConf *elbv2gw.LoadBalancerConfiguration, tgConf *elbv2gw.TargetGroupConfiguration) error {
 
-	calculatedVersion := ""
-
-	if lbConf != nil {
-		calculatedVersion = lbConf.ResourceVersion
-		if tgConf != nil {
-			calculatedVersion = calculatedVersion + "-" + tgConf.ResourceVersion
-		}
-	}
+	calculatedVersion := computeProcessedConfigVersion(lbConf, tgConf)
 
 	storedVersion := getStoredProcessedConfig(gwClass)
 

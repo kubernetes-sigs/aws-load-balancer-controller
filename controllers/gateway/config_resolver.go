@@ -59,13 +59,14 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 			}
 		}
 		storedVersion := getStoredProcessedConfig(gwClass)
-		latestVersion := gatewayClassLBConfig.ResourceVersion
+		var defaultTGC *elbv2gw.TargetGroupConfiguration
 		if gatewayClassLBConfig.Spec.DefaultTargetGroupConfiguration != nil {
 			tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gatewayClassLBConfig.Spec.DefaultTargetGroupConfiguration.Name, gatewayClassLBConfig.Namespace)
 			if err == nil && tgc != nil {
-				latestVersion = latestVersion + "-" + tgc.ResourceVersion
+				defaultTGC = tgc
 			}
 		}
+		latestVersion := computeProcessedConfigVersion(gatewayClassLBConfig, defaultTGC)
 		if storedVersion == nil || *storedVersion != latestVersion {
 			var safeVersion string
 			if storedVersion != nil {
