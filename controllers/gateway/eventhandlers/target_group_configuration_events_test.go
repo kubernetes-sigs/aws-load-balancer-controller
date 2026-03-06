@@ -14,9 +14,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
@@ -239,17 +239,12 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 }
 
 func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
-	albController := constants.ALBGatewayController
-	nlbController := constants.NLBGatewayController
 
 	tests := []struct {
-		name         string
-		tgconfig     *elbv2gw.TargetGroupConfiguration
-		lbConfigs    []*elbv2gw.LoadBalancerConfiguration
-		gateways     []*gwv1.Gateway
-		gwClasses    []*gwv1.GatewayClass
-		gwController string
-		wantEnqueued []types.NamespacedName
+		name            string
+		tgconfig        *elbv2gw.TargetGroupConfiguration
+		lbConfigs       []*elbv2gw.LoadBalancerConfiguration
+		wantLBCEnqueued []types.NamespacedName
 	}{
 		{
 			name: "no LBCs in namespace",
@@ -257,11 +252,10 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
 				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
 			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{},
+			wantLBCEnqueued: []types.NamespacedName{},
 		},
 		{
-			name: "LBC references TGC, gateway references LBC directly",
+			name: "LBC references TGC, emits LBC event",
 			tgconfig: &elbv2gw.TargetGroupConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
 				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
@@ -276,35 +270,12 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 					},
 				},
 			},
-			gateways: []*gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "alb-class",
-						Infrastructure: &gwv1.GatewayInfrastructure{
-							ParametersRef: &gwv1.LocalParametersReference{
-								Kind: "LoadBalancerConfiguration",
-								Name: "my-lbc",
-							},
-						},
-					},
-				},
-			},
-			gwClasses: []*gwv1.GatewayClass{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "alb-class"},
-					Spec: gwv1.GatewayClassSpec{
-						ControllerName: gwv1.GatewayController(albController),
-					},
-				},
-			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{
-				{Name: "my-gw", Namespace: "test-ns"},
+			wantLBCEnqueued: []types.NamespacedName{
+				{Name: "my-lbc", Namespace: "test-ns"},
 			},
 		},
 		{
-			name: "LBC references different TGC name, no gateways enqueued",
+			name: "LBC references different TGC name, no LBC events emitted",
 			tgconfig: &elbv2gw.TargetGroupConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
 				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
@@ -319,30 +290,7 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 					},
 				},
 			},
-			gateways: []*gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "alb-class",
-						Infrastructure: &gwv1.GatewayInfrastructure{
-							ParametersRef: &gwv1.LocalParametersReference{
-								Kind: "LoadBalancerConfiguration",
-								Name: "my-lbc",
-							},
-						},
-					},
-				},
-			},
-			gwClasses: []*gwv1.GatewayClass{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "alb-class"},
-					Spec: gwv1.GatewayClassSpec{
-						ControllerName: gwv1.GatewayController(albController),
-					},
-				},
-			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{},
+			wantLBCEnqueued: []types.NamespacedName{},
 		},
 		{
 			name: "LBC has no defaultTargetGroupConfiguration",
@@ -356,110 +304,10 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 					Spec:       elbv2gw.LoadBalancerConfigurationSpec{},
 				},
 			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{},
+			wantLBCEnqueued: []types.NamespacedName{},
 		},
 		{
-			name: "LBC referenced by GatewayClass, gateways enqueued via GatewayClass path",
-			tgconfig: &elbv2gw.TargetGroupConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
-				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
-			},
-			lbConfigs: []*elbv2gw.LoadBalancerConfiguration{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "class-lbc", Namespace: "test-ns"},
-					Spec: elbv2gw.LoadBalancerConfigurationSpec{
-						DefaultTargetGroupConfiguration: &elbv2gw.DefaultTargetGroupConfigurationReference{
-							Name: "default-tgc",
-						},
-					},
-				},
-			},
-			gateways: []*gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "gw-1", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "nlb-class",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "gw-2", Namespace: "other-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "nlb-class",
-					},
-				},
-			},
-			gwClasses: []*gwv1.GatewayClass{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "nlb-class"},
-					Spec: gwv1.GatewayClassSpec{
-						ControllerName: gwv1.GatewayController(nlbController),
-						ParametersRef: &gwv1.ParametersReference{
-							Group:     "gateway.k8s.aws",
-							Kind:      "LoadBalancerConfiguration",
-							Name:      "class-lbc",
-							Namespace: namespacePtr("test-ns"),
-						},
-					},
-				},
-			},
-			gwController: nlbController,
-			wantEnqueued: []types.NamespacedName{
-				{Name: "gw-1", Namespace: "test-ns"},
-				{Name: "gw-2", Namespace: "other-ns"},
-			},
-		},
-		{
-			name: "gateway found via both direct LBC and GatewayClass path, enqueued only once",
-			tgconfig: &elbv2gw.TargetGroupConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
-				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
-			},
-			lbConfigs: []*elbv2gw.LoadBalancerConfiguration{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "shared-lbc", Namespace: "test-ns"},
-					Spec: elbv2gw.LoadBalancerConfigurationSpec{
-						DefaultTargetGroupConfiguration: &elbv2gw.DefaultTargetGroupConfigurationReference{
-							Name: "default-tgc",
-						},
-					},
-				},
-			},
-			gateways: []*gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "alb-class",
-						Infrastructure: &gwv1.GatewayInfrastructure{
-							ParametersRef: &gwv1.LocalParametersReference{
-								Kind: "LoadBalancerConfiguration",
-								Name: "shared-lbc",
-							},
-						},
-					},
-				},
-			},
-			gwClasses: []*gwv1.GatewayClass{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "alb-class"},
-					Spec: gwv1.GatewayClassSpec{
-						ControllerName: gwv1.GatewayController(albController),
-						ParametersRef: &gwv1.ParametersReference{
-							Group:     "gateway.k8s.aws",
-							Kind:      "LoadBalancerConfiguration",
-							Name:      "shared-lbc",
-							Namespace: namespacePtr("test-ns"),
-						},
-					},
-				},
-			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{
-				{Name: "my-gw", Namespace: "test-ns"},
-			},
-		},
-		{
-			name: "multiple LBCs, only matching ones trigger enqueue",
+			name: "multiple LBCs, only matching ones emit events",
 			tgconfig: &elbv2gw.TargetGroupConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
 				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
@@ -482,85 +330,9 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 					},
 				},
 			},
-			gateways: []*gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "gw-match", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "alb-class",
-						Infrastructure: &gwv1.GatewayInfrastructure{
-							ParametersRef: &gwv1.LocalParametersReference{
-								Kind: "LoadBalancerConfiguration",
-								Name: "lbc-match",
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "gw-no-match", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "alb-class",
-						Infrastructure: &gwv1.GatewayInfrastructure{
-							ParametersRef: &gwv1.LocalParametersReference{
-								Kind: "LoadBalancerConfiguration",
-								Name: "lbc-no-match",
-							},
-						},
-					},
-				},
+			wantLBCEnqueued: []types.NamespacedName{
+				{Name: "lbc-match", Namespace: "test-ns"},
 			},
-			gwClasses: []*gwv1.GatewayClass{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "alb-class"},
-					Spec: gwv1.GatewayClassSpec{
-						ControllerName: gwv1.GatewayController(albController),
-					},
-				},
-			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{
-				{Name: "gw-match", Namespace: "test-ns"},
-			},
-		},
-		{
-			name: "gateway managed by different controller not enqueued",
-			tgconfig: &elbv2gw.TargetGroupConfiguration{
-				ObjectMeta: metav1.ObjectMeta{Name: "default-tgc", Namespace: "test-ns"},
-				Spec:       elbv2gw.TargetGroupConfigurationSpec{},
-			},
-			lbConfigs: []*elbv2gw.LoadBalancerConfiguration{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "my-lbc", Namespace: "test-ns"},
-					Spec: elbv2gw.LoadBalancerConfigurationSpec{
-						DefaultTargetGroupConfiguration: &elbv2gw.DefaultTargetGroupConfigurationReference{
-							Name: "default-tgc",
-						},
-					},
-				},
-			},
-			gateways: []*gwv1.Gateway{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "nlb-gw", Namespace: "test-ns"},
-					Spec: gwv1.GatewaySpec{
-						GatewayClassName: "nlb-class",
-						Infrastructure: &gwv1.GatewayInfrastructure{
-							ParametersRef: &gwv1.LocalParametersReference{
-								Kind: "LoadBalancerConfiguration",
-								Name: "my-lbc",
-							},
-						},
-					},
-				},
-			},
-			gwClasses: []*gwv1.GatewayClass{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "nlb-class"},
-					Spec: gwv1.GatewayClassSpec{
-						ControllerName: gwv1.GatewayController(nlbController),
-					},
-				},
-			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{},
 		},
 		{
 			name: "LBC in different namespace not matched",
@@ -578,8 +350,7 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 					},
 				},
 			},
-			gwController: albController,
-			wantEnqueued: []types.NamespacedName{},
+			wantLBCEnqueued: []types.NamespacedName{},
 		},
 	}
 
@@ -591,38 +362,32 @@ func TestEnqueueGatewaysReferencingDefaultTGC(t *testing.T) {
 			for _, lbc := range tt.lbConfigs {
 				assert.NoError(t, k8sClient.Create(ctx, lbc))
 			}
-			for _, gwClass := range tt.gwClasses {
-				assert.NoError(t, k8sClient.Create(ctx, gwClass))
-			}
-			for _, gw := range tt.gateways {
-				assert.NoError(t, k8sClient.Create(ctx, gw))
-			}
 
 			logger := logr.New(&log.NullLogSink{})
 			queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
 			defer queue.ShutDown()
 
+			lbcEventChan := make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration], 10)
+
 			h := &enqueueRequestsForTargetGroupConfigurationEvent{
 				k8sClient:    k8sClient,
 				logger:       logger,
-				gwController: tt.gwController,
+				gwController: constants.ALBGatewayController,
+				lbcEventChan: lbcEventChan,
 			}
 
 			h.enqueueGatewaysReferencingDefaultTGC(ctx, tt.tgconfig, queue)
 
-			gotEnqueued := make([]types.NamespacedName, 0)
-			for queue.Len() > 0 {
-				item, _ := queue.Get()
-				gotEnqueued = append(gotEnqueued, item.NamespacedName)
-				queue.Done(item)
+			// Drain the LBC event channel
+			close(lbcEventChan)
+			gotLBCEnqueued := make([]types.NamespacedName, 0)
+			for evt := range lbcEventChan {
+				gotLBCEnqueued = append(gotLBCEnqueued, k8s.NamespacedName(evt.Object))
 			}
 
-			assert.ElementsMatch(t, tt.wantEnqueued, gotEnqueued)
+			// Queue should be empty since we now emit LBC events instead
+			assert.Equal(t, 0, queue.Len())
+			assert.ElementsMatch(t, tt.wantLBCEnqueued, gotLBCEnqueued)
 		})
 	}
-}
-
-func namespacePtr(ns string) *gwv1.Namespace {
-	n := gwv1.Namespace(ns)
-	return &n
 }

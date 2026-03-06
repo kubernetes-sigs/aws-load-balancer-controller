@@ -10,7 +10,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -21,10 +20,12 @@ import (
 
 // NewEnqueueRequestsForTargetGroupConfigurationEvent creates handler for TargetGroupConfiguration resources
 func NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan chan<- event.TypedGenericEvent[*corev1.Service], tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
+	lbcEventChan chan<- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration],
 	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Request] {
 	return &enqueueRequestsForTargetGroupConfigurationEvent{
 		svcEventChan:      svcEventChan,
 		tcpRouteEventChan: tcpRouteEventChan,
+		lbcEventChan:      lbcEventChan,
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
 		logger:            logger,
@@ -38,6 +39,7 @@ var _ handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Req
 type enqueueRequestsForTargetGroupConfigurationEvent struct {
 	svcEventChan      chan<- event.TypedGenericEvent[*corev1.Service]
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
+	lbcEventChan      chan<- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]
 	k8sClient         client.Client
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
@@ -110,9 +112,10 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueImpactedObject(
 }
 
 // enqueueGatewaysReferencingDefaultTGC finds LoadBalancerConfigurations that reference this TGC
-// as their defaultTargetGroupConfiguration, then enqueues the impacted gateways for reconciliation.
-// An LBC can be referenced by a Gateway (via infrastructure.parametersRef) or by a GatewayClass
-// (via parametersRef), so both are checked.
+// as their defaultTargetGroupConfiguration, then emits synthetic LBC events so the existing
+// LBC event handler can resolve impacted Gateways.
+// The GatewayClass path (LBC → GatewayClass → Gateways) is handled by the separate
+// TGC event handler in the gatewayclass controller.
 func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueGatewaysReferencingDefaultTGC(ctx context.Context, tgconfig *elbv2gw.TargetGroupConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	lbConfigList := &elbv2gw.LoadBalancerConfigurationList{}
 	if err := h.k8sClient.List(ctx, lbConfigList, client.InNamespace(tgconfig.Namespace)); err != nil {
@@ -122,56 +125,17 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueGatewaysReferen
 		return
 	}
 
-	gwControllerSet := sets.New(h.gwController)
-
 	for i := range lbConfigList.Items {
 		lbConfig := &lbConfigList.Items[i]
 		if lbConfig.Spec.DefaultTargetGroupConfiguration == nil || lbConfig.Spec.DefaultTargetGroupConfiguration.Name != tgconfig.Name {
 			continue
 		}
 
-		// Check Gateways that directly reference this LBC
-		gateways, err := gatewayutils.GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbConfig, h.gwController)
-		if err != nil {
-			h.logger.V(1).Info("failed to get impacted gateways from loadbalancerconfiguration for default targetgroupconfiguration event",
-				"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
-				"loadbalancerconfiguration", k8s.NamespacedName(lbConfig),
-				"error", err)
-		}
-		for _, gw := range gateways {
-			h.logger.V(1).Info("enqueue gateway for default targetgroupconfiguration event",
-				"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
-				"loadbalancerconfiguration", k8s.NamespacedName(lbConfig),
-				"gateway", k8s.NamespacedName(gw))
-			queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
-		}
-
-		// Check GatewayClasses that reference this LBC, then find their Gateways
-		gwClasses, err := gatewayutils.GetImpactedGatewayClassesFromLbConfig(ctx, h.k8sClient, lbConfig, gwControllerSet)
-		if err != nil {
-			h.logger.V(1).Info("failed to get impacted gatewayclasses from loadbalancerconfiguration for default targetgroupconfiguration event",
-				"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
-				"loadbalancerconfiguration", k8s.NamespacedName(lbConfig),
-				"error", err)
-			continue
-		}
-		for _, gwClass := range gwClasses {
-			gwInClass, err := gatewayutils.GetGatewaysManagedByGatewayClass(ctx, h.k8sClient, gwClass)
-			if err != nil {
-				h.logger.V(1).Info("failed to get gateways for gatewayclass for default targetgroupconfiguration event",
-					"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
-					"gatewayclass", gwClass.Name,
-					"error", err)
-				continue
-			}
-			for _, gw := range gwInClass {
-				h.logger.V(1).Info("enqueue gateway for default targetgroupconfiguration event via gatewayclass",
-					"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
-					"loadbalancerconfiguration", k8s.NamespacedName(lbConfig),
-					"gatewayclass", gwClass.Name,
-					"gateway", k8s.NamespacedName(gw))
-				queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
-			}
+		h.logger.V(1).Info("enqueue loadbalancerconfiguration for default targetgroupconfiguration event",
+			"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
+			"loadbalancerconfiguration", k8s.NamespacedName(lbConfig))
+		h.lbcEventChan <- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]{
+			Object: lbConfig,
 		}
 	}
 }

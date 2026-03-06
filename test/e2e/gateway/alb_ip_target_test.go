@@ -2202,6 +2202,36 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
+
+			By("updating default TGC health check path and verifying propagation", func() {
+				tgcKey := types.NamespacedName{
+					Name:      "gw-default-tgc",
+					Namespace: stack.albResourceStack.GetNamespace(),
+				}
+				tgc := &elbv2gw.TargetGroupConfiguration{}
+				err := tf.K8sClient.Get(ctx, tgcKey, tgc)
+				Expect(err).NotTo(HaveOccurred())
+
+				updatedHCPath := "/updated-default-health"
+				tgc.Spec.DefaultConfiguration.HealthCheckConfig.HealthCheckPath = &updatedHCPath
+				err = tf.K8sClient.Update(ctx, tgc)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying AWS target group health check path updated after TGC change", func() {
+				Eventually(func() bool {
+					targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+					if err != nil || len(targetGroups) == 0 {
+						return false
+					}
+					for _, tg := range targetGroups {
+						if awssdk.ToString(tg.HealthCheckPath) == "/updated-default-health" {
+							return true
+						}
+					}
+					return false
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).Should(BeTrue())
+			})
 		})
 	})
 })

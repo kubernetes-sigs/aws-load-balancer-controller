@@ -22,6 +22,7 @@ func Test_updateGatewayClassLastProcessedConfig(t *testing.T) {
 		name            string
 		gwClass         gwv1.GatewayClass
 		lbConf          *elbv2gw.LoadBalancerConfiguration
+		tgConf          *elbv2gw.TargetGroupConfiguration
 		expectedVersion string
 		noPatch         bool
 	}{
@@ -98,6 +99,87 @@ func Test_updateGatewayClassLastProcessedConfig(t *testing.T) {
 			expectedVersion: "foo",
 			noPatch:         true,
 		},
+		{
+			name: "with lb conf and tg conf, composite version",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "lbc-v1",
+				},
+			},
+			tgConf: &elbv2gw.TargetGroupConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "tgc-v1",
+				},
+			},
+			gwClass: gwv1.GatewayClass{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "gwclass",
+				},
+			},
+			expectedVersion: "lbc-v1-tgc-v1",
+		},
+		{
+			name: "tg conf change triggers patch even when lb conf unchanged",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "lbc-v1",
+				},
+			},
+			tgConf: &elbv2gw.TargetGroupConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "tgc-v2",
+				},
+			},
+			gwClass: gwv1.GatewayClass{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "gwclass",
+					Annotations: map[string]string{
+						gatewayClassAnnotationLastProcessedConfig:          "lbc-v1-tgc-v1",
+						gatewayClassAnnotationLastProcessedConfigTimestamp: "10",
+					},
+				},
+			},
+			expectedVersion: "lbc-v1-tgc-v2",
+		},
+		{
+			name: "no change in composite version should not trigger patch",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "lbc-v1",
+				},
+			},
+			tgConf: &elbv2gw.TargetGroupConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "tgc-v1",
+				},
+			},
+			gwClass: gwv1.GatewayClass{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "gwclass",
+					Annotations: map[string]string{
+						gatewayClassAnnotationLastProcessedConfig:          "lbc-v1-tgc-v1",
+						gatewayClassAnnotationLastProcessedConfigTimestamp: "10",
+					},
+				},
+			},
+			expectedVersion: "lbc-v1-tgc-v1",
+			noPatch:         true,
+		},
+		{
+			name: "lb conf with nil tg conf uses only lb version",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: v1.ObjectMeta{
+					ResourceVersion: "lbc-v1",
+				},
+			},
+			tgConf: nil,
+			gwClass: gwv1.GatewayClass{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "gwclass",
+				},
+			},
+			expectedVersion: "lbc-v1",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -106,7 +188,7 @@ func Test_updateGatewayClassLastProcessedConfig(t *testing.T) {
 			original := tc.gwClass.DeepCopy()
 			err := client.Create(context.Background(), original)
 			assert.NoError(t, err)
-			err = updateGatewayClassLastProcessedConfig(context.Background(), client, original, tc.lbConf)
+			err = updateGatewayClassLastProcessedConfig(context.Background(), client, original, tc.lbConf, tc.tgConf)
 			assert.NoError(t, err)
 			stored := &gwv1.GatewayClass{}
 			err = client.Get(context.Background(), k8s.NamespacedName(original), stored)

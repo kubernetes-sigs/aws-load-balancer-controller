@@ -59,12 +59,19 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 			}
 		}
 		storedVersion := getStoredProcessedConfig(gwClass)
-		if storedVersion == nil || *storedVersion != gatewayClassLBConfig.ResourceVersion {
+		latestVersion := gatewayClassLBConfig.ResourceVersion
+		if gatewayClassLBConfig.Spec.DefaultTargetGroupConfiguration != nil {
+			tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gatewayClassLBConfig.Spec.DefaultTargetGroupConfiguration.Name, gatewayClassLBConfig.Namespace)
+			if err == nil && tgc != nil {
+				latestVersion = latestVersion + "-" + tgc.ResourceVersion
+			}
+		}
+		if storedVersion == nil || *storedVersion != latestVersion {
 			var safeVersion string
 			if storedVersion != nil {
 				safeVersion = *storedVersion
 			}
-			return elbv2gw.LoadBalancerConfiguration{}, nil, errors.Errorf("GatewayClass [%s] hasn't processed latest loadbalancer config. Processed version %s, Latest version %s", gwClass.Name, safeVersion, gatewayClassLBConfig.ResourceVersion)
+			return elbv2gw.LoadBalancerConfiguration{}, nil, errors.Errorf("GatewayClass [%s] hasn't processed latest loadbalancer config. Processed version %s, Latest version %s", gwClass.Name, safeVersion, latestVersion)
 		}
 	}
 
