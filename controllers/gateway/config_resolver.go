@@ -62,9 +62,10 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 		var defaultTGC *elbv2gw.TargetGroupConfiguration
 		if gatewayClassLBConfig.Spec.DefaultTargetGroupConfiguration != nil {
 			tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gatewayClassLBConfig.Spec.DefaultTargetGroupConfiguration.Name, gatewayClassLBConfig.Namespace)
-			if err == nil && tgc != nil {
-				defaultTGC = tgc
+			if err != nil {
+				return elbv2gw.LoadBalancerConfiguration{}, nil, fmt.Errorf("failed to resolve default TargetGroupConfiguration for GatewayClass LBC: %w", err)
 			}
+			defaultTGC = tgc
 		}
 		latestVersion := computeProcessedConfigVersion(gatewayClassLBConfig, defaultTGC)
 		if storedVersion == nil || *storedVersion != latestVersion {
@@ -122,8 +123,8 @@ func (resolver *gatewayConfigResolverImpl) resolveAndMergeDefaultTGCs(ctx contex
 	if gwClassLBC != nil && gwClassLBC.Spec.DefaultTargetGroupConfiguration != nil {
 		tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gwClassLBC.Spec.DefaultTargetGroupConfiguration.Name, gwClassLBC.Namespace)
 		if err != nil {
-			return nil, fmt.Errorf("default TargetGroupConfiguration %q referenced by GatewayClass LoadBalancerConfiguration %q not found in namespace %q",
-				gwClassLBC.Spec.DefaultTargetGroupConfiguration.Name, gwClassLBC.Name, gwClassLBC.Namespace)
+			return nil, fmt.Errorf("failed to resolve default TargetGroupConfiguration %q referenced by GatewayClass LoadBalancerConfiguration %q in namespace %q: %w",
+				gwClassLBC.Spec.DefaultTargetGroupConfiguration.Name, gwClassLBC.Name, gwClassLBC.Namespace, err)
 		}
 		gwClassDefaultTGC = tgc
 	}
@@ -132,8 +133,8 @@ func (resolver *gatewayConfigResolverImpl) resolveAndMergeDefaultTGCs(ctx contex
 	if gwLBC != nil && gwLBC.Spec.DefaultTargetGroupConfiguration != nil {
 		tgc, err := lookUpDefaultTGCByName(ctx, k8sClient, gwLBC.Spec.DefaultTargetGroupConfiguration.Name, gwLBC.Namespace)
 		if err != nil {
-			return nil, fmt.Errorf("default TargetGroupConfiguration %q referenced by Gateway LoadBalancerConfiguration %q not found in namespace %q",
-				gwLBC.Spec.DefaultTargetGroupConfiguration.Name, gwLBC.Name, gwLBC.Namespace)
+			return nil, fmt.Errorf("failed to resolve default TargetGroupConfiguration %q referenced by Gateway LoadBalancerConfiguration %q in namespace %q: %w",
+				gwLBC.Spec.DefaultTargetGroupConfiguration.Name, gwLBC.Name, gwLBC.Namespace, err)
 		}
 		gwDefaultTGC = tgc
 	}
@@ -151,6 +152,9 @@ func lookUpDefaultTGCByName(ctx context.Context, k8sClient client.Client, name, 
 	err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, tgc)
 	if err != nil {
 		return nil, err
+	}
+	if tgc.Spec.TargetReference != nil {
+		return nil, fmt.Errorf("TargetGroupConfiguration %q in namespace %q has targetReference set and cannot be used as a defaultTargetGroupConfiguration — a default TGC must not have targetReference", name, namespace)
 	}
 	return tgc, nil
 }

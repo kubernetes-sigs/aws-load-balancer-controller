@@ -157,7 +157,10 @@ func (r *gatewayClassReconciler) handleUpdate(ctx context.Context, gwClass *gwv1
 	// downstream Gateway reconciliation even when the LBC itself hasn't changed.
 	var tgConf *elbv2gw.TargetGroupConfiguration
 	if lbConf != nil && lbConf.Spec.DefaultTargetGroupConfiguration != nil {
-		tgConf, _ = r.defaultTGCResolverFn(ctx, r.k8sClient, lbConf.Spec.DefaultTargetGroupConfiguration.Name, lbConf.Namespace)
+		tgConf, err = r.defaultTGCResolverFn(ctx, r.k8sClient, lbConf.Spec.DefaultTargetGroupConfiguration.Name, lbConf.Namespace)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = r.updateLastProcessedConfigFn(ctx, r.k8sClient, gwClass, lbConf, tgConf)

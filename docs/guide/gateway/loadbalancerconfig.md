@@ -788,7 +788,7 @@ spec:
 
 References a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration. The referenced TGC provides default target group properties for all backends attached to the Gateway. Backend-specific TGCs (those with a `targetReference`) override these defaults on a per-field basis.
 
-The referenced TGC may omit `targetReference` to serve purely as a set of defaults. However, a TGC that has a `targetReference` can also be referenced here — in that case it serves double duty as both a backend-specific TGC and a source of defaults.
+The referenced TGC must not have a `targetReference` set. A TGC with `targetReference` is a service-level TGC and cannot be used as a `defaultTargetGroupConfiguration`. The controller will error the Gateway reconciliation if an LBC references a TGC that has `targetReference`.
 
 When both a GatewayClass LBC and a Gateway LBC define a `defaultTargetGroupConfiguration`, the controller resolves both TGCs and merges their `defaultConfiguration` props field-by-field. The `mergingMode` on the GatewayClass LBC controls which one wins on overlapping fields — non-overlapping fields from both are always preserved. See [TargetGroupConfiguration — GatewayClass + Gateway Default TGC Merging](targetgroupconfig.md#gatewayclass--gateway-default-tgc-merging) for details.
 

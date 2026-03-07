@@ -21,7 +21,7 @@ Defines the Kubernetes object to attach the Target Group settings to.
 - **kind**: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified. Supported values: `Service`, `Gateway` (for Gateway-as-backend use case only).
 - **name**: The name of the referent.
 
-**Default** Optional. When omitted, this TGC can only be used as a default via LoadBalancerConfiguration's `defaultTargetGroupConfiguration` reference.
+**Default** Optional. When omitted, this TGC can only be used as a default target group configuration via LoadBalancerConfiguration's `defaultTargetGroupConfiguration` reference. A TGC with `targetReference` set cannot be used as a `defaultTargetGroupConfiguration` — the controller will error the Gateway reconciliation if an LBC references a TGC that has `targetReference`.
 
 ### Configuration Resolution Order
 
