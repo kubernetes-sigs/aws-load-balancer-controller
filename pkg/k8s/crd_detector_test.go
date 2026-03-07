@@ -1,11 +1,13 @@
 package k8s
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // mockDiscoveryClient implements DiscoveryClient for testing.
@@ -20,12 +22,16 @@ func (m *mockDiscoveryClient) ServerResourcesForGroupVersion(groupVersion string
 	}
 	res, ok := m.resources[groupVersion]
 	if !ok {
-		return nil, fmt.Errorf("group version %q not found", groupVersion)
+		notFoundErr := apierrors.NewNotFound(schema.GroupResource{
+			Group:    groupVersion,
+			Resource: groupVersion,
+		}, groupVersion)
+		return nil, notFoundErr
 	}
 	return res, nil
 }
 
-func TestDetectCRDs_AllPresent(t *testing.T) {
+func TestDetectCRDs_v1(t *testing.T) {
 	client := &mockDiscoveryClient{
 		resources: map[string]*metav1.APIResourceList{
 			"gateway.networking.k8s.io/v1": {
@@ -39,59 +45,19 @@ func TestDetectCRDs_AllPresent(t *testing.T) {
 		},
 	}
 
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1", []string{"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"})
+	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1"))
 
-	assert.True(t, result.AllPresent)
-	assert.Empty(t, result.MissingKinds)
-	assert.Equal(t, "gateway.networking.k8s.io/v1", result.GroupVersion)
+	assert.NoError(t, err)
+
+	assert.Equal(t, len(result), 1)
+	assert.Equal(t, len(result["gateway.networking.k8s.io/v1"]), 4)
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("Gateway"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GatewayClass"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("HTTPRoute"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GRPCRoute"))
 }
 
-func TestDetectCRDs_SomeMissing(t *testing.T) {
-	client := &mockDiscoveryClient{
-		resources: map[string]*metav1.APIResourceList{
-			"gateway.networking.k8s.io/v1": {
-				APIResources: []metav1.APIResource{
-					{Kind: "Gateway"},
-					{Kind: "GatewayClass"},
-				},
-			},
-		},
-	}
-
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1", []string{"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"})
-
-	assert.False(t, result.AllPresent)
-	assert.Equal(t, []string{"HTTPRoute", "GRPCRoute"}, result.MissingKinds)
-}
-
-func TestDetectCRDs_APIError(t *testing.T) {
-	client := &mockDiscoveryClient{
-		err: fmt.Errorf("connection refused"),
-	}
-
-	requiredKinds := []string{"Gateway", "GatewayClass", "HTTPRoute"}
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1", requiredKinds)
-
-	assert.False(t, result.AllPresent)
-	assert.Equal(t, requiredKinds, result.MissingKinds)
-}
-
-func TestDetectCRDs_EmptyResourceList(t *testing.T) {
-	client := &mockDiscoveryClient{
-		resources: map[string]*metav1.APIResourceList{
-			"gateway.networking.k8s.io/v1": {
-				APIResources: []metav1.APIResource{},
-			},
-		},
-	}
-
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1", []string{"Gateway", "GatewayClass"})
-
-	assert.False(t, result.AllPresent)
-	assert.Equal(t, []string{"Gateway", "GatewayClass"}, result.MissingKinds)
-}
-
-func TestDetectCRDs_ExtraKindsDoNotAffectResult(t *testing.T) {
+func TestDetectCRDs_v1_ignoreNotInInterestSet(t *testing.T) {
 	client := &mockDiscoveryClient{
 		resources: map[string]*metav1.APIResourceList{
 			"gateway.networking.k8s.io/v1": {
@@ -99,43 +65,62 @@ func TestDetectCRDs_ExtraKindsDoNotAffectResult(t *testing.T) {
 					{Kind: "Gateway"},
 					{Kind: "GatewayClass"},
 					{Kind: "HTTPRoute"},
-					{Kind: "SomeOtherResource"},
-					{Kind: "AnotherResource"},
+					{Kind: "GRPCRoute"},
+				},
+			},
+			"gateway.networking.k8s.io/v1alpha2": {
+				APIResources: []metav1.APIResource{
+					{Kind: "TCPRoute"},
+					{Kind: "UDPRoute"},
 				},
 			},
 		},
 	}
 
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1", []string{"Gateway", "GatewayClass", "HTTPRoute"})
+	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1"))
 
-	assert.True(t, result.AllPresent)
-	assert.Empty(t, result.MissingKinds)
+	assert.NoError(t, err)
+
+	assert.Equal(t, len(result), 1)
+	assert.Equal(t, len(result["gateway.networking.k8s.io/v1"]), 4)
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("Gateway"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GatewayClass"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("HTTPRoute"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GRPCRoute"))
 }
 
-func TestDetectCRDs_GroupVersionNotFound(t *testing.T) {
-	client := &mockDiscoveryClient{
-		resources: map[string]*metav1.APIResourceList{},
-	}
-
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1alpha2", []string{"TCPRoute", "UDPRoute"})
-
-	assert.False(t, result.AllPresent)
-	assert.Equal(t, []string{"TCPRoute", "UDPRoute"}, result.MissingKinds)
-}
-
-func TestDetectCRDs_EmptyRequiredKinds(t *testing.T) {
+func TestDetectCRDs_v1_alpha2(t *testing.T) {
 	client := &mockDiscoveryClient{
 		resources: map[string]*metav1.APIResourceList{
 			"gateway.networking.k8s.io/v1": {
 				APIResources: []metav1.APIResource{
 					{Kind: "Gateway"},
+					{Kind: "GatewayClass"},
+					{Kind: "HTTPRoute"},
+					{Kind: "GRPCRoute"},
+				},
+			},
+			"gateway.networking.k8s.io/v1alpha2": {
+				APIResources: []metav1.APIResource{
+					{Kind: "TCPRoute"},
+					{Kind: "UDPRoute"},
 				},
 			},
 		},
 	}
 
-	result := DetectCRDs(client, "gateway.networking.k8s.io/v1", []string{})
+	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1", "gateway.networking.k8s.io/v1alpha2"))
 
-	assert.True(t, result.AllPresent)
-	assert.Empty(t, result.MissingKinds)
+	assert.NoError(t, err)
+
+	assert.Equal(t, len(result), 2)
+	assert.Equal(t, len(result["gateway.networking.k8s.io/v1"]), 4)
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("Gateway"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GatewayClass"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("HTTPRoute"))
+	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GRPCRoute"))
+
+	assert.Equal(t, len(result["gateway.networking.k8s.io/v1alpha2"]), 2)
+	assert.True(t, result["gateway.networking.k8s.io/v1alpha2"].Has("TCPRoute"))
+	assert.True(t, result["gateway.networking.k8s.io/v1alpha2"].Has("UDPRoute"))
 }

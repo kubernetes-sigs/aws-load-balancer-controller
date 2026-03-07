@@ -108,7 +108,7 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
 		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
-			d.logger.Error(err, "Failed to patch route status")
+			d.logger.Error(err, "Failed to patch route status", "route", route)
 			return err
 		}
 	}
@@ -162,6 +162,14 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 	var newRouteStatus []gwv1.RouteParentStatus
 	originalRouteStatusMap := createOriginalRouteStatusMap(originalRouteStatus, routeNamespace)
 	for _, parentRef := range ParentRefs {
+		parentRefKey := getParentStatusKey(parentRef, routeNamespace)
+		// Generate key for routeData's parentRef
+		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
+		if parentRefKey != routeDataParentRefKey {
+			// This parent ref is not the one we are looking for.
+			continue
+		}
+
 		newRouteParentStatus := gwv1.RouteParentStatus{
 			ParentRef:      parentRef,
 			ControllerName: gwv1.GatewayController(controllerName),
@@ -172,13 +180,9 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 			newRouteParentStatus.Conditions = status.Conditions
 		}
 
-		// Generate key for routeData's parentRef
-		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
-
 		// do not allow backward generation update, Accepted and ResolvedRef always have same generation based on our implementation
 		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
 			// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
-			parentRefKey := getParentStatusKey(parentRef, routeNamespace)
 			if parentRefKey == routeDataParentRefKey {
 				d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
 			}
@@ -191,7 +195,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 		newRouteStatus = append(newRouteStatus, newRouteParentStatus)
 	}
-
+	
 	switch r := route.(type) {
 	case *gwv1.HTTPRoute:
 		r.Status.Parents = newRouteStatus
