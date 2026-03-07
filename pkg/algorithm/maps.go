@@ -97,10 +97,10 @@ func StringSetToCSV(s sets.Set[string]) string {
 	return strings.Join(keyList, ",")
 }
 
-// ContainsSubMap reports whether all keys=values pairs from s are present in m
-func ContainsSubMap(m map[string]string, s map[string]string) bool {
-	for k, v := range s {
-		if _, ok := m[k]; !ok || v != m[k] {
+// ContainsSubMapKeys reports whether all keys from map s have a value in map m (ignoring the actual value)
+func ContainsSubMapKeys(m map[string]string, s map[string]string) bool {
+	for k := range s {
+		if _, ok := m[k]; !ok {
 			return false
 		}
 	}

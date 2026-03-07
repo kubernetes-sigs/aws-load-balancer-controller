@@ -90,7 +90,7 @@ func Test_acmCertDiscovery_loadAllCertificateARNs(t *testing.T) {
 			},
 			enableCertificateManagement: true,
 			filterTags:                  map[string]string{"foo": "bar"},
-			want:                        []string{"arn:aws:acm:eu-central-1:134051052098:certificate/2d5aa6f7-7d3a-4e81-8202-c6d87c36140b", "arn:aws:acm:eu-central-1:134051052098:certificate/d2c0c245-776c-4177-ad8c-9c892826fcb7"},
+			want:                        []string{"arn:aws:acm:eu-central-1:134051052098:certificate/2d5aa6f7-7d3a-4e81-8202-c6d87c36140b"},
 		},
 	}
 	for _, tt := range tests {
