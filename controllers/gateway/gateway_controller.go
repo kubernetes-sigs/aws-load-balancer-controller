@@ -561,6 +561,10 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("ReferenceGrant"))
 	secretEventHandler := eventhandlers.NewEnqueueRequestsForSecretEvent(listenerRuleConfigEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("secret"))
+	listenerSetEventHandler := eventhandlers.NewEnqueueRequestsForListenerSetEvent(
+		r.k8sClient, r.eventRecorder, r.controllerName,
+		loggerPrefix.WithName("ListenerSet"),
+	)
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -597,6 +601,11 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GRPCRoute{}, grpcRouteEventHandler)); err != nil {
 		return err
 	}
+
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ListenerSet{}, listenerSetEventHandler)); err != nil {
+		return err
+	}
+
 	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
 	return nil
 }
