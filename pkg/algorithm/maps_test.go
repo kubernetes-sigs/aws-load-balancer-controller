@@ -360,7 +360,7 @@ func TestStringSetToCSV(t *testing.T) {
 	}
 }
 
-func TestContainsSubMap(t *testing.T) {
+func TestContainsSubMapKeys(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    map[string]string
@@ -407,11 +407,23 @@ func TestContainsSubMap(t *testing.T) {
 			},
 			result: true,
 		},
+		{
+			name: "same tags, different values",
+			input: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+				"elbv2.k8s.aws/stack":   "default/default",
+			},
+			subInput: map[string]string{
+				"elbv2.k8s.aws/cluster": "othertest",
+				"elbv2.k8s.aws/stack":   "default/otheringress",
+			},
+			result: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := ContainsSubMap(tt.input, tt.subInput)
+			output := ContainsSubMapKeys(tt.input, tt.subInput)
 			assert.Equal(t, tt.result, output)
 		})
 	}
