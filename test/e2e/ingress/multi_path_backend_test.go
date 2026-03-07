@@ -15,9 +15,7 @@ import (
 )
 
 var _ = Describe("test ingresses with multiple path and backends", func() {
-	var (
-		ctx context.Context
-	)
+	var ctx context.Context
 
 	BeforeEach(func() {
 		ctx = context.Background()
