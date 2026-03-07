@@ -2,12 +2,13 @@ package routeutils
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"time"
 )
 
 /*
@@ -57,7 +58,7 @@ type grpcRouteDescription struct {
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
-func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	convertedRules, allErrors := grpcRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, grpcRoute, grpcRoute.route.Spec.Rules,
 		func(rule gwv1.GRPCRouteRule) []gwv1.BackendRef {
 			refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
@@ -73,7 +74,7 @@ func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8
 			})
 		}, func(grr *gwv1.GRPCRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 			return convertGRPCRouteRule(grr, backends, listenerRuleConfiguration)
-		})
+		}, gatewayDefaultTGConfig)
 	grpcRoute.rules = convertedRules
 	return grpcRoute, allErrors
 }

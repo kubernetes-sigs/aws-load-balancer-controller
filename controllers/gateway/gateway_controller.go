@@ -86,7 +86,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, gatewayTagPrefix, logger, metricsCollector, controllerName, true, targetGroupCollector, lbType == elbv2model.LoadBalancerTypeNetwork)
 
-	cfgResolver := newGatewayConfigResolver()
+	cfgResolver := newGatewayConfigResolver(logger.WithName("config-resolver"))
 
 	return &gatewayReconciler{
 		controllerName:             controllerName,
@@ -135,7 +135,8 @@ type gatewayReconciler struct {
 	serviceReferenceCounter    referencecounter.ServiceReferenceCounter
 	gatewayConditionUpdater    func(gw *gwv1.Gateway, targetConditionType string, newStatus metav1.ConditionStatus, reason string, message string) bool
 
-	cfgResolver gatewayConfigResolver
+	cfgResolver  gatewayConfigResolver
+	lbcEventChan chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]
 }
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=referencegrants,verbs=get;list;watch;patch
@@ -212,7 +213,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 
-	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, r.finalizerManager, gw, gwClass)
+	mergedLbConfig, resolvedDefaultTGC, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, r.finalizerManager, gw, gwClass)
 
 	if err != nil {
 		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err.Error(), nil)
@@ -224,7 +225,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 
 	isDeleting := isGatewayDeleting(gw)
 
-	loaderResults, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.controllerName)
+	loaderResults, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.controllerName, resolvedDefaultTGC)
 
 	if err != nil || loaderResults.ValidationResults.HasErrors {
 		var loaderErr routeutils.LoaderError
@@ -516,7 +517,7 @@ func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.
 	ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.Gateway{}, gwEventHandler))
 
 	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
-	lbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration])
+	r.lbcEventChan = make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration])
 
 	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.k8sClient, r.eventRecorder, r.controllerName,
 		loggerPrefix.WithName("GatewayClass"))
@@ -526,7 +527,7 @@ func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.
 	if err := ctrl.Watch(source.Channel(gwClassEventChan, gwClassEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Channel(lbConfigEventChan, lbConfigEventHandler)); err != nil {
+	if err := ctrl.Watch(source.Channel(r.lbcEventChan, lbConfigEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GatewayClass{}, gwClassEventHandler)); err != nil {
@@ -547,8 +548,8 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	grpcRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.GRPCRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	secretEventsChan := make(chan event.TypedGenericEvent[*corev1.Secret])
-	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, nil, r.k8sClient, r.eventRecorder,
-		loggerPrefix.WithName("TargetGroupConfiguration"))
+	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, nil, r.lbcEventChan, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("TargetGroupConfiguration"), constants.ALBGatewayController)
 	listenerRuleConfigEventHandler := eventhandlers.NewEnqueueRequestsForListenerRuleConfigurationEvent(httpRouteEventChan, grpcRouteEventChan, r.k8sClient, loggerPrefix.WithName("ListenerRuleConfiguration"))
 	grpcRouteEventHandler := eventhandlers.NewEnqueueRequestsForGRPCRouteEvent(r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("GRPCRoute"))
@@ -607,8 +608,8 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.UDPRoute])
 	tlsRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.TLSRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
-	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, tcpRouteEventChan, r.k8sClient, r.eventRecorder,
-		loggerPrefix.WithName("TargetGroupConfiguration"))
+	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, tcpRouteEventChan, r.lbcEventChan, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("TargetGroupConfiguration"), constants.NLBGatewayController)
 	tcpRouteEventHandler := eventhandlers.NewEnqueueRequestsForTCPRouteEvent(r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("TCPRoute"))
 	udpRouteEventHandler := eventhandlers.NewEnqueueRequestsForUDPRouteEvent(r.k8sClient, r.eventRecorder,

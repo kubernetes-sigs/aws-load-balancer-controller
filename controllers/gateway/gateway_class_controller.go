@@ -47,6 +47,7 @@ func NewGatewayClassReconciler(k8sClient client.Client, eventRecorder record.Eve
 		updateGwClassAcceptedFn:     updateGatewayClassAcceptedCondition,
 		updateLastProcessedConfigFn: updateGatewayClassLastProcessedConfig,
 		configResolverFn:            gatewayutils.ResolveLoadBalancerConfig,
+		defaultTGCResolverFn:        lookUpDefaultTGCByName,
 		gatewayResolverFn:           gatewayutils.GetGatewaysManagedByGatewayClass,
 	}
 }
@@ -61,15 +62,19 @@ type gatewayClassReconciler struct {
 	workers            int
 
 	updateGwClassAcceptedFn     func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, status metav1.ConditionStatus, reason string, message string) error
-	updateLastProcessedConfigFn func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, lbConf *elbv2gw.LoadBalancerConfiguration) error
+	updateLastProcessedConfigFn func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, lbConf *elbv2gw.LoadBalancerConfiguration, tgConf *elbv2gw.TargetGroupConfiguration) error
 	configResolverFn            func(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error)
+	defaultTGCResolverFn        func(ctx context.Context, k8sClient client.Client, name, namespace string) (*elbv2gw.TargetGroupConfiguration, error)
 	gatewayResolverFn           func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass) ([]*gwv1.Gateway, error)
 }
 
 func (r *gatewayClassReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager, _ *kubernetes.Clientset) error {
 
 	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
+	lbcEventChan := make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration])
+
 	lbEventHandler := gatewayclasseventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.enabledControllers, r.logger)
+	tgcEventHandler := gatewayclasseventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(lbcEventChan, r.k8sClient, r.eventRecorder, r.logger)
 
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GatewayClass{}, &handler.TypedEnqueueRequestForObject[*gwv1.GatewayClass]{})); err != nil {
 		return err
@@ -79,7 +84,15 @@ func (r *gatewayClassReconciler) SetupWatches(_ context.Context, ctrl controller
 		return err
 	}
 
+	if err := ctrl.Watch(source.Channel(lbcEventChan, lbEventHandler)); err != nil {
+		return err
+	}
+
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.LoadBalancerConfiguration{}, lbEventHandler)); err != nil {
+		return err
+	}
+
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.TargetGroupConfiguration{}, tgcEventHandler)); err != nil {
 		return err
 	}
 
@@ -139,7 +152,18 @@ func (r *gatewayClassReconciler) handleUpdate(ctx context.Context, gwClass *gwv1
 		return err
 	}
 
-	err = r.updateLastProcessedConfigFn(ctx, r.k8sClient, gwClass, lbConf)
+	// Resolve the default TGC referenced by the LBC (if any) so its resource version
+	// is included in the processed-config annotation. This ensures TGC changes trigger
+	// downstream Gateway reconciliation even when the LBC itself hasn't changed.
+	var tgConf *elbv2gw.TargetGroupConfiguration
+	if lbConf != nil && lbConf.Spec.DefaultTargetGroupConfiguration != nil {
+		tgConf, err = r.defaultTGCResolverFn(ctx, r.k8sClient, lbConf.Spec.DefaultTargetGroupConfiguration.Name, lbConf.Namespace)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = r.updateLastProcessedConfigFn(ctx, r.k8sClient, gwClass, lbConf, tgConf)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -19,13 +20,16 @@ import (
 
 // NewEnqueueRequestsForTargetGroupConfigurationEvent creates handler for TargetGroupConfiguration resources
 func NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan chan<- event.TypedGenericEvent[*corev1.Service], tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Request] {
+	lbcEventChan chan<- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration],
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Request] {
 	return &enqueueRequestsForTargetGroupConfigurationEvent{
 		svcEventChan:      svcEventChan,
 		tcpRouteEventChan: tcpRouteEventChan,
+		lbcEventChan:      lbcEventChan,
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
 		logger:            logger,
+		gwController:      gwController,
 	}
 }
 
@@ -35,9 +39,11 @@ var _ handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Req
 type enqueueRequestsForTargetGroupConfigurationEvent struct {
 	svcEventChan      chan<- event.TypedGenericEvent[*corev1.Service]
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
+	lbcEventChan      chan<- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]
 	k8sClient         client.Client
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
+	gwController      string
 }
 
 func (h *enqueueRequestsForTargetGroupConfigurationEvent) Create(ctx context.Context, e event.TypedCreateEvent[*elbv2gw.TargetGroupConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -65,6 +71,10 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) Generic(ctx context.Co
 }
 
 func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueImpactedObject(ctx context.Context, tgconfig *elbv2gw.TargetGroupConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if tgconfig.Spec.TargetReference == nil {
+		h.enqueueGatewaysReferencingDefaultTGC(ctx, tgconfig, queue)
+		return
+	}
 	objName := types.NamespacedName{Namespace: tgconfig.Namespace, Name: tgconfig.Spec.TargetReference.Name}
 
 	if tgconfig.Spec.TargetReference.Kind == nil || *tgconfig.Spec.TargetReference.Kind == "Service" {
@@ -98,7 +108,35 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueImpactedObject(
 				Object: impactedRoutes[i],
 			}
 		}
+	}
+}
 
+// enqueueGatewaysReferencingDefaultTGC finds LoadBalancerConfigurations that reference this TGC
+// as their defaultTargetGroupConfiguration, then emits synthetic LBC events so the existing
+// LBC event handler can resolve impacted Gateways.
+// The GatewayClass path (LBC → GatewayClass → Gateways) is handled by the separate
+// TGC event handler in the gatewayclass controller.
+func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueGatewaysReferencingDefaultTGC(ctx context.Context, tgconfig *elbv2gw.TargetGroupConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	lbConfigList := &elbv2gw.LoadBalancerConfigurationList{}
+	if err := h.k8sClient.List(ctx, lbConfigList, client.InNamespace(tgconfig.Namespace)); err != nil {
+		h.logger.V(1).Info("failed to list loadbalancerconfigurations for default targetgroupconfiguration event",
+			"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
+			"error", err)
+		return
+	}
+
+	for i := range lbConfigList.Items {
+		lbConfig := &lbConfigList.Items[i]
+		if lbConfig.Spec.DefaultTargetGroupConfiguration == nil || lbConfig.Spec.DefaultTargetGroupConfiguration.Name != tgconfig.Name {
+			continue
+		}
+
+		h.logger.V(1).Info("enqueue loadbalancerconfiguration for default targetgroupconfiguration event",
+			"targetgroupconfiguration", k8s.NamespacedName(tgconfig),
+			"loadbalancerconfiguration", k8s.NamespacedName(lbConfig))
+		h.lbcEventChan <- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]{
+			Object: lbConfig,
+		}
 	}
 }
 

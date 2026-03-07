@@ -438,8 +438,10 @@ spec:
                   type: object
                 type: array
               targetReference:
-                description: targetReference the kubernetes object to attach the Target
-                  Group settings to.
+                description: |-
+                  targetReference the kubernetes object to attach the Target Group settings to.
+                  When omitted, this TGC can only be used as a default via LoadBalancerConfiguration's
+                  defaultTargetGroupConfiguration reference.
                 properties:
                   group:
                     default: ""
@@ -461,8 +463,6 @@ spec:
                 required:
                 - name
                 type: object
-            required:
-            - targetReference
             type: object
           status:
             description: TargetGroupConfigurationStatus defines the observed state

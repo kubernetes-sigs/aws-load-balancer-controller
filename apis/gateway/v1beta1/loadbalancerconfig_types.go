@@ -289,6 +289,18 @@ type LoadBalancerConfigurationSpec struct {
 	// ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer]
 	// +optional
 	ShieldAdvanced *ShieldConfiguration `json:"shieldConfiguration,omitempty"`
+
+	// defaultTargetGroupConfiguration references a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration.
+	// The referenced TGC provides default target group properties for all Service backends attached to the Gateway.
+	// Service-level TGCs override these defaults on a per-field basis.
+	// +optional
+	DefaultTargetGroupConfiguration *DefaultTargetGroupConfigurationReference `json:"defaultTargetGroupConfiguration,omitempty"`
+}
+
+// DefaultTargetGroupConfigurationReference is a reference to a TargetGroupConfiguration in the same namespace.
+type DefaultTargetGroupConfigurationReference struct {
+	// name is the name of the TargetGroupConfiguration resource in the same namespace as this LoadBalancerConfiguration.
+	Name string `json:"name"`
 }
 
 // TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.

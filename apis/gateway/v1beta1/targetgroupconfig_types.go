@@ -153,7 +153,10 @@ const (
 type TargetGroupConfigurationSpec struct {
 
 	// targetReference the kubernetes object to attach the Target Group settings to.
-	TargetReference Reference `json:"targetReference"`
+	// When omitted, this TGC can only be used as a default via LoadBalancerConfiguration's
+	// defaultTargetGroupConfiguration reference.
+	// +optional
+	TargetReference *Reference `json:"targetReference,omitempty"`
 
 	// defaultRouteConfiguration fallback configuration applied to all routes, unless overridden by route-specific configurations.
 	// +optional
