@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -90,6 +91,11 @@ func (m mockPreLoadRouteDescriptor) setCompatibleHostnamesByPort(hostnamesByPort
 	if hostnamesByPort[80] != nil {
 		m.compatibleHostnames = hostnamesByPort[80]
 	}
+}
+
+func (m mockPreLoadRouteDescriptor) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {

@@ -374,7 +374,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 				assert.NoError(t, err, fmt.Sprintf("%+v", g))
 			}
 
-			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, kind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, kind, (*elbv2gw.TargetGroupConfiguration)(nil))
 
 			if tc.expectWarning {
 				assert.Error(t, warningErr)
@@ -441,7 +441,7 @@ func TestCommonBackendLoader_TargetGroupName(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			k8sClient := testutils.GenerateTestClient()
 
-			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, HTTPRouteKind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, HTTPRouteKind, (*elbv2gw.TargetGroupConfiguration)(nil))
 
 			if tc.expectWarning {
 				assert.Error(t, warningErr)
@@ -861,6 +861,146 @@ func Test_listenerRuleConfigLoader(t *testing.T) {
 					result.ResourceVersion = ""
 				}
 				assert.Equal(t, tc.expectedConfig, result)
+			}
+		})
+	}
+}
+
+func TestServiceLoader_GatewayDefaultTGCFallback(t *testing.T) {
+	svcNamespace := "team-a"
+	svcName := "my-svc"
+	gwNamespace := "gateway-system"
+	gwName := "shared-alb"
+	routeName := "my-route"
+
+	portConverter := func(port int) *gwv1.PortNumber {
+		pn := gwv1.PortNumber(port)
+		return &pn
+	}
+
+	// Service-level TGC
+	svcTGC := elbv2gw.TargetGroupConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc-tgc",
+			Namespace: svcNamespace,
+		},
+		Spec: elbv2gw.TargetGroupConfigurationSpec{
+			TargetReference: elbv2gw.Reference{
+				Kind: awssdk.String(serviceKind),
+				Name: svcName,
+			},
+			DefaultConfiguration: elbv2gw.TargetGroupProps{
+				TargetGroupName: awssdk.String("svc-level-tg"),
+			},
+		},
+	}
+
+	// Gateway-level TGC
+	gwTGC := elbv2gw.TargetGroupConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw-tgc",
+			Namespace: gwNamespace,
+		},
+		Spec: elbv2gw.TargetGroupConfigurationSpec{
+			TargetReference: elbv2gw.Reference{
+				Kind: awssdk.String(gatewayKind),
+				Name: gwName,
+			},
+			DefaultConfiguration: elbv2gw.TargetGroupProps{
+				TargetGroupName: awssdk.String("gw-level-tg"),
+			},
+		},
+	}
+
+	testCases := []struct {
+		name                   string
+		storedTGConfigs        []elbv2gw.TargetGroupConfiguration
+		gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration
+		expectedTGGroupName    *string
+	}{
+		{
+			name:                   "no TGC at all — tgProps is nil",
+			storedTGConfigs:        []elbv2gw.TargetGroupConfiguration{},
+			gatewayDefaultTGConfig: nil,
+			expectedTGGroupName:    nil,
+		},
+		{
+			name:                   "only gateway TGC — falls back to gateway TGC",
+			storedTGConfigs:        []elbv2gw.TargetGroupConfiguration{gwTGC},
+			gatewayDefaultTGConfig: &gwTGC,
+			expectedTGGroupName:    awssdk.String("gw-level-tg"),
+		},
+		{
+			name:                   "only service TGC — uses service TGC",
+			storedTGConfigs:        []elbv2gw.TargetGroupConfiguration{svcTGC},
+			gatewayDefaultTGConfig: &gwTGC,
+			expectedTGGroupName:    awssdk.String("svc-level-tg"),
+		},
+		{
+			name:                   "both TGCs — service TGC takes priority",
+			storedTGConfigs:        []elbv2gw.TargetGroupConfiguration{svcTGC, gwTGC},
+			gatewayDefaultTGConfig: &gwTGC,
+			expectedTGGroupName:    awssdk.String("svc-level-tg"),
+		},
+		{
+			name:                   "gateway TGC exists but nil gateway config — no fallback",
+			storedTGConfigs:        []elbv2gw.TargetGroupConfiguration{gwTGC},
+			gatewayDefaultTGConfig: nil,
+			expectedTGGroupName:    nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			k8sClient := testutils.GenerateTestClient()
+
+			freshSvc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: svcNamespace,
+					Name:      svcName,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "http",
+							Port: 80,
+						},
+					},
+				},
+			}
+			err := k8sClient.Create(context.Background(), freshSvc)
+			assert.NoError(t, err)
+
+			for i := range tc.storedTGConfigs {
+				tgc := tc.storedTGConfigs[i].DeepCopy()
+				err := k8sClient.Create(context.Background(), tgc)
+				assert.NoError(t, err)
+			}
+
+			result, warningErr, fatalErr := commonBackendLoader(
+				context.Background(),
+				k8sClient,
+				gwv1.BackendRef{
+					BackendObjectReference: gwv1.BackendObjectReference{
+						Name: gwv1.ObjectName(svcName),
+						Port: portConverter(80),
+					},
+				},
+				types.NamespacedName{Namespace: svcNamespace, Name: routeName},
+				HTTPRouteKind,
+				tc.gatewayDefaultTGConfig,
+			)
+
+			assert.NoError(t, warningErr)
+			assert.NoError(t, fatalErr)
+			assert.NotNil(t, result)
+			assert.NotNil(t, result.ServiceBackend)
+
+			if tc.expectedTGGroupName == nil {
+				assert.Nil(t, result.ServiceBackend.targetGroupProps)
+			} else {
+				assert.NotNil(t, result.ServiceBackend.targetGroupProps)
+				assert.Equal(t, tc.expectedTGGroupName, result.ServiceBackend.targetGroupProps.TargetGroupName)
 			}
 		})
 	}

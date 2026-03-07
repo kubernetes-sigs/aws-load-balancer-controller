@@ -55,10 +55,15 @@ type tlsRouteDescription struct {
 	rules                     []RouteRule
 	ruleAccumulator           attachedRuleAccumulator[gwv1.TLSRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
+	gatewayDefaultTGConfig    *elbv2gw.TargetGroupConfiguration
 }
 
 func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
 	return tlsRoute.rules
+}
+
+func (tlsRoute *tlsRouteDescription) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	tlsRoute.gatewayDefaultTGConfig = cfg
 }
 
 func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -68,7 +73,7 @@ func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 		return []gwv1.LocalObjectReference{}
 	}, func(trr *gwv1.TLSRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertTLSRouteRule(trr, backends)
-	})
+	}, tlsRoute.gatewayDefaultTGConfig)
 	tlsRoute.rules = convertedRules
 	return tlsRoute, allErrors
 }

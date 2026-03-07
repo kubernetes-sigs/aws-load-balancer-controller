@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -32,6 +33,9 @@ type routeMetadataDescriptor interface {
 	// setCompatibleHostnamesByPort is a package-private method to set compatible hostnames.
 	// This is called by the loader after route attachment validation.
 	setCompatibleHostnamesByPort(map[int32][]gwv1.Hostname)
+	// setGatewayDefaultTGConfig is a package-private method to set the Gateway-level TargetGroupConfiguration
+	// This is called by the loader once per reconcile cycle.
+	setGatewayDefaultTGConfig(*elbv2gw.TargetGroupConfiguration)
 }
 
 type routeLoadError struct {

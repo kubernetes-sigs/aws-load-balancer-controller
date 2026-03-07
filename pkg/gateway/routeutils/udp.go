@@ -56,10 +56,15 @@ type udpRouteDescription struct {
 	rules                     []RouteRule
 	ruleAccumulator           attachedRuleAccumulator[gwalpha2.UDPRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
+	gatewayDefaultTGConfig    *elbv2gw.TargetGroupConfiguration
 }
 
 func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
 	return udpRoute.rules
+}
+
+func (udpRoute *udpRouteDescription) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	udpRoute.gatewayDefaultTGConfig = cfg
 }
 
 func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -69,7 +74,7 @@ func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 		return []gwv1.LocalObjectReference{}
 	}, func(urr *gwalpha2.UDPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertUDPRouteRule(urr, backends)
-	})
+	}, udpRoute.gatewayDefaultTGConfig)
 
 	udpRoute.rules = convertedRules
 	return udpRoute, allErrors

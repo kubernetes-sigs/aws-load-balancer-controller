@@ -2100,4 +2100,168 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 		})
 	})
+
+	Context("with ALB ip target configuration with Gateway-level default TGC inherited by two services", func() {
+		It("should provision load balancer with both services inheriting from gateway TGC", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			gwHCPath := "/gw-healthcheck"
+			gwHCProtocol := elbv2gw.TargetGroupHealthCheckProtocolHTTP
+			gwTgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+					HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
+						HealthCheckPath:     &gwHCPath,
+						HealthCheckProtocol: &gwHCProtocol,
+					},
+				},
+			}
+
+			By("deploying stack", func() {
+				err := stack.DeployGatewayTGC(ctx, tf, lbcSpec, gwTgSpec, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS loadbalancer resources with two ip target groups", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{Protocol: "HTTP", Port: 80, NumTargets: int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas), TargetType: "ip"},
+					{Protocol: "HTTP", Port: 80, NumTargets: int(*stack.albResourceStack.commonStack.dps[1].Spec.Replicas), TargetType: "ip"},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying both target groups inherit gateway TGC health check path", func() {
+				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+				for _, tg := range targetGroups {
+					Expect(awssdk.ToString(tg.HealthCheckPath)).To(Equal("/gw-healthcheck"))
+				}
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)+int(*stack.albResourceStack.commonStack.dps[1].Spec.Replicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending http request to the lb", func() {
+				url := fmt.Sprintf("http://%v/any-path", dnsName)
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	Context("with ALB ip target configuration with service-level TGC overriding Gateway-level default TGC", func() {
+		It("should provision load balancer where service TGC takes priority over gateway TGC", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			gwHCPath := "/gw-healthcheck"
+			svcHCPath := "/svc-healthcheck"
+			hcProtocol := elbv2gw.TargetGroupHealthCheckProtocolHTTP
+			gwTgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+					HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
+						HealthCheckPath:     &gwHCPath,
+						HealthCheckProtocol: &hcProtocol,
+					},
+				},
+			}
+			svcTgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+					HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
+						HealthCheckPath:     &svcHCPath,
+						HealthCheckProtocol: &hcProtocol,
+					},
+				},
+			}
+
+			By("deploying stack", func() {
+				err := stack.DeployGatewayTGCOverride(ctx, tf, lbcSpec, gwTgSpec, svcTgSpec, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS loadbalancer resources with two ip target groups", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{Protocol: "HTTP", Port: 80, NumTargets: int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas), TargetType: "ip"},
+					{Protocol: "HTTP", Port: 80, NumTargets: int(*stack.albResourceStack.commonStack.dps[1].Spec.Replicas), TargetType: "ip"},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying svc1 inherits gateway TGC and svc2 uses service-level TGC health check path", func() {
+				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+				hcPaths := []string{}
+				for _, tg := range targetGroups {
+					hcPaths = append(hcPaths, awssdk.ToString(tg.HealthCheckPath))
+				}
+				Expect(hcPaths).To(ContainElements("/gw-healthcheck", "/svc-healthcheck"))
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)+int(*stack.albResourceStack.commonStack.dps[1].Spec.Replicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending http request to the lb", func() {
+				url := fmt.Sprintf("http://%v/any-path", dnsName)
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
 })

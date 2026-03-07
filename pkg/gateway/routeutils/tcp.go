@@ -56,10 +56,15 @@ type tcpRouteDescription struct {
 	rules                     []RouteRule
 	ruleAccumulator           attachedRuleAccumulator[gwalpha2.TCPRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
+	gatewayDefaultTGConfig    *elbv2gw.TargetGroupConfiguration
 }
 
 func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
 	return tcpRoute.rules
+}
+
+func (tcpRoute *tcpRouteDescription) setGatewayDefaultTGConfig(cfg *elbv2gw.TargetGroupConfiguration) {
+	tcpRoute.gatewayDefaultTGConfig = cfg
 }
 
 func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -69,7 +74,7 @@ func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 		return []gwv1.LocalObjectReference{}
 	}, func(trr *gwalpha2.TCPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertTCPRouteRule(trr, backends)
-	})
+	}, tcpRoute.gatewayDefaultTGConfig)
 	tcpRoute.rules = convertedRules
 	return tcpRoute, allErrors
 }

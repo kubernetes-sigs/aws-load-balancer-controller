@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"strings"
 )
 
 func buildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
@@ -289,6 +290,23 @@ func buildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2g
 
 func buildTargetGroupConfig(name string, spec elbv2gw.TargetGroupConfigurationSpec, svc *corev1.Service) *elbv2gw.TargetGroupConfiguration {
 	spec.TargetReference.Name = svc.Name
+	tgc := &elbv2gw.TargetGroupConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: *(spec.DeepCopy()),
+	}
+	return tgc
+}
+
+func buildGatewayTargetGroupConfig(name string, spec elbv2gw.TargetGroupConfigurationSpec, gatewayName string) *elbv2gw.TargetGroupConfiguration {
+	gwKind := "Gateway"
+	gwGroup := "gateway.networking.k8s.io"
+	spec.TargetReference = elbv2gw.Reference{
+		Kind:  &gwKind,
+		Group: &gwGroup,
+		Name:  gatewayName,
+	}
 	tgc := &elbv2gw.TargetGroupConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
