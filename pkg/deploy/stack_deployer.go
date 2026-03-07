@@ -105,6 +105,16 @@ type ResourceSynthesizer interface {
 
 // Deploy a resource stack.
 func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error {
+	shieldReconcileEnabled := false
+	if d.addonsConfig.ShieldEnabled {
+		shieldSubscribed, err := d.shieldProtectionManager.IsSubscribed(ctx)
+		if err != nil {
+			d.logger.Error(err, "unable to determine AWS Shield subscription state, skipping AWS shield reconciliation")
+		} else if shieldSubscribed {
+			shieldReconcileEnabled = true
+		}
+	}
+
 	synthesizers := []ResourceSynthesizer{
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
 	}
@@ -134,7 +144,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 
 	synthesizers = append(synthesizers,
 		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack, findSDKTargetGroups),
-		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, d.featureGates, d.controllerConfig, stack),
+		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, d.featureGates, d.controllerConfig, d.shieldProtectionManager, shieldReconcileEnabled, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LRManager, d.logger, d.featureGates, stack),
 		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TGBManager, d.logger, stack))
@@ -145,13 +155,8 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 	if d.addonsConfig.WAFEnabled && d.cloud.WAFRegional().Available() {
 		synthesizers = append(synthesizers, wafregional.NewWebACLAssociationSynthesizer(d.wafRegionalWebACLAssociationManager, d.logger, stack))
 	}
-	if d.addonsConfig.ShieldEnabled {
-		shieldSubscribed, err := d.shieldProtectionManager.IsSubscribed(ctx)
-		if err != nil {
-			d.logger.Error(err, "unable to determine AWS Shield subscription state, skipping AWS shield reconciliation")
-		} else if shieldSubscribed {
-			synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
-		}
+	if shieldReconcileEnabled {
+		synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
 	}
 
 	for _, synthesizer := range synthesizers {
