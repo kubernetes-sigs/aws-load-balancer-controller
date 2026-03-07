@@ -100,6 +100,9 @@ spec:
         {{- if .Values.metricsBindAddr }}
         - --metrics-bind-addr={{ .Values.metricsBindAddr }}
         {{- end }}
+        {{- if .Values.healthProbeBindAddr }}
+        - --health-probe-bind-addr={{ .Values.healthProbeBindAddr }}
+        {{- end }}
         {{- if .Values.ingressMaxConcurrentReconciles }}
         - --ingress-max-concurrent-reconciles={{ .Values.ingressMaxConcurrentReconciles }}
         {{- end }}
@@ -242,11 +245,24 @@ spec:
           {{- toYaml .Values.resources | nindent 10 }}
         {{- with .Values.livenessProbe }}
         livenessProbe:
-          {{- toYaml . | nindent 10 }}
+          failureThreshold: {{ .failureThreshold | default 2 }}
+          httpGet:
+            path: {{ .httpGet.path | default "/healthz" }}
+            port: {{ (split ":" $.Values.healthProbeBindAddr)._1 | default 61779 }}
+            scheme: {{ .httpGet.scheme | default "HTTP" }}
+          initialDelaySeconds: {{ .initialDelaySeconds | default 30 }}
+          timeoutSeconds: {{ .timeoutSeconds | default 10 }}
         {{- end }}
         {{- with .Values.readinessProbe }}
         readinessProbe:
-          {{- toYaml . | nindent 10 }}
+          failureThreshold: {{ .failureThreshold | default 2 }}
+          httpGet:
+            path: {{ .httpGet.path | default "/readyz" }}
+            port: {{ (split ":" $.Values.healthProbeBindAddr)._1 | default 61779 }}
+            scheme: {{ .httpGet.scheme | default "HTTP" }}
+          successThreshold: {{ .successThreshold | default 1 }}
+          initialDelaySeconds: {{ .initialDelaySeconds | default 10 }}
+          timeoutSeconds: {{ .timeoutSeconds | default 10 }}
         {{- end }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.nodeSelector }}
