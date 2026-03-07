@@ -146,7 +146,7 @@ func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context, filterTag
 				return nil, err
 			}
 			certTags := convertTagsFromSDKTags(resp.Tags)
-			if !algorithm.ContainsSubMap(certTags, filterTags) { // only add cert if there's no match
+			if !algorithm.ContainsSubMapKeys(certTags, filterTags) { // only add cert if there's no match
 				certARNs = append(certARNs, certARN)
 			}
 		} else {
