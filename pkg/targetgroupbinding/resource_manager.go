@@ -32,10 +32,6 @@ import (
 )
 
 const (
-	defaultRequeueDuration = 15 * time.Second
-	invalidVPCTTL          = 60 * time.Minute
-)
-const (
 	controllerName = "targetGroupBinding"
 )
 
@@ -50,7 +46,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	podInfoRepo k8s.PodInfoRepo, networkingManager networking.NetworkingManager,
 	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
 	vpcID string, failOpenEnabled bool, endpointSliceEnabled bool,
-	eventRecorder record.EventRecorder, logger logr.Logger, maxTargetsPerTargetGroup int) *defaultResourceManager {
+	eventRecorder record.EventRecorder, logger logr.Logger, maxTargetsPerTargetGroup int, requeueDuration time.Duration) *defaultResourceManager {
 
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
@@ -77,7 +73,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		nodeAZCache:    cache.NewExpiring(),
 		nodeAZCacheTTL: defaultNodeAZCacheTTL,
 
-		requeueDuration: defaultRequeueDuration,
+		requeueDuration: requeueDuration,
 	}
 }
 

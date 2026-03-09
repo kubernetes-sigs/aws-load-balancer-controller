@@ -258,6 +258,9 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
+# Duration after which TargetGroupBinding will be requeued for reconciliation when it's waiting for AWS resources to update.
+targetgroupbindingRequeueDuration:
+
 # Maximum number of concurrently running reconcile loops for GlobalAccelerator objects
 globalAcceleratorMaxConcurrentReconciles:
 
