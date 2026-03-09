@@ -30,7 +30,7 @@ func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.Fe
 		return nil
 	}
 
-	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1Alpha2GroupVersion, GatewayV1GroupVersion, "foo"))
+	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1Alpha2GroupVersion, GatewayV1GroupVersion))
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func applyGatewayFeatureFlags(availableResources map[string]sets.Set[string], fe
 	}
 
 	nlbMissingKinds := missingKinds(nlbKinds, availableResources)
-	if len(nlbMissingKinds) > 0 {
+	if len(nlbMissingKinds) > 0 && featureGates.GetFeatureStatus(config.NLBGatewayAPI).IsDefaulted {
 		logger.Info("Disabling NLBGatewayAPI: missing required Gateway API CRDs",
 			"missing", nlbMissingKinds)
 		featureGates.Disable(config.NLBGatewayAPI)
@@ -74,15 +74,4 @@ func missingKinds(desiredKinds map[string][]string, availableResources map[strin
 	}
 
 	return missing
-}
-
-func generateCombinedRequest(productSpecific map[string][]string, req map[string]sets.Set[string]) {
-	for version, kinds := range productSpecific {
-		if _, ok := req[version]; !ok {
-			req[version] = sets.New[string]()
-		}
-		for _, kind := range kinds {
-			req[version].Insert(kind)
-		}
-	}
 }

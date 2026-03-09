@@ -11,7 +11,9 @@ import (
 type Feature string
 
 type FeatureStatus struct {
-	Enabled     bool
+	// Enabled - Is this feature enabled?
+	Enabled bool
+	// IsDefaulted - Did the user specify this flag, or have we fallen back to the default feature state?
 	IsDefaulted bool
 }
 
@@ -107,11 +109,11 @@ func (f *defaultFeatureGates) Enabled(feature Feature) bool {
 }
 
 func (f *defaultFeatureGates) Enable(feature Feature) {
-	f.featureState[feature] = generateFeatureStatus(true, false)
+	f.featureState[feature] = generateSetFeatureStatus(true)
 }
 
 func (f *defaultFeatureGates) Disable(feature Feature) {
-	f.featureState[feature] = generateFeatureStatus(false, false)
+	f.featureState[feature] = generateSetFeatureStatus(false)
 }
 
 func (f *defaultFeatureGates) String() string {
@@ -153,7 +155,7 @@ func (f *defaultFeatureGates) Set(value string) error {
 		if !ok {
 			return fmt.Errorf("unknown feature: %v", k)
 		}
-		f.featureState[Feature(k)] = generateFeatureStatus(v, false)
+		f.featureState[Feature(k)] = generateSetFeatureStatus(v)
 	}
 	return nil
 }
@@ -162,16 +164,16 @@ func (f *defaultFeatureGates) Type() string {
 	return "mapStringBool"
 }
 
-func generateFeatureStatus(enabled, isDefault bool) FeatureStatus {
-	return FeatureStatus{
-		Enabled:     enabled,
-		IsDefaulted: isDefault,
-	}
-}
-
 func generateDefaultFeatureStatus(enabled bool) FeatureStatus {
 	return FeatureStatus{
 		Enabled:     enabled,
 		IsDefaulted: true,
+	}
+}
+
+func generateSetFeatureStatus(enabled bool) FeatureStatus {
+	return FeatureStatus{
+		Enabled:     enabled,
+		IsDefaulted: false,
 	}
 }

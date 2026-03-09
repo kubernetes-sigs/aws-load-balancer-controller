@@ -195,7 +195,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 		newRouteStatus = append(newRouteStatus, newRouteParentStatus)
 	}
-	
+
 	switch r := route.(type) {
 	case *gwv1.HTTPRoute:
 		r.Status.Parents = newRouteStatus
