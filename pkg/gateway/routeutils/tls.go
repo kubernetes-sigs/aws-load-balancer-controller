@@ -2,12 +2,13 @@ package routeutils
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"time"
 )
 
 /*
@@ -61,14 +62,14 @@ func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
 	return tlsRoute.rules
 }
 
-func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	convertedRules, allErrors := tlsRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tlsRoute, tlsRoute.route.Spec.Rules, func(rule gwv1.TLSRouteRule) []gwv1.BackendRef {
 		return rule.BackendRefs
 	}, func(rule gwv1.TLSRouteRule) []gwv1.LocalObjectReference {
 		return []gwv1.LocalObjectReference{}
 	}, func(trr *gwv1.TLSRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertTLSRouteRule(trr, backends)
-	})
+	}, gatewayDefaultTGConfig)
 	tlsRoute.rules = convertedRules
 	return tlsRoute, allErrors
 }

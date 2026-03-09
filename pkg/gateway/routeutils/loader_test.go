@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -53,7 +54,7 @@ func (m *mockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv
 	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 
-func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	return m, nil
 }
 
@@ -134,7 +135,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 
 	loadedHTTPRoutes := make([]RouteDescriptor, 0)
 	for _, preload := range preLoadHTTPRoutes {
-		r, _ := preload.loadAttachedRules(nil, nil)
+		r, _ := preload.loadAttachedRules(nil, nil, nil)
 		loadedHTTPRoutes = append(loadedHTTPRoutes, r)
 	}
 
@@ -164,7 +165,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 
 	loadedTCPRoutes := make([]RouteDescriptor, 0)
 	for _, preload := range preLoadTCPRoutes {
-		r, _ := preload.loadAttachedRules(nil, nil)
+		r, _ := preload.loadAttachedRules(nil, nil, nil)
 		loadedTCPRoutes = append(loadedTCPRoutes, r)
 	}
 
@@ -372,7 +373,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			result, err := loader.LoadRoutesForGateway(context.Background(), gwv1.Gateway{ObjectMeta: v1.ObjectMeta{
 				Name:      "gw",
 				Namespace: "gw-ns",
-			}}, filter, gateway_constants.ALBGatewayController)
+			}}, filter, gateway_constants.ALBGatewayController, nil)
 			if tc.expectError {
 				assert.Error(t, err)
 				return

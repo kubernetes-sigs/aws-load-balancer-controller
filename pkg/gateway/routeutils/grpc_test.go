@@ -2,6 +2,8 @@ package routeutils
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,7 +13,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_ConvertGRPCRuleToRouteRule(t *testing.T) {
@@ -129,7 +130,7 @@ func Test_ListGRPCRoutes(t *testing.T) {
 
 func Test_GRPC_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockBackendLoader := func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
+	mockBackendLoader := func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,
@@ -195,7 +196,7 @@ func Test_GRPC_LoadAttachedRules(t *testing.T) {
 		ruleAccumulator: newAttachedRuleAccumulator[gwv1.GRPCRouteRule](mockBackendLoader, mockListenerRuleConfigLoader),
 	}
 
-	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
+	result, errs := routeDescription.loadAttachedRules(context.Background(), nil, nil)
 	assert.Equal(t, 0, len(errs))
 	convertedRules := result.GetAttachedRules()
 	assert.Equal(t, 3, len(convertedRules))

@@ -1,11 +1,12 @@
 package gateway
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"testing"
 )
 
 // Just basic tests here, we'll validate the logic in the method specific unit tests.
@@ -648,6 +649,109 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 			constructor := &targetGroupConfigConstructorImpl{}
 			res := constructor.mergeWithLongestMatch(tc.defaultConfig, tc.routeConfigs, tc.routeName, tc.routeNamespace, tc.routeKind)
 			assert.Equal(t, tc.expected, res)
+		})
+	}
+}
+
+func Test_MergeProps(t *testing.T) {
+	testCases := []struct {
+		name         string
+		highPriority *elbv2gw.TargetGroupProps
+		lowPriority  *elbv2gw.TargetGroupProps
+		expected     *elbv2gw.TargetGroupProps
+	}{
+		{
+			name:         "both nil",
+			highPriority: nil,
+			lowPriority:  nil,
+			expected:     nil,
+		},
+		{
+			name:         "high priority nil, returns low priority",
+			highPriority: nil,
+			lowPriority: &elbv2gw.TargetGroupProps{
+				TargetType: (*elbv2gw.TargetType)(awssdk.String("ip")),
+			},
+			expected: &elbv2gw.TargetGroupProps{
+				TargetType: (*elbv2gw.TargetType)(awssdk.String("ip")),
+			},
+		},
+		{
+			name: "low priority nil, returns high priority",
+			highPriority: &elbv2gw.TargetGroupProps{
+				TargetType: (*elbv2gw.TargetType)(awssdk.String("ip")),
+			},
+			lowPriority: nil,
+			expected: &elbv2gw.TargetGroupProps{
+				TargetType: (*elbv2gw.TargetType)(awssdk.String("ip")),
+			},
+		},
+		{
+			name: "service TGC health check wins, LBC default provides targetType",
+			highPriority: &elbv2gw.TargetGroupProps{
+				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
+					HealthCheckPath: awssdk.String("/svc/health"),
+				},
+			},
+			lowPriority: &elbv2gw.TargetGroupProps{
+				TargetType: (*elbv2gw.TargetType)(awssdk.String("ip")),
+				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
+					HealthCheckPath:     awssdk.String("/gw/health"),
+					HealthCheckInterval: awssdk.Int32(15),
+				},
+				TargetGroupAttributes: []elbv2gw.TargetGroupAttribute{
+					{Key: "deregistration_delay.timeout_seconds", Value: "30"},
+				},
+			},
+			expected: &elbv2gw.TargetGroupProps{
+				TargetType: (*elbv2gw.TargetType)(awssdk.String("ip")),
+				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
+					HealthCheckPath: awssdk.String("/svc/health"),
+				},
+				TargetGroupAttributes: []elbv2gw.TargetGroupAttribute{
+					{Key: "deregistration_delay.timeout_seconds", Value: "30"},
+				},
+				Tags: &map[string]string{},
+			},
+		},
+		{
+			name: "tags and attributes merge across TGCs",
+			highPriority: &elbv2gw.TargetGroupProps{
+				Tags: &map[string]string{
+					"team": "app-team",
+				},
+				TargetGroupAttributes: []elbv2gw.TargetGroupAttribute{
+					{Key: "stickiness.enabled", Value: "true"},
+				},
+			},
+			lowPriority: &elbv2gw.TargetGroupProps{
+				Tags: &map[string]string{
+					"env":  "prod",
+					"team": "platform",
+				},
+				TargetGroupAttributes: []elbv2gw.TargetGroupAttribute{
+					{Key: "deregistration_delay.timeout_seconds", Value: "30"},
+					{Key: "stickiness.enabled", Value: "false"},
+				},
+			},
+			expected: &elbv2gw.TargetGroupProps{
+				Tags: &map[string]string{
+					"env":  "prod",
+					"team": "app-team",
+				},
+				TargetGroupAttributes: []elbv2gw.TargetGroupAttribute{
+					{Key: "deregistration_delay.timeout_seconds", Value: "30"},
+					{Key: "stickiness.enabled", Value: "true"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			constructor := NewTargetGroupConfigConstructor()
+			result := constructor.MergeProps(tc.highPriority, tc.lowPriority)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
