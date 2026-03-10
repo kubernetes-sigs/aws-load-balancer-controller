@@ -91,7 +91,7 @@ func NewFeatureGates() FeatureGates {
 			EnhancedDefaultBehavior:       generateDefaultFeatureStatus(false),
 			EnableDefaultTagsLowPriority:  generateDefaultFeatureStatus(false),
 			ALBTargetControlAgent:         generateDefaultFeatureStatus(false),
-			EnableCertificateManagement:   false,
+			EnableCertificateManagement:   generateDefaultFeatureStatus(false),
 		},
 	}
 }
