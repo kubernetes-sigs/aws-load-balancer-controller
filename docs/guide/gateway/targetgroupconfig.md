@@ -403,6 +403,20 @@ Options:
 
 **Default** No default
 
+
+### TargetControlPort
+
+`targetControlPort`
+
+```yaml
+targetControlPort: 100
+```
+
+[Application Load Balancer] The port on which the target communicates its capacity. This value can't be modified after target group creation.
+
+For more information, check out the [Target Optimizer Guide](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-register-targets.html#register-targets-target-optimizer)
+
+
 ### EnableMultiCluster
 
 `enableMultiCluster`
