@@ -84,6 +84,8 @@ theme:
     code: Roboto Mono
   features:
     - navigation.tabs
+    - search.suggest
+    - search.highlight
   custom_dir: docs/theme_overrides
 # Extensions
 markdown_extensions:
