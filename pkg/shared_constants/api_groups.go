@@ -30,4 +30,10 @@ const (
 
 	// IngressKind is the resource kind for Kubernetes Ingress resources
 	IngressKind = "Ingress"
+
+	// IngressClassKind is the resource kind for Kubernetes IngressClass resources
+	IngressClassKind = "IngressClass"
+
+	// IngressClassParamsKind is the resource kind for AWS LBC IngressClassParams CRD
+	IngressClassParamsKind = "IngressClassParams"
 )

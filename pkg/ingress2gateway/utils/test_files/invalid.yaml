@@ -1,0 +1,5 @@
+# invalid.yaml
+# Intentionally malformed YAML to verify the file reader gracefully skips
+# unrecognized or unparseable documents without returning an error.
+this is not valid yaml: [
+  unclosed bracket

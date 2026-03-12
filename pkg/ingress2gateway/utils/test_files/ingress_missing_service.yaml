@@ -1,0 +1,25 @@
+# ingress_missing_service.yaml
+# Ingress that references a Service ("service-2048") which is NOT included in
+# this file. Used to verify that the warnings package correctly detects the
+# missing Service reference and emits a warning to stderr.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "2048-ingress"
+  namespace: "2048-game"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - host: 2048.example.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: "service-2048"
+                port:
+                  number: 80
