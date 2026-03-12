@@ -28,6 +28,9 @@ type SecretsManager interface {
 
 	// GetSecret retrieves from cache (if monitoring) or falls back to API
 	GetSecret(ctx context.Context, k8sClient client.Client, secretKey types.NamespacedName) (*corev1.Secret, error)
+
+	// SetEventChannel sets the event channel for secret updates
+	SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret])
 }
 
 func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret], logger logr.Logger, requiredLabelKey string, requiredLabelValue string) *defaultSecretsManager {
@@ -40,6 +43,12 @@ func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- e
 		requiredLabelKey:   requiredLabelKey,
 		requiredLabelValue: requiredLabelValue,
 	}
+}
+
+func (m *defaultSecretsManager) SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.secretsEventChan = secretsEventChan
 }
 
 var _ SecretsManager = &defaultSecretsManager{}
