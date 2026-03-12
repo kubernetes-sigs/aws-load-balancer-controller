@@ -107,7 +107,6 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
-		d.logger.Info("Patching route", "route", route)
 		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
 			d.logger.Error(err, "Failed to patch route status", "route", route)
 			return err
@@ -323,8 +322,6 @@ func (d *routeReconcilerImpl) isRouteStatusIdentical(routeOld client.Object, rou
 		key := getParentStatusKey(status.ParentRef, route.GetNamespace())
 		newStatusMap[key] = status
 	}
-
-	d.logger.Info("Old map, new map", "old", oldStatusMap, "new", newStatusMap)
 
 	// Compare each parent status
 	for key, oldStatus := range oldStatusMap {
