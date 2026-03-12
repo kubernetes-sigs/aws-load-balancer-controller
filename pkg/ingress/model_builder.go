@@ -61,7 +61,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
-	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
+	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, secretsManager k8s.SecretsManager, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
 	certDiscovery certs.CertDiscovery,
 ) *defaultModelBuilder {
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
@@ -69,6 +69,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		k8sClient:                  k8sClient,
 		eventRecorder:              eventRecorder,
 		acmClient:                  acmClient,
+		secretsManager:             secretsManager,
 		ec2Client:                  ec2Client,
 		elbv2Client:                elbv2Client,
 		vpcID:                      vpcID,
@@ -106,12 +107,13 @@ var _ ModelBuilder = &defaultModelBuilder{}
 
 // default implementation for ModelBuilder
 type defaultModelBuilder struct {
-	k8sClient     client.Client
-	eventRecorder record.EventRecorder
-	acmClient     services.ACM
-	ec2Client     services.EC2
-	elbv2Client   services.ELBV2
-	wafv2Client   services.WAFv2
+	k8sClient      client.Client
+	eventRecorder  record.EventRecorder
+	acmClient      services.ACM
+	secretsManager k8s.SecretsManager
+	ec2Client      services.EC2
+	elbv2Client    services.ELBV2
+	wafv2Client    services.WAFv2
 
 	vpcID       string
 	clusterName string
@@ -153,6 +155,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		k8sClient:                  b.k8sClient,
 		eventRecorder:              b.eventRecorder,
 		acmClient:                  b.acmClient,
+		secretsManager:             b.secretsManager,
 		ec2Client:                  b.ec2Client,
 		elbv2Client:                b.elbv2Client,
 		wafv2Client:                b.wafv2Client,
@@ -230,6 +233,7 @@ type defaultModelBuildTask struct {
 	k8sClient              client.Client
 	eventRecorder          record.EventRecorder
 	acmClient              services.ACM
+	secretsManager         k8s.SecretsManager
 	ec2Client              services.EC2
 	elbv2Client            services.ELBV2
 	wafv2Client            services.WAFv2

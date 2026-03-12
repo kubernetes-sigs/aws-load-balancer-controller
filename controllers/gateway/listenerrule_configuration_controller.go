@@ -39,6 +39,7 @@ func NewListenerRuleConfigurationReconciler(k8sClient client.Client, eventRecord
 		eventRecorder:    eventRecorder,
 		logger:           logger,
 		finalizerManager: finalizerManager,
+		controllerConfig: controllerConfig,
 		workers:          controllerConfig.GatewayClassMaxConcurrentReconciles,
 	}
 }
@@ -50,6 +51,7 @@ type listenerRuleConfigurationReconciler struct {
 	eventRecorder    record.EventRecorder
 	secretsManager   k8s.SecretsManager
 	finalizerManager k8s.FinalizerManager
+	controllerConfig config.ControllerConfig
 	workers          int
 }
 
@@ -66,7 +68,8 @@ func (r *listenerRuleConfigurationReconciler) SetupWatches(_ context.Context, ct
 	if err := ctrl.Watch(source.Channel(secretEventsChan, secretToLRCHandler)); err != nil {
 		return err
 	}
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
+	requiredLabelKey, requiredLabelValue := config.ParseRequiredSecretsLabel(r.controllerConfig.RequiredSecretsLabel)
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"), requiredLabelKey, requiredLabelValue)
 	return nil
 }
 

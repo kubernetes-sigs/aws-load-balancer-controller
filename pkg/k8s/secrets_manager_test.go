@@ -297,7 +297,7 @@ func Test_defaultSecretsManager_MonitorSecrets(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			secretsEventChan := make(chan event.TypedGenericEvent[*corev1.Secret], 100)
 			fakeClient := fake.NewSimpleClientset()
-			secretsManager := NewSecretsManager(fakeClient, secretsEventChan, logr.New(&log.NullLogSink{}))
+			secretsManager := NewSecretsManager(fakeClient, secretsEventChan, logr.New(&log.NullLogSink{}), "", "")
 
 			for _, call := range tt.monitorSecretsCall {
 				secretsManager.MonitorSecrets(call.consumerID, call.secrets)
@@ -433,7 +433,7 @@ func Test_defaultSecretsManager_GetSecret(t *testing.T) {
 			// Create SecretsManager
 			secretsEventChan := make(chan event.TypedGenericEvent[*corev1.Secret], 100)
 			fakeClientset := fake.NewSimpleClientset()
-			secretsManager := NewSecretsManager(fakeClientset, secretsEventChan, logr.New(&log.NullLogSink{}))
+			secretsManager := NewSecretsManager(fakeClientset, secretsEventChan, logr.New(&log.NullLogSink{}), "", "")
 
 			// Monitor secrets if specified
 			if len(tt.monitorSecrets) > 0 {
@@ -637,7 +637,7 @@ func Test_defaultSecretsManager_GetSecret_CacheInvalidation(t *testing.T) {
 			k8sClient := testutils.GenerateTestClient()
 			secretsEventChan := make(chan event.TypedGenericEvent[*corev1.Secret], 100)
 			fakeClientset := fake.NewSimpleClientset()
-			secretsManager := NewSecretsManager(fakeClientset, secretsEventChan, logr.New(&log.NullLogSink{}))
+			secretsManager := NewSecretsManager(fakeClientset, secretsEventChan, logr.New(&log.NullLogSink{}), "", "")
 
 			// Run test phases
 			tt.setupPhase(t, secretsManager, k8sClient)

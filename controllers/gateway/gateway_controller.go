@@ -110,6 +110,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 		targetGroupNameToArnMapper: targetGroupNameToArnMapper,
 		listenerSetStatusSubmitter: listenerSetStatusSubmitter,
 		listenerSetEnabled:         controllerConfig.FeatureGates.Enabled(config.GatewayListenerSet),
+		controllerConfig:           controllerConfig,
 	}
 }
 
@@ -130,6 +131,7 @@ type gatewayReconciler struct {
 	finalizerManager           k8s.FinalizerManager
 	eventRecorder              record.EventRecorder
 	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
+	controllerConfig           config.ControllerConfig
 	logger                     logr.Logger
 	metricsCollector           lbcmetrics.MetricCollector
 	reconcileTracker           func(namespaceName types.NamespacedName)
@@ -670,7 +672,8 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		}
 	}
 
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
+	requiredLabelKey, requiredLabelValue := config.ParseRequiredSecretsLabel(r.controllerConfig.RequiredSecretsLabel)
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"), requiredLabelKey, requiredLabelValue)
 	return nil
 }
 

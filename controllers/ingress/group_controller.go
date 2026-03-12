@@ -65,13 +65,6 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
 	certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), logger)
-	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
-		cloud.EC2(), cloud.ELBV2(), cloud.WAFv2(), cloud.ACM(),
-		annotationParser, subnetsResolver,
-		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
-		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
-		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, logger, metricsCollector, certDiscovery)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
 		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector, true)
@@ -84,11 +77,22 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	return &groupReconciler{
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
+		cloud:             cloud,
 		referenceIndexer:  referenceIndexer,
-		modelBuilder:      modelBuilder,
 		stackMarshaller:   stackMarshaller,
 		stackDeployer:     stackDeployer,
 		backendSGProvider: backendSGProvider,
+
+		annotationParser:           annotationParser,
+		authConfigBuilder:          authConfigBuilder,
+		enhancedBackendBuilder:     enhancedBackendBuilder,
+		trackingProvider:           trackingProvider,
+		elbv2TaggingManager:        elbv2TaggingManager,
+		subnetsResolver:            subnetsResolver,
+		sgResolver:                 sgResolver,
+		controllerConfig:           controllerConfig,
+		targetGroupNameToArnMapper: targetGroupNameToArnMapper,
+		certDiscovery:              certDiscovery,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -106,12 +110,24 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 type groupReconciler struct {
 	k8sClient         client.Client
 	eventRecorder     record.EventRecorder
+	cloud             services.Cloud
 	referenceIndexer  ingress.ReferenceIndexer
 	modelBuilder      ingress.ModelBuilder
 	stackMarshaller   deploy.StackMarshaller
 	stackDeployer     deploy.StackDeployer
 	backendSGProvider networkingpkg.BackendSGProvider
 	secretsManager    k8s.SecretsManager
+
+	annotationParser           annotations.Parser
+	authConfigBuilder          ingress.AuthConfigBuilder
+	enhancedBackendBuilder     ingress.EnhancedBackendBuilder
+	trackingProvider           tracking.Provider
+	elbv2TaggingManager        elbv2deploy.TaggingManager
+	subnetsResolver            networkingpkg.SubnetsResolver
+	sgResolver                 networkingpkg.SecurityGroupResolver
+	controllerConfig           config.ControllerConfig
+	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
+	certDiscovery              certs.CertDiscovery
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
@@ -439,7 +455,16 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 			return err
 		}
 	}
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, ctrl.Log.WithName("secrets-manager"))
+	requiredLabelKey, requiredLabelValue := config.ParseRequiredSecretsLabel(r.controllerConfig.RequiredSecretsLabel)
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, ctrl.Log.WithName("secrets-manager"), requiredLabelKey, requiredLabelValue)
+	r.modelBuilder = ingress.NewDefaultModelBuilder(r.k8sClient, r.eventRecorder,
+		r.cloud.EC2(), r.cloud.ELBV2(), r.cloud.WAFv2(), r.cloud.ACM(),
+		r.annotationParser, r.subnetsResolver,
+		r.authConfigBuilder, r.enhancedBackendBuilder, r.trackingProvider, r.elbv2TaggingManager, r.controllerConfig.FeatureGates,
+		r.cloud.VpcID(), r.controllerConfig.ClusterName, r.controllerConfig.DefaultTags, r.controllerConfig.ExternalManagedTags,
+		r.controllerConfig.DefaultSSLPolicy, r.controllerConfig.DefaultTargetType, r.controllerConfig.DefaultLoadBalancerScheme, r.backendSGProvider, r.sgResolver,
+		r.controllerConfig.EnableBackendSecurityGroup, r.controllerConfig.EnableManageBackendSecurityGroupRules, r.controllerConfig.DisableRestrictedSGRules, r.controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, r.controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), r.controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), r.controllerConfig.IngressConfig.DefaultPCAArn, r.targetGroupNameToArnMapper, r.secretsManager, r.logger, r.metricsCollector,
+		r.certDiscovery)
 	return nil
 }
 
