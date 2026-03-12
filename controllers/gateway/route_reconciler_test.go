@@ -1,12 +1,15 @@
 package gateway
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
@@ -439,7 +442,28 @@ func TestEnqueue(t *testing.T) {
 }
 
 func Test_updateRouteStatus(t *testing.T) {
+
 	testNamespace := gwv1.Namespace("test-namespace")
+	validateGw := func(status gwv1.RouteParentStatus, expectedName string) {
+		assert.Equal(t, status.ParentRef.Name, gwv1.ObjectName(expectedName))
+		assert.Equal(t, status.ParentRef.Namespace, &testNamespace)
+		assert.Equal(t, 2, len(status.Conditions))
+		conditionsEqIgnoreTime(t, status.Conditions[0], metav1.Condition{
+			Type:               string(gwv1.RouteConditionResolvedRefs),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gwv1.RouteReasonResolvedRefs),
+			Message:            "",
+			ObservedGeneration: 0,
+		})
+		conditionsEqIgnoreTime(t, status.Conditions[1], metav1.Condition{
+			Type:               string(gwv1.RouteConditionAccepted),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gwv1.RouteReasonAccepted),
+			Message:            "",
+			ObservedGeneration: 0,
+		})
+	}
+
 	tests := []struct {
 		name           string
 		route          client.Object
@@ -455,6 +479,14 @@ func Test_updateRouteStatus(t *testing.T) {
 				},
 				Spec: gwv1.HTTPRouteSpec{
 					Hostnames: []gwv1.Hostname{"example.com"},
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "test-gateway",
+								Namespace: &testNamespace,
+							},
+						},
+					},
 				},
 			},
 			routeData: routeutils.RouteData{
@@ -471,8 +503,212 @@ func Test_updateRouteStatus(t *testing.T) {
 			},
 			validateResult: func(t *testing.T, route client.Object) {
 				httpRoute := route.(*gwv1.HTTPRoute)
-				if httpRoute.Status.Parents == nil {
-					assert.Len(t, httpRoute.Status.Parents, 0)
+				assert.Len(t, httpRoute.Status.Parents, 1)
+				validateGw(httpRoute.Status.Parents[0], "test-gateway")
+			},
+		},
+		{
+			name: "update HTTPRoute status - multiple parents - other ref not in status yet.",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					Hostnames: []gwv1.Hostname{"example.com"},
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "test-gateway",
+								Namespace: &testNamespace,
+							},
+							{
+								Name:      "test-gateway-2",
+								Namespace: &testNamespace,
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     true,
+					ResolvedRefs: true,
+					Reason:       string(gwv1.RouteConditionAccepted),
+					Message:      "route accepted",
+				},
+				ParentRef: gwv1.ParentReference{
+					Name:      "test-gateway",
+					Namespace: &testNamespace,
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.Len(t, httpRoute.Status.Parents, 1)
+				validateGw(httpRoute.Status.Parents[0], "test-gateway")
+			},
+		},
+		{
+			name: "update HTTPRoute status - dont overwrite newer parent ref",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					Hostnames: []gwv1.Hostname{"example.com"},
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "test-gateway",
+								Namespace: &testNamespace,
+							},
+							{
+								Name:      "test-gateway-2",
+								Namespace: &testNamespace,
+							},
+						},
+					},
+				},
+				Status: gwv1.HTTPRouteStatus{
+					RouteStatus: gwv1.RouteStatus{
+						Parents: []gwv1.RouteParentStatus{
+							{
+								ParentRef: gwv1.ParentReference{
+									Name:      "test-gateway",
+									Namespace: &testNamespace,
+								},
+								ControllerName: "example.com/controller",
+								Conditions: []metav1.Condition{
+									{
+										Type:               string(gwv1.RouteConditionResolvedRefs),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gwv1.RouteReasonResolvedRefs),
+										Message:            "foo",
+										ObservedGeneration: 1000,
+									},
+									{
+										Type:               string(gwv1.RouteConditionAccepted),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gwv1.RouteReasonAccepted),
+										Message:            "bar",
+										ObservedGeneration: 1000,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     true,
+					ResolvedRefs: true,
+					Reason:       string(gwv1.RouteConditionAccepted),
+					Message:      "route accepted",
+				},
+				ParentRef: gwv1.ParentReference{
+					Name:      "test-gateway",
+					Namespace: &testNamespace,
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.Len(t, httpRoute.Status.Parents, 1)
+				status := httpRoute.Status.Parents[0]
+				assert.Equal(t, status.ParentRef.Name, gwv1.ObjectName("test-gateway"))
+				assert.Equal(t, status.ParentRef.Namespace, &testNamespace)
+				assert.Equal(t, 2, len(status.Conditions))
+				conditionsEqIgnoreTime(t, status.Conditions[0], metav1.Condition{
+					Type:               string(gwv1.RouteConditionResolvedRefs),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gwv1.RouteReasonResolvedRefs),
+					Message:            "foo",
+					ObservedGeneration: 1000,
+				})
+				conditionsEqIgnoreTime(t, status.Conditions[1], metav1.Condition{
+					Type:               string(gwv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gwv1.RouteReasonAccepted),
+					Message:            "bar",
+					ObservedGeneration: 1000,
+				})
+			},
+		},
+		{
+			name: "update HTTPRoute status - multiple parents",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					Hostnames: []gwv1.Hostname{"example.com"},
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "test-gateway",
+								Namespace: &testNamespace,
+							},
+							{
+								Name:      "test-gateway-2",
+								Namespace: &testNamespace,
+							},
+						},
+					},
+				},
+				Status: gwv1.HTTPRouteStatus{
+					RouteStatus: gwv1.RouteStatus{
+						Parents: []gwv1.RouteParentStatus{
+							{
+								ParentRef: gwv1.ParentReference{
+									Name:      "test-gateway-2",
+									Namespace: &testNamespace,
+								},
+								ControllerName: "example.com/controller",
+								Conditions: []metav1.Condition{
+									{
+										Type:               string(gwv1.RouteConditionResolvedRefs),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gwv1.RouteReasonResolvedRefs),
+										Message:            "",
+										ObservedGeneration: 0,
+									},
+									{
+										Type:               string(gwv1.RouteConditionAccepted),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gwv1.RouteReasonAccepted),
+										Message:            "",
+										ObservedGeneration: 0,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     true,
+					ResolvedRefs: true,
+					Reason:       string(gwv1.RouteConditionAccepted),
+					Message:      "route accepted",
+				},
+				ParentRef: gwv1.ParentReference{
+					Name:      "test-gateway",
+					Namespace: &testNamespace,
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.Len(t, httpRoute.Status.Parents, 2)
+
+				if httpRoute.Status.Parents[0].ParentRef.Name == "test-gateway" {
+					validateGw(httpRoute.Status.Parents[0], "test-gateway")
+					validateGw(httpRoute.Status.Parents[1], "test-gateway-2")
+				} else {
+					validateGw(httpRoute.Status.Parents[1], "test-gateway")
+					validateGw(httpRoute.Status.Parents[0], "test-gateway-2")
 				}
 			},
 		},
@@ -481,8 +717,26 @@ func Test_updateRouteStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.New(&log.NullLogSink{})
+			scheme := runtime.NewScheme()
+			clientgoscheme.AddToScheme(scheme)
+			gwv1.Install(scheme)
+
+			k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(tt.route).Build()
+			k8sClient.Create(context.Background(), &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway",
+					Namespace: "test-namespace",
+				},
+			})
+			k8sClient.Create(context.Background(), &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-gateway-2",
+					Namespace: "test-namespace",
+				},
+			})
 			reconciler := &routeReconcilerImpl{
-				logger: logger,
+				logger:    logger,
+				k8sClient: k8sClient,
 			}
 			err := reconciler.updateRouteStatus(tt.route, tt.routeData)
 			assert.NoError(t, err)
@@ -801,4 +1055,12 @@ func Test_getParentRefKeyFromRouteData(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func conditionsEqIgnoreTime(t *testing.T, actual, expected metav1.Condition) {
+	assert.Equal(t, expected.Status, actual.Status)
+	assert.Equal(t, expected.Type, actual.Type)
+	assert.Equal(t, expected.Message, actual.Message)
+	assert.Equal(t, expected.Reason, actual.Reason)
+	assert.Equal(t, expected.ObservedGeneration, actual.ObservedGeneration)
 }
