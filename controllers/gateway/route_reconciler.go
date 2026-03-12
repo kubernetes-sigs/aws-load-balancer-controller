@@ -107,6 +107,7 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
+		d.logger.Info("Patching route", "route", route)
 		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
 			d.logger.Error(err, "Failed to patch route status", "route", route)
 			return err
@@ -167,6 +168,10 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
 		if parentRefKey != routeDataParentRefKey {
 			// This parent ref is not the one we are looking for.
+			status, ok := originalRouteStatusMap[parentRefKey]
+			if ok {
+				newRouteStatus = append(newRouteStatus, status)
+			}
 			continue
 		}
 
@@ -183,10 +188,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		// do not allow backward generation update, Accepted and ResolvedRef always have same generation based on our implementation
 		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
 			// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
-			if parentRefKey == routeDataParentRefKey {
-				d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
-			}
-
+			d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
 			// handle parentRefNotExist: resolve ref Gateway, if parentRef does not have namespace, getting it from Route
 			if _, err := d.resolveRefGateway(parentRef, route.GetNamespace()); err != nil {
 				// set conditions if resolvedRef = false
@@ -321,6 +323,8 @@ func (d *routeReconcilerImpl) isRouteStatusIdentical(routeOld client.Object, rou
 		key := getParentStatusKey(status.ParentRef, route.GetNamespace())
 		newStatusMap[key] = status
 	}
+
+	d.logger.Info("Old map, new map", "old", oldStatusMap, "new", newStatusMap)
 
 	// Compare each parent status
 	for key, oldStatus := range oldStatusMap {
