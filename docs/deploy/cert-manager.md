@@ -88,3 +88,4 @@ When a custom issuer is specified:
 2. If using a custom issuer, ensure it's highly available and properly configured
 3. Monitor certificate resources for renewal status and potential issues
 4. Keep cert-manager up to date to benefit from the latest improvements
+5. Set up alerts on the expiration metric emitted by cert-manager. `certmanager_certificate_expiration_timestamp_seconds{name="aws-load-balancer-serving-cert",namespace="kube-system"}`. 
