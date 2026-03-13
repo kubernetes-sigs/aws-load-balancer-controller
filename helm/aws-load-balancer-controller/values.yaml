@@ -398,10 +398,16 @@ controllerConfig:
   # EndpointsFailOpen: true
   # EnableServiceController: true
   # EnableIPTargetType: true
+  # EnableTCPUDPListener: false
+  # EnableRGTAPI: false
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
+  # NLBSecurityGroup: true
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
+  # SubnetDiscoveryByReachability: true
+  # NLBGatewayAPI: true
+  # ALBGatewayAPI: true
   # GlobalAcceleratorController: false
   # EnhancedDefaultBehavior: false
   # EnableDefaultTagsLowPriority: false
