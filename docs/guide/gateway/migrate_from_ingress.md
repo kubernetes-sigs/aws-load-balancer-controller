@@ -46,6 +46,10 @@ lbc-migrate --input-dir ./my-manifests/
 ```
 
 #### Option 3: Read from a live cluster
+
+!!! note "Read-only access"
+    The `--from-cluster` mode only performs read operations (list/get). It never creates, updates, or deletes any cluster resources. We recommend using a user or service account with read-only RBAC permissions (e.g. a ClusterRole with only `get` and `list` verbs on Ingress, Service, IngressClass, and IngressClassParams resources).
+
 ```bash
 lbc-migrate --from-cluster --all-namespaces
 lbc-migrate --from-cluster --namespace production

@@ -6,10 +6,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -33,11 +36,16 @@ func ReadFromCluster(ctx context.Context, opts ClusterReaderOptions) (*ingress2g
 		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	return readFromClient(ctx, k8sClient, opts)
+	clientSet, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create kubernetes clientset: %w", err)
+	}
+
+	return readFromClient(ctx, k8sClient, clientSet, opts)
 }
 
-// readFromClient reads resources using the provided client. Separated for testability.
-func readFromClient(ctx context.Context, k8sClient client.Client, opts ClusterReaderOptions) (*ingress2gateway.InputResources, error) {
+// readFromClient reads resources using the provided clients. Separated for testability.
+func readFromClient(ctx context.Context, k8sClient client.Client, clientSet kubernetes.Interface, opts ClusterReaderOptions) (*ingress2gateway.InputResources, error) {
 	resources := &ingress2gateway.InputResources{}
 
 	namespace := opts.Namespace
@@ -71,13 +79,16 @@ func readFromClient(ctx context.Context, k8sClient client.Client, opts ClusterRe
 	}
 	resources.IngressClasses = ingressClassList.Items
 
-	// Read IngressClassParams (cluster-scoped, no namespace filter)
-	ingressClassParamsList := &elbv2api.IngressClassParamsList{}
-	if err := k8sClient.List(ctx, ingressClassParamsList); err != nil {
-		// IngressClassParams CRD may not be installed; warn but don't fail
-		fmt.Printf("WARNING: Could not list IngressClassParams (CRD may not be installed): %v\n", err)
-	} else {
-		resources.IngressClassParams = ingressClassParamsList.Items
+	// Read IngressClassParams only if the CRD is installed on the cluster
+	if clientSet != nil {
+		resList, err := clientSet.Discovery().ServerResourcesForGroupVersion(elbv2api.GroupVersion.String())
+		if err == nil && k8s.IsResourceKindAvailable(resList, shared_constants.IngressClassParamsKind) {
+			ingressClassParamsList := &elbv2api.IngressClassParamsList{}
+			if err := k8sClient.List(ctx, ingressClassParamsList); err != nil {
+				return nil, fmt.Errorf("failed to list IngressClassParams: %w", err)
+			}
+			resources.IngressClassParams = ingressClassParamsList.Items
+		}
 	}
 
 	return resources, nil

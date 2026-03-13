@@ -32,7 +32,7 @@ func TestReadFromClient_AllNamespaces(t *testing.T) {
 		WithObjects(ing, svc, ic).
 		Build()
 
-	resources, err := readFromClient(context.Background(), k8sClient, ClusterReaderOptions{
+	resources, err := readFromClient(context.Background(), k8sClient, nil, ClusterReaderOptions{
 		AllNamespaces: true,
 	})
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestReadFromClient_NamespaceFilter(t *testing.T) {
 		WithObjects(ingDefault, ingProd).
 		Build()
 
-	resources, err := readFromClient(context.Background(), k8sClient, ClusterReaderOptions{
+	resources, err := readFromClient(context.Background(), k8sClient, nil, ClusterReaderOptions{
 		Namespace: "production",
 	})
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestReadFromClient_EmptyCluster(t *testing.T) {
 		WithScheme(scheme).
 		Build()
 
-	resources, err := readFromClient(context.Background(), k8sClient, ClusterReaderOptions{
+	resources, err := readFromClient(context.Background(), k8sClient, nil, ClusterReaderOptions{
 		AllNamespaces: true,
 	})
 	require.NoError(t, err)
