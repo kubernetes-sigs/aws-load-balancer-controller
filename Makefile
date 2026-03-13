@@ -52,6 +52,14 @@ fast-unit-test:
 controller: generate fmt vet
 	go build -o bin/controller main.go
 
+# Build lbc-migrate binary
+lbc-migrate: fmt vet
+	go build -o bin/lbc-migrate ./cmd/lbc-migrate
+
+# Install lbc-migrate to $GOBIN (symlink so rebuilds are picked up automatically)
+install-lbc-migrate: lbc-migrate
+	ln -sf $(MAKEFILE_PATH)bin/lbc-migrate $(GOBIN)/lbc-migrate
+
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go

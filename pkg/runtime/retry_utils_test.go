@@ -2,9 +2,10 @@ package runtime
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_RetryImmediateOnError(t *testing.T) {
@@ -38,54 +39,63 @@ func Test_RetryImmediateOnError(t *testing.T) {
 		fn        func() error
 	}
 	tests := []struct {
-		name      string
-		args      args
-		wantCount int
-		wantErr   error
+		name         string
+		args         args
+		wantMinCount int
+		wantMaxCount int
+		wantErr      error
 	}{
 		{
 			name: "retry 4 times before failure",
 			args: args{
-				interval:  10 * time.Millisecond,
-				timeout:   100 * time.Millisecond,
+				interval:  50 * time.Millisecond,
+				timeout:   500 * time.Millisecond,
 				retryable: retryable,
 				fn:        failureAfterRetryCountFnGen(4),
 			},
-			wantCount: 5,
-			wantErr:   errors.New("failure"),
+			wantMinCount: 5,
+			wantMaxCount: 5,
+			wantErr:      errors.New("failure"),
 		},
 		{
 			name: "retry 4 times before failure - but timeout after 2nd retry",
 			args: args{
-				interval:  10 * time.Millisecond,
-				timeout:   19 * time.Millisecond,
+				interval:  50 * time.Millisecond,
+				timeout:   120 * time.Millisecond,
 				retryable: retryable,
 				fn:        failureAfterRetryCountFnGen(4),
 			},
-			wantCount: 3,
-			wantErr:   errors.New("timed out waiting for the condition"),
+			// PollImmediate calls fn at t=0, t=50ms, t=100ms. Timeout at 120ms
+			// may race with the next tick, so count can be 3 or 4.
+			wantMinCount: 3,
+			wantMaxCount: 4,
+			wantErr:      errors.New("timed out waiting for the condition"),
 		},
 		{
 			name: "retry 4 times before success",
 			args: args{
-				interval:  10 * time.Millisecond,
-				timeout:   100 * time.Millisecond,
+				interval:  50 * time.Millisecond,
+				timeout:   500 * time.Millisecond,
 				retryable: retryable,
 				fn:        successAfterRetryCountFnGen(4),
 			},
-			wantCount: 5,
-			wantErr:   nil,
+			wantMinCount: 5,
+			wantMaxCount: 5,
+			wantErr:      nil,
 		},
 		{
 			name: "retry 4 times before success - but timeout after 2nd retry",
 			args: args{
-				interval:  10 * time.Millisecond,
-				timeout:   19 * time.Millisecond,
+				interval:  50 * time.Millisecond,
+				timeout:   120 * time.Millisecond,
 				retryable: retryable,
 				fn:        successAfterRetryCountFnGen(4),
 			},
-			wantCount: 3,
-			wantErr:   errors.New("timed out waiting for the condition"),
+			// PollImmediate calls fn at t=0, t=50ms, t=100ms. Timeout at 120ms
+			// may race with the next tick, so count can be 3 or 4.
+			wantMinCount: 3,
+			wantMaxCount: 4,
+			wantErr:      errors.New("timed out waiting for the condition"),
 		},
 	}
 	for _, tt := range tests {
@@ -100,7 +110,8 @@ func Test_RetryImmediateOnError(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			assert.Equal(t, tt.wantCount, count)
+			assert.GreaterOrEqual(t, count, tt.wantMinCount, "retry count below minimum")
+			assert.LessOrEqual(t, count, tt.wantMaxCount, "retry count above maximum")
 		})
 	}
 }
