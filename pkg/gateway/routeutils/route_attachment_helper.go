@@ -38,7 +38,7 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 		if parentRef.Namespace != nil {
 			namespaceToCompare = string(*parentRef.Namespace)
 		} else {
-			namespaceToCompare = gw.Namespace
+			namespaceToCompare = route.GetRouteNamespacedName().Namespace
 		}
 
 		nameCheck := string(parentRef.Name) == gw.Name
