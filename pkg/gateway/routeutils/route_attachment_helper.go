@@ -27,23 +27,8 @@ func newRouteAttachmentHelper(logger logr.Logger) routeAttachmentHelper {
 // This function implements the Gateway API spec for determining Gateway -> Route attachment.
 func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, route preLoadRouteDescriptor) bool {
 	for _, parentRef := range route.GetParentRefs() {
-
-		// Default for kind is Gateway.
-		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
-			continue
-		}
-
-		var namespaceToCompare string
-
-		if parentRef.Namespace != nil {
-			namespaceToCompare = string(*parentRef.Namespace)
-		} else {
-			namespaceToCompare = route.GetRouteNamespacedName().Namespace
-		}
-
-		nameCheck := string(parentRef.Name) == gw.Name
-		nsCheck := gw.Namespace == namespaceToCompare
-		if nameCheck && nsCheck {
+		attach := doesResourceAttachToGateway(parentRef, route.GetRouteNamespacedName().Namespace, gw)
+		if attach {
 			return true
 		}
 	}
@@ -59,18 +44,8 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 // Returns: (allowed, matchedParentRef)
 func (rah *routeAttachmentHelperImpl) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, *gwv1.ParentReference) {
 	for _, parentRef := range route.GetParentRefs() {
-		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
-			continue
-		}
-
-		var namespaceToCompare string
-		if parentRef.Namespace != nil {
-			namespaceToCompare = string(*parentRef.Namespace)
-		} else {
-			namespaceToCompare = route.GetRouteNamespacedName().Namespace
-		}
-
-		if string(parentRef.Name) != gw.Name || gw.Namespace != namespaceToCompare {
+		attach := doesResourceAttachToGateway(parentRef, route.GetRouteNamespacedName().Namespace, gw)
+		if !attach {
 			continue
 		}
 
