@@ -26,6 +26,10 @@ func Test_doesRouteAttachToGateway(t *testing.T) {
 				},
 			},
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route",
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
@@ -47,6 +51,10 @@ func Test_doesRouteAttachToGateway(t *testing.T) {
 				},
 			},
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "route",
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
