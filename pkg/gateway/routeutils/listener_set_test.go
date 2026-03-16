@@ -270,16 +270,19 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 	}
 }
 
-func Test_getListenerSets(t *testing.T) {
+func Test_retrieveListenersFromListenerSets(t *testing.T) {
 	nsAll := gwv1.NamespacesFromAll
+	nsSame := gwv1.NamespacesFromSame
 
 	testCases := []struct {
-		name          string
-		listenerSets  []*gwv1.ListenerSet
-		gw            gwv1.Gateway
-		expectedCount int
-		expectedNames []gwv1.SectionName
-		expectErr     bool
+		name                  string
+		listenerSets          []*gwv1.ListenerSet
+		gw                    gwv1.Gateway
+		expectedListenerCount int
+		expectedListenerNames []gwv1.SectionName
+		expectedRejectedCount int
+		expectedRejectedNames []string
+		expectErr             bool
 	}{
 		{
 			name: "no listener sets in cluster",
@@ -293,7 +296,8 @@ func Test_getListenerSets(t *testing.T) {
 					},
 				},
 			},
-			expectedCount: 0,
+			expectedListenerCount: 0,
+			expectedRejectedCount: 0,
 		},
 		{
 			name: "one matching listener set with two listeners",
@@ -329,11 +333,12 @@ func Test_getListenerSets(t *testing.T) {
 					},
 				},
 			},
-			expectedCount: 2,
-			expectedNames: []gwv1.SectionName{"listener-a", "listener-b"},
+			expectedListenerCount: 2,
+			expectedListenerNames: []gwv1.SectionName{"listener-a", "listener-b"},
+			expectedRejectedCount: 0,
 		},
 		{
-			name: "listener set referencing different gateway is excluded",
+			name: "irrelevant listener set referencing different gateway - not rejected, just ignored",
 			listenerSets: []*gwv1.ListenerSet{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "ls1", Namespace: "ns1"},
@@ -361,35 +366,22 @@ func Test_getListenerSets(t *testing.T) {
 					},
 				},
 			},
-			expectedCount: 0,
+			expectedListenerCount: 0,
+			expectedRejectedCount: 0,
 		},
 		{
-			name: "mixed matching and non-matching listener sets",
+			name: "rejected listener set - references gateway but namespace not allowed",
 			listenerSets: []*gwv1.ListenerSet{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "ls-match", Namespace: "ns1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-rejected", Namespace: "ns2"},
 					Spec: gwv1.ListenerSetSpec{
 						ParentRef: gwv1.ParentGatewayReference{
-							Name: "my-gw",
+							Name:      "my-gw",
+							Namespace: (*gwv1.Namespace)(awssdk.String("ns1")),
 						},
 						Listeners: []gwv1.ListenerEntry{
 							{
-								Name:     "match-listener",
-								Port:     80,
-								Protocol: gwv1.HTTPProtocolType,
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "ls-nomatch", Namespace: "ns1"},
-					Spec: gwv1.ListenerSetSpec{
-						ParentRef: gwv1.ParentGatewayReference{
-							Name: "other-gw",
-						},
-						Listeners: []gwv1.ListenerEntry{
-							{
-								Name:     "nomatch-listener",
+								Name:     "rejected-listener",
 								Port:     80,
 								Protocol: gwv1.HTTPProtocolType,
 							},
@@ -402,13 +394,79 @@ func Test_getListenerSets(t *testing.T) {
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
 						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsAll,
+							From: &nsSame,
 						},
 					},
 				},
 			},
-			expectedCount: 1,
-			expectedNames: []gwv1.SectionName{"match-listener"},
+			expectedListenerCount: 0,
+			expectedRejectedCount: 1,
+			expectedRejectedNames: []string{"ls-rejected"},
+		},
+		{
+			name: "mixed accepted, rejected, and irrelevant listener sets",
+			listenerSets: []*gwv1.ListenerSet{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-accepted", Namespace: "ns1"},
+					Spec: gwv1.ListenerSetSpec{
+						ParentRef: gwv1.ParentGatewayReference{
+							Name: "my-gw",
+						},
+						Listeners: []gwv1.ListenerEntry{
+							{
+								Name:     "accepted-listener",
+								Port:     80,
+								Protocol: gwv1.HTTPProtocolType,
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-rejected", Namespace: "ns2"},
+					Spec: gwv1.ListenerSetSpec{
+						ParentRef: gwv1.ParentGatewayReference{
+							Name:      "my-gw",
+							Namespace: (*gwv1.Namespace)(awssdk.String("ns1")),
+						},
+						Listeners: []gwv1.ListenerEntry{
+							{
+								Name:     "rejected-listener",
+								Port:     80,
+								Protocol: gwv1.HTTPProtocolType,
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-irrelevant", Namespace: "ns1"},
+					Spec: gwv1.ListenerSetSpec{
+						ParentRef: gwv1.ParentGatewayReference{
+							Name: "other-gw",
+						},
+						Listeners: []gwv1.ListenerEntry{
+							{
+								Name:     "irrelevant-listener",
+								Port:     80,
+								Protocol: gwv1.HTTPProtocolType,
+							},
+						},
+					},
+				},
+			},
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
+				Spec: gwv1.GatewaySpec{
+					AllowedListeners: &gwv1.AllowedListeners{
+						Namespaces: &gwv1.ListenerNamespaces{
+							From: &nsSame,
+						},
+					},
+				},
+			},
+			expectedListenerCount: 1,
+			expectedListenerNames: []gwv1.SectionName{"accepted-listener"},
+			expectedRejectedCount: 1,
+			expectedRejectedNames: []string{"ls-rejected"},
 		},
 	}
 
@@ -426,20 +484,29 @@ func Test_getListenerSets(t *testing.T) {
 				logger:            logr.Discard(),
 			}
 
-			result, err := loader.getListenerSets(context.Background(), tc.gw)
+			listeners, rejectedSets, err := loader.retrieveListenersFromListenerSets(context.Background(), tc.gw)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Len(t, result, tc.expectedCount)
+			assert.Len(t, listeners, tc.expectedListenerCount)
+			assert.Len(t, rejectedSets, tc.expectedRejectedCount)
 
-			if tc.expectedNames != nil {
+			if tc.expectedListenerNames != nil {
 				var names []gwv1.SectionName
-				for _, l := range result {
+				for _, l := range listeners {
 					names = append(names, l.Name)
 				}
-				assert.Equal(t, tc.expectedNames, names)
+				assert.Equal(t, tc.expectedListenerNames, names)
+			}
+
+			if tc.expectedRejectedNames != nil {
+				var rejectedNames []string
+				for _, rs := range rejectedSets {
+					rejectedNames = append(rejectedNames, rs.Name)
+				}
+				assert.Equal(t, tc.expectedRejectedNames, rejectedNames)
 			}
 		})
 	}

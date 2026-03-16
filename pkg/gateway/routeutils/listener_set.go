@@ -21,7 +21,7 @@ const (
 )
 
 type listenerSetLoader interface {
-	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, error)
+	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, []*gwv1.ListenerSet, error)
 }
 
 type listenerSetLoaderImpl struct {
@@ -38,33 +38,38 @@ func newListenerSetLoader(k8sClient client.Client, logger logr.Logger) listenerS
 	}
 }
 
-func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, error) {
-	return []gwv1.Listener{}, nil
-
-}
-
-func (l *listenerSetLoaderImpl) getListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, error) {
+func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, []*gwv1.ListenerSet, error) {
 	listenerSets := &gwv1.ListenerSetList{}
 	err := l.k8sClient.List(ctx, listenerSets)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	rejectedListenerSets := make([]*gwv1.ListenerSet, 0)
+
 	var result []gwv1.Listener
-	for _, item := range listenerSets.Items {
+	for i, item := range listenerSets.Items {
 		handshake, err := l.listenerSetGatewayHandshake(ctx, item, gateway)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		if handshake == acceptedHandshakeState {
+		switch handshake {
+		case acceptedHandshakeState:
 			for _, listener := range item.Spec.Listeners {
 				result = append(result, l.convertListenerSetListenerToGatewayListener(listener))
 			}
+			break
+		case gatewayRejectedHandshakeState:
+			rejectedListenerSets = append(rejectedListenerSets, &listenerSets.Items[i])
+			break
+		case irrelevantResourceHandshakeState:
+			// Nothing to do here, the listener set and gateway have no relation.
+			break
 		}
 
 	}
 
-	return result, nil
+	return result, rejectedListenerSets, nil
 }
 
 func (l *listenerSetLoaderImpl) listenerSetGatewayHandshake(ctx context.Context, listenerSet gwv1.ListenerSet, gw gwv1.Gateway) (handshakeState, error) {
