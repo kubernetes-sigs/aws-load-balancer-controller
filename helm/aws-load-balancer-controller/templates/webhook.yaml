@@ -309,9 +309,31 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-networking-v1-ingress
-  failurePolicy: Fail
+  failurePolicy:  {{ $.Values.webhookConfig.ingressValdationFailurePolicy }}
   matchPolicy: Equivalent
   name: vingress.elbv2.k8s.aws
+  {{- if .Values.webhookConfig.ingressValidationObjectSelector }}
+  objectSelector:
+    {{- if .Values.webhookConfig.ingressValidationObjectSelector.matchExpressions }}
+    matchExpressions:
+    {{ toYaml .Values.webhookConfig.ingressValidationObjectSelector.matchExpressions | nindent 4 }}
+    {{- end }}
+    {{- if .Values.webhookConfig.ingressValidationObjectSelector.matchLabels }}
+    matchLabels:
+    {{ toYaml .Values.webhookConfig.ingressValidationObjectSelector.matchLabels | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- if .Values.webhookConfig.ingressValidationNamespaceSelector }}
+  namespaceSelector:
+    {{- if .Values.webhookConfig.ingressValidationNamespaceSelector.matchExpressions }}
+    matchExpressions:
+    {{ toYaml .Values.webhookConfig.ingressValidationNamespaceSelector.matchExpressions | nindent 4 }}
+    {{- end }}
+    {{- if .Values.webhookConfig.ingressValidationNamespaceSelector.matchLabels }}
+    matchLabels:
+    {{ toYaml .Values.webhookConfig.ingressValidationNamespaceSelector.matchLabels | nindent 6 }}
+    {{- end }}
+  {{- end }}
   admissionReviewVersions:
   - v1beta1
   rules:
