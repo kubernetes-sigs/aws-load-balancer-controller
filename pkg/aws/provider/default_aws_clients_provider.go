@@ -2,12 +2,14 @@ package provider
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
@@ -24,6 +26,7 @@ type defaultAWSClientsProvider struct {
 	shieldClient            *shield.Client
 	rgtClient               *resourcegroupstaggingapi.Client
 	stsClient               *sts.Client
+	route53Client           *route53.Client
 	globalAcceleratorClient *globalaccelerator.Client
 
 	// used for dynamic creation of ELBv2 client
@@ -40,6 +43,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 	rgtCustomEndpoint := endpointsResolver.EndpointFor(resourcegroupstaggingapi.ServiceID)
 	stsCustomEndpoint := endpointsResolver.EndpointFor(sts.ServiceID)
 	globalAcceleratorCustomEndpoint := endpointsResolver.EndpointFor(globalaccelerator.ServiceID)
+	route53CustomEndpoint := endpointsResolver.EndpointFor(route53.ServiceID)
 
 	ec2Client := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 		if ec2CustomEndpoint != nil {
@@ -86,6 +90,12 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		}
 	})
 
+	route53Client := route53.NewFromConfig(cfg, func(o *route53.Options) {
+		if route53CustomEndpoint != nil {
+			o.BaseEndpoint = route53CustomEndpoint
+		}
+	})
+
 	return &defaultAWSClientsProvider{
 		ec2Client:               ec2Client,
 		elbv2Client:             elbv2Client,
@@ -95,6 +105,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		shieldClient:            shieldClient,
 		rgtClient:               rgtClient,
 		stsClient:               stsClient,
+		route53Client:           route53Client,
 		globalAcceleratorClient: globalAcceleratorClient,
 
 		elbv2CustomEndpoint: elbv2CustomEndpoint,
@@ -134,6 +145,10 @@ func (p *defaultAWSClientsProvider) GetRGTClient(ctx context.Context, operationN
 
 func (p *defaultAWSClientsProvider) GetSTSClient(ctx context.Context, operationName string) (*sts.Client, error) {
 	return p.stsClient, nil
+}
+
+func (p *defaultAWSClientsProvider) GetRoute53Client(ctx context.Context, operationName string) (*route53.Client, error) {
+	return p.route53Client, nil
 }
 
 func (p *defaultAWSClientsProvider) GetGlobalAcceleratorClient(ctx context.Context, operationName string) (*globalaccelerator.Client, error) {
