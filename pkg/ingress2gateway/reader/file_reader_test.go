@@ -75,3 +75,17 @@ func TestReadFromDir_IncludesJSON(t *testing.T) {
 	}
 	assert.True(t, hasJSON, "ReadFromDir should include .json files")
 }
+
+func TestReadFromFiles_CommentOnlyDocumentsSkipped(t *testing.T) {
+	// full_resources.yaml has a comment header and a comment-only document at the end.
+	// Verify they don't produce errors or extra resources.
+	files := []string{filepath.Join(testFilesDir, "full_resources.yaml")}
+	resources, err := ReadFromFiles(files)
+	require.NoError(t, err)
+
+	// Should still parse exactly 4 resources — comment-only documents are silently skipped
+	assert.Len(t, resources.Ingresses, 1)
+	assert.Len(t, resources.Services, 1)
+	assert.Len(t, resources.IngressClasses, 1)
+	assert.Len(t, resources.IngressClassParams, 1)
+}

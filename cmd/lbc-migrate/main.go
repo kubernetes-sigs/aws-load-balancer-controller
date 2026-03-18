@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/reader"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/translate"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/warnings"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/writer"
 )
@@ -119,7 +120,8 @@ func runMigrate(ctx context.Context, opts *ingress2gateway.MigrateOptions) error
 		return resources, nil
 	}
 
+	translateFunc := translate.Translate
 	writeFunc := writer.Write
 
-	return ingress2gateway.Migrate(ctx, *opts, readFunc, writeFunc)
+	return ingress2gateway.Migrate(ctx, *opts, readFunc, translateFunc, writeFunc)
 }

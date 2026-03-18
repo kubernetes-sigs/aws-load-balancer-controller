@@ -89,6 +89,11 @@ func decodeResources(data []byte, resources *ingress2gateway.InputResources) err
 			continue
 		}
 
+		// Skip documents that are only comments (no actual YAML content)
+		if isCommentOnly(doc) {
+			continue
+		}
+
 		obj, gvk, err := decoder.Decode(doc, nil, nil)
 		if err != nil {
 			// Log unrecognized resources to stderr — they may be other CRDs
@@ -126,4 +131,18 @@ func decodeResources(data []byte, resources *ingress2gateway.InputResources) err
 		}
 	}
 	return nil
+}
+
+// isCommentOnly returns true if the YAML document contains only comments and whitespace.
+func isCommentOnly(doc []byte) bool {
+	for _, line := range bytes.Split(doc, []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 {
+			continue
+		}
+		if trimmed[0] != '#' {
+			return false
+		}
+	}
+	return true
 }
