@@ -103,7 +103,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 		}
 	}
 
-	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, currentTags)
+	tagsToUpdate, tagsToRemove := algorithm.DiffStringMapIgnoreAWSTags(desiredTags, currentTags)
 	for _, ignoredTagKey := range reconcileOpts.IgnoredTagKeys {
 		delete(tagsToUpdate, ignoredTagKey)
 		delete(tagsToRemove, ignoredTagKey)
