@@ -488,6 +488,107 @@ func Test_defaultSecretsManager_GetSecret(t *testing.T) {
 	}
 }
 
+func Test_defaultSecretsManager_GetSecret_RequiredLabel(t *testing.T) {
+	secretNamespace := "test-namespace"
+	secretName := "test-secret"
+	secretKey := types.NamespacedName{
+		Namespace: secretNamespace,
+		Name:      secretName,
+	}
+
+	tests := []struct {
+		name               string
+		requiredLabelKey   string
+		requiredLabelValue string
+		secretLabels       map[string]string
+		useCache           bool
+		wantErr            bool
+		errContains        string
+	}{
+		{
+			name:               "fallback path - secret has required label",
+			requiredLabelKey:   "app.kubernetes.io/managed-by",
+			requiredLabelValue: "eks",
+			secretLabels:       map[string]string{"app.kubernetes.io/managed-by": "eks"},
+			wantErr:            false,
+		},
+		{
+			name:               "fallback path - secret missing required label",
+			requiredLabelKey:   "app.kubernetes.io/managed-by",
+			requiredLabelValue: "eks",
+			secretLabels:       map[string]string{},
+			wantErr:            true,
+			errContains:        "missing required label",
+		},
+		{
+			name:               "fallback path - secret has wrong label value",
+			requiredLabelKey:   "app.kubernetes.io/managed-by",
+			requiredLabelValue: "eks",
+			secretLabels:       map[string]string{"app.kubernetes.io/managed-by": "helm"},
+			wantErr:            true,
+			errContains:        "missing required label",
+		},
+		{
+			name:               "cache path - secret has required label",
+			requiredLabelKey:   "app.kubernetes.io/managed-by",
+			requiredLabelValue: "eks",
+			secretLabels:       map[string]string{"app.kubernetes.io/managed-by": "eks"},
+			useCache:           true,
+			wantErr:            false,
+		},
+		{
+			name:               "no label required - secret without labels accessible",
+			requiredLabelKey:   "",
+			requiredLabelValue: "",
+			secretLabels:       map[string]string{},
+			wantErr:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			k8sClient := testutils.GenerateTestClient()
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: secretNamespace,
+					Labels:    tt.secretLabels,
+				},
+				Data: map[string][]byte{"key": []byte("value")},
+			}
+			err := k8sClient.Create(ctx, secret.DeepCopy())
+			assert.NoError(t, err)
+
+			secretsEventChan := make(chan event.TypedGenericEvent[*corev1.Secret], 100)
+			fakeClientset := fake.NewSimpleClientset()
+			sm := NewSecretsManager(fakeClientset, secretsEventChan, logr.New(&log.NullLogSink{}), tt.requiredLabelKey, tt.requiredLabelValue)
+
+			if tt.useCache {
+				sm.MonitorSecrets("test-consumer", []types.NamespacedName{secretKey})
+				if item, exists := sm.secretMap[secretKey]; exists {
+					err := item.store.Add(secret.DeepCopy())
+					assert.NoError(t, err)
+				}
+			}
+
+			got, err := sm.GetSecret(ctx, k8sClient, secretKey)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, got)
+				assert.Equal(t, secretName, got.Name)
+			}
+		})
+	}
+}
+
 func Test_defaultSecretsManager_GetSecret_CacheInvalidation(t *testing.T) {
 	secretNamespace := "test-namespace"
 	secretName := "test-secret"

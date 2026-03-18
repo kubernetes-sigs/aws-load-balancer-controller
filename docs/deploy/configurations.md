@@ -122,6 +122,35 @@ The --cluster-name flag is mandatory and the value must match the name of the ku
 | alb-gateway-max-concurrent-reconciles                                           | int                       | 3                                          | Maximum number of concurrently running reconcile loops for ALB gateways, if enabled                                                                                           |
 | nlb-gateway-max-concurrent-reconciles                                           | int                       | 3                                          | Maximum number of concurrently running reconcile loops for NLB gateways, if enabled                                                                                           |
 | max-targets-per-target-group                                                        | int                       | 0                                          | Maximum number of targets that will be added to a given Target Group. The default value of zero will leave the number of targets unlimited                                    |
+| [required-secrets-label](#required-secrets-label)                                   | string                    |                                            | Required label (key=value) that Secrets must have to be read by the controller. If unset, the controller can read all Secrets it has RBAC access to                           |
+
+### required-secrets-label
+`--required-secrets-label` restricts which Kubernetes Secrets the controller is allowed to read. The value must be a single `key=value` pair (e.g. `allow-read-access=eks-lbc`). When set, the controller will only read Secrets that carry a matching label; Secrets without the label will be rejected during model building.
+
+This is useful for environments where the controller should not have blanket read access to all Secrets in a namespace. Only one label pair is supported.
+
+Example:
+```yaml
+spec:
+  containers:
+  - args:
+    - --required-secrets-label=allow-read-access=eks-lbc
+```
+
+The corresponding Secret must have the matching label:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-oidc-secret
+  namespace: my-namespace
+  labels:
+    allow-read-access: eks-lbc
+type: Opaque
+data:
+  clientID: ...
+  clientSecret: ...
+```
 
 ### disable-ingress-class-annotation
 `--disable-ingress-class-annotation` controls whether to disable new usage of the `kubernetes.io/ingress.class` annotation.

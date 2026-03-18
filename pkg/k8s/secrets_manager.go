@@ -121,11 +121,7 @@ func (m *defaultSecretsManager) GetSecret(ctx context.Context, k8sClient client.
 		if exists {
 			if secret, ok := obj.(*corev1.Secret); ok {
 				m.logger.V(1).Info("Secret retrieved from cache", "secret", secretKey)
-				secretCopy := secret.DeepCopy()
-				if err := m.validateSecretLabel(secretCopy); err != nil {
-					return nil, err
-				}
-				return secretCopy, nil
+				return secret.DeepCopy(), nil
 			}
 		}
 		// Cache miss - secret might be deleted, fall through to API call

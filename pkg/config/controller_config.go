@@ -160,7 +160,8 @@ type ControllerConfig struct {
 	// for AWS resources to update.
 	TargetGroupBindingRequeueDuration time.Duration
 
-	// RequiredSecretsLabel specifies a required label (key=value) that Secrets must have to be read by the controller
+	// RequiredSecretsLabel specifies a required label (key=value) that Secrets must have to be read by the controller.
+	// By default, no label is required and the controller can read all Secrets.
 	RequiredSecretsLabel string
 
 	FeatureGates FeatureGates
