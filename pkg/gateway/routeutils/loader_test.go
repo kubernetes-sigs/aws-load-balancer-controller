@@ -367,6 +367,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				allRouteLoaders: allRouteLoaders,
 				logger:          logr.Discard(),
 				routeSubmitter:  routeReconciler,
+				lsLoader: &mockListenerSetLoader{
+					result: listenerSetLoadResult{},
+				},
 			}
 
 			filter := &routeFilterImpl{acceptedKinds: tc.acceptedKinds}

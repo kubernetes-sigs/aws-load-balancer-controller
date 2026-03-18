@@ -57,13 +57,14 @@ type LoaderResult struct {
 	Routes            map[int32][]RouteDescriptor
 	Listeners         []gwv1.Listener
 	AttachedRoutesMap map[gwv1.SectionName]int32
-	ValidationResults ListenerValidationResults
+	ValidationResults ValidatedGatewayListeners
 }
 
 var _ Loader = &loaderImpl{}
 
 type loaderImpl struct {
 	mapper          listenerToRouteMapper
+	lsLoader        listenerSetLoader
 	routeSubmitter  RouteReconcilerSubmitter
 	k8sClient       client.Client
 	logger          logr.Logger
@@ -73,6 +74,7 @@ type loaderImpl struct {
 func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter, logger logr.Logger) Loader {
 	return &loaderImpl{
 		mapper:          newListenerToRouteMapper(k8sClient, logger.WithName("route-mapper")),
+		lsLoader:        newListenerSetLoader(k8sClient, logger.WithName("listener-set-loader")),
 		routeSubmitter:  routeSubmitter,
 		k8sClient:       k8sClient,
 		allRouteLoaders: allRoutes,
@@ -102,6 +104,16 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		}
 	}()
 
+	listenerSetListeners, rejectedListenerSets, err := l.lsLoader.retrieveListenersFromListenerSets(ctx, gw)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rejectedListenerSets) > 0 {
+		// Submit these rejected listener sets to a status updater //
+	}
+
 	for route, loader := range l.allRouteLoaders {
 		applicable := filter.IsApplicable(route)
 		l.logger.V(1).Info("Processing route", "route", route, "is applicable", applicable)
@@ -114,13 +126,15 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		}
 	}
 
-	// validate listeners configuration and get listener status
-	listeners := gw.Spec.Listeners
-	listenerValidationResults := validateListeners(listeners, controllerName)
+	gatewayListeners := allListeners{
+		GatewayListeners:     gw.Spec.Listeners,
+		ListenerSetListeners: listenerSetListeners,
+	}
+	listenerValidationResults := validateListeners(gatewayListeners, controllerName)
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, listeners, loadedRoutes)
+	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, gw.Spec.Listeners, loadedRoutes)
 
 	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
 
@@ -149,7 +163,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	return &LoaderResult{
 		Routes:            loadedRoute,
-		Listeners:         listeners,
+		Listeners:         gw.Spec.Listeners,
 		AttachedRoutesMap: attachedRouteMap,
 		ValidationResults: listenerValidationResults,
 	}, nil
