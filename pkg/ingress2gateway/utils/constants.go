@@ -15,4 +15,7 @@ const (
 
 	// MigrationTagKey is the AWS tag key used to track migration source.
 	MigrationTagKey = "gateway.k8s.aws/migrated-from"
+
+	// ProtocolHTTPS is the HTTPS protocol string used in listen-ports and ProtocolPort.
+	ProtocolHTTPS = "HTTPS"
 )

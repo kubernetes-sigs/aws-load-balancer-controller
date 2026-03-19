@@ -120,8 +120,7 @@ func runMigrate(ctx context.Context, opts *ingress2gateway.MigrateOptions) error
 		return resources, nil
 	}
 
-	translateFunc := translate.Translate
 	writeFunc := writer.Write
 
-	return ingress2gateway.Migrate(ctx, *opts, readFunc, translateFunc, writeFunc)
+	return ingress2gateway.Migrate(ctx, *opts, readFunc, translate.Translate, writeFunc)
 }

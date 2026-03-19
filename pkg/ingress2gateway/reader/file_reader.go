@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	goyaml "gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -89,8 +90,12 @@ func decodeResources(data []byte, resources *ingress2gateway.InputResources) err
 			continue
 		}
 
-		// Skip documents that are only comments (no actual YAML content)
-		if isCommentOnly(doc) {
+		// Skip documents with no meaningful content (comments-only, empty maps, etc.)
+		empty, err := isEmptyDocument(doc)
+		if err != nil {
+			return fmt.Errorf("error parsing document: %w", err)
+		}
+		if empty {
 			continue
 		}
 
@@ -133,16 +138,13 @@ func decodeResources(data []byte, resources *ingress2gateway.InputResources) err
 	return nil
 }
 
-// isCommentOnly returns true if the YAML document contains only comments and whitespace.
-func isCommentOnly(doc []byte) bool {
-	for _, line := range bytes.Split(doc, []byte("\n")) {
-		trimmed := bytes.TrimSpace(line)
-		if len(trimmed) == 0 {
-			continue
-		}
-		if trimmed[0] != '#' {
-			return false
-		}
+// isEmptyDocument returns true if the YAML document has no meaningful content
+// (e.g., only comments, whitespace, or an empty mapping).
+// JSON files don't have comments, so this check is only relevant for YAML.
+func isEmptyDocument(doc []byte) (bool, error) {
+	var m map[string]interface{}
+	if err := goyaml.Unmarshal(doc, &m); err != nil {
+		return false, err
 	}
-	return true
+	return len(m) == 0, nil
 }

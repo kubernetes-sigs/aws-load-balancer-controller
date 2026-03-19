@@ -27,6 +27,7 @@ func Write(resources *ingress2gateway.OutputResources, outputDir string, format 
 	}
 
 	// Collect all resources into a single file per output directory
+	// TODO: it might be multiple files when we handling group
 	var allObjects []runtime.Object
 
 	// GatewayClass (one per run)

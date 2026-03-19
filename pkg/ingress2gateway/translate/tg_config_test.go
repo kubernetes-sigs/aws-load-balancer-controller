@@ -108,7 +108,7 @@ func TestBuildTargetGroupConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildTargetGroupConfig(tt.svcName, "default", tt.annos, tt.port, "ingress/default/test")
+			result := buildTargetGroupConfig(serviceRef{namespace: "default", name: tt.svcName, port: tt.port}, tt.annos, "ingress/default/test")
 			if tt.wantNil {
 				assert.Nil(t, result)
 				return

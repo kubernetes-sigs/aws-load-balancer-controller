@@ -31,7 +31,7 @@ func buildGateway(name, namespace string, lbConfig *gatewayv1beta1.LoadBalancerC
 	var listeners []gwv1.Listener
 	for _, lp := range listenPorts {
 		listeners = append(listeners, gwv1.Listener{
-			Name:     gwv1.SectionName(utils.GetListenerName(lp.Protocol, lp.Port)),
+			Name:     gwv1.SectionName(utils.GetSectionName(lp.Protocol, lp.Port)),
 			Port:     gwv1.PortNumber(lp.Port),
 			Protocol: toALBProtocol(lp.Protocol),
 		})

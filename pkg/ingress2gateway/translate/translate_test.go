@@ -161,6 +161,43 @@ func TestTranslate(t *testing.T) {
 			},
 		},
 		{
+			name: "IngressClassParams creates LBConfig when no LB annotations present",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "no-annos", Namespace: "default",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: ptr.To("alb"),
+						DefaultBackend: &networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+							},
+						},
+					},
+				}},
+				IngressClasses: []networking.IngressClass{{
+					ObjectMeta: metav1.ObjectMeta{Name: "alb"},
+					Spec: networking.IngressClassSpec{
+						Parameters: &networking.IngressClassParametersReference{
+							Kind: "IngressClassParams", Name: "alb-params",
+						},
+					},
+				}},
+				IngressClassParams: []elbv2api.IngressClassParams{{
+					ObjectMeta: metav1.ObjectMeta{Name: "alb-params"},
+					Spec: elbv2api.IngressClassParamsSpec{
+						Scheme: ptr.To(elbv2api.LoadBalancerSchemeInternetFacing),
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 1, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				require.NotNil(t, out.LoadBalancerConfigurations[0].Spec.Scheme)
+				assert.Equal(t, gatewayv1beta1.LoadBalancerSchemeInternetFacing, *out.LoadBalancerConfigurations[0].Spec.Scheme)
+			},
+		},
+		{
 			name: "no annotations produces minimal output",
 			input: &ingress2gateway.InputResources{
 				Ingresses: []networking.Ingress{{

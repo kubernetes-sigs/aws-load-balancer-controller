@@ -12,9 +12,9 @@ func JoinStrings(ss []string) string {
 	return strings.Join(ss, ",")
 }
 
-// GetListenerName generates a valid Gateway API SectionName string from protocol and port.
+// GetSectionName generates a valid Gateway API SectionName string from protocol and port.
 // The result is lowercase to satisfy the SectionName regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-func GetListenerName(protocol string, port int32) string {
+func GetSectionName(protocol string, port int32) string {
 	return fmt.Sprintf("%s-%d", strings.ToLower(protocol), port)
 }
 

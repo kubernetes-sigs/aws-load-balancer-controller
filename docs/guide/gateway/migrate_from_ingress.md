@@ -6,6 +6,10 @@
 
 `lbc-migrate` is a CLI tool that helps migrate AWS Load Balancer Controller (LBC) Ingress resources to Gateway API equivalents. It reads Ingress, Service, IngressClass, and IngressClassParams resources from YAML/JSON files or a live Kubernetes cluster, translates annotations to Gateway API CRD fields, and writes the output manifests.
 
+## Prerequisites
+
+Before applying the generated manifests, ensure the Gateway API CRDs are installed in your cluster at a compatible version. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
+
 ## Installation
 
 Build from source (requires Go):
@@ -95,18 +99,8 @@ Gateway API has no `defaultBackend` equivalent ([upstream docs](https://gateway-
     - **Deployment** — unchanged, continues running your application pods.
     - **Service** — unchanged, the new HTTPRoute `backendRefs` reference it by name.
 
-    After migration, apply the generated Gateway API manifest alongside your existing workload:
-    ```bash
-    # Your existing workload (no changes)
-    kubectl apply -f deployment.yaml
-    kubectl apply -f service.yaml
+    Once equivalent gateway manifest is generated from ingress manifests, apply the generated Gateway API manifest alongside your existing workload.
 
-    # NEW: replaces your old ingress.yaml
-    kubectl apply -f gateway-resources.yaml
-
-    # Remove the old Ingress (after verifying the Gateway ALB works)
-    kubectl delete -f ingress.yaml
-    ```
 
 ### Annotation Priority Chain
 

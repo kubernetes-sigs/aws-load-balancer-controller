@@ -160,7 +160,7 @@ func buildListenerConfigurations(annos map[string]string, listenPorts []listenPo
 			ProtocolPort: protocolPort,
 		}
 
-		isSecure := lp.Protocol == "HTTPS" || lp.Protocol == "TLS"
+		isSecure := lp.Protocol == utils.ProtocolHTTPS
 
 		if isSecure && len(certARNs) > 0 {
 			first := certARNs[0]

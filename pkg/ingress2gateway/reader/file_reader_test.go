@@ -31,9 +31,8 @@ func TestReadFromFiles_FullResources(t *testing.T) {
 
 func TestReadFromFiles_InvalidInput(t *testing.T) {
 	files := []string{filepath.Join(testFilesDir, "invalid.yaml")}
-	resources, err := ReadFromFiles(files)
-	require.NoError(t, err)
-	assert.Len(t, resources.Ingresses, 0)
+	_, err := ReadFromFiles(files)
+	assert.Error(t, err)
 }
 
 func TestReadFromFiles_NonexistentFile(t *testing.T) {

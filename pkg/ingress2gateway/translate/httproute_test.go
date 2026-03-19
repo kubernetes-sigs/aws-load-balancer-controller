@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -266,7 +267,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routes := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports)
+			routes, _, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil)
+			require.NoError(t, err)
 			require.Len(t, routes, tt.wantRoutes)
 			if tt.check != nil {
 				tt.check(t, routes)
@@ -279,12 +281,30 @@ func TestToGatewayPathType(t *testing.T) {
 	prefix := networking.PathTypePrefix
 	exact := networking.PathTypeExact
 	implSpec := networking.PathTypeImplementationSpecific
+	unknown := networking.PathType("Unknown")
 
-	assert.Equal(t, gwv1.PathMatchPathPrefix, toGatewayPathType(nil, false))
-	assert.Equal(t, gwv1.PathMatchPathPrefix, toGatewayPathType(&prefix, false))
-	assert.Equal(t, gwv1.PathMatchExact, toGatewayPathType(&exact, false))
-	assert.Equal(t, gwv1.PathMatchPathPrefix, toGatewayPathType(&implSpec, false))
-	assert.Equal(t, gwv1.PathMatchRegularExpression, toGatewayPathType(&implSpec, true))
+	got, err := toGatewayPathType(nil, false)
+	assert.NoError(t, err)
+	assert.Equal(t, gwv1.PathMatchPathPrefix, got)
+
+	got, err = toGatewayPathType(&prefix, false)
+	assert.NoError(t, err)
+	assert.Equal(t, gwv1.PathMatchPathPrefix, got)
+
+	got, err = toGatewayPathType(&exact, false)
+	assert.NoError(t, err)
+	assert.Equal(t, gwv1.PathMatchExact, got)
+
+	got, err = toGatewayPathType(&implSpec, false)
+	assert.NoError(t, err)
+	assert.Equal(t, gwv1.PathMatchPathPrefix, got)
+
+	got, err = toGatewayPathType(&implSpec, true)
+	assert.NoError(t, err)
+	assert.Equal(t, gwv1.PathMatchRegularExpression, got)
+
+	_, err = toGatewayPathType(&unknown, false)
+	assert.Error(t, err)
 }
 
 func TestDeduplicateHostnames(t *testing.T) {
@@ -293,4 +313,39 @@ func TestDeduplicateHostnames(t *testing.T) {
 	require.Len(t, result, 2)
 	assert.Equal(t, gwv1.Hostname("a.com"), result[0])
 	assert.Equal(t, gwv1.Hostname("b.com"), result[1])
+}
+
+func TestResolveServicePort(t *testing.T) {
+	svcMap := map[string]corev1.Service{
+		"default/my-svc": {
+			Spec: corev1.ServiceSpec{
+				Ports: []corev1.ServicePort{
+					{Name: "http", Port: 80},
+					{Name: "https", Port: 443},
+				},
+			},
+		},
+	}
+
+	// Numeric port — returned directly, no lookup needed
+	port, err := resolveServicePort(networking.ServiceBackendPort{Number: 8080}, "default", "my-svc", svcMap)
+	assert.NoError(t, err)
+	assert.Equal(t, int32(8080), port)
+
+	// Named port — resolved from Service
+	port, err = resolveServicePort(networking.ServiceBackendPort{Name: "http"}, "default", "my-svc", svcMap)
+	assert.NoError(t, err)
+	assert.Equal(t, int32(80), port)
+
+	// Named port — Service not found
+	_, err = resolveServicePort(networking.ServiceBackendPort{Name: "http"}, "default", "missing-svc", svcMap)
+	assert.Error(t, err)
+
+	// Named port — port name not found on Service
+	_, err = resolveServicePort(networking.ServiceBackendPort{Name: "grpc"}, "default", "my-svc", svcMap)
+	assert.Error(t, err)
+
+	// No port number or name
+	_, err = resolveServicePort(networking.ServiceBackendPort{}, "default", "my-svc", svcMap)
+	assert.Error(t, err)
 }

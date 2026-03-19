@@ -2,9 +2,11 @@ package translate
 
 import (
 	"fmt"
+	"strings"
 
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 )
 
 // applyIngressClassParamsToLBConfig applies IngressClassParams overrides directly to a LoadBalancerConfigurationSpec.
@@ -35,11 +37,13 @@ func applyIngressClassParamsToLBConfig(spec *gatewayv1beta1.LoadBalancerConfigur
 	}
 
 	if icp.Spec.SSLPolicy != "" {
-		// SSL policy applies to listener configs; if there are existing listener configs, update them
+		// SSL policy only applies to secure listeners
 		if spec.ListenerConfigurations != nil {
 			lcs := *spec.ListenerConfigurations
 			for i := range lcs {
-				lcs[i].SslPolicy = &icp.Spec.SSLPolicy
+				if strings.HasPrefix(string(lcs[i].ProtocolPort), utils.ProtocolHTTPS) {
+					lcs[i].SslPolicy = &icp.Spec.SSLPolicy
+				}
 			}
 			spec.ListenerConfigurations = &lcs
 		}

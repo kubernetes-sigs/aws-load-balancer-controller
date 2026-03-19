@@ -7,6 +7,20 @@ import (
 	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 )
 
+// Resource type categories for annotation mapping.
+const (
+	LoadBalancerConfig = "LoadBalancerConfiguration"
+	ListenerConfig     = "ListenerConfiguration"
+	TargetGroupConfig  = "TargetGroupConfiguration"
+	HealthCheck        = "HealthCheckConfig"
+	HTTPRouteConfig    = "HTTPRoute"
+	IngressGrouping    = "IngressGrouping"
+	Routing            = "Routing"
+	Authentication     = "Authentication"
+	FrontendNLB        = "FrontendNLB"
+	NotApplicable      = "NotApplicable"
+)
+
 // TestAllIngressAnnotationsCovered ensures every Ingress annotation suffix defined in
 // pkg/annotations/constants.go is accounted for in the migration tool.
 //
@@ -16,112 +30,124 @@ import (
 func TestAllIngressAnnotationsCovered(t *testing.T) {
 
 	// Implemented: annotations handled in the translate package.
-	implemented := []string{
-		// LB-level → LoadBalancerConfiguration
-		annotations.IngressSuffixScheme,                          // → spec.scheme
-		annotations.IngressSuffixLoadBalancerName,                // → spec.loadBalancerName
-		annotations.IngressSuffixIPAddressType,                   // → spec.ipAddressType
-		annotations.IngressSuffixSubnets,                         // → spec.loadBalancerSubnets
-		annotations.IngressSuffixCustomerOwnedIPv4Pool,           // → spec.customerOwnedIpv4Pool
-		annotations.IngressSuffixIPAMIPv4PoolId,                  // → spec.ipv4IPAMPoolId
-		annotations.IngressSuffixSecurityGroups,                  // → spec.securityGroups
-		annotations.IngressSuffixManageSecurityGroupRules,        // → spec.manageBackendSecurityGroupRules
-		annotations.IngressSuffixInboundCIDRs,                    // → spec.sourceRanges
-		annotations.IngressSuffixSecurityGroupPrefixLists,        // → spec.securityGroupPrefixes
-		annotations.IngressSuffixLoadBalancerAttributes,          // → spec.loadBalancerAttributes
-		annotations.IngressSuffixTags,                            // → spec.tags (LB + TG)
-		annotations.IngressSuffixLoadBalancerCapacityReservation, // → spec.minimumLoadBalancerCapacity
-		annotations.IngressSuffixWAFv2ACLARN,                     // → spec.wafV2.webACL
-		annotations.IngressSuffixWAFv2ACLName,                    // → spec.wafV2.webACL (name variant)
-		annotations.IngressSuffixShieldAdvancedProtection,        // → spec.shieldConfiguration.enabled
-
-		// Listener-level → LoadBalancerConfiguration.spec.listenerConfigurations[]
-		annotations.IngressSuffixListenPorts,            // → Gateway.spec.listeners + listenerConfigurations
-		annotations.IngressSuffixCertificateARN,         // → listenerConfigurations[].defaultCertificate
-		annotations.IngressSuffixSSLPolicy,              // → listenerConfigurations[].sslPolicy
-		annotations.IngressSuffixlsAttsAnnotationPrefix, // → listenerConfigurations[].listenerAttributes
-		annotations.IngressSuffixMutualAuthentication,   // → listenerConfigurations[].mutualAuthentication
-
-		// TG-level → TargetGroupConfiguration.spec.defaultConfiguration
-		annotations.IngressSuffixTargetType,                // → targetType
-		annotations.IngressSuffixBackendProtocol,           // → protocol
-		annotations.IngressSuffixBackendProtocolVersion,    // → protocolVersion
-		annotations.IngressSuffixTargetGroupAttributes,     // → targetGroupAttributes
-		annotations.IngressSuffixTargetNodeLabels,          // → nodeSelector
-		annotations.IngressLBSuffixMultiClusterTargetGroup, // → enableMultiCluster
-		annotations.IngressSuffixTargetControlPort,         // → targetControlPort
-
-		// Health check → TargetGroupConfiguration.spec.defaultConfiguration.healthCheckConfig
-		annotations.IngressSuffixHealthCheckPort,            // → healthCheckPort
-		annotations.IngressSuffixHealthCheckProtocol,        // → healthCheckProtocol
-		annotations.IngressSuffixHealthCheckPath,            // → healthCheckPath
-		annotations.IngressSuffixHealthCheckIntervalSeconds, // → healthCheckInterval
-		annotations.IngressSuffixHealthCheckTimeoutSeconds,  // → healthCheckTimeout
-		annotations.IngressSuffixHealthyThresholdCount,      // → healthyThresholdCount
-		annotations.IngressSuffixUnhealthyThresholdCount,    // → unhealthyThresholdCount
-		annotations.IngressSuffixSuccessCodes,               // → matcher.httpCode
-
-		// Routing → HTTPRoute
-		annotations.IngressSuffixUseRegexPathMatch, // → matches[].path.type: RegularExpression
+	implemented := map[string][]string{
+		LoadBalancerConfig: {
+			annotations.IngressSuffixScheme,
+			annotations.IngressSuffixLoadBalancerName,
+			annotations.IngressSuffixIPAddressType,
+			annotations.IngressSuffixSubnets,
+			annotations.IngressSuffixCustomerOwnedIPv4Pool,
+			annotations.IngressSuffixIPAMIPv4PoolId,
+			annotations.IngressSuffixSecurityGroups,
+			annotations.IngressSuffixManageSecurityGroupRules,
+			annotations.IngressSuffixInboundCIDRs,
+			annotations.IngressSuffixSecurityGroupPrefixLists,
+			annotations.IngressSuffixLoadBalancerAttributes,
+			annotations.IngressSuffixTags,
+			annotations.IngressSuffixLoadBalancerCapacityReservation,
+			annotations.IngressSuffixWAFv2ACLARN,
+			annotations.IngressSuffixWAFv2ACLName,
+			annotations.IngressSuffixShieldAdvancedProtection,
+		},
+		ListenerConfig: {
+			annotations.IngressSuffixListenPorts,
+			annotations.IngressSuffixCertificateARN,
+			annotations.IngressSuffixSSLPolicy,
+			annotations.IngressSuffixlsAttsAnnotationPrefix,
+			annotations.IngressSuffixMutualAuthentication,
+		},
+		TargetGroupConfig: {
+			annotations.IngressSuffixTargetType,
+			annotations.IngressSuffixBackendProtocol,
+			annotations.IngressSuffixBackendProtocolVersion,
+			annotations.IngressSuffixTargetGroupAttributes,
+			annotations.IngressSuffixTargetNodeLabels,
+			annotations.IngressLBSuffixMultiClusterTargetGroup,
+			annotations.IngressSuffixTargetControlPort,
+		},
+		HealthCheck: {
+			annotations.IngressSuffixHealthCheckPort,
+			annotations.IngressSuffixHealthCheckProtocol,
+			annotations.IngressSuffixHealthCheckPath,
+			annotations.IngressSuffixHealthCheckIntervalSeconds,
+			annotations.IngressSuffixHealthCheckTimeoutSeconds,
+			annotations.IngressSuffixHealthyThresholdCount,
+			annotations.IngressSuffixUnhealthyThresholdCount,
+			annotations.IngressSuffixSuccessCodes,
+		},
+		HTTPRouteConfig: {
+			annotations.IngressSuffixUseRegexPathMatch,
+		},
 	}
 
 	// Planned: annotations not yet implemented.
-	planned := []string{
-		// Ingress grouping
-		annotations.IngressSuffixGroupName,  // → shared Gateway per group
-		annotations.IngressSuffixGroupOrder, // → HTTPRoute rule ordering
-
-		// Routing
-		annotations.IngressSuffixSSLRedirect, // → HTTPRoute RequestRedirect filter
-
-		// Authentication → ListenerRuleConfiguration.spec.actions[]
-		annotations.IngressSuffixAuthType,                     // → action type selector
-		annotations.IngressSuffixAuthIDPCognito,               // → authenticateCognitoConfig
-		annotations.IngressSuffixAuthIDPOIDC,                  // → authenticateOIDCConfig
-		annotations.IngressSuffixAuthOnUnauthenticatedRequest, // → onUnauthenticatedRequest
-		annotations.IngressSuffixAuthScope,                    // → scope
-		annotations.IngressSuffixAuthSessionCookie,            // → sessionCookieName
-		annotations.IngressSuffixAuthSessionTimeout,           // → sessionTimeout
-		annotations.IngressSuffixJwtValidation,                // → jwtValidationConfig
-
-		// Frontend NLB → Gateway Chaining (NLB Gateway + TCPRoutes)
-		annotations.IngressSuffixEnableFrontendNlb,                             // → NLB GatewayClass + Gateway + TCPRoutes
-		annotations.IngressSuffixFrontendNlbScheme,                             // → NLB LoadBalancerConfiguration.spec.scheme
-		annotations.IngressSuffixFrontendNlbSubnets,                            // → NLB LoadBalancerConfiguration.spec.loadBalancerSubnets
-		annotations.IngressSuffixFrontendNlbSecurityGroups,                     // → NLB LoadBalancerConfiguration.spec.securityGroups
-		annotations.IngressSuffixFrontendNlbListenerPortMapping,                // → TCPRoute port mapping
-		annotations.IngressSuffixFrontendNlbEipAllocations,                     // → NLB SubnetConfiguration.eipAllocation
-		annotations.IngressSuffixFrontendNlbHealthCheckPort,                    // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbHealthCheckProtocol,                // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbHealthCheckPath,                    // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbHealthCheckIntervalSeconds,         // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbHealthCheckTimeoutSeconds,          // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbHealthCheckHealthyThresholdCount,   // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlHealthCheckbUnhealthyThresholdCount, // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbHealthCheckSuccessCodes,            // → ALB-target TGC healthCheckConfig
-		annotations.IngressSuffixFrontendNlbAttributes,                         // → NLB LoadBalancerConfiguration.spec.loadBalancerAttributes
-		annotations.IngressSuffixFrontendNlbTags,                               // → NLB LoadBalancerConfiguration.spec.tags
+	planned := map[string][]string{
+		IngressGrouping: {
+			annotations.IngressSuffixGroupName,
+			annotations.IngressSuffixGroupOrder,
+		},
+		Routing: {
+			annotations.IngressSuffixSSLRedirect,
+			// TODO: "use-annotation" action backends (alb.ingress.kubernetes.io/actions.{name})
+			// are dynamically named and not tracked here. They need detection in the HTTPRoute builder.
+		},
+		Authentication: {
+			annotations.IngressSuffixAuthType,
+			annotations.IngressSuffixAuthIDPCognito,
+			annotations.IngressSuffixAuthIDPOIDC,
+			annotations.IngressSuffixAuthOnUnauthenticatedRequest,
+			annotations.IngressSuffixAuthScope,
+			annotations.IngressSuffixAuthSessionCookie,
+			annotations.IngressSuffixAuthSessionTimeout,
+			annotations.IngressSuffixJwtValidation,
+		},
+		FrontendNLB: {
+			annotations.IngressSuffixEnableFrontendNlb,
+			annotations.IngressSuffixFrontendNlbScheme,
+			annotations.IngressSuffixFrontendNlbSubnets,
+			annotations.IngressSuffixFrontendNlbSecurityGroups,
+			annotations.IngressSuffixFrontendNlbListenerPortMapping,
+			annotations.IngressSuffixFrontendNlbEipAllocations,
+			annotations.IngressSuffixFrontendNlbHealthCheckPort,
+			annotations.IngressSuffixFrontendNlbHealthCheckProtocol,
+			annotations.IngressSuffixFrontendNlbHealthCheckPath,
+			annotations.IngressSuffixFrontendNlbHealthCheckIntervalSeconds,
+			annotations.IngressSuffixFrontendNlbHealthCheckTimeoutSeconds,
+			annotations.IngressSuffixFrontendNlbHealthCheckHealthyThresholdCount,
+			annotations.IngressSuffixFrontendNlHealthCheckbUnhealthyThresholdCount,
+			annotations.IngressSuffixFrontendNlbHealthCheckSuccessCodes,
+			annotations.IngressSuffixFrontendNlbAttributes,
+			annotations.IngressSuffixFrontendNlbTags,
+		},
 	}
 
 	// Not applicable: no Gateway API equivalent.
-	notApplicable := []string{
-		annotations.IngressSuffixWAFACLID, // WAF Classic not supported in Gateway API
-		annotations.IngressSuffixWebACLID, // deprecated alias of waf-acl-id
+	notApplicable := map[string][]string{
+		NotApplicable: {
+			annotations.IngressSuffixWAFACLID, // WAF Classic not supported in Gateway API
+			annotations.IngressSuffixWebACLID, // deprecated alias of waf-acl-id
+		},
 	}
 
-	// Verify no duplicates across categories
+	// Flatten all maps and verify no duplicates
 	all := make(map[string]bool)
-	for _, s := range implemented {
-		assert.False(t, all[s], "duplicate annotation: %s", s)
-		all[s] = true
+	for category, suffixes := range implemented {
+		for _, s := range suffixes {
+			assert.False(t, all[s], "duplicate annotation %s in implemented[%s]", s, category)
+			all[s] = true
+		}
 	}
-	for _, s := range planned {
-		assert.False(t, all[s], "duplicate annotation: %s", s)
-		all[s] = true
+	for category, suffixes := range planned {
+		for _, s := range suffixes {
+			assert.False(t, all[s], "duplicate annotation %s in planned[%s]", s, category)
+			all[s] = true
+		}
 	}
-	for _, s := range notApplicable {
-		assert.False(t, all[s], "duplicate annotation: %s", s)
-		all[s] = true
+	for category, suffixes := range notApplicable {
+		for _, s := range suffixes {
+			assert.False(t, all[s], "duplicate annotation %s in notApplicable[%s]", s, category)
+			all[s] = true
+		}
 	}
 
 	// Total IngressSuffix* + IngressLBSuffix* constants in pkg/annotations/constants.go.

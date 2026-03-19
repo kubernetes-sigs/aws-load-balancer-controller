@@ -12,8 +12,8 @@ import (
 
 // buildTargetGroupConfig builds a TargetGroupConfiguration for a given service from annotations.
 // Returns nil if no TG-level annotations are present.
-func buildTargetGroupConfig(serviceName, namespace string, annos map[string]string, servicePort int32, migrationTag string) *gatewayv1beta1.TargetGroupConfiguration {
-	props := buildTargetGroupProps(annos, serviceName, servicePort)
+func buildTargetGroupConfig(svcRef serviceRef, annos map[string]string, migrationTag string) *gatewayv1beta1.TargetGroupConfiguration {
+	props := buildTargetGroupProps(annos, svcRef.name, svcRef.port)
 
 	if reflect.DeepEqual(props, gatewayv1beta1.TargetGroupProps{}) {
 		return nil
@@ -34,12 +34,12 @@ func buildTargetGroupConfig(serviceName, namespace string, annos map[string]stri
 			Kind:       utils.TGConfigKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.GetTGConfigName(namespace, serviceName),
-			Namespace: namespace,
+			Name:      utils.GetTGConfigName(svcRef.namespace, svcRef.name),
+			Namespace: svcRef.namespace,
 		},
 		Spec: gatewayv1beta1.TargetGroupConfigurationSpec{
 			TargetReference: &gatewayv1beta1.Reference{
-				Name: serviceName,
+				Name: svcRef.name,
 			},
 			DefaultConfiguration: props,
 		},
@@ -90,8 +90,8 @@ func buildTargetGroupProps(annos map[string]string, serviceName string, serviceP
 
 	// target-control-port.${serviceName}.${servicePort}
 	if serviceName != "" && servicePort > 0 {
-		tcpSuffix := fmt.Sprintf("%s.%s.%d", annotations.IngressSuffixTargetControlPort, serviceName, servicePort)
-		if v := getInt32(annos, tcpSuffix); v != nil {
+		targetControlPortSuffix := fmt.Sprintf("%s.%s.%d", annotations.IngressSuffixTargetControlPort, serviceName, servicePort)
+		if v := getInt32(annos, targetControlPortSuffix); v != nil {
 			props.TargetControlPort = v
 		}
 	}
