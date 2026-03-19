@@ -2,9 +2,8 @@ package ec2
 
 import (
 	"context"
-	"testing"
-
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -148,38 +147,6 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 						"keyF": "valueF",
 					}),
 					WithIgnoredTagKeys([]string{"keyB", "keyE"}),
-				},
-			},
-			wantErr: nil,
-		},
-		{
-			name: "aws: prefixed tags on current resource are not removed",
-			fields: fields{
-				createTagsWithContextCalls: []createTagsWithContextCall{
-					{
-						req: &ec2sdk.CreateTagsInput{
-							Resources: []string{"sg-a"},
-							Tags: []ec2types.Tag{
-								{
-									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
-									Value: awssdk.String("my-cluster"),
-								},
-							},
-						},
-					},
-				},
-				deleteTagsWithContextCalls: nil,
-			},
-			args: args{
-				resID: "sg-a",
-				desiredTags: map[string]string{
-					"elbv2.k8s.aws/cluster": "my-cluster",
-				},
-				opts: []ReconcileTagsOption{
-					WithCurrentTags(map[string]string{
-						"aws:cloudformation:stack-name": "my-stack",
-						"aws:cloudformation:logical-id": "SG",
-					}),
 				},
 			},
 			wantErr: nil,

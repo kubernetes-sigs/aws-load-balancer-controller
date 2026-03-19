@@ -2,10 +2,9 @@ package elbv2
 
 import (
 	"context"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"sync"
 	"time"
-
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	"k8s.io/apimachinery/pkg/util/cache"
 
@@ -150,7 +149,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 		currentTags = tagsByARN[arn]
 	}
 
-	tagsToUpdate, tagsToRemove := algorithm.DiffStringMapIgnoreAWSTags(desiredTags, currentTags)
+	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, currentTags)
 	for _, ignoredTagKey := range reconcileOpts.IgnoredTagKeys {
 		delete(tagsToUpdate, ignoredTagKey)
 		delete(tagsToRemove, ignoredTagKey)

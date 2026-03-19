@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -90,7 +89,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, resID string,
 		return errors.New("currentTags must be specified")
 	}
 
-	tagsToUpdate, tagsToRemove := algorithm.DiffStringMapIgnoreAWSTags(desiredTags, currentTags)
+	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, currentTags)
 	for _, ignoredTagKey := range reconcileOpts.IgnoredTagKeys {
 		delete(tagsToUpdate, ignoredTagKey)
 		delete(tagsToRemove, ignoredTagKey)
