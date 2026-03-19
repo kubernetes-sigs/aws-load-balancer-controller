@@ -60,6 +60,10 @@ func Test_convertListenerSetListenerToGatewayListener(t *testing.T) {
 	hostname := gwv1.Hostname("example.com")
 	tlsMode := gwv1.TLSModeTerminate
 
+	ls := gwv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-ls", Namespace: "ns1"},
+	}
+
 	entry := gwv1.ListenerEntry{
 		Name:     "my-listener",
 		Hostname: &hostname,
@@ -75,14 +79,15 @@ func Test_convertListenerSetListenerToGatewayListener(t *testing.T) {
 		},
 	}
 
-	result := loader.convertListenerSetListenerToGatewayListener(entry)
+	result := loader.convertListenerSetListenerToGatewayListener(ls, entry)
 
-	assert.Equal(t, gwv1.SectionName("my-listener"), result.Name)
-	assert.Equal(t, &hostname, result.Hostname)
-	assert.Equal(t, gwv1.PortNumber(8080), result.Port)
-	assert.Equal(t, gwv1.HTTPSProtocolType, result.Protocol)
-	assert.Equal(t, &tlsMode, result.TLS.Mode)
-	assert.NotNil(t, result.AllowedRoutes)
+	assert.Equal(t, ls, result.parentRef)
+	assert.Equal(t, gwv1.SectionName("my-listener"), result.listener.Name)
+	assert.Equal(t, &hostname, result.listener.Hostname)
+	assert.Equal(t, gwv1.PortNumber(8080), result.listener.Port)
+	assert.Equal(t, gwv1.HTTPSProtocolType, result.listener.Protocol)
+	assert.Equal(t, &tlsMode, result.listener.TLS.Mode)
+	assert.NotNil(t, result.listener.AllowedRoutes)
 }
 
 func Test_listenerSetGatewayHandshake(t *testing.T) {
@@ -104,9 +109,7 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 			listenerSet: gwv1.ListenerSet{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
 				Spec: gwv1.ListenerSetSpec{
-					ParentRef: gwv1.ParentGatewayReference{
-						Name: "other-gw",
-					},
+					ParentRef: gwv1.ParentGatewayReference{Name: "other-gw"},
 				},
 			},
 			gw: gwv1.Gateway{
@@ -119,9 +122,7 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 			listenerSet: gwv1.ListenerSet{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
 				Spec: gwv1.ListenerSetSpec{
-					ParentRef: gwv1.ParentGatewayReference{
-						Name: "my-gw",
-					},
+					ParentRef: gwv1.ParentGatewayReference{Name: "my-gw"},
 				},
 			},
 			gw: gwv1.Gateway{
@@ -134,18 +135,14 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 			listenerSet: gwv1.ListenerSet{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
 				Spec: gwv1.ListenerSetSpec{
-					ParentRef: gwv1.ParentGatewayReference{
-						Name: "my-gw",
-					},
+					ParentRef: gwv1.ParentGatewayReference{Name: "my-gw"},
 				},
 			},
 			gw: gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsSame,
-						},
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsSame},
 					},
 				},
 			},
@@ -166,9 +163,7 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsSame,
-						},
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsSame},
 					},
 				},
 			},
@@ -189,9 +184,7 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsAll,
-						},
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsAll},
 					},
 				},
 			},
@@ -258,7 +251,6 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 				},
 				logger: logr.Discard(),
 			}
-
 			result, err := loader.listenerSetGatewayHandshake(context.Background(), tc.listenerSet, tc.gw)
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -270,16 +262,19 @@ func Test_listenerSetGatewayHandshake(t *testing.T) {
 	}
 }
 
-func Test_getListenerSets(t *testing.T) {
+func Test_retrieveListenersFromListenerSets(t *testing.T) {
 	nsAll := gwv1.NamespacesFromAll
+	nsSame := gwv1.NamespacesFromSame
 
 	testCases := []struct {
-		name          string
-		listenerSets  []*gwv1.ListenerSet
-		gw            gwv1.Gateway
-		expectedCount int
-		expectedNames []gwv1.SectionName
-		expectErr     bool
+		name                  string
+		listenerSets          []*gwv1.ListenerSet
+		gw                    gwv1.Gateway
+		expectedListenerCount int
+		expectedMapKeys       int
+		expectedRejectedCount int
+		expectedRejectedNames []string
+		expectErr             bool
 	}{
 		{
 			name: "no listener sets in cluster",
@@ -287,13 +282,13 @@ func Test_getListenerSets(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsAll,
-						},
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsAll},
 					},
 				},
 			},
-			expectedCount: 0,
+			expectedListenerCount: 0,
+			expectedMapKeys:       0,
+			expectedRejectedCount: 0,
 		},
 		{
 			name: "one matching listener set with two listeners",
@@ -301,20 +296,10 @@ func Test_getListenerSets(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "ls1", Namespace: "ns1"},
 					Spec: gwv1.ListenerSetSpec{
-						ParentRef: gwv1.ParentGatewayReference{
-							Name: "my-gw",
-						},
+						ParentRef: gwv1.ParentGatewayReference{Name: "my-gw"},
 						Listeners: []gwv1.ListenerEntry{
-							{
-								Name:     "listener-a",
-								Port:     8080,
-								Protocol: gwv1.HTTPProtocolType,
-							},
-							{
-								Name:     "listener-b",
-								Port:     8443,
-								Protocol: gwv1.HTTPSProtocolType,
-							},
+							{Name: "listener-a", Port: 8080, Protocol: gwv1.HTTPProtocolType},
+							{Name: "listener-b", Port: 8443, Protocol: gwv1.HTTPSProtocolType},
 						},
 					},
 				},
@@ -323,30 +308,23 @@ func Test_getListenerSets(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsAll,
-						},
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsAll},
 					},
 				},
 			},
-			expectedCount: 2,
-			expectedNames: []gwv1.SectionName{"listener-a", "listener-b"},
+			expectedListenerCount: 2,
+			expectedMapKeys:       1,
+			expectedRejectedCount: 0,
 		},
 		{
-			name: "listener set referencing different gateway is excluded",
+			name: "irrelevant listener set referencing different gateway - not rejected, just ignored",
 			listenerSets: []*gwv1.ListenerSet{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "ls1", Namespace: "ns1"},
 					Spec: gwv1.ListenerSetSpec{
-						ParentRef: gwv1.ParentGatewayReference{
-							Name: "other-gw",
-						},
+						ParentRef: gwv1.ParentGatewayReference{Name: "other-gw"},
 						Listeners: []gwv1.ListenerEntry{
-							{
-								Name:     "listener-a",
-								Port:     8080,
-								Protocol: gwv1.HTTPProtocolType,
-							},
+							{Name: "listener-a", Port: 8080, Protocol: gwv1.HTTPProtocolType},
 						},
 					},
 				},
@@ -355,44 +333,26 @@ func Test_getListenerSets(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsAll,
-						},
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsAll},
 					},
 				},
 			},
-			expectedCount: 0,
+			expectedListenerCount: 0,
+			expectedMapKeys:       0,
+			expectedRejectedCount: 0,
 		},
 		{
-			name: "mixed matching and non-matching listener sets",
+			name: "rejected listener set - references gateway but namespace not allowed",
 			listenerSets: []*gwv1.ListenerSet{
 				{
-					ObjectMeta: metav1.ObjectMeta{Name: "ls-match", Namespace: "ns1"},
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-rejected", Namespace: "ns2"},
 					Spec: gwv1.ListenerSetSpec{
 						ParentRef: gwv1.ParentGatewayReference{
-							Name: "my-gw",
+							Name:      "my-gw",
+							Namespace: (*gwv1.Namespace)(awssdk.String("ns1")),
 						},
 						Listeners: []gwv1.ListenerEntry{
-							{
-								Name:     "match-listener",
-								Port:     80,
-								Protocol: gwv1.HTTPProtocolType,
-							},
-						},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "ls-nomatch", Namespace: "ns1"},
-					Spec: gwv1.ListenerSetSpec{
-						ParentRef: gwv1.ParentGatewayReference{
-							Name: "other-gw",
-						},
-						Listeners: []gwv1.ListenerEntry{
-							{
-								Name:     "nomatch-listener",
-								Port:     80,
-								Protocol: gwv1.HTTPProtocolType,
-							},
+							{Name: "rejected-listener", Port: 80, Protocol: gwv1.HTTPProtocolType},
 						},
 					},
 				},
@@ -401,14 +361,61 @@ func Test_getListenerSets(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
 				Spec: gwv1.GatewaySpec{
 					AllowedListeners: &gwv1.AllowedListeners{
-						Namespaces: &gwv1.ListenerNamespaces{
-							From: &nsAll,
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsSame},
+					},
+				},
+			},
+			expectedListenerCount: 0,
+			expectedMapKeys:       0,
+			expectedRejectedCount: 1,
+			expectedRejectedNames: []string{"ls-rejected"},
+		},
+		{
+			name: "mixed accepted, rejected, and irrelevant listener sets",
+			listenerSets: []*gwv1.ListenerSet{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-accepted", Namespace: "ns1"},
+					Spec: gwv1.ListenerSetSpec{
+						ParentRef: gwv1.ParentGatewayReference{Name: "my-gw"},
+						Listeners: []gwv1.ListenerEntry{
+							{Name: "accepted-listener", Port: 80, Protocol: gwv1.HTTPProtocolType},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-rejected", Namespace: "ns2"},
+					Spec: gwv1.ListenerSetSpec{
+						ParentRef: gwv1.ParentGatewayReference{
+							Name:      "my-gw",
+							Namespace: (*gwv1.Namespace)(awssdk.String("ns1")),
+						},
+						Listeners: []gwv1.ListenerEntry{
+							{Name: "rejected-listener", Port: 80, Protocol: gwv1.HTTPProtocolType},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "ls-irrelevant", Namespace: "ns1"},
+					Spec: gwv1.ListenerSetSpec{
+						ParentRef: gwv1.ParentGatewayReference{Name: "other-gw"},
+						Listeners: []gwv1.ListenerEntry{
+							{Name: "irrelevant-listener", Port: 80, Protocol: gwv1.HTTPProtocolType},
 						},
 					},
 				},
 			},
-			expectedCount: 1,
-			expectedNames: []gwv1.SectionName{"match-listener"},
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-gw", Namespace: "ns1"},
+				Spec: gwv1.GatewaySpec{
+					AllowedListeners: &gwv1.AllowedListeners{
+						Namespaces: &gwv1.ListenerNamespaces{From: &nsSame},
+					},
+				},
+			},
+			expectedListenerCount: 1,
+			expectedMapKeys:       1,
+			expectedRejectedCount: 1,
+			expectedRejectedNames: []string{"ls-rejected"},
 		},
 	}
 
@@ -426,20 +433,30 @@ func Test_getListenerSets(t *testing.T) {
 				logger:            logr.Discard(),
 			}
 
-			result, err := loader.getListenerSets(context.Background(), tc.gw)
+			loadResult, rejectedSets, err := loader.retrieveListenersFromListenerSets(context.Background(), tc.gw)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Len(t, result, tc.expectedCount)
+			assert.Len(t, loadResult.listenersPerListenerSet, tc.expectedMapKeys)
+			assert.Len(t, rejectedSets, tc.expectedRejectedCount)
 
-			if tc.expectedNames != nil {
-				var names []gwv1.SectionName
-				for _, l := range result {
-					names = append(names, l.Name)
+			totalListeners := 0
+			for _, sources := range loadResult.listenersPerListenerSet {
+				totalListeners += len(sources)
+			}
+			assert.Equal(t, tc.expectedListenerCount, totalListeners)
+
+			// acceptedListenerSets count should match the number of map keys
+			assert.Len(t, loadResult.acceptedListenerSets, tc.expectedMapKeys)
+
+			if tc.expectedRejectedNames != nil {
+				var rejectedNames []string
+				for _, rs := range rejectedSets {
+					rejectedNames = append(rejectedNames, rs.Name)
 				}
-				assert.Equal(t, tc.expectedNames, names)
+				assert.Equal(t, tc.expectedRejectedNames, rejectedNames)
 			}
 		})
 	}
