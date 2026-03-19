@@ -1,9 +1,13 @@
 package algorithm
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+// awsSystemTagPrefix is the prefix for AWS-reserved system tags, which are immutable.
+const awsSystemTagPrefix = "aws:"
 
 // MapFindFirst get from list of maps until first found.
 func MapFindFirst(key string, maps ...map[string]string) (string, bool) {
@@ -51,6 +55,24 @@ func DiffStringMap(desired map[string]string, current map[string]string) (map[st
 	}
 
 	return modify, remove
+}
+
+// DiffStringMapIgnoreAWSTags is like DiffStringMap but filters out AWS-reserved system tags
+// (prefixed with "aws:") from both results. These tags are immutable.
+func DiffStringMapIgnoreAWSTags(desired map[string]string, current map[string]string) (map[string]string, map[string]string) {
+	modify, remove := DiffStringMap(desired, current)
+	RemoveKeysByPrefix(modify, awsSystemTagPrefix)
+	RemoveKeysByPrefix(remove, awsSystemTagPrefix)
+	return modify, remove
+}
+
+// RemoveKeysByPrefix removes all entries from the map whose key starts with the given prefix.
+func RemoveKeysByPrefix(m map[string]string, prefix string) {
+	for key := range m {
+		if strings.HasPrefix(key, prefix) {
+			delete(m, key)
+		}
+	}
 }
 
 func CSVToStringSet(csv string) sets.Set[string] {

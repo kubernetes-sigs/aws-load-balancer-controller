@@ -219,6 +219,73 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			want: "sg-autogen",
 		},
 		{
+			name: "backend sg enabled, auto-gen, SG exists, aws system tags are not removed",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []ec2types.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("aws:cloudformation:stack-name"),
+										Value: awssdk.String("my-stack"),
+									},
+									{
+										Key:   awssdk.String("aws:cloudformation:stack-id"),
+										Value: awssdk.String("arn:aws:cloudformation:us-east-1:123456789:stack/my-stack"),
+									},
+									{
+										Key:   awssdk.String("aws:servicecatalog:portfolio"),
+										Value: awssdk.String("my-portfolio"),
+									},
+									{
+										Key:   awssdk.String("tag-to-be-deleted"),
+										Value: awssdk.String("delete-me"),
+									},
+								},
+							},
+						},
+					},
+				},
+				createTagsWithContextCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+									Value: awssdk.String("backend-sg"),
+								},
+							},
+						},
+					},
+				},
+				deleteTagsWithContextCalls: []deleteTagsWithContextCall{
+					{
+						req: &ec2sdk.DeleteTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("tag-to-be-deleted"),
+									Value: awssdk.String("delete-me"),
+								},
+							},
+						},
+					},
+				},
+				ingResources: []*networking.Ingress{ing, ing1},
+			},
+			want: "sg-autogen",
+		},
+		{
 			name: "backend sg enabled, auto-gen, SG exists, tags sync error",
 			fields: fields{
 				describeSGCalls: []describeSecurityGroupsAsListCall{

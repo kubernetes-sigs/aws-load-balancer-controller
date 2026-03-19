@@ -5,14 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/aws/smithy-go"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -303,7 +304,7 @@ func (p *defaultBackendSGProvider) reconcileTags(ctx context.Context, sg ec2type
 		currentTags[awssdk.ToString(tag.Key)] = awssdk.ToString(tag.Value)
 	}
 
-	tagsToUpdate, tagsToRemove := algorithm.DiffStringMap(desiredTags, currentTags)
+	tagsToUpdate, tagsToRemove := algorithm.DiffStringMapIgnoreAWSTags(desiredTags, currentTags)
 
 	if len(tagsToUpdate) > 0 {
 		req := &ec2sdk.CreateTagsInput{

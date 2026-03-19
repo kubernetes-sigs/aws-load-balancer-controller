@@ -2,9 +2,10 @@ package elbv2
 
 import (
 	"context"
+	"testing"
+
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -159,6 +160,41 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 						"keyA": "valueA",
 						"keyB": "valueB",
 						"keyC": "valueC",
+					}),
+				},
+			},
+		},
+		{
+			name: "aws: prefixed tags on current resource are not removed",
+			fields: fields{
+				describeTagsWithContextCalls: nil,
+				addTagsWithContextCalls: []addTagsWithContextCall{
+					{
+						req: &elbv2sdk.AddTagsInput{
+							ResourceArns: []string{"my-arn"},
+							Tags: []elbv2types.Tag{
+								{
+									Key:   awssdk.String("service.k8s.aws/stack"),
+									Value: awssdk.String("default/test-svc"),
+								},
+							},
+						},
+					},
+				},
+				removeTagsWithContextCalls: nil,
+			},
+			args: args{
+				arn: "my-arn",
+				desiredTags: map[string]string{
+					"elbv2.k8s.aws/cluster": "my-cluster",
+					"service.k8s.aws/stack": "default/test-svc",
+				},
+				opts: []ReconcileTagsOption{
+					WithCurrentTags(map[string]string{
+						"elbv2.k8s.aws/cluster":         "my-cluster",
+						"aws:cloudformation:stack-name": "my-stack",
+						"aws:cloudformation:stack-id":   "arn:aws:cloudformation:us-east-1:123:stack/my-stack/abc",
+						"aws:cloudformation:logical-id": "NLB",
 					}),
 				},
 			},
