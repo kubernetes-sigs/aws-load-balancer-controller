@@ -231,16 +231,12 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 
 	loaderResults, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.controllerName, resolvedDefaultTGC)
 
-	validationHasErrors := false
-	if loaderResults != nil {
-		validationHasErrors = loaderResults.ValidationResults.HasErrors()
-	}
-	if err != nil || validationHasErrors {
+	if err != nil || loaderResults.ValidationResults.HasErrors {
 		var loaderErr routeutils.LoaderError
-		if errors.As(err, &loaderErr) || validationHasErrors {
+		if errors.As(err, &loaderErr) || loaderResults.ValidationResults.HasErrors {
 			var gatewayReason gwv1.GatewayConditionReason
 			var gatewayMessage string
-			if loaderErr == nil && validationHasErrors {
+			if loaderErr == nil && loaderResults.ValidationResults.HasErrors {
 				gatewayReason = gwv1.GatewayReasonAccepted
 				gatewayMessage = gateway_constants.GatewayAcceptedFalseMessage
 			} else {
