@@ -57,3 +57,6 @@ metadata:
 spec:
   scheme: internet-facing
   ipAddressType: ipv4
+---
+# This comment-only document should be silently skipped by the reader.
+# It tests that comment-only YAML documents don't produce errors.

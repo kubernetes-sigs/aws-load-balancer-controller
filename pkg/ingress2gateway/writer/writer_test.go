@@ -7,91 +7,105 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func TestWrite_YAML(t *testing.T) {
-	tmpDir := t.TempDir()
-	resources := &ingress2gateway.InputResources{
-		Ingresses: []networking.Ingress{
-			{
-				TypeMeta:   metav1.TypeMeta{APIVersion: "networking.k8s.io/v1", Kind: "Ingress"},
-				ObjectMeta: metav1.ObjectMeta{Name: "test-ing", Namespace: "default"},
-			},
-		},
+func TestWrite(t *testing.T) {
+	baseGatewayClass := gwv1.GatewayClass{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "gateway.networking.k8s.io/v1", Kind: "GatewayClass"},
+		ObjectMeta: metav1.ObjectMeta{Name: "aws-alb"},
 	}
 
-	err := Write(resources, tmpDir, "yaml")
-	require.NoError(t, err)
-
-	files, err := os.ReadDir(tmpDir)
-	require.NoError(t, err)
-	assert.Len(t, files, 1)
-	assert.Equal(t, "default-test-ing-ingress.yaml", files[0].Name())
-}
-
-func TestWrite_JSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	resources := &ingress2gateway.InputResources{
-		Ingresses: []networking.Ingress{
-			{
-				TypeMeta:   metav1.TypeMeta{APIVersion: "networking.k8s.io/v1", Kind: "Ingress"},
-				ObjectMeta: metav1.ObjectMeta{Name: "test-ing", Namespace: "ns1"},
-			},
-		},
-	}
-
-	err := Write(resources, tmpDir, "json")
-	require.NoError(t, err)
-
-	files, err := os.ReadDir(tmpDir)
-	require.NoError(t, err)
-	assert.Len(t, files, 1)
-	assert.Equal(t, "ns1-test-ing-ingress.json", files[0].Name())
-
-	content, err := os.ReadFile(filepath.Join(tmpDir, files[0].Name()))
-	require.NoError(t, err)
-	assert.Contains(t, string(content), `"kind": "Ingress"`)
-}
-
-func TestWrite_InvalidFormat(t *testing.T) {
-	tmpDir := t.TempDir()
-	resources := &ingress2gateway.InputResources{}
-	err := Write(resources, tmpDir, "xml")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported output format")
-}
-
-func TestWrite_CreatesOutputDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	outputDir := filepath.Join(tmpDir, "nested", "output")
-	resources := &ingress2gateway.InputResources{}
-
-	err := Write(resources, outputDir, "yaml")
-	require.NoError(t, err)
-
-	info, err := os.Stat(outputDir)
-	require.NoError(t, err)
-	assert.True(t, info.IsDir())
-}
-
-func TestResourceFileName(t *testing.T) {
 	tests := []struct {
-		namespace string
-		name      string
-		kind      string
-		format    string
-		expected  string
+		name         string
+		resources    *ingress2gateway.OutputResources
+		format       string
+		wantErr      bool
+		errContains  string
+		wantFileName string
+		wantContains []string
 	}{
-		{"default", "my-ing", "ingress", "yaml", "default-my-ing-ingress.yaml"},
-		{"", "alb", "ingressclass", "yaml", "alb-ingressclass.yaml"},
-		{"prod", "api", "service", "json", "prod-api-service.json"},
+		{
+			name: "yaml with gateway class and gateway",
+			resources: &ingress2gateway.OutputResources{
+				GatewayClass: baseGatewayClass,
+				Gateways: []gwv1.Gateway{
+					{
+						TypeMeta:   metav1.TypeMeta{APIVersion: "gateway.networking.k8s.io/v1", Kind: "Gateway"},
+						ObjectMeta: metav1.ObjectMeta{Name: "test-gateway", Namespace: "default"},
+					},
+				},
+			},
+			format:       "yaml",
+			wantFileName: "gateway-resources.yaml",
+			wantContains: []string{"kind: GatewayClass", "kind: Gateway"},
+		},
+		{
+			name: "json output",
+			resources: &ingress2gateway.OutputResources{
+				GatewayClass: baseGatewayClass,
+			},
+			format:       "json",
+			wantFileName: "gateway-resources.json",
+			wantContains: []string{`"kind": "GatewayClass"`},
+		},
+		{
+			name:        "invalid format",
+			resources:   &ingress2gateway.OutputResources{},
+			format:      "xml",
+			wantErr:     true,
+			errContains: "unsupported output format",
+		},
+		{
+			name: "creates nested output directory",
+			resources: &ingress2gateway.OutputResources{
+				GatewayClass: baseGatewayClass,
+			},
+			format:       "yaml",
+			wantFileName: "gateway-resources.yaml",
+		},
 	}
 
 	for _, tt := range tests {
-		result := resourceFileName(tt.namespace, tt.name, tt.kind, tt.format)
-		assert.Equal(t, tt.expected, result)
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			outputDir := tmpDir
+			if tt.name == "creates nested output directory" {
+				outputDir = filepath.Join(tmpDir, "nested", "output")
+			}
+
+			err := Write(tt.resources, outputDir, tt.format)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+
+			info, err := os.Stat(outputDir)
+			require.NoError(t, err)
+			assert.True(t, info.IsDir())
+
+			if tt.wantFileName != "" {
+				files, err := os.ReadDir(outputDir)
+				require.NoError(t, err)
+				assert.Len(t, files, 1)
+				assert.Equal(t, tt.wantFileName, files[0].Name())
+
+				if len(tt.wantContains) > 0 {
+					content, err := os.ReadFile(filepath.Join(outputDir, files[0].Name()))
+					require.NoError(t, err)
+					for _, s := range tt.wantContains {
+						assert.Contains(t, string(content), s)
+					}
+				}
+			}
+		})
 	}
 }

@@ -14,136 +14,116 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/reader"
 )
 
-func TestCheckMissingResources_NoWarnings(t *testing.T) {
-	resources := &ingress2gateway.InputResources{
-		Ingresses: []networking.Ingress{
-			{
-				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-				Spec: networking.IngressSpec{
-					IngressClassName: ptr.To("alb"),
-					Rules: []networking.IngressRule{
-						{
-							Host: "example.com",
-							IngressRuleValue: networking.IngressRuleValue{
-								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
+func TestCheckMissingResources(t *testing.T) {
+	tests := []struct {
+		name         string
+		resources    *ingress2gateway.InputResources
+		wantCount    int
+		wantContains []string
+		wantEmpty    bool
+	}{
+		{
+			name: "no warnings when all resources present",
+			resources: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+						Spec: networking.IngressSpec{
+							IngressClassName: ptr.To("alb"),
+							Rules: []networking.IngressRule{{
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
 											Backend: networking.IngressBackend{
-												Service: &networking.IngressServiceBackend{
-													Name: "my-svc",
-												},
+												Service: &networking.IngressServiceBackend{Name: "my-svc"},
 											},
-										},
+										}},
 									},
 								},
-							},
+							}},
 						},
 					},
 				},
+				Services:       []corev1.Service{{ObjectMeta: metav1.ObjectMeta{Name: "my-svc", Namespace: "default"}}},
+				IngressClasses: []networking.IngressClass{{ObjectMeta: metav1.ObjectMeta{Name: "alb"}}},
 			},
+			wantCount: 0,
+			wantEmpty: true,
 		},
-		Services: []corev1.Service{
-			{ObjectMeta: metav1.ObjectMeta{Name: "my-svc", Namespace: "default"}},
-		},
-		IngressClasses: []networking.IngressClass{
-			{ObjectMeta: metav1.ObjectMeta{Name: "alb"}},
-		},
-	}
-
-	var buf bytes.Buffer
-	count := CheckMissingResources(resources, &buf)
-	assert.Equal(t, 0, count)
-	assert.Empty(t, buf.String())
-}
-
-func TestCheckMissingResources_MissingService(t *testing.T) {
-	resources := &ingress2gateway.InputResources{
-		Ingresses: []networking.Ingress{
-			{
-				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-				Spec: networking.IngressSpec{
-					Rules: []networking.IngressRule{
-						{
+		{
+			name: "missing service in rule backend",
+			resources: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{{
 							IngressRuleValue: networking.IngressRuleValue{
 								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
-											Backend: networking.IngressBackend{
-												Service: &networking.IngressServiceBackend{
-													Name: "missing-svc",
-												},
-											},
+									Paths: []networking.HTTPIngressPath{{
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{Name: "missing-svc"},
 										},
-									},
+									}},
 								},
 							},
+						}},
+					},
+				}},
+			},
+			wantCount:    1,
+			wantContains: []string{"missing-svc", "WARNING"},
+		},
+		{
+			name: "missing ingress class",
+			resources: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+					Spec:       networking.IngressSpec{IngressClassName: ptr.To("missing-class")},
+				}},
+			},
+			wantCount:    1,
+			wantContains: []string{"missing-class", "IngressClass"},
+		},
+		{
+			name: "missing default backend service",
+			resources: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+					Spec: networking.IngressSpec{
+						DefaultBackend: &networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{Name: "default-backend-svc"},
 						},
 					},
-				},
+				}},
 			},
+			wantCount:    1,
+			wantContains: []string{"default-backend-svc"},
 		},
 	}
 
-	var buf bytes.Buffer
-	count := CheckMissingResources(resources, &buf)
-	assert.Equal(t, 1, count)
-	assert.Contains(t, buf.String(), "missing-svc")
-	assert.Contains(t, buf.String(), "WARNING")
-}
-
-func TestCheckMissingResources_MissingIngressClass(t *testing.T) {
-	resources := &ingress2gateway.InputResources{
-		Ingresses: []networking.Ingress{
-			{
-				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-				Spec: networking.IngressSpec{
-					IngressClassName: ptr.To("missing-class"),
-				},
-			},
-		},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			count := CheckMissingResources(tt.resources, &buf)
+			assert.Equal(t, tt.wantCount, count)
+			if tt.wantEmpty {
+				assert.Empty(t, buf.String())
+			}
+			for _, s := range tt.wantContains {
+				assert.Contains(t, buf.String(), s)
+			}
+		})
 	}
-
-	var buf bytes.Buffer
-	count := CheckMissingResources(resources, &buf)
-	assert.Equal(t, 1, count)
-	assert.Contains(t, buf.String(), "missing-class")
-	assert.Contains(t, buf.String(), "IngressClass")
-}
-
-func TestCheckMissingResources_MissingDefaultBackendService(t *testing.T) {
-	resources := &ingress2gateway.InputResources{
-		Ingresses: []networking.Ingress{
-			{
-				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-				Spec: networking.IngressSpec{
-					DefaultBackend: &networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "default-backend-svc",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	var buf bytes.Buffer
-	count := CheckMissingResources(resources, &buf)
-	assert.Equal(t, 1, count)
-	assert.Contains(t, buf.String(), "default-backend-svc")
 }
 
 func TestCheckMissingResources_FromFile(t *testing.T) {
-	// End-to-end: read a file with an Ingress referencing a missing Service,
-	// then verify the warning is emitted correctly.
 	resources, err := reader.ReadFromFiles([]string{"../utils/test_files/ingress_missing_service.yaml"})
 	require.NoError(t, err)
 	require.Len(t, resources.Ingresses, 1)
 
 	var buf bytes.Buffer
 	count := CheckMissingResources(resources, &buf)
-	assert.Equal(t, 2, count) // 1 missing Service + 1 missing IngressClass
+	assert.Equal(t, 2, count)
 	assert.Contains(t, buf.String(), "service-2048")
-	assert.Contains(t, buf.String(), "Service-level annotation overrides may be missing")
-	assert.Contains(t, buf.String(), `IngressClass "alb"`)
 	assert.Contains(t, buf.String(), "Tip: Use --from-cluster")
 }

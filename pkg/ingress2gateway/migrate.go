@@ -7,9 +7,8 @@ import (
 )
 
 // Migrate is the top-level orchestrator that reads input resources,
-// checks for missing references, and writes output.
-// The translate step (annotation mapping) will be added later.
-func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, writeFunc WriteFunc) error {
+// translates them to Gateway API manifests, and writes output.
+func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, translateFunc TranslateFunc, writeFunc WriteFunc) error {
 	resources, err := readFunc(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to read input resources: %w", err)
@@ -24,10 +23,12 @@ func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, writeF
 		len(resources.Ingresses), len(resources.Services),
 		len(resources.IngressClasses), len(resources.IngressClassParams))
 
-	// TODO: translate InputResources → OutputResources (Gateway API manifests)
-	// For now, we pass through the input resources as-is.
+	output, err := translateFunc(resources)
+	if err != nil {
+		return fmt.Errorf("failed to translate resources: %w", err)
+	}
 
-	if err := writeFunc(resources, opts.OutputDir, opts.OutputFormat); err != nil {
+	if err := writeFunc(output, opts.OutputDir, opts.OutputFormat); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
@@ -37,5 +38,8 @@ func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, writeF
 // ReadFunc is the signature for reading input resources.
 type ReadFunc func(ctx context.Context, opts MigrateOptions) (*InputResources, error)
 
+// TranslateFunc is the signature for translating input resources to output resources.
+type TranslateFunc func(in *InputResources) (*OutputResources, error)
+
 // WriteFunc is the signature for writing output resources.
-type WriteFunc func(resources *InputResources, outputDir string, format string) error
+type WriteFunc func(resources *OutputResources, outputDir string, format string) error
