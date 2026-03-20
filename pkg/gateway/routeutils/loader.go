@@ -134,7 +134,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, gw.Spec.Listeners, loadedRoutes)
+	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes)
 
 	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
 

@@ -21,6 +21,17 @@ type allListeners struct {
 	ListenerSetListeners listenerSetLoadResult
 }
 
+type routeParentRefTuple struct {
+	route     preLoadRouteDescriptor
+	parentRef gwv1.ParentReference
+}
+
+type listenersWithRoutes struct {
+	GatewayListeners                 map[gwv1.SectionName][]routeParentRefTuple
+	GatewayListenerSectionNameToPort map[gwv1.SectionName]int32
+	ListenerSetListeners             map[types.NamespacedName]map[gwv1.SectionName][]routeParentRefTuple
+}
+
 type ValidatedGatewayListeners struct {
 	GatewayListenerValidation     ListenerValidationResults
 	ListenerSetListenerValidation map[types.NamespacedName]ListenerValidationResults

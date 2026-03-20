@@ -26,27 +26,7 @@ func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Cont
 	return nil, m.attachmentMap[k], nil, nil
 }
 
-type mockRouteAttachmentHelper struct {
-	routeGatewayMap  map[string]bool
-	routeListenerMap map[string]bool
-}
-
-func makeRouteGatewayMapKey(gw gwv1.Gateway, route preLoadRouteDescriptor) string {
-	nsn := route.GetRouteNamespacedName()
-	return fmt.Sprintf("%s-%s-%s-%s", gw.Name, gw.Namespace, nsn.Name, nsn.Namespace)
-}
-
-func (m *mockRouteAttachmentHelper) doesRouteAttachToGateway(gw gwv1.Gateway, route preLoadRouteDescriptor) bool {
-	k := makeRouteGatewayMapKey(gw, route)
-	return m.routeGatewayMap[k]
-}
-
-func (m *mockRouteAttachmentHelper) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, *gwv1.ParentReference) {
-	k := makeListenerAttachmentMapKey(listener, route)
-	return m.routeListenerMap[k], nil
-}
-
-func Test_mapGatewayAndRoutes(t *testing.T) {
+func Test_mapListenersAndRoutes(t *testing.T) {
 
 	route1 := convertHTTPRoute(gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -435,13 +415,9 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				listenerAttachmentHelper: &mockListenerAttachmentHelper{
 					attachmentMap: tc.listenerAttachmentMap,
 				},
-				routeAttachmentHelper: &mockRouteAttachmentHelper{
-					routeListenerMap: tc.routeListenerMap,
-					routeGatewayMap:  tc.routeGatewayMap,
-				},
 				logger: logr.Discard(),
 			}
-			result, compatibleHostnames, statusUpdates, _, routesPerListener, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.gw.Spec.Listeners, tc.routes)
+			result, compatibleHostnames, statusUpdates, _, routesPerListener, err := mapper.mapListenersAndRoutes(context.Background(), tc.gw, allListeners{GatewayListeners: tc.gw.Spec.Listeners}, tc.routes)
 
 			if tc.expectErr {
 				assert.Error(t, err)
