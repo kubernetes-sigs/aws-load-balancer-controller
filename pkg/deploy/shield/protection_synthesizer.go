@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	protectionNameManaged       = "managed by aws-load-balancer-controller"
-	protectionNameManagedLegacy = "managed by aws-alb-ingress-controller"
+	ProtectionNameManaged       = "managed by aws-load-balancer-controller"
+	ProtectionNameManagedLegacy = "managed by aws-alb-ingress-controller"
 )
+
+var managedProtectionNames = sets.NewString(ProtectionNameManaged, ProtectionNameManagedLegacy)
 
 // NewProtectionSynthesizer constructs new protectionSynthesizer
 func NewProtectionSynthesizer(protectionManager ProtectionManager, logger logr.Logger, stack core.Stack) *protectionSynthesizer {
@@ -66,8 +68,7 @@ func (s *protectionSynthesizer) synthesizeProtectionsOnLB(ctx context.Context, l
 	}
 	switch {
 	case !enableProtection && protectionInfo != nil:
-		managedProtectionNames := sets.NewString(protectionNameManaged, protectionNameManagedLegacy)
-		if managedProtectionNames.Has(protectionInfo.Name) {
+		if IsManagedProtectionName(protectionInfo.Name) {
 			if err := s.protectionManager.DeleteProtection(ctx, lbARN, protectionInfo.ID); err != nil {
 				return errors.Wrap(err, "failed to delete shield protection on LoadBalancer")
 			}
@@ -77,11 +78,15 @@ func (s *protectionSynthesizer) synthesizeProtectionsOnLB(ctx context.Context, l
 				"protectionID", protectionInfo.ID)
 		}
 	case enableProtection && protectionInfo == nil:
-		if _, err := s.protectionManager.CreateProtection(ctx, lbARN, protectionNameManaged); err != nil {
+		if _, err := s.protectionManager.CreateProtection(ctx, lbARN, ProtectionNameManaged); err != nil {
 			return errors.Wrap(err, "failed to create shield protection on LoadBalancer")
 		}
 	}
 	return nil
+}
+
+func IsManagedProtectionName(name string) bool {
+	return managedProtectionNames.Has(name)
 }
 
 func mapResProtectionByResourceARN(resProtections []*shieldmodel.Protection) (map[string][]*shieldmodel.Protection, error) {
