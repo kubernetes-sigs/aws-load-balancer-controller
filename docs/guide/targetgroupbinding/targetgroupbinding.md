@@ -272,5 +272,5 @@ spec:
 ## Reference
 See the [reference](./spec.md) for TargetGroupBinding CR
 
-[LabelSelector]: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#labelselector-v1-meta
+[LabelSelector]: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#labelselector-v1-meta
 
