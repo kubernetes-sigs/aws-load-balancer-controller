@@ -408,7 +408,9 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 							gwv1.Listener{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
 						),
 					},
-					acceptedListenerSets: []*gwv1.ListenerSet{&ls},
+					acceptedListenerSets: map[types.NamespacedName]gwv1.ListenerSet{
+						lsNN(ls.Name, ls.Namespace): ls,
+					},
 				}
 			}(),
 			controllerName:           gateway_constants.ALBGatewayController,
@@ -432,7 +434,9 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 							gwv1.Listener{Name: "ls-https", Port: 80, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
 						),
 					},
-					acceptedListenerSets: []*gwv1.ListenerSet{&ls},
+					acceptedListenerSets: map[types.NamespacedName]gwv1.ListenerSet{
+						lsNN(ls.Name, ls.Namespace): ls,
+					},
 				}
 			}(),
 			controllerName:           gateway_constants.ALBGatewayController,
@@ -457,7 +461,9 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 							gwv1.Listener{Name: "ls-http", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: (*gwv1.Hostname)(&[]string{"example.com"}[0]), AllowedRoutes: &gwv1.AllowedRoutes{}},
 						),
 					},
-					acceptedListenerSets: []*gwv1.ListenerSet{&ls},
+					acceptedListenerSets: map[types.NamespacedName]gwv1.ListenerSet{
+						lsNN(ls.Name, ls.Namespace): ls,
+					},
 				}
 			}(),
 			controllerName:           gateway_constants.ALBGatewayController,
@@ -479,7 +485,9 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 							gwv1.Listener{Name: "tcp", Port: 80, Protocol: gwv1.TCPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
 						),
 					},
-					acceptedListenerSets: []*gwv1.ListenerSet{&ls},
+					acceptedListenerSets: map[types.NamespacedName]gwv1.ListenerSet{
+						lsNN(ls.Name, ls.Namespace): ls,
+					},
 				}
 			}(),
 			controllerName:           gateway_constants.ALBGatewayController,
@@ -504,7 +512,10 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 							gwv1.Listener{Name: "https", Port: 80, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
 						),
 					},
-					acceptedListenerSets: []*gwv1.ListenerSet{&ls1, &ls2},
+					acceptedListenerSets: map[types.NamespacedName]gwv1.ListenerSet{
+						lsNN(ls1.Name, ls1.Namespace): ls1,
+						lsNN(ls2.Name, ls2.Namespace): ls2,
+					},
 				}
 			}(),
 			controllerName:           gateway_constants.ALBGatewayController,
@@ -520,7 +531,7 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 			gatewayListeners: []gwv1.Listener{},
 			listenerSetLoadResult: listenerSetLoadResult{
 				listenersPerListenerSet: map[types.NamespacedName][]listenerSetListenerSource{},
-				acceptedListenerSets:    []*gwv1.ListenerSet{},
+				acceptedListenerSets:    map[types.NamespacedName]gwv1.ListenerSet{},
 			},
 			controllerName:           gateway_constants.ALBGatewayController,
 			expectedGatewayHasErrors: false,
@@ -539,7 +550,9 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 							gwv1.Listener{Name: "ls-https", Port: 443, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
 						),
 					},
-					acceptedListenerSets: []*gwv1.ListenerSet{&ls},
+					acceptedListenerSets: map[types.NamespacedName]gwv1.ListenerSet{
+						lsNN(ls.Name, ls.Namespace): ls,
+					},
 				}
 			}(),
 			controllerName:           gateway_constants.ALBGatewayController,

@@ -15,7 +15,7 @@ import (
 // listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
 // a route to attach to it.
 type listenerAttachmentHelper interface {
-	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error)
+	listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
@@ -36,9 +36,9 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between listener and route.
 // Returns: (compatibleHostnames, allowed, failedRouteData, error)
-func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
 	// check namespace TODO --- Update for ListenerSet, should be ListenerSet namespace.
-	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, gw, listener, route)
+	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, parentNamespace, listener, route)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -79,7 +79,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 
 // namespaceCheck namespace check implements the Gateway API spec for namespace matching between listener
 // and route to determine compatibility.
-func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
 	var allowedNamespaces gwv1.FromNamespaces
 	var labelSelector *metav1.LabelSelector
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
@@ -88,7 +88,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context
 		allowedNamespaces = *listener.AllowedRoutes.Namespaces.From
 		labelSelector = listener.AllowedRoutes.Namespaces.Selector
 	}
-	return doesResourceAllowNamespace(ctx, allowedNamespaces, labelSelector, attachmentHelper.namespaceSelector, route.GetRouteNamespacedName().Namespace, gw)
+	return doesResourceAllowNamespace(ctx, allowedNamespaces, labelSelector, attachmentHelper.namespaceSelector, route.GetRouteNamespacedName().Namespace, parentNamespace)
 }
 
 // kindCheck kind check implements the Gateway API spec for kindCheck matching between listener

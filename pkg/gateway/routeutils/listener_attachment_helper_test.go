@@ -74,13 +74,6 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 	// Using an HTTP route always
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			gw := gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gw1",
-					Namespace: tc.gwNamespace,
-				},
-			}
-
 			route := &httpRouteDescription{route: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route1",
@@ -92,7 +85,7 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			}
 			hostnameFromHttpRoute := map[int32]sets.Set[gwv1.Hostname]{}
 			hostnameFromGrpcRoute := map[int32]sets.Set[gwv1.Hostname]{}
-			_, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
+			_, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), tc.gwNamespace, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
 			}, route, &matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
@@ -100,8 +93,8 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 				assert.Nil(t, statusUpdate)
 			} else {
 				assert.NotNil(t, statusUpdate)
-				assert.Equal(t, gwv1.ObjectName(gw.Name), statusUpdate.ParentRef.Name)
-				assert.Equal(t, gwv1.Namespace(gw.Namespace), *statusUpdate.ParentRef.Namespace)
+				assert.Equal(t, gwv1.ObjectName("gw1"), statusUpdate.ParentRef.Name)
+				assert.Equal(t, gwv1.Namespace(tc.gwNamespace), *statusUpdate.ParentRef.Namespace)
 				assert.Equal(t, route.GetRouteNamespacedName().Name, statusUpdate.RouteMetadata.RouteName)
 				assert.Equal(t, route.GetRouteNamespacedName().Namespace, statusUpdate.RouteMetadata.RouteNamespace)
 				assert.Equal(t, tc.expectedStatusUpdate.message, statusUpdate.RouteStatusInfo.Message)
@@ -301,13 +294,6 @@ func Test_namespaceCheck(t *testing.T) {
 					logger: logr.Discard(),
 				}
 
-				gw := gwv1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "gw1",
-						Namespace: scenario.gwNamespace,
-					},
-				}
-
 				route := &httpRouteDescription{route: &gwv1.HTTPRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "route1",
@@ -315,7 +301,7 @@ func Test_namespaceCheck(t *testing.T) {
 					},
 				}}
 
-				result, err := attachmentHelper.namespaceCheck(context.Background(), gw, tc.listener, route)
+				result, err := attachmentHelper.namespaceCheck(context.Background(), scenario.gwNamespace, tc.listener, route)
 
 				if tc.expectErr {
 					assert.Error(t, err)
