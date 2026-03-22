@@ -22,14 +22,10 @@ type allListeners struct {
 }
 
 type routeParentRefTuple struct {
-	route     preLoadRouteDescriptor
-	parentRef gwv1.ParentReference
-}
-
-type listenersWithRoutes struct {
-	GatewayListeners                 map[gwv1.SectionName][]routeParentRefTuple
-	GatewayListenerSectionNameToPort map[gwv1.SectionName]int32
-	ListenerSetListeners             map[types.NamespacedName]map[gwv1.SectionName][]routeParentRefTuple
+	route      preLoadRouteDescriptor
+	parentRef  gwv1.ParentReference
+	parent     interface{}
+	parentKind string
 }
 
 type ValidatedGatewayListeners struct {

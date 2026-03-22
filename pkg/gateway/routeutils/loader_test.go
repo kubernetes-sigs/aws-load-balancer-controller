@@ -19,21 +19,25 @@ import (
 type mockMapper struct {
 	t                  *testing.T
 	expectedRoutes     []preLoadRouteDescriptor
-	mapToReturn        map[int][]preLoadRouteDescriptor
+	mapToReturn        map[int32][]preLoadRouteDescriptor
 	listenerRouteCount map[gwv1.SectionName]int32
 	routeStatusUpdates []RouteData
+	matchedParentRefs  map[string][]gwv1.ParentReference
 }
 
-func (m *mockMapper) mapListenersAndRoutes(context context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
+func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (map[int32][]preLoadRouteDescriptor, map[int32]map[string]sets.Set[gwv1.Hostname], []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	matchedParentRefs := make(map[string][]gwv1.ParentReference)
 	for _, routeList := range m.mapToReturn {
 		for _, route := range routeList {
 			routeKey := route.GetRouteIdentifier()
-			matchedParentRefs[routeKey] = []gwv1.ParentReference{{}}
+			matchedParentRefs[routeKey] = []gwv1.ParentReference{{
+				Name:      "gw",
+				Namespace: (*gwv1.Namespace)(new("gw-ns")),
+			}}
 		}
 	}
-	return m.mapToReturn, make(map[int32]map[string][]gwv1.Hostname), m.routeStatusUpdates, matchedParentRefs, m.listenerRouteCount, nil
+	return m.mapToReturn, make(map[int32]map[string]sets.Set[gwv1.Hostname]), m.routeStatusUpdates, matchedParentRefs, m.listenerRouteCount, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}
@@ -182,7 +186,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 		name                     string
 		acceptedKinds            sets.Set[RouteKind]
 		expectedMap              map[int32][]RouteDescriptor
-		expectedPreloadMap       map[int][]preLoadRouteDescriptor
+		expectedPreloadMap       map[int32][]preLoadRouteDescriptor
 		expectedPreMappedRoutes  []preLoadRouteDescriptor
 		mapperRouteStatusUpdates []RouteData
 		expectedReconcileQueue   map[string]bool // generateRouteDataCacheKey -> succeeded
@@ -199,7 +203,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "filter only allows http route",
 			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80: preLoadHTTPRoutes,
 			},
 			expectedMap: map[int32][]RouteDescriptor{
@@ -215,7 +219,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "filter only allows http route, multiple ports",
 			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80:  preLoadHTTPRoutes,
 				443: preLoadHTTPRoutes,
 			},
@@ -233,7 +237,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "filter only allows tcp route",
 			acceptedKinds:           sets.New[RouteKind](TCPRouteKind),
 			expectedPreMappedRoutes: preLoadTCPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80: preLoadTCPRoutes,
 			},
 			expectedMap: map[int32][]RouteDescriptor{
@@ -249,7 +253,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "filter allows both route kinds",
 			acceptedKinds:           sets.New[RouteKind](TCPRouteKind, HTTPRouteKind),
 			expectedPreMappedRoutes: append(preLoadHTTPRoutes, preLoadTCPRoutes...),
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80:  preLoadTCPRoutes,
 				443: preLoadHTTPRoutes,
 			},
@@ -270,7 +274,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "failed route should lead to only failed version status getting published",
 			acceptedKinds:           sets.New[RouteKind](TCPRouteKind, HTTPRouteKind),
 			expectedPreMappedRoutes: append(preLoadHTTPRoutes, preLoadTCPRoutes...),
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80:  preLoadTCPRoutes,
 				443: preLoadHTTPRoutes,
 			},
@@ -308,7 +312,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "multiple failed routes",
 			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80: preLoadHTTPRoutes,
 			},
 			expectedMap: map[int32][]RouteDescriptor{
@@ -390,7 +394,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				ak := generateRouteDataCacheKey(actual.RouteData)
 
 				v, ok := tc.expectedReconcileQueue[ak]
-				assert.True(t, ok)
+				assert.True(t, ok, ak)
 				assert.Equal(t, v, actual.RouteData.RouteStatusInfo.Accepted, ak)
 			}
 

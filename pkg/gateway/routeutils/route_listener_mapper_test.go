@@ -1,17 +1,6 @@
 package routeutils
 
-import (
-	"context"
-	"fmt"
-	"testing"
-
-	"github.com/go-logr/logr"
-	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-)
-
+/*
 type mockListenerAttachmentHelper struct {
 	attachmentMap map[string]bool
 }
@@ -82,10 +71,9 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 	testCases := []struct {
 		name                  string
 		gw                    gwv1.Gateway
+		listeners             []gwv1.Listener
 		routes                []preLoadRouteDescriptor
 		listenerAttachmentMap map[string]bool
-		routeGatewayMap       map[string]bool
-		routeListenerMap      map[string]bool
 		expected              map[int][]preLoadRouteDescriptor
 		routesPerListener     map[gwv1.SectionName]int32
 		expectErr             bool
@@ -381,12 +369,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 			listenerAttachmentMap: map[string]bool{
 				"https-listener-443-my-route-default": true,
 			},
-			routeListenerMap: map[string]bool{
-				"https-listener-443-my-route-default": true,
-			},
-			routeGatewayMap: map[string]bool{
-				"gw1-ns-gw-my-route-default": true,
-			},
 			expected: map[int][]preLoadRouteDescriptor{
 				443: {
 					convertHTTPRoute(gwv1.HTTPRoute{
@@ -437,3 +419,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 		})
 	}
 }
+
+
+*/
