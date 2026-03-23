@@ -25,7 +25,7 @@ type mockMapper struct {
 	matchedParentRefs  map[string][]gwv1.ParentReference
 }
 
-func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (map[int32][]preLoadRouteDescriptor, map[int32]map[string]sets.Set[gwv1.Hostname], []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
+func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	matchedParentRefs := make(map[string][]gwv1.ParentReference)
 	for _, routeList := range m.mapToReturn {
@@ -37,7 +37,13 @@ func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway,
 			}}
 		}
 	}
-	return m.mapToReturn, make(map[int32]map[string]sets.Set[gwv1.Hostname]), m.routeStatusUpdates, matchedParentRefs, m.listenerRouteCount, nil
+	return listenerRouteMapResult{
+		routesByPort:              m.mapToReturn,
+		compatibleHostnamesByPort: make(map[int32]map[string]sets.Set[gwv1.Hostname]),
+		failedRoutes:              m.routeStatusUpdates,
+		matchedParentRefs:         matchedParentRefs,
+		routesPerListener:         m.listenerRouteCount,
+	}, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}

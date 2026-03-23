@@ -133,16 +133,16 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	listenerValidationResults := validateListeners(gatewayListeners, controllerName)
 
 	//  2. Map routes to relevant listeners
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes)
-
-	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
-
+	mapResult, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes)
+	if mapResult.failedRoutes != nil {
+		routeStatusUpdates = append(routeStatusUpdates, mapResult.failedRoutes...)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. Load the underlying resource(s) for each route that is configured.
-	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw, matchedParentRefs, defaultTGConfig)
+	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mapResult.routesByPort, mapResult.compatibleHostnamesByPort, gw, mapResult.matchedParentRefs, defaultTGConfig)
 	routeStatusUpdates = append(routeStatusUpdates, childRouteLoadUpdates...)
 	if err != nil {
 		return nil, err
@@ -152,7 +152,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	for _, routeList := range loadedRoute {
 		for _, route := range routeList {
 			routeKey := route.GetRouteIdentifier()
-			if matchedRefs, ok := matchedParentRefs[routeKey]; ok {
+			if matchedRefs, ok := mapResult.matchedParentRefs[routeKey]; ok {
 				for _, parentRef := range matchedRefs {
 					routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), parentRef))
 				}
@@ -163,7 +163,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	return &LoaderResult{
 		Routes:            loadedRoute,
 		Listeners:         gw.Spec.Listeners,
-		AttachedRoutesMap: attachedRouteMap,
+		AttachedRoutesMap: mapResult.routesPerListener,
 		ValidationResults: listenerValidationResults,
 	}, nil
 }

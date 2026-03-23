@@ -22,10 +22,8 @@ type allListeners struct {
 }
 
 type routeParentRefTuple struct {
-	route      preLoadRouteDescriptor
-	parentRef  gwv1.ParentReference
-	parent     interface{}
-	parentKind string
+	route     preLoadRouteDescriptor
+	parentRef gwv1.ParentReference
 }
 
 type ValidatedGatewayListeners struct {
