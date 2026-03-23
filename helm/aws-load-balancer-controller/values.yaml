@@ -178,6 +178,7 @@ region:
 vpcId:
 
 # This is alternative to vpcId. Set this when your pods are unable to use the metadata service to determine VPC automatically.
+# All specified tags are used as AND filters for VPC lookup.
 vpcTags: {}
 # Name: tagValue
 
