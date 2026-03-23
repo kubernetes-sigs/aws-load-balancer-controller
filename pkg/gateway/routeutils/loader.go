@@ -255,6 +255,12 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 func generateRouteDataCacheKey(rd RouteData) string {
 	port := ""
+
+	kind := gatewayKind
+	if rd.ParentRef.Kind != nil {
+		kind = string(*rd.ParentRef.Kind)
+	}
+
 	if rd.ParentRef.Port != nil {
 		port = fmt.Sprintf("%d", *rd.ParentRef.Port)
 	}
@@ -266,5 +272,5 @@ func generateRouteDataCacheKey(rd RouteData) string {
 	if rd.ParentRef.Namespace != nil {
 		namespace = string(*rd.ParentRef.Namespace)
 	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
+	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s", kind, rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
 }

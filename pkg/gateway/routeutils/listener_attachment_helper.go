@@ -37,7 +37,6 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 // Gateway API rules to determine compatibility between listener and route.
 // Returns: (compatibleHostnames, allowed, failedRouteData, error)
 func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
-	// check namespace TODO --- Update for ListenerSet, should be ListenerSet namespace.
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, parentNamespace, listener, route)
 	if err != nil {
 		return nil, nil, err
