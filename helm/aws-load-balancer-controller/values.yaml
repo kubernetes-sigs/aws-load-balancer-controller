@@ -229,6 +229,17 @@ metricsBindAddr: ""
 webhookConfig:
   # disableIngressValidation disables the validation of resources of kind Ingress, false by default
   disableIngressValidation:
+  # whether or not to fail the ingress creation if the webhook fails
+  ingressValdationFailurePolicy: Fail
+  # limit ingress validation webhook to only validate ingresses matching the objectSelector
+  ingressValidationObjectSelector:
+    matchExpressions:
+    matchLabels:
+  # limit ingress validation webhook to only validate ingresses in the namespace matching the object selector.
+  ingressValidationNamespaceSelector:
+    matchExpressions:
+    matchLabels:
+
 
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:

@@ -16,7 +16,7 @@ func Test_buildListenerStatus(t *testing.T) {
 		name                    string
 		gateway                 gwv1.Gateway
 		attachedRoutesMap       map[gwv1.SectionName]int32
-		validateListenerResults routeutils.ListenerValidationResults
+		validateListenerResults routeutils.ValidatedGatewayListeners
 		supportedKinds          []gwv1.RouteGroupKind
 		isProgrammed            bool
 		expectedListenerCount   int
@@ -37,11 +37,13 @@ func Test_buildListenerStatus(t *testing.T) {
 				},
 			},
 			attachedRoutesMap: map[gwv1.SectionName]int32{"listener1": 1},
-			validateListenerResults: routeutils.ListenerValidationResults{
-				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
-					"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted", SupportedKinds: []gwv1.RouteGroupKind{{
-						Kind: "HTTPRoute",
-					}}},
+			validateListenerResults: routeutils.ValidatedGatewayListeners{
+				GatewayListenerValidation: routeutils.ListenerValidationResults{
+					Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+						"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted", SupportedKinds: []gwv1.RouteGroupKind{{
+							Kind: "HTTPRoute",
+						}}},
+					},
 				},
 			},
 			supportedKinds: []gwv1.RouteGroupKind{{
@@ -59,7 +61,7 @@ func Test_buildListenerStatus(t *testing.T) {
 				},
 			},
 			attachedRoutesMap:       map[gwv1.SectionName]int32{},
-			validateListenerResults: routeutils.ListenerValidationResults{},
+			validateListenerResults: routeutils.ValidatedGatewayListeners{},
 			isProgrammed:            true,
 			expectedListenerCount:   0,
 		},

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -87,38 +88,14 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 // and route to determine compatibility.
 func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
 	var allowedNamespaces gwv1.FromNamespaces
-
+	var labelSelector *metav1.LabelSelector
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
 		allowedNamespaces = gwv1.NamespacesFromSame
 	} else {
 		allowedNamespaces = *listener.AllowedRoutes.Namespaces.From
+		labelSelector = listener.AllowedRoutes.Namespaces.Selector
 	}
-
-	namespacedName := route.GetRouteNamespacedName()
-
-	switch allowedNamespaces {
-	case gwv1.NamespacesFromSame:
-		return gw.Namespace == namespacedName.Namespace, nil
-	case gwv1.NamespacesFromAll:
-		return true, nil
-	case gwv1.NamespacesFromSelector:
-		if listener.AllowedRoutes.Namespaces.Selector == nil {
-			return false, nil
-		}
-		// This should be executed off the client-go cache, hence we do not need to perform local caching.
-		namespaces, err := attachmentHelper.namespaceSelector.getNamespacesFromSelector(ctx, listener.AllowedRoutes.Namespaces.Selector)
-		if err != nil {
-			return false, err
-		}
-
-		if !namespaces.Has(namespacedName.Namespace) {
-			return false, nil
-		}
-		return true, nil
-	default:
-		// Unclear what to do in this case, we'll just filter out this route.
-		return false, nil
-	}
+	return doesResourceAllowNamespace(ctx, allowedNamespaces, labelSelector, attachmentHelper.namespaceSelector, route.GetRouteNamespacedName().Namespace, gw)
 }
 
 // kindCheck kind check implements the Gateway API spec for kindCheck matching between listener

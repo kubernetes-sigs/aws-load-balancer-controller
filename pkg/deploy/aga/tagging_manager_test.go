@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
+	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	rgtsdk "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	rgttypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
 	"github.com/golang/mock/gomock"
@@ -14,6 +16,139 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
+
+func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
+	type tagResourceCall struct {
+		req  *globalaccelerator.TagResourceInput
+		resp *globalaccelerator.TagResourceOutput
+		err  error
+	}
+	type untagResourceCall struct {
+		req  *globalaccelerator.UntagResourceInput
+		resp *globalaccelerator.UntagResourceOutput
+		err  error
+	}
+	type fields struct {
+		tagResourceCalls   []tagResourceCall
+		untagResourceCalls []untagResourceCall
+	}
+	type args struct {
+		arn         string
+		desiredTags map[string]string
+		opts        []ReconcileTagsOption
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr error
+	}{
+		{
+			name: "standard case - add and remove tags",
+			fields: fields{
+				tagResourceCalls: []tagResourceCall{
+					{
+						req: &globalaccelerator.TagResourceInput{
+							ResourceArn: awssdk.String("my-arn"),
+							Tags: []agatypes.Tag{
+								{
+									Key:   awssdk.String("keyB"),
+									Value: awssdk.String("valueB2"),
+								},
+								{
+									Key:   awssdk.String("keyD"),
+									Value: awssdk.String("valueD"),
+								},
+							},
+						},
+					},
+				},
+				untagResourceCalls: []untagResourceCall{
+					{
+						req: &globalaccelerator.UntagResourceInput{
+							ResourceArn: awssdk.String("my-arn"),
+							TagKeys:     []string{"keyC"},
+						},
+					},
+				},
+			},
+			args: args{
+				arn: "my-arn",
+				desiredTags: map[string]string{
+					"keyA": "valueA",
+					"keyB": "valueB2",
+					"keyD": "valueD",
+				},
+				opts: []ReconcileTagsOption{
+					WithCurrentTags(map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB",
+						"keyC": "valueC",
+					}),
+				},
+			},
+		},
+		{
+			name: "aws: prefixed tags on current resource are not removed",
+			fields: fields{
+				tagResourceCalls: []tagResourceCall{
+					{
+						req: &globalaccelerator.TagResourceInput{
+							ResourceArn: awssdk.String("my-arn"),
+							Tags: []agatypes.Tag{
+								{
+									Key:   awssdk.String("aga.k8s.aws/stack"),
+									Value: awssdk.String("default/my-accelerator"),
+								},
+							},
+						},
+					},
+				},
+				untagResourceCalls: nil,
+			},
+			args: args{
+				arn: "my-arn",
+				desiredTags: map[string]string{
+					"elbv2.k8s.aws/cluster": "my-cluster",
+					"aga.k8s.aws/stack":     "default/my-accelerator",
+				},
+				opts: []ReconcileTagsOption{
+					WithCurrentTags(map[string]string{
+						"elbv2.k8s.aws/cluster":         "my-cluster",
+						"aws:cloudformation:stack-name": "my-stack",
+						"aws:cloudformation:stack-id":   "arn:aws:cloudformation:us-east-1:123:stack/my-stack/abc",
+						"aws:cloudformation:logical-id": "Accelerator",
+					}),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			gaService := services.NewMockGlobalAccelerator(ctrl)
+			for _, call := range tt.fields.tagResourceCalls {
+				gaService.EXPECT().TagResourceWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			for _, call := range tt.fields.untagResourceCalls {
+				gaService.EXPECT().UntagResourceWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+
+			m := &defaultTaggingManager{
+				gaService:         gaService,
+				logger:            zap.New(),
+				resourceTagsCache: cache.NewExpiring(),
+			}
+			err := m.ReconcileTags(context.Background(), tt.args.arn, tt.args.desiredTags, tt.args.opts...)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
 
 func Test_defaultTaggingManager_describeResourceTagsFromRGT(t *testing.T) {
 	ctrl := gomock.NewController(t)
