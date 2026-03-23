@@ -15,7 +15,7 @@ import (
 // listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
 // a route to attach to it.
 type listenerAttachmentHelper interface {
-	listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error)
+	listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
@@ -36,20 +36,20 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between listener and route.
 // Returns: (compatibleHostnames, allowed, failedRouteData, error)
-func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
 	// check namespace TODO --- Update for ListenerSet, should be ListenerSet namespace.
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, parentNamespace, listener, route)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !namespaceOK {
-		return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), RouteStatusInfoRejectedMessageNamespaceNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), *matchedParentRef)), nil
+		return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), RouteStatusInfoRejectedMessageNamespaceNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), matchedParentRef)), nil
 	}
 
 	// check kind
 	kindOK := attachmentHelper.kindCheck(listener, route)
 	if !kindOK {
-		return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), RouteStatusInfoRejectedMessageKindNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), *matchedParentRef)), nil
+		return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), RouteStatusInfoRejectedMessageKindNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), matchedParentRef)), nil
 	}
 
 	// check hostname and get compatible hostnames
@@ -61,7 +61,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 			return nil, nil, err
 		}
 		if !hostnameOK {
-			return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingListenerHostname), RouteStatusInfoRejectedMessageNoMatchingHostname, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), *matchedParentRef)), nil
+			return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingListenerHostname), RouteStatusInfoRejectedMessageNoMatchingHostname, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), matchedParentRef)), nil
 		}
 	}
 
@@ -70,7 +70,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 		hostnameUniquenessOK := attachmentHelper.crossServingHostnameUniquenessCheck(listener.Port, route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
 		if !hostnameUniquenessOK {
 			message := fmt.Sprintf("HTTPRoute and GRPCRoute have overlap hostname, attachment is rejected.")
-			return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), message, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), *matchedParentRef)), nil
+			return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), message, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), matchedParentRef)), nil
 		}
 	}
 

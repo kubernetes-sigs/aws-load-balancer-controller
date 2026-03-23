@@ -110,6 +110,8 @@ func (ltr *listenerToRouteMapperImpl) resolveParentRef(
 
 // mapListenersAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
 func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error) {
+	// Step 1 - Generate initial state maps, to allow for quick calculations.
+
 	state := &attachmentState{
 		compatibleHostnamesByPort: make(map[int32]map[string]sets.Set[gwv1.Hostname]),
 		hostnamesFromHttpRoutes:   make(map[int32]sets.Set[gwv1.Hostname]),
@@ -117,7 +119,11 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 		matchedParentRefs:         make(map[string][]gwv1.ParentReference),
 	}
 
+	failedRoutes := make([]RouteData, 0)
+
+	// gatewayListenerMapping - maps the routes that have successfully attached to a listener belonging to a Gateway.
 	gatewayListenerMapping := map[gwv1.SectionName][]routeParentRefTuple{}
+	// gatewayListenerSectionNameToListener - maps the listener section name to the listener object, specifically for the Gateway.
 	gatewayListenerSectionNameToListener := make(map[gwv1.SectionName]gwv1.Listener)
 
 	for _, l := range listeners.GatewayListeners {
@@ -125,7 +131,11 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 		gatewayListenerSectionNameToListener[l.Name] = l
 	}
 
+	// Now do the same for listeners coming from a ListenerSet.
+
+	// listenerSetListeners - maps the routes that have successfully attached to each listener belong to a ListenerSet.
 	listenerSetListeners := make(map[types.NamespacedName]map[gwv1.SectionName][]routeParentRefTuple)
+	// listenerSetListenerSectionNameToListener - maps the listener section name to listener, for each ListenerSet.
 	listenerSetListenerSectionNameToListener := make(map[types.NamespacedName]map[gwv1.SectionName]gwv1.Listener)
 
 	for nsn, listenerSet := range listeners.ListenerSetListeners.listenersPerListenerSet {
@@ -137,8 +147,9 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 		}
 	}
 
-	failedRoutes := make([]RouteData, 0)
-
+	// Step 2 - Go through each route and each parent ref on the route.
+	// We are looking for parent refs that are attempting attachment to a listener(s) on the Gateway
+	// OR a ListenerSet that is attached to the Gateway.
 	for _, route := range routes {
 		for _, parentRef := range route.GetParentRefs() {
 			resolved := ltr.resolveParentRef(
@@ -146,10 +157,13 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 				gatewayListenerMapping, gatewayListenerSectionNameToListener,
 				listenerSetListeners, listenerSetListenerSectionNameToListener,
 			)
+
+			// Resolved being nil signifies that the parent ref doesn't match our Gateway or any of the ListenerSets.
 			if resolved == nil {
 				continue
 			}
 
+			// Getting here means that the route wants to attach. We need to be sure that the Listener completes the handshake.
 			localFailedRoutes, err := ltr.attemptListenerRouteAttachment(ctx, resolved, state)
 			if err != nil {
 				return listenerRouteMapResult{}, err
@@ -188,6 +202,7 @@ func (ltr *listenerToRouteMapperImpl) attemptListenerRouteAttachment(ctx context
 
 	// Check to see if the listener(s) specified by the route parent ref will allow attachment
 	if refTuple.parentRef.SectionName == nil {
+		// When the section name is nil, this means that the route wants to attach to every listener in the parent object.
 		for _, listener := range resolved.targetListeners {
 			if refTuple.parentRef.Port == nil || *refTuple.parentRef.Port == listener.Port {
 				rd, err := ltr.attemptRouteSectionAttachment(ctx, resolved.parentNamespace, listener, refTuple, resolved.acceptedRouteMap, state)
@@ -201,18 +216,18 @@ func (ltr *listenerToRouteMapperImpl) attemptListenerRouteAttachment(ctx context
 			}
 		}
 	} else {
+		// When section name is specified, the route only is attempting attachment to that specific listener.
 		targetListener, ok := resolved.listenerSectionNameToListener[*refTuple.parentRef.SectionName]
-		if !ok {
-			return failedRoutes, nil
+		if ok && (refTuple.parentRef.Port == nil || *refTuple.parentRef.Port == targetListener.Port) {
+			rd, err := ltr.attemptRouteSectionAttachment(ctx, resolved.parentNamespace, targetListener, refTuple, resolved.acceptedRouteMap, state)
+			if err != nil {
+				return failedRoutes, err
+			}
+			if rd != nil {
+				failedRoutes = append(failedRoutes, *rd)
+			}
+			anyAttach = rd == nil
 		}
-		rd, err := ltr.attemptRouteSectionAttachment(ctx, resolved.parentNamespace, targetListener, refTuple, resolved.acceptedRouteMap, state)
-		if err != nil {
-			return failedRoutes, err
-		}
-		if rd != nil {
-			failedRoutes = append(failedRoutes, *rd)
-		}
-		anyAttach = rd == nil
 	}
 
 	// Per Gateway API spec: "If 1 of 2 Gateway listeners accept attachment from the referencing Route,
@@ -234,7 +249,7 @@ func (ltr *listenerToRouteMapperImpl) attemptListenerRouteAttachment(ctx context
 }
 
 func (ltr *listenerToRouteMapperImpl) attemptRouteSectionAttachment(ctx context.Context, parentNamespace string, targetListener gwv1.Listener, refTuple routeParentRefTuple, acceptedRouteMap map[gwv1.SectionName][]routeParentRefTuple, state *attachmentState) (*RouteData, error) {
-	compatibleHostnames, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, parentNamespace, targetListener, refTuple.route, &refTuple.parentRef, state.hostnamesFromHttpRoutes, state.hostnamesFromGrpcRoutes)
+	compatibleHostnames, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, parentNamespace, targetListener, refTuple.route, refTuple.parentRef, state.hostnamesFromHttpRoutes, state.hostnamesFromGrpcRoutes)
 	if err != nil {
 		return nil, err
 	}

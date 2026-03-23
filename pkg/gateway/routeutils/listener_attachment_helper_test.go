@@ -87,7 +87,7 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			hostnameFromGrpcRoute := map[int32]sets.Set[gwv1.Hostname]{}
 			_, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), tc.gwNamespace, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, &matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route, matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
 			if tc.expectedStatusUpdate == nil {
 				assert.Nil(t, statusUpdate)
