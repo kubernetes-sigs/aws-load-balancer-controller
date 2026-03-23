@@ -272,6 +272,12 @@ targetgroupbindingMaxExponentialBackoffDelay:
 # Duration after which TargetGroupBinding will be requeued for reconciliation when it's waiting for AWS resources to update.
 targetgroupbindingRequeueDuration:
 
+# Maximum number of concurrently running reconcile loops for ALB gateways (default 3)
+albGatewayMaxConcurrentReconciles:
+
+# Maximum number of concurrently running reconcile loops for NLB gateways (default 3)
+nlbGatewayMaxConcurrentReconciles:
+
 # Maximum number of concurrently running reconcile loops for GlobalAccelerator objects
 globalAcceleratorMaxConcurrentReconciles:
 

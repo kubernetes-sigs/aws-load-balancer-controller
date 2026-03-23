@@ -115,6 +115,12 @@ spec:
         {{- if .Values.targetgroupbindingRequeueDuration }}
         - --targetgroupbinding-requeue-duration={{ .Values.targetgroupbindingRequeueDuration }}
         {{- end }}
+        {{- if .Values.albGatewayMaxConcurrentReconciles }}
+        - --alb-gateway-max-concurrent-reconciles={{ .Values.albGatewayMaxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.nlbGatewayMaxConcurrentReconciles }}
+        - --nlb-gateway-max-concurrent-reconciles={{ .Values.nlbGatewayMaxConcurrentReconciles }}
+        {{- end }}
         {{- if .Values.globalAcceleratorMaxConcurrentReconciles }}
         - --globalaccelerator-max-concurrent-reconciles={{ .Values.globalAcceleratorMaxConcurrentReconciles }}
         {{- end }}
