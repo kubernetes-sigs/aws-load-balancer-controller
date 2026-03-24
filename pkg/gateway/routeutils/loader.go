@@ -162,6 +162,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	return &LoaderResult{
 		Routes:            loadedRoute,
+		Listeners:         mapResult.attachedListeners,
 		AttachedRoutesMap: mapResult.routesPerListener,
 		ValidationResults: listenerValidationResults,
 	}, nil

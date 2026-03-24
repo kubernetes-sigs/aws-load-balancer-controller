@@ -1061,3 +1061,141 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 		})
 	}
 }
+
+func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
+	testCases := []struct {
+		name                      string
+		gwListeners               []gwv1.Listener
+		lsListeners               []gwv1.Listener
+		routes                    []preLoadRouteDescriptor
+		attachmentResults         map[string]mockAttachmentResult
+		expectedAttachedListeners []gwv1.Listener
+		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
+	}{
+		{
+			name:                      "no listeners produces empty attachedListeners",
+			gwListeners:               []gwv1.Listener{},
+			routes:                    []preLoadRouteDescriptor{},
+			attachmentResults:         map[string]mockAttachmentResult{},
+			expectedAttachedListeners: []gwv1.Listener{},
+		},
+		{
+			name:        "gateway listeners are included in attachedListeners",
+			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}, {Name: "https", Port: 443}},
+			routes:      []preLoadRouteDescriptor{},
+			attachmentResults: map[string]mockAttachmentResult{},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+				{Name: "https", Port: 443},
+			},
+		},
+		{
+			name:        "single gateway listener is included",
+			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}},
+			routes:      []preLoadRouteDescriptor{},
+			attachmentResults: map[string]mockAttachmentResult{},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+			},
+		},
+		{
+			name:        "listener set listeners are included in attachedListeners",
+			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}},
+			lsListeners: []gwv1.Listener{{Name: "ls-https", Port: 443}},
+			routes:      []preLoadRouteDescriptor{},
+			attachmentResults: map[string]mockAttachmentResult{},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+				{Name: "ls-https", Port: 443},
+			},
+		},
+		{
+			name:        "gateway and listener set listeners with same name are both included",
+			gwListeners: []gwv1.Listener{{Name: "shared", Port: 80}},
+			lsListeners: []gwv1.Listener{{Name: "shared", Port: 443}},
+			routes:      []preLoadRouteDescriptor{},
+			attachmentResults: map[string]mockAttachmentResult{},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "shared", Port: 80},
+				{Name: "shared", Port: 443},
+			},
+		},
+		{
+			name:        "listeners are included regardless of whether routes attach",
+			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}, {Name: "https", Port: 443}},
+			routes:      []preLoadRouteDescriptor{makeHTTPRoute("route1", "ns-gw", gwParentRef("gw1"))},
+			attachmentResults: map[string]mockAttachmentResult{
+				// Only http listener accepts the route; https rejects
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gwv1.Listener{Name: "http", Port: 80},
+					makeHTTPRoute("route1", "ns-gw", gwParentRef("gw1"))): {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+				{Name: "https", Port: 443},
+			},
+		},
+		{
+			name:        "listener with zero routes is still returned in attachedListeners and routesByPort",
+			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}, {Name: "https", Port: 443}, {Name: "grpc", Port: 50051}},
+			routes:      []preLoadRouteDescriptor{makeHTTPRoute("route1", "ns-gw", gwParentRef("gw1"))},
+			attachmentResults: map[string]mockAttachmentResult{
+				// Only the http listener on port 80 accepts the route; https and grpc get no routes at all
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gwv1.Listener{Name: "http", Port: 80},
+					makeHTTPRoute("route1", "ns-gw", gwParentRef("gw1"))): {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+				{Name: "https", Port: 443},
+				{Name: "grpc", Port: 50051},
+			},
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:    {makeHTTPRoute("route1", "ns-gw", gwParentRef("gw1"))},
+				443:   {},
+				50051: {},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gw := gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "gw1", Namespace: "ns-gw"},
+				Spec:       gwv1.GatewaySpec{Listeners: tc.gwListeners},
+			}
+
+			lsNsn := types.NamespacedName{Namespace: "ns-gw", Name: "my-ls"}
+			lsObj := gwv1.ListenerSet{ObjectMeta: metav1.ObjectMeta{Name: "my-ls", Namespace: "ns-gw"}}
+
+			var listenerSetResult listenerSetLoadResult
+			if len(tc.lsListeners) > 0 {
+				lsSources := make([]listenerSetListenerSource, 0, len(tc.lsListeners))
+				for _, l := range tc.lsListeners {
+					lsSources = append(lsSources, listenerSetListenerSource{parentRef: lsObj, listener: l})
+				}
+				listenerSetResult = listenerSetLoadResult{
+					listenersPerListenerSet: map[types.NamespacedName][]listenerSetListenerSource{lsNsn: lsSources},
+					acceptedListenerSets:    map[types.NamespacedName]gwv1.ListenerSet{lsNsn: lsObj},
+				}
+			} else {
+				listenerSetResult = emptyListenerSetLoadResult()
+			}
+
+			listeners := allListeners{GatewayListeners: tc.gwListeners, ListenerSetListeners: listenerSetResult}
+
+			mapper := listenerToRouteMapperImpl{
+				listenerAttachmentHelper: &mockListenerAttachmentHelper{results: tc.attachmentResults},
+				logger:                   logr.Discard(),
+			}
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes)
+
+			assert.NoError(t, err)
+			assert.ElementsMatch(t, tc.expectedAttachedListeners, result.attachedListeners)
+			if tc.expectedRoutesByPort != nil {
+				assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort), "routesByPort length mismatch")
+				for port, expectedRoutes := range tc.expectedRoutesByPort {
+					assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
+				}
+			}
+		})
+	}
+}
