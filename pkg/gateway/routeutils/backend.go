@@ -19,6 +19,7 @@ import (
 const (
 	serviceKind             = "Service"
 	gatewayKind             = "Gateway"
+	listenerSetKind         = "ListenerSet"
 	referenceGrantNotExists = "No explicit ReferenceGrant exists to allow the reference."
 	maxWeight               = 999
 	gatewayAPIGroup         = "gateway.networking.k8s.io"

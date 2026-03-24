@@ -140,7 +140,7 @@ func Test_doesResourceAllowNamespace(t *testing.T) {
 		labelSelector     *metav1.LabelSelector
 		nsSelector        namespaceSelector
 		resourceNamespace string
-		gw                gwv1.Gateway
+		parentNamespace   string
 		expected          bool
 		expectErr         bool
 	}{
@@ -148,47 +148,37 @@ func Test_doesResourceAllowNamespace(t *testing.T) {
 			name:              "NamespacesFromNone returns false",
 			fromNamespaces:    gwv1.NamespacesFromNone,
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
-			},
-			expected: false,
+			parentNamespace:   "ns1",
+			expected:          false,
 		},
 		{
 			name:              "NamespacesFromSame with same namespace returns true",
 			fromNamespaces:    gwv1.NamespacesFromSame,
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
-			},
-			expected: true,
+			parentNamespace:   "ns1",
+			expected:          true,
 		},
 		{
 			name:              "NamespacesFromSame with different namespace returns false",
 			fromNamespaces:    gwv1.NamespacesFromSame,
 			resourceNamespace: "ns2",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
-			},
-			expected: false,
+			parentNamespace:   "ns1",
+			expected:          false,
 		},
 		{
 			name:              "NamespacesFromAll returns true",
 			fromNamespaces:    gwv1.NamespacesFromAll,
 			resourceNamespace: "any-ns",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
-			},
-			expected: true,
+			parentNamespace:   "ns1",
+			expected:          true,
 		},
 		{
 			name:              "NamespacesFromSelector with nil selector returns false",
 			fromNamespaces:    gwv1.NamespacesFromSelector,
 			labelSelector:     nil,
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
-			},
-			expected: false,
+			parentNamespace:   "ns1",
+			expected:          false,
 		},
 		{
 			name:           "NamespacesFromSelector with matching namespace returns true",
@@ -198,10 +188,8 @@ func Test_doesResourceAllowNamespace(t *testing.T) {
 				nss: sets.New("ns1", "ns3"),
 			},
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "gw-ns"},
-			},
-			expected: true,
+			parentNamespace:   "gw-ns",
+			expected:          true,
 		},
 		{
 			name:           "NamespacesFromSelector with non-matching namespace returns false",
@@ -211,10 +199,8 @@ func Test_doesResourceAllowNamespace(t *testing.T) {
 				nss: sets.New("ns3", "ns5"),
 			},
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "gw-ns"},
-			},
-			expected: false,
+			parentNamespace:   "gw-ns",
+			expected:          false,
 		},
 		{
 			name:           "NamespacesFromSelector with error returns error",
@@ -224,25 +210,21 @@ func Test_doesResourceAllowNamespace(t *testing.T) {
 				err: errors.New("k8s error"),
 			},
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "gw-ns"},
-			},
-			expectErr: true,
+			parentNamespace:   "gw-ns",
+			expectErr:         true,
 		},
 		{
 			name:              "unknown FromNamespaces value returns false",
 			fromNamespaces:    gwv1.FromNamespaces("Unknown"),
 			resourceNamespace: "ns1",
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ns1"},
-			},
-			expected: false,
+			parentNamespace:   "ns1",
+			expected:          false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := doesResourceAllowNamespace(context.Background(), tc.fromNamespaces, tc.labelSelector, tc.nsSelector, tc.resourceNamespace, tc.gw)
+			result, err := doesResourceAllowNamespace(context.Background(), tc.fromNamespaces, tc.labelSelector, tc.nsSelector, tc.resourceNamespace, tc.parentNamespace)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return

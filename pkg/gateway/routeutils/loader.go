@@ -132,18 +132,17 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 	listenerValidationResults := validateListeners(gatewayListeners, controllerName)
 
-	// 2. Remove routes that aren't granted attachment by the listener.
-	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, gw.Spec.Listeners, loadedRoutes)
-
-	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
-
+	//  2. Map routes to relevant listeners
+	mapResult, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes)
+	if mapResult.failedRoutes != nil {
+		routeStatusUpdates = append(routeStatusUpdates, mapResult.failedRoutes...)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. Load the underlying resource(s) for each route that is configured.
-	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw, matchedParentRefs, defaultTGConfig)
+	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mapResult.routesByPort, mapResult.compatibleHostnamesByPort, gw, mapResult.matchedParentRefs, defaultTGConfig)
 	routeStatusUpdates = append(routeStatusUpdates, childRouteLoadUpdates...)
 	if err != nil {
 		return nil, err
@@ -153,9 +152,9 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	for _, routeList := range loadedRoute {
 		for _, route := range routeList {
 			routeKey := route.GetRouteIdentifier()
-			if matchedRefs, ok := matchedParentRefs[routeKey]; ok {
+			if matchedRefs, ok := mapResult.matchedParentRefs[routeKey]; ok {
 				for _, parentRef := range matchedRefs {
-					routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw, parentRef.Port, parentRef.SectionName))
+					routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), parentRef))
 				}
 			}
 		}
@@ -163,14 +162,13 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	return &LoaderResult{
 		Routes:            loadedRoute,
-		Listeners:         gw.Spec.Listeners,
-		AttachedRoutesMap: attachedRouteMap,
+		AttachedRoutesMap: mapResult.routesPerListener,
 		ValidationResults: listenerValidationResults,
 	}, nil
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
-func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string][]gwv1.Hostname, gw gwv1.Gateway, matchedParentRefs map[string][]gwv1.ParentReference, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (map[int32][]RouteDescriptor, []RouteData, error) {
+func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int32][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string]sets.Set[gwv1.Hostname], gw gwv1.Gateway, matchedParentRefs map[string][]gwv1.ParentReference, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (map[int32][]RouteDescriptor, []RouteData, error) {
 	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
@@ -185,7 +183,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 			cachedRoute, ok := resourceCache[cacheKey]
 			if ok {
-				loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], cachedRoute)
+				loadedRouteData[port] = append(loadedRouteData[port], cachedRoute)
 				continue
 			}
 
@@ -223,7 +221,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 						routeKey := preloadedRoute.GetRouteIdentifier()
 						parentRefs := matchedParentRefs[routeKey]
 						for _, parentRef := range parentRefs {
-							failedRoutes = append(failedRoutes, GenerateRouteData(accepted, resolvedRefs, string(routeReason), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw, parentRef.Port, parentRef.SectionName))
+							failedRoutes = append(failedRoutes, GenerateRouteData(accepted, resolvedRefs, string(routeReason), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), parentRef))
 						}
 
 					}
@@ -233,7 +231,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				}
 			}
 
-			loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], generatedRoute)
+			loadedRouteData[port] = append(loadedRouteData[port], generatedRoute)
 			resourceCache[cacheKey] = generatedRoute
 		}
 	}
@@ -244,7 +242,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 		routeKey := route.GetRouteIdentifier()
 		for port, compatibleHostnames := range compatibleHostnamesByPort {
 			if hostnames, exists := compatibleHostnames[routeKey]; exists {
-				hostnamesByPort[port] = hostnames
+				hostnamesByPort[port] = hostnames.UnsortedList()
 			}
 		}
 		if len(hostnamesByPort) > 0 {
@@ -257,6 +255,12 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 func generateRouteDataCacheKey(rd RouteData) string {
 	port := ""
+
+	kind := gatewayKind
+	if rd.ParentRef.Kind != nil {
+		kind = string(*rd.ParentRef.Kind)
+	}
+
 	if rd.ParentRef.Port != nil {
 		port = fmt.Sprintf("%d", *rd.ParentRef.Port)
 	}
@@ -268,5 +272,5 @@ func generateRouteDataCacheKey(rd RouteData) string {
 	if rd.ParentRef.Namespace != nil {
 		namespace = string(*rd.ParentRef.Namespace)
 	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
+	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s", kind, rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
 }

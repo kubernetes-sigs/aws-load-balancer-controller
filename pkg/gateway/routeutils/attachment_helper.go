@@ -28,12 +28,12 @@ func doesResourceAttachToGateway(parentRef gwv1.ParentReference, resourceNamespa
 	return nameCheck && nsCheck
 }
 
-func doesResourceAllowNamespace(ctx context.Context, fromNamespaces gwv1.FromNamespaces, labelSelector *metav1.LabelSelector, nsSelector namespaceSelector, resourceNamespace string, gw gwv1.Gateway) (bool, error) {
+func doesResourceAllowNamespace(ctx context.Context, fromNamespaces gwv1.FromNamespaces, labelSelector *metav1.LabelSelector, nsSelector namespaceSelector, resourceNamespace string, parentNamespace string) (bool, error) {
 	switch fromNamespaces {
 	case gwv1.NamespacesFromNone:
 		return false, nil
 	case gwv1.NamespacesFromSame:
-		return gw.Namespace == resourceNamespace, nil
+		return parentNamespace == resourceNamespace, nil
 	case gwv1.NamespacesFromAll:
 		return true, nil
 	case gwv1.NamespacesFromSelector:

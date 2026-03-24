@@ -2,157 +2,231 @@ package routeutils
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// listenerRouteMapResult holds all outputs from the listener-to-route mapping process.
+type listenerRouteMapResult struct {
+	routesByPort              map[int32][]preLoadRouteDescriptor
+	compatibleHostnamesByPort map[int32]map[string]sets.Set[gwv1.Hostname]
+	failedRoutes              []RouteData
+	matchedParentRefs         map[string][]gwv1.ParentReference
+	routesPerListener         map[gwv1.SectionName]int32
+}
+
+// attachmentState groups the mutable accumulator maps threaded through the attachment methods.
+type attachmentState struct {
+	compatibleHostnamesByPort map[int32]map[string]sets.Set[gwv1.Hostname]
+	hostnamesFromHttpRoutes   map[int32]sets.Set[gwv1.Hostname]
+	hostnamesFromGrpcRoutes   map[int32]sets.Set[gwv1.Hostname]
+	matchedParentRefs         map[string][]gwv1.ParentReference
+}
+
+// parentResolution bundles the per-parent data resolved from a parentRef.
+type parentResolution struct {
+	refTuple                      routeParentRefTuple
+	parentNamespace               string
+	targetListeners               []gwv1.Listener
+	listenerSectionNameToListener map[gwv1.SectionName]gwv1.Listener
+	acceptedRouteMap              map[gwv1.SectionName][]routeParentRefTuple
+}
+
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, listeners []gwv1.Listener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error)
+	mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
 
 type listenerToRouteMapperImpl struct {
 	listenerAttachmentHelper listenerAttachmentHelper
-	routeAttachmentHelper    routeAttachmentHelper
 	logger                   logr.Logger
 }
 
 func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) listenerToRouteMapper {
 	return &listenerToRouteMapperImpl{
 		listenerAttachmentHelper: newListenerAttachmentHelper(k8sClient, logger.WithName("listener-attachment-helper")),
-		routeAttachmentHelper:    newRouteAttachmentHelper(logger.WithName("route-attachment-helper")),
 		logger:                   logger,
 	}
 }
 
-// mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
-// Returns: (routesByPort, compatibleHostnamesByPort, failedRoutes, matchedParentRefs, error)
-func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners []gwv1.Listener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
-	result := make(map[int][]preLoadRouteDescriptor)
-	compatibleHostnamesByPort := make(map[int32]map[string][]gwv1.Hostname)
+// resolveParentRef resolves a parentRef into the data needed for attachment attempts.
+// Returns nil if the parentRef doesn't match any known parent.
+func (ltr *listenerToRouteMapperImpl) resolveParentRef(
+	parentRef gwv1.ParentReference,
+	route preLoadRouteDescriptor,
+	gw gwv1.Gateway,
+	listeners allListeners,
+	gatewayListenerMapping map[gwv1.SectionName][]routeParentRefTuple,
+	gatewayListenerSectionNameToListener map[gwv1.SectionName]gwv1.Listener,
+	listenerSetListeners map[types.NamespacedName]map[gwv1.SectionName][]routeParentRefTuple,
+	listenerSetListenerSectionNameToListener map[types.NamespacedName]map[gwv1.SectionName]gwv1.Listener,
+) *parentResolution {
+	if parentRef.Kind == nil || *parentRef.Kind == gatewayKind {
+		if !doesResourceAttachToGateway(parentRef, route.GetRouteNamespacedName().Namespace, gw) {
+			return nil
+		}
+		return &parentResolution{
+			refTuple:                      routeParentRefTuple{route: route, parentRef: parentRef},
+			parentNamespace:               gw.Namespace,
+			targetListeners:               listeners.GatewayListeners,
+			listenerSectionNameToListener: gatewayListenerSectionNameToListener,
+			acceptedRouteMap:              gatewayListenerMapping,
+		}
+	}
 
-	// First filter out any routes that are not intended for this Gateway.
-	routesForGateway := make([]preLoadRouteDescriptor, 0)
+	if parentRef.Kind != nil && *parentRef.Kind == listenerSetKind {
+		namespace := route.GetRouteNamespacedName().Namespace
+		if parentRef.Namespace != nil {
+			namespace = string(*parentRef.Namespace)
+		}
+		nsn := types.NamespacedName{
+			Namespace: namespace,
+			Name:      string(parentRef.Name),
+		}
+
+		referencedListenerSet, found := listeners.ListenerSetListeners.acceptedListenerSets[nsn]
+		if !found {
+			return nil
+		}
+
+		return &parentResolution{
+			refTuple:                      routeParentRefTuple{route: route, parentRef: parentRef},
+			parentNamespace:               referencedListenerSet.Namespace,
+			targetListeners:               extractListenersFromSources(listeners.ListenerSetListeners.listenersPerListenerSet[nsn]),
+			listenerSectionNameToListener: listenerSetListenerSectionNameToListener[nsn],
+			acceptedRouteMap:              listenerSetListeners[nsn],
+		}
+	}
+
+	return nil
+}
+
+// mapListenersAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
+func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error) {
+	// Step 1 - Generate initial state maps, to allow for quick calculations.
+
+	state := &attachmentState{
+		compatibleHostnamesByPort: make(map[int32]map[string]sets.Set[gwv1.Hostname]),
+		hostnamesFromHttpRoutes:   make(map[int32]sets.Set[gwv1.Hostname]),
+		hostnamesFromGrpcRoutes:   make(map[int32]sets.Set[gwv1.Hostname]),
+		matchedParentRefs:         make(map[string][]gwv1.ParentReference),
+	}
+
+	failedRoutes := make([]RouteData, 0)
+
+	// gatewayListenerMapping - maps the routes that have successfully attached to a listener belonging to a Gateway.
+	gatewayListenerMapping := map[gwv1.SectionName][]routeParentRefTuple{}
+	// gatewayListenerSectionNameToListener - maps the listener section name to the listener object, specifically for the Gateway.
+	gatewayListenerSectionNameToListener := make(map[gwv1.SectionName]gwv1.Listener)
+
+	for _, l := range listeners.GatewayListeners {
+		gatewayListenerMapping[l.Name] = make([]routeParentRefTuple, 0)
+		gatewayListenerSectionNameToListener[l.Name] = l
+	}
+
+	// Now do the same for listeners coming from a ListenerSet.
+
+	// listenerSetListeners - maps the routes that have successfully attached to each listener belong to a ListenerSet.
+	listenerSetListeners := make(map[types.NamespacedName]map[gwv1.SectionName][]routeParentRefTuple)
+	// listenerSetListenerSectionNameToListener - maps the listener section name to listener, for each ListenerSet.
+	listenerSetListenerSectionNameToListener := make(map[types.NamespacedName]map[gwv1.SectionName]gwv1.Listener)
+
+	for nsn, listenerSet := range listeners.ListenerSetListeners.listenersPerListenerSet {
+		listenerSetListenerSectionNameToListener[nsn] = make(map[gwv1.SectionName]gwv1.Listener)
+		listenerSetListeners[nsn] = make(map[gwv1.SectionName][]routeParentRefTuple)
+		for _, listenerSetSource := range listenerSet {
+			listenerSetListenerSectionNameToListener[nsn][listenerSetSource.listener.Name] = listenerSetSource.listener
+			listenerSetListeners[nsn][listenerSetSource.listener.Name] = make([]routeParentRefTuple, 0)
+		}
+	}
+
+	// Step 2 - Go through each route and each parent ref on the route.
+	// We are looking for parent refs that are attempting attachment to a listener(s) on the Gateway
+	// OR a ListenerSet that is attached to the Gateway.
 	for _, route := range routes {
-		allowsAttachment := ltr.routeAttachmentHelper.doesRouteAttachToGateway(gw, route)
-		ltr.logger.V(1).Info("Route is eligible for attachment", "route", route.GetRouteNamespacedName(), "allowed attachment", allowsAttachment)
-		if allowsAttachment {
-			routesForGateway = append(routesForGateway, route)
-		}
-	}
-
-	// Dedupe - Check if route already exists for this port before adding
-	seenRoutesPerPort := make(map[int]map[string]bool)
-	// parentRefsMatchedListener tracks parentRefs that matched a listener's selector (routeAllowsAttachmentToListener=true)
-	// even if they failed subsequent validation (e.g., namespace policy). This prevents NoMatchingParent errors
-	// when the parentRef correctly identified a listener but was rejected for other reasons.
-	// routeKey -> parentRefKey -> bool (true if matched a listener)
-	parentRefsMatchedListener := make(map[string]map[string]bool)
-	// matchedParentRefs stores the full ParentReference objects for parentRefs that successfully attached
-	// (both routeAllowsAttachmentToListener=true AND listenerAllowsAttachment=true). These are returned
-	// to the caller to indicate which specific parentRefs resulted in successful route-listener bindings.
-	// routeKey -> parentRefKey -> ParentReference object
-	matchedParentRefs := make(map[string]map[string]gwv1.ParentReference)
-
-	// Track the number of routes connected to a listener, used in Listener status reported to the Gateway object.
-	routesPerListener := make(map[gwv1.SectionName]int32)
-
-	failedRoutesMap := make(map[string][]RouteData)
-
-	// Next, greedily looking for the route to attach to.
-	for _, listener := range listeners {
-		routesPerListener[listener.Name] = 0
-		// used for cross serving check
-		hostnamesFromHttpRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
-		hostnamesFromGrpcRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
-		for _, route := range routesForGateway {
-			routeKey := route.GetRouteIdentifier()
-
-			// We need to check both paths (route -> listener) and (listener -> route)
-			// for connection viability.
-			allowed, matchedParentRef := ltr.routeAttachmentHelper.routeAllowsAttachmentToListener(gw, listener, route)
-			if !allowed {
-				ltr.logger.V(1).Info("Route doesnt allow attachment")
-				continue
-			}
-			// Track that this parentRef matched a listener (prevents NoMatchingParent)
-			if matchedParentRef != nil {
-				parentRefKey := getParentRefKey(*matchedParentRef, gw)
-				if parentRefsMatchedListener[routeKey] == nil {
-					parentRefsMatchedListener[routeKey] = make(map[string]bool)
-				}
-				parentRefsMatchedListener[routeKey][parentRefKey] = true
-			}
-
-			compatibleHostnames, allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, matchedParentRef, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
-			if err != nil {
-				return nil, nil, nil, nil, nil, err
-			}
-
-			if failedRouteData != nil {
-				failedRoutesMap[routeKey] = append(failedRoutesMap[routeKey], *failedRouteData)
-			}
-
-			ltr.logger.V(1).Info("listener allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
-
-			if allowedAttachment {
-				routesPerListener[listener.Name] = routesPerListener[listener.Name] + 1
-				port := int32(listener.Port)
-				if seenRoutesPerPort[int(port)] == nil {
-					seenRoutesPerPort[int(port)] = make(map[string]bool)
-				}
-				if !seenRoutesPerPort[int(port)][routeKey] {
-					seenRoutesPerPort[int(port)][routeKey] = true
-					result[int(port)] = append(result[int(port)], route)
-				}
-
-				// Store compatible hostnames per port per route per kind
-				if compatibleHostnamesByPort[port] == nil {
-					compatibleHostnamesByPort[port] = make(map[string][]gwv1.Hostname)
-				}
-				// Append hostnames for routes that attach to multiple listeners on the same port
-				compatibleHostnamesByPort[port][routeKey] = append(compatibleHostnamesByPort[port][routeKey], compatibleHostnames...)
-				// Only track in matchedParentRefs when attachment succeeds
-				if matchedParentRef != nil {
-					parentRefKey := getParentRefKey(*matchedParentRef, gw)
-					if matchedParentRefs[routeKey] == nil {
-						matchedParentRefs[routeKey] = make(map[string]gwv1.ParentReference)
-					}
-					if _, exists := matchedParentRefs[routeKey][parentRefKey]; !exists {
-						matchedParentRefs[routeKey][parentRefKey] = *matchedParentRef
-					}
-				}
-			}
-		}
-	}
-
-	// Generate NoMatchingParent only for parentRefs that never matched any listener
-	for _, route := range routesForGateway {
-		routeKey := route.GetRouteIdentifier()
-
 		for _, parentRef := range route.GetParentRefs() {
-			var namespace string
-			if parentRef.Namespace != nil {
-				namespace = string(*parentRef.Namespace)
-			} else {
-				namespace = route.GetRouteNamespacedName().Namespace
-			}
-			if string(parentRef.Name) != gw.Name || namespace != gw.Namespace {
+			resolved := ltr.resolveParentRef(
+				parentRef, route, gw, listeners,
+				gatewayListenerMapping, gatewayListenerSectionNameToListener,
+				listenerSetListeners, listenerSetListenerSectionNameToListener,
+			)
+
+			// Resolved being nil signifies that the parent ref doesn't match our Gateway or any of the ListenerSets.
+			if resolved == nil {
 				continue
 			}
 
-			parentRefKey := getParentRefKey(parentRef, gw)
-			if _, matched := parentRefsMatchedListener[routeKey][parentRefKey]; !matched {
-				rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingParent), RouteStatusInfoRejectedMessageParentNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw, parentRef.Port, parentRef.SectionName)
-				failedRoutesMap[routeKey] = append(failedRoutesMap[routeKey], rd)
+			// Getting here means that the route wants to attach. We need to be sure that the Listener completes the handshake.
+			localFailedRoutes, err := ltr.attemptListenerRouteAttachment(ctx, resolved, state)
+			if err != nil {
+				return listenerRouteMapResult{}, err
 			}
+			failedRoutes = append(failedRoutes, localFailedRoutes...)
+		}
+	}
+
+	routesPerListener := make(map[gwv1.SectionName]int32)
+	for sn, snRoutes := range gatewayListenerMapping {
+		routesPerListener[sn] = int32(len(snRoutes))
+	}
+
+	routesForListenerPorts := make(map[int32][]preLoadRouteDescriptor)
+	seen := make(map[int32]sets.Set[string])
+
+	ltr.generateRoutePerPortSet(gatewayListenerMapping, gatewayListenerSectionNameToListener, seen, routesForListenerPorts)
+
+	for listenerSetNsn, listenerRouteMapping := range listenerSetListeners {
+		ltr.generateRoutePerPortSet(listenerRouteMapping, listenerSetListenerSectionNameToListener[listenerSetNsn], seen, routesForListenerPorts)
+	}
+
+	return listenerRouteMapResult{
+		routesByPort:              routesForListenerPorts,
+		compatibleHostnamesByPort: state.compatibleHostnamesByPort,
+		failedRoutes:              failedRoutes,
+		matchedParentRefs:         state.matchedParentRefs,
+		routesPerListener:         routesPerListener,
+	}, nil
+}
+
+func (ltr *listenerToRouteMapperImpl) attemptListenerRouteAttachment(ctx context.Context, resolved *parentResolution, state *attachmentState) ([]RouteData, error) {
+	var anyAttach bool
+	failedRoutes := make([]RouteData, 0)
+	refTuple := resolved.refTuple
+
+	// Check to see if the listener(s) specified by the route parent ref will allow attachment
+	if refTuple.parentRef.SectionName == nil {
+		// When the section name is nil, this means that the route wants to attach to every listener in the parent object.
+		for _, listener := range resolved.targetListeners {
+			if refTuple.parentRef.Port == nil || *refTuple.parentRef.Port == listener.Port {
+				rd, err := ltr.attemptRouteSectionAttachment(ctx, resolved.parentNamespace, listener, refTuple, resolved.acceptedRouteMap, state)
+				if err != nil {
+					return failedRoutes, err
+				}
+				if rd != nil {
+					failedRoutes = append(failedRoutes, *rd)
+				}
+				anyAttach = anyAttach || rd == nil
+			}
+		}
+	} else {
+		// When section name is specified, the route only is attempting attachment to that specific listener.
+		targetListener, ok := resolved.listenerSectionNameToListener[*refTuple.parentRef.SectionName]
+		if ok && (refTuple.parentRef.Port == nil || *refTuple.parentRef.Port == targetListener.Port) {
+			rd, err := ltr.attemptRouteSectionAttachment(ctx, resolved.parentNamespace, targetListener, refTuple, resolved.acceptedRouteMap, state)
+			if err != nil {
+				return failedRoutes, err
+			}
+			if rd != nil {
+				failedRoutes = append(failedRoutes, *rd)
+			}
+			anyAttach = rd == nil
 		}
 	}
 
@@ -160,53 +234,69 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 	// the Route MUST be considered successfully attached."
 	// For specific parentRefs (with sectionName/port), report individual status.
 	// For generic parentRefs (no sectionName/port), skip failures if any listener accepted.
-	failedRoutes := make([]RouteData, 0)
-	for routeKey, routeDataList := range failedRoutesMap {
-		for _, routeData := range routeDataList {
-			parentRefKey := getParentRefKey(routeData.ParentRef, gw)
-			// Check if this specific parentRef succeeded
-			if _, succeeded := matchedParentRefs[routeKey][parentRefKey]; succeeded {
-				continue
-			}
-			// For generic parentRefs (no sectionName/port), skip if route attached anywhere
-			if routeData.ParentRef.SectionName == nil && routeData.ParentRef.Port == nil {
-				if _, hasMatches := matchedParentRefs[routeKey]; hasMatches {
-					continue
-				}
-			}
-			failedRoutes = append(failedRoutes, routeData)
-		}
+	if anyAttach {
+		routeID := refTuple.route.GetRouteIdentifier()
+		state.matchedParentRefs[routeID] = append(state.matchedParentRefs[routeID], refTuple.parentRef)
+		return []RouteData{}, nil
 	}
 
-	// Convert matchedParentRefs to return format
-	matchedParentRefsResult := make(map[string][]gwv1.ParentReference)
-	for routeKey, refMap := range matchedParentRefs {
-		for _, ref := range refMap {
-			matchedParentRefsResult[routeKey] = append(matchedParentRefsResult[routeKey], ref)
-		}
+	// Attachment wasn't even attempted, probably because the parent ref had an invalid section name / port.
+	if len(failedRoutes) == 0 {
+		failedRoutes = append(failedRoutes, GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingParent), RouteStatusInfoRejectedMessageParentNotMatch, refTuple.route.GetRouteNamespacedName(), refTuple.route.GetRouteKind(), refTuple.route.GetRouteGeneration(), refTuple.parentRef))
 	}
 
-	return result, compatibleHostnamesByPort, failedRoutes, matchedParentRefsResult, routesPerListener, nil
+	return failedRoutes, nil
 }
 
-// getParentRefKey generates a unique key for a parentRef
-func getParentRefKey(parentRef gwv1.ParentReference, gw gwv1.Gateway) string {
-	var namespace string
-	if parentRef.Namespace != nil {
-		namespace = string(*parentRef.Namespace)
-	} else {
-		namespace = gw.Namespace
+func (ltr *listenerToRouteMapperImpl) attemptRouteSectionAttachment(ctx context.Context, parentNamespace string, targetListener gwv1.Listener, refTuple routeParentRefTuple, acceptedRouteMap map[gwv1.SectionName][]routeParentRefTuple, state *attachmentState) (*RouteData, error) {
+	compatibleHostnames, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, parentNamespace, targetListener, refTuple.route, refTuple.parentRef, state.hostnamesFromHttpRoutes, state.hostnamesFromGrpcRoutes)
+	if err != nil {
+		return nil, err
 	}
 
-	sectionName := ""
-	if parentRef.SectionName != nil {
-		sectionName = string(*parentRef.SectionName)
+	if failedRouteData != nil {
+		return failedRouteData, nil
 	}
 
-	port := ""
-	if parentRef.Port != nil {
-		port = fmt.Sprintf("%d", *parentRef.Port)
+	acceptedRouteMap[targetListener.Name] = append(acceptedRouteMap[targetListener.Name], refTuple)
+	// Store compatible hostnames per port per route per kind
+	if state.compatibleHostnamesByPort[targetListener.Port] == nil {
+		state.compatibleHostnamesByPort[targetListener.Port] = make(map[string]sets.Set[gwv1.Hostname])
 	}
+	routeID := refTuple.route.GetRouteIdentifier()
+	if state.compatibleHostnamesByPort[targetListener.Port][routeID] == nil {
+		state.compatibleHostnamesByPort[targetListener.Port][routeID] = make(sets.Set[gwv1.Hostname])
+	}
+	// Append hostnames for routes that attach to multiple listeners on the same port
+	for _, ch := range compatibleHostnames {
+		state.compatibleHostnamesByPort[targetListener.Port][routeID].Insert(ch)
+	}
+	return nil, nil
+}
 
-	return fmt.Sprintf("%s/%s/%s/%s", namespace, string(parentRef.Name), sectionName, port)
+func (ltr *listenerToRouteMapperImpl) generateRoutePerPortSet(listenerRouteMapping map[gwv1.SectionName][]routeParentRefTuple, sectionNameToPort map[gwv1.SectionName]gwv1.Listener, seen map[int32]sets.Set[string], result map[int32][]preLoadRouteDescriptor) {
+	for sectionName, listenerRoutes := range listenerRouteMapping {
+		targetPort := sectionNameToPort[sectionName].Port
+		_, ok := result[targetPort]
+		if !ok {
+			result[targetPort] = make([]preLoadRouteDescriptor, 0)
+			seen[targetPort] = make(sets.Set[string])
+		}
+		for _, lr := range listenerRoutes {
+			id := lr.route.GetRouteIdentifier()
+			if seen[targetPort].Has(id) {
+				continue
+			}
+			seen[targetPort].Insert(id)
+			result[targetPort] = append(result[targetPort], lr.route)
+		}
+	}
+}
+
+func extractListenersFromSources(src []listenerSetListenerSource) []gwv1.Listener {
+	result := make([]gwv1.Listener, 0, len(src))
+	for _, v := range src {
+		result = append(result, v.listener)
+	}
+	return result
 }

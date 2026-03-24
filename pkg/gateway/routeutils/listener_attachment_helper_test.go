@@ -23,11 +23,11 @@ func (mnss *mockNamespaceSelector) getNamespacesFromSelector(_ context.Context, 
 }
 
 func Test_listenerAllowsAttachment(t *testing.T) {
-	kind := gwv1.Kind("HTTPRoute")
-	port := gwv1.PortNumber(80)
 	matchedParentRef := gwv1.ParentReference{
-		Kind: &kind,
-		Port: &port,
+		Name:      "gw1",
+		Kind:      new(gwv1.Kind("HTTPRoute")),
+		Port:      new(gwv1.PortNumber(80)),
+		Namespace: (*gwv1.Namespace)(new("ns1")),
 	}
 
 	type expectedRouteStatus struct {
@@ -41,14 +41,12 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 		routeNamespace       string
 		listenerProtocol     gwv1.ProtocolType
 		expectedStatusUpdate *expectedRouteStatus
-		expected             bool
 	}{
 		{
 			name:             "namespace and kind are ok",
 			gwNamespace:      "ns1",
 			routeNamespace:   "ns1",
 			listenerProtocol: gwv1.HTTPProtocolType,
-			expected:         true,
 		},
 		{
 			name:             "namespace is not ok",
@@ -76,13 +74,6 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 	// Using an HTTP route always
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			gw := gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gw1",
-					Namespace: tc.gwNamespace,
-				},
-			}
-
 			route := &httpRouteDescription{route: &gwv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "route1",
@@ -92,19 +83,18 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			attachmentHelper := listenerAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
-			hostnameFromHttpRoute := map[types.NamespacedName][]gwv1.Hostname{}
-			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
-			_, result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
+			hostnameFromHttpRoute := map[int32]sets.Set[gwv1.Hostname]{}
+			hostnameFromGrpcRoute := map[int32]sets.Set[gwv1.Hostname]{}
+			_, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), tc.gwNamespace, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, &matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route, matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expected, result)
 			if tc.expectedStatusUpdate == nil {
 				assert.Nil(t, statusUpdate)
 			} else {
 				assert.NotNil(t, statusUpdate)
-				assert.Equal(t, gwv1.ObjectName(gw.Name), statusUpdate.ParentRef.Name)
-				assert.Equal(t, gwv1.Namespace(gw.Namespace), *statusUpdate.ParentRef.Namespace)
+				assert.Equal(t, gwv1.ObjectName("gw1"), statusUpdate.ParentRef.Name)
+				assert.Equal(t, gwv1.Namespace(tc.gwNamespace), *statusUpdate.ParentRef.Namespace)
 				assert.Equal(t, route.GetRouteNamespacedName().Name, statusUpdate.RouteMetadata.RouteName)
 				assert.Equal(t, route.GetRouteNamespacedName().Namespace, statusUpdate.RouteMetadata.RouteNamespace)
 				assert.Equal(t, tc.expectedStatusUpdate.message, statusUpdate.RouteStatusInfo.Message)
@@ -304,13 +294,6 @@ func Test_namespaceCheck(t *testing.T) {
 					logger: logr.Discard(),
 				}
 
-				gw := gwv1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "gw1",
-						Namespace: scenario.gwNamespace,
-					},
-				}
-
 				route := &httpRouteDescription{route: &gwv1.HTTPRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "route1",
@@ -318,7 +301,7 @@ func Test_namespaceCheck(t *testing.T) {
 					},
 				}}
 
-				result, err := attachmentHelper.namespaceCheck(context.Background(), gw, tc.listener, route)
+				result, err := attachmentHelper.namespaceCheck(context.Background(), scenario.gwNamespace, tc.listener, route)
 
 				if tc.expectErr {
 					assert.Error(t, err)
@@ -668,6 +651,7 @@ func ptr[T any](v T) *T {
 }
 
 func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
+	targetPort := int32(80)
 	hostnames := []gwv1.Hostname{"example.com"}
 	namespace := "test-namespace"
 	httpRouteName := "http-route-name"
@@ -675,8 +659,8 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 	tests := []struct {
 		name                    string
 		route                   preLoadRouteDescriptor
-		hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname
-		hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname
+		hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname]
+		hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]
 		expected                bool
 	}{
 		{
@@ -686,8 +670,8 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 				hostnames:      hostnames,
 				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
 			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
+			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{},
+			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
 			expected:                true,
 		},
 		{
@@ -697,8 +681,8 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 				hostnames:      hostnames,
 				namespacedName: types.NamespacedName{Name: httpRouteName, Namespace: namespace},
 			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
+			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{},
+			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
 			expected:                true,
 		},
 		{
@@ -708,10 +692,10 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 				hostnames:      hostnames,
 				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
 			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{
-				{Name: httpRouteName, Namespace: namespace}: hostnames,
+			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{
+				targetPort: sets.New[gwv1.Hostname](hostnames...),
 			},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
+			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
 			expected:                false,
 		},
 		{
@@ -721,11 +705,11 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 				hostnames:      hostnames,
 				namespacedName: types.NamespacedName{Name: httpRouteName, Namespace: namespace},
 			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{
-				{Name: grpcRouteName, Namespace: namespace}: hostnames,
+			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{
+				targetPort: sets.New[gwv1.Hostname](hostnames...),
 			},
-			expected: false,
+			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{},
+			expected:                false,
 		},
 		{
 			name: "GRPC route with non-overlapping HTTP route hostname - should pass",
@@ -734,10 +718,10 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 				hostnames:      []gwv1.Hostname{"grpc.example.com"},
 				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
 			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{
-				{Name: httpRouteName, Namespace: namespace}: {"http.example.com"},
+			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{
+				targetPort: sets.New[gwv1.Hostname]("http.example.com"),
 			},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
+			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
 			expected:                true,
 		},
 	}
@@ -748,7 +732,7 @@ func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
 				logger: logr.Discard(),
 			}
 
-			result, _ := helper.crossServingHostnameUniquenessCheck(tt.route, tt.hostnamesFromHttpRoutes, tt.hostnamesFromGrpcRoutes)
+			result := helper.crossServingHostnameUniquenessCheck(targetPort, tt.route, tt.hostnamesFromHttpRoutes, tt.hostnamesFromGrpcRoutes)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

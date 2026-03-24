@@ -42,7 +42,7 @@ func newListenerSetLoader(k8sClient client.Client, logger logr.Logger) listenerS
 
 type listenerSetLoadResult struct {
 	listenersPerListenerSet map[types.NamespacedName][]listenerSetListenerSource
-	acceptedListenerSets    []*gwv1.ListenerSet
+	acceptedListenerSets    map[types.NamespacedName]gwv1.ListenerSet
 }
 
 func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []*gwv1.ListenerSet, error) {
@@ -55,7 +55,7 @@ func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Co
 	rejectedListenerSets := make([]*gwv1.ListenerSet, 0)
 
 	listenersPerListenerSet := make(map[types.NamespacedName][]listenerSetListenerSource)
-	acceptedListenerSets := make([]*gwv1.ListenerSet, 0)
+	acceptedListenerSets := make(map[types.NamespacedName]gwv1.ListenerSet)
 	for i, item := range listenerSets.Items {
 		handshake, err := l.listenerSetGatewayHandshake(ctx, item, gateway)
 		if err != nil {
@@ -68,8 +68,9 @@ func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Co
 				convertedListeners = append(convertedListeners, l.convertListenerSetListenerToGatewayListener(item, listener))
 			}
 			itemPtr := &listenerSets.Items[i]
-			listenersPerListenerSet[k8s.NamespacedName(itemPtr)] = convertedListeners
-			acceptedListenerSets = append(acceptedListenerSets, itemPtr)
+			nsn := k8s.NamespacedName(itemPtr)
+			listenersPerListenerSet[nsn] = convertedListeners
+			acceptedListenerSets[nsn] = listenerSets.Items[i]
 			break
 		case gatewayRejectedHandshakeState:
 			rejectedListenerSets = append(rejectedListenerSets, &listenerSets.Items[i])
@@ -104,7 +105,7 @@ func (l *listenerSetLoaderImpl) listenerSetGatewayHandshake(ctx context.Context,
 	}
 
 	// Getting here means that the ListenerSet has requested attachment, we need to check if Gateway allows it.
-	allowed, err := doesResourceAllowNamespace(ctx, allowedNamespaces, labelSelector, l.namespaceSelector, listenerSet.Namespace, gw)
+	allowed, err := doesResourceAllowNamespace(ctx, allowedNamespaces, labelSelector, l.namespaceSelector, listenerSet.Namespace, gw.Namespace)
 	if err != nil {
 		return gatewayRejectedHandshakeState, err
 	}

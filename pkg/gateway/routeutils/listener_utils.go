@@ -21,6 +21,11 @@ type allListeners struct {
 	ListenerSetListeners listenerSetLoadResult
 }
 
+type routeParentRefTuple struct {
+	route     preLoadRouteDescriptor
+	parentRef gwv1.ParentReference
+}
+
 type ValidatedGatewayListeners struct {
 	GatewayListenerValidation     ListenerValidationResults
 	ListenerSetListenerValidation map[types.NamespacedName]ListenerValidationResults
@@ -215,8 +220,8 @@ func arrangeListenerSetsForValidation(lsResult listenerSetLoadResult) []*gwv1.Li
 	*/
 
 	orderedListenerSets := make([]*gwv1.ListenerSet, 0)
-	for i := range lsResult.acceptedListenerSets {
-		orderedListenerSets = append(orderedListenerSets, lsResult.acceptedListenerSets[i])
+	for _, listenerSet := range lsResult.acceptedListenerSets {
+		orderedListenerSets = append(orderedListenerSets, &listenerSet)
 	}
 
 	// First sort by namespaced name (conveniently the namespaced name generates the string representation in the form
