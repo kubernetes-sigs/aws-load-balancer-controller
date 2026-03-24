@@ -1,11 +1,12 @@
 package throttle
 
 import (
+	"regexp"
+
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"golang.org/x/time/rate"
-	"regexp"
 )
 
 // NewDefaultServiceOperationsThrottleConfig returns a ServiceOperationsThrottleConfig with default settings.
@@ -43,9 +44,14 @@ func NewDefaultServiceOperationsThrottleConfig() *ServiceOperationsThrottleConfi
 					burst:        20,
 				},
 				{
-					operationPtn: regexp.MustCompile(".*"),
+					operationPtn: regexp.MustCompile("^Describe.*"),
 					r:            rate.Limit(10),
 					burst:        40,
+				},
+				{
+					operationPtn: regexp.MustCompile("^Modify.*"),
+					r:            rate.Limit(3),
+					burst:        20,
 				},
 			},
 		},
