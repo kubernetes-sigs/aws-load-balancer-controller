@@ -439,7 +439,7 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses := buildListenerStatus(*gw, loaderResults.Listeners, loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed)
+	ListenerStatuses := buildListenerStatus(*gw, loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
@@ -447,7 +447,10 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 
 	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-			return errors.Wrapf(err, "failed to update gw status: %v", k8s.NamespacedName(gw))
+			return errors.Wrapf(err, ""+
+				""+
+				""+
+				"failed to update gw status: %v", k8s.NamespacedName(gw))
 		}
 	}
 
@@ -467,7 +470,7 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
 		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses := buildListenerStatus(*gw, loadResults.Listeners, attachedRoutesMap, listenerValidationResults, false)
+		ListenerStatuses := buildListenerStatus(*gw, attachedRoutesMap, listenerValidationResults, false)
 		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true
