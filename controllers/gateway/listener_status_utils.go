@@ -11,12 +11,12 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func buildListenerStatus(gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validatedListeners routeutils.ValidatedGatewayListeners, isProgrammed bool) []gwv1.ListenerStatus {
+func buildListenerStatus(generation int64, attachedRoutesMap map[gwv1.SectionName]int32, validatedListeners routeutils.ValidatedGatewayListeners, isProgrammed bool) []gwv1.ListenerStatus {
 	var listenerStatuses []gwv1.ListenerStatus
 	validateListenerResults := validatedListeners.GatewayListenerValidation
 
 	for listenerName, listenerValidationResult := range validateListenerResults.Results {
-		conditions := getListenerConditions(gateway, listenerValidationResult, isProgrammed)
+		conditions := getListenerConditions(generation, listenerValidationResult, isProgrammed)
 
 		listenerStatus := gwv1.ListenerStatus{
 			Name:           listenerName,
@@ -29,7 +29,7 @@ func buildListenerStatus(gateway gwv1.Gateway, attachedRoutesMap map[gwv1.Sectio
 	return listenerStatuses
 }
 
-func getListenerConditions(gw gwv1.Gateway, listenerValidationResult routeutils.ListenerValidationResult, isProgrammed bool) []metav1.Condition {
+func getListenerConditions(generation int64, listenerValidationResult routeutils.ListenerValidationResult, isProgrammed bool) []metav1.Condition {
 	var conditions []metav1.Condition
 
 	// Default
@@ -39,35 +39,35 @@ func getListenerConditions(gw gwv1.Gateway, listenerValidationResult routeutils.
 	// Build Conflict Conditions
 	switch listenerReason {
 	case gwv1.ListenerReasonHostnameConflict, gwv1.ListenerReasonProtocolConflict:
-		conditions = append(conditions, buildConflictedCondition(gw, listenerReason, listenerErrMessage))
+		conditions = append(conditions, buildConflictedCondition(generation, listenerReason, listenerErrMessage))
 	default:
-		conditions = append(conditions, buildConflictedCondition(gw, gwv1.ListenerReasonNoConflicts, gateway_constants.ListenerNoConflictMessage))
+		conditions = append(conditions, buildConflictedCondition(generation, gwv1.ListenerReasonNoConflicts, gateway_constants.ListenerNoConflictMessage))
 	}
 
 	// Build Accepted Conditions
 	switch listenerReason {
 	case gwv1.ListenerReasonPortUnavailable, gwv1.ListenerReasonUnsupportedProtocol:
-		conditions = append(conditions, buildAcceptedCondition(gw, listenerReason, listenerErrMessage))
+		conditions = append(conditions, buildAcceptedCondition(generation, listenerReason, listenerErrMessage))
 	default:
-		conditions = append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
+		conditions = append(conditions, buildAcceptedCondition(generation, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
 	}
 
 	// Build ResolvedRefs Conditions
 	switch listenerReason {
 	case gwv1.ListenerReasonInvalidRouteKinds, gwv1.ListenerReasonRefNotPermitted:
-		conditions = append(conditions, buildResolvedRefsCondition(gw, listenerReason, listenerErrMessage))
+		conditions = append(conditions, buildResolvedRefsCondition(generation, listenerReason, listenerErrMessage))
 	default:
-		conditions = append(conditions, buildResolvedRefsCondition(gw, gwv1.ListenerReasonResolvedRefs, gateway_constants.ListenerResolvedRefMessage))
+		conditions = append(conditions, buildResolvedRefsCondition(generation, gwv1.ListenerReasonResolvedRefs, gateway_constants.ListenerResolvedRefMessage))
 	}
 
 	// Build Programmed Conditions
 	isAccepted := listenerReason == gwv1.ListenerReasonAccepted
-	conditions = append(conditions, buildProgrammedCondition(gw, isProgrammed, isAccepted))
+	conditions = append(conditions, buildProgrammedCondition(generation, isProgrammed, isAccepted))
 
 	return conditions
 }
 
-func buildProgrammedCondition(gw gwv1.Gateway, isProgrammed bool, isAccepted bool) metav1.Condition {
+func buildProgrammedCondition(generation int64, isProgrammed bool, isAccepted bool) metav1.Condition {
 	if !isAccepted {
 		return metav1.Condition{
 			Type:               string(gwv1.ListenerConditionProgrammed),
@@ -75,7 +75,7 @@ func buildProgrammedCondition(gw gwv1.Gateway, isProgrammed bool, isAccepted boo
 			Reason:             string(gwv1.ListenerReasonInvalid),
 			Message:            gateway_constants.ListenerNotAcceptedMessage,
 			LastTransitionTime: metav1.NewTime(time.Now()),
-			ObservedGeneration: gw.GetGeneration(),
+			ObservedGeneration: generation,
 		}
 	}
 
@@ -86,7 +86,7 @@ func buildProgrammedCondition(gw gwv1.Gateway, isProgrammed bool, isAccepted boo
 			Reason:             string(gwv1.ListenerReasonProgrammed),
 			Message:            gateway_constants.ListenerProgrammedMessage,
 			LastTransitionTime: metav1.NewTime(time.Now()),
-			ObservedGeneration: gw.GetGeneration(),
+			ObservedGeneration: generation,
 		}
 	}
 
@@ -96,11 +96,11 @@ func buildProgrammedCondition(gw gwv1.Gateway, isProgrammed bool, isAccepted boo
 		Reason:             string(gwv1.ListenerReasonPending),
 		Message:            gateway_constants.ListenerPendingProgrammedMessage,
 		LastTransitionTime: metav1.NewTime(time.Now()),
-		ObservedGeneration: gw.GetGeneration(),
+		ObservedGeneration: generation,
 	}
 }
 
-func buildAcceptedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
+func buildAcceptedCondition(generation int64, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
 	status := metav1.ConditionTrue
 	if reason != gwv1.ListenerReasonAccepted {
 		status = metav1.ConditionFalse
@@ -112,11 +112,11 @@ func buildAcceptedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason
 		Reason:             string(reason),
 		Message:            message,
 		LastTransitionTime: metav1.NewTime(time.Now()),
-		ObservedGeneration: gw.GetGeneration(),
+		ObservedGeneration: generation,
 	}
 }
 
-func buildConflictedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
+func buildConflictedCondition(generation int64, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
 	status := metav1.ConditionTrue
 	if reason != gwv1.ListenerReasonNoConflicts {
 		status = metav1.ConditionFalse
@@ -127,11 +127,11 @@ func buildConflictedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReas
 		Reason:             string(reason),
 		Message:            message,
 		LastTransitionTime: metav1.NewTime(time.Now()),
-		ObservedGeneration: gw.GetGeneration(),
+		ObservedGeneration: generation,
 	}
 }
 
-func buildResolvedRefsCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
+func buildResolvedRefsCondition(generation int64, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
 	status := metav1.ConditionTrue
 	if reason != gwv1.ListenerReasonResolvedRefs {
 		status = metav1.ConditionFalse
@@ -142,7 +142,7 @@ func buildResolvedRefsCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionRe
 		Reason:             string(reason),
 		Message:            message,
 		LastTransitionTime: metav1.NewTime(time.Now()),
-		ObservedGeneration: gw.GetGeneration(),
+		ObservedGeneration: generation,
 	}
 }
 

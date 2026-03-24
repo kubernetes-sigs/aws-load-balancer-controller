@@ -1080,9 +1080,9 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 			expectedAttachedListeners: []gwv1.Listener{},
 		},
 		{
-			name:        "gateway listeners are included in attachedListeners",
-			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}, {Name: "https", Port: 443}},
-			routes:      []preLoadRouteDescriptor{},
+			name:              "gateway listeners are included in attachedListeners",
+			gwListeners:       []gwv1.Listener{{Name: "http", Port: 80}, {Name: "https", Port: 443}},
+			routes:            []preLoadRouteDescriptor{},
 			attachmentResults: map[string]mockAttachmentResult{},
 			expectedAttachedListeners: []gwv1.Listener{
 				{Name: "http", Port: 80},
@@ -1090,19 +1090,19 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 			},
 		},
 		{
-			name:        "single gateway listener is included",
-			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}},
-			routes:      []preLoadRouteDescriptor{},
+			name:              "single gateway listener is included",
+			gwListeners:       []gwv1.Listener{{Name: "http", Port: 80}},
+			routes:            []preLoadRouteDescriptor{},
 			attachmentResults: map[string]mockAttachmentResult{},
 			expectedAttachedListeners: []gwv1.Listener{
 				{Name: "http", Port: 80},
 			},
 		},
 		{
-			name:        "listener set listeners are included in attachedListeners",
-			gwListeners: []gwv1.Listener{{Name: "http", Port: 80}},
-			lsListeners: []gwv1.Listener{{Name: "ls-https", Port: 443}},
-			routes:      []preLoadRouteDescriptor{},
+			name:              "listener set listeners are included in attachedListeners",
+			gwListeners:       []gwv1.Listener{{Name: "http", Port: 80}},
+			lsListeners:       []gwv1.Listener{{Name: "ls-https", Port: 443}},
+			routes:            []preLoadRouteDescriptor{},
 			attachmentResults: map[string]mockAttachmentResult{},
 			expectedAttachedListeners: []gwv1.Listener{
 				{Name: "http", Port: 80},
@@ -1110,10 +1110,10 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 			},
 		},
 		{
-			name:        "gateway and listener set listeners with same name are both included",
-			gwListeners: []gwv1.Listener{{Name: "shared", Port: 80}},
-			lsListeners: []gwv1.Listener{{Name: "shared", Port: 443}},
-			routes:      []preLoadRouteDescriptor{},
+			name:              "gateway and listener set listeners with same name are both included",
+			gwListeners:       []gwv1.Listener{{Name: "shared", Port: 80}},
+			lsListeners:       []gwv1.Listener{{Name: "shared", Port: 443}},
+			routes:            []preLoadRouteDescriptor{},
 			attachmentResults: map[string]mockAttachmentResult{},
 			expectedAttachedListeners: []gwv1.Listener{
 				{Name: "shared", Port: 80},

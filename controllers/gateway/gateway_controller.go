@@ -439,7 +439,7 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses := buildListenerStatus(*gw, loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed)
+	ListenerStatuses := buildListenerStatus(gw.GetGeneration(), loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
@@ -470,7 +470,7 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
 		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses := buildListenerStatus(*gw, attachedRoutesMap, listenerValidationResults, false)
+		ListenerStatuses := buildListenerStatus(gw.GetGeneration(), attachedRoutesMap, listenerValidationResults, false)
 		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true

@@ -11,6 +11,27 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+type ListenerSetStatusData struct {
+	ListenerSetStatusInfo ListenerSetStatusInfo
+	ListenerSetMetadata   ListenerSetMetadata
+	ParentRef             gwv1.ParentReference
+}
+
+type ListenerSetStatusInfo struct {
+	Accepted            bool
+	AcceptedReason      string
+	AcceptedMessage     string
+	ResolvedRefs        bool
+	ResolvedRefsReason  string
+	ResolvedRefsMessage string
+}
+
+type ListenerSetMetadata struct {
+	ListenerSetName      string
+	ListenerSetNamespace string
+	Generation           int64
+}
+
 type listenerSetListenerSource struct {
 	parentRef gwv1.ListenerSet
 	listener  gwv1.Listener
