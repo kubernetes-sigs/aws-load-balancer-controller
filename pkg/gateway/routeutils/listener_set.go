@@ -5,8 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -23,7 +21,7 @@ const (
 )
 
 type listenerSetLoader interface {
-	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []*gwv1.ListenerSet, error)
+	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, error)
 }
 
 type listenerSetLoaderImpl struct {
@@ -36,55 +34,37 @@ func newListenerSetLoader(k8sClient client.Client, logger logr.Logger) listenerS
 	return &listenerSetLoaderImpl{
 		k8sClient:         k8sClient,
 		namespaceSelector: newNamespaceSelector(k8sClient),
-		logger:            logger,
+		logger:            logger.WithName("listener-set-loader"),
 	}
 }
 
-type listenerSetLoadResult struct {
-	listenersPerListenerSet map[types.NamespacedName][]listenerSetListenerSource
-	acceptedListenerSets    []*gwv1.ListenerSet
+func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, error) {
+	return []gwv1.Listener{}, nil
+
 }
 
-func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []*gwv1.ListenerSet, error) {
+func (l *listenerSetLoaderImpl) getListenerSets(ctx context.Context, gateway gwv1.Gateway) ([]gwv1.Listener, error) {
 	listenerSets := &gwv1.ListenerSetList{}
 	err := l.k8sClient.List(ctx, listenerSets)
 	if err != nil {
-		return listenerSetLoadResult{}, nil, err
+		return nil, err
 	}
 
-	rejectedListenerSets := make([]*gwv1.ListenerSet, 0)
-
-	listenersPerListenerSet := make(map[types.NamespacedName][]listenerSetListenerSource)
-	acceptedListenerSets := make([]*gwv1.ListenerSet, 0)
-	for i, item := range listenerSets.Items {
+	var result []gwv1.Listener
+	for _, item := range listenerSets.Items {
 		handshake, err := l.listenerSetGatewayHandshake(ctx, item, gateway)
 		if err != nil {
-			return listenerSetLoadResult{}, nil, err
+			return nil, err
 		}
-		switch handshake {
-		case acceptedHandshakeState:
-			var convertedListeners []listenerSetListenerSource
+		if handshake == acceptedHandshakeState {
 			for _, listener := range item.Spec.Listeners {
-				convertedListeners = append(convertedListeners, l.convertListenerSetListenerToGatewayListener(item, listener))
+				result = append(result, l.convertListenerSetListenerToGatewayListener(listener))
 			}
-			itemPtr := &listenerSets.Items[i]
-			listenersPerListenerSet[k8s.NamespacedName(itemPtr)] = convertedListeners
-			acceptedListenerSets = append(acceptedListenerSets, itemPtr)
-			break
-		case gatewayRejectedHandshakeState:
-			rejectedListenerSets = append(rejectedListenerSets, &listenerSets.Items[i])
-			break
-		case irrelevantResourceHandshakeState:
-			// Nothing to do here, the listener set and gateway have no relation.
-			break
 		}
 
 	}
 
-	return listenerSetLoadResult{
-		listenersPerListenerSet: listenersPerListenerSet,
-		acceptedListenerSets:    acceptedListenerSets,
-	}, rejectedListenerSets, nil
+	return result, nil
 }
 
 func (l *listenerSetLoaderImpl) listenerSetGatewayHandshake(ctx context.Context, listenerSet gwv1.ListenerSet, gw gwv1.Gateway) (handshakeState, error) {
@@ -125,18 +105,14 @@ func (l *listenerSetLoaderImpl) convertListenerSetParentRef(ref gwv1.ParentGatew
 	}
 }
 
-func (l *listenerSetLoaderImpl) convertListenerSetListenerToGatewayListener(listenerSet gwv1.ListenerSet, entry gwv1.ListenerEntry) listenerSetListenerSource {
-	v := gwv1.Listener{
+func (l *listenerSetLoaderImpl) convertListenerSetListenerToGatewayListener(entry gwv1.ListenerEntry) gwv1.Listener {
+	return gwv1.Listener{
 		Name:          entry.Name,
 		Hostname:      entry.Hostname,
 		Port:          entry.Port,
 		Protocol:      entry.Protocol,
 		TLS:           entry.TLS,
 		AllowedRoutes: entry.AllowedRoutes,
-	}
-	return listenerSetListenerSource{
-		parentRef: listenerSet,
-		listener:  v,
 	}
 }
 

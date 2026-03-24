@@ -1,10 +1,9 @@
 package algorithm
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"testing"
 )
 
 func TestMapFindFirst(t *testing.T) {
@@ -356,117 +355,6 @@ func TestStringSetToCSV(t *testing.T) {
 			output := StringSetToCSV(tt.input)
 			recreatedSet := CSVToStringSet(output)
 			assert.Equal(t, tt.input, recreatedSet)
-		})
-	}
-}
-
-func TestRemoveKeysByPrefix(t *testing.T) {
-	tests := []struct {
-		name   string
-		input  map[string]string
-		prefix string
-		want   map[string]string
-	}{
-		{
-			name:   "removes aws: prefixed keys",
-			input:  map[string]string{"aws:cloudformation:stack-name": "my-stack", "elbv2.k8s.aws/cluster": "my-cluster", "aws:cloudformation:logical-id": "NLB"},
-			prefix: "aws:",
-			want:   map[string]string{"elbv2.k8s.aws/cluster": "my-cluster"},
-		},
-		{
-			name:   "no matching prefix",
-			input:  map[string]string{"elbv2.k8s.aws/cluster": "my-cluster", "service.k8s.aws/stack": "default/svc"},
-			prefix: "aws:",
-			want:   map[string]string{"elbv2.k8s.aws/cluster": "my-cluster", "service.k8s.aws/stack": "default/svc"},
-		},
-		{
-			name:   "all keys match prefix",
-			input:  map[string]string{"aws:cloudformation:stack-name": "s", "aws:cloudformation:stack-id": "id"},
-			prefix: "aws:",
-			want:   map[string]string{},
-		},
-		{
-			name:   "empty map",
-			input:  map[string]string{},
-			prefix: "aws:",
-			want:   map[string]string{},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			RemoveKeysByPrefix(tt.input, tt.prefix)
-			assert.Equal(t, tt.want, tt.input)
-		})
-	}
-}
-
-func TestDiffStringMapIgnoreAWSTags(t *testing.T) {
-	tests := []struct {
-		name       string
-		desired    map[string]string
-		current    map[string]string
-		wantUpdate map[string]string
-		wantRemove map[string]string
-	}{
-		{
-			name: "aws: tags in current are not removed",
-			desired: map[string]string{
-				"elbv2.k8s.aws/cluster": "my-cluster",
-				"service.k8s.aws/stack": "default/svc",
-			},
-			current: map[string]string{
-				"elbv2.k8s.aws/cluster":         "my-cluster",
-				"aws:cloudformation:stack-name": "my-stack",
-				"aws:cloudformation:stack-id":   "arn:aws:cloudformation:us-east-1:123:stack/my-stack/abc",
-				"aws:cloudformation:logical-id": "NLB",
-			},
-			wantUpdate: map[string]string{
-				"service.k8s.aws/stack": "default/svc",
-			},
-			wantRemove: map[string]string{},
-		},
-		{
-			name: "aws: tags in desired are not added",
-			desired: map[string]string{
-				"elbv2.k8s.aws/cluster": "my-cluster",
-				"aws:createdBy":         "should-be-ignored",
-			},
-			current: map[string]string{
-				"elbv2.k8s.aws/cluster": "my-cluster",
-			},
-			wantUpdate: map[string]string{},
-			wantRemove: map[string]string{},
-		},
-		{
-			name: "no aws: tags behaves like DiffStringMap",
-			desired: map[string]string{
-				"a": "1",
-				"b": "2",
-			},
-			current: map[string]string{
-				"a": "1",
-				"c": "3",
-			},
-			wantUpdate: map[string]string{
-				"b": "2",
-			},
-			wantRemove: map[string]string{
-				"c": "3",
-			},
-		},
-		{
-			name:       "both empty",
-			desired:    map[string]string{},
-			current:    map[string]string{},
-			wantUpdate: map[string]string{},
-			wantRemove: map[string]string{},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotUpdate, gotRemove := DiffStringMapIgnoreAWSTags(tt.desired, tt.current)
-			assert.Equal(t, tt.wantUpdate, gotUpdate)
-			assert.Equal(t, tt.wantRemove, gotRemove)
 		})
 	}
 }
