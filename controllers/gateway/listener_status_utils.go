@@ -11,19 +11,31 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func buildListenerStatus(generation int64, attachedRoutesMap map[gwv1.SectionName]int32, validatedListeners routeutils.ValidatedGatewayListeners, isProgrammed bool) []gwv1.ListenerStatus {
-	var listenerStatuses []gwv1.ListenerStatus
+func generateListenerStatus(listenerName gwv1.SectionName, supportedKinds []gwv1.RouteGroupKind, attachedRoutes int32, conditions []metav1.Condition) gwv1.ListenerStatus {
+	return gwv1.ListenerStatus{
+		Name:           listenerName,
+		SupportedKinds: supportedKinds,
+		AttachedRoutes: attachedRoutes,
+		Conditions:     conditions,
+	}
+}
+
+func generateListenerEntryStatus(listenerName gwv1.SectionName, supportedKinds []gwv1.RouteGroupKind, attachedRoutes int32, conditions []metav1.Condition) gwv1.ListenerEntryStatus {
+	return gwv1.ListenerEntryStatus{
+		Name:           listenerName,
+		SupportedKinds: supportedKinds,
+		AttachedRoutes: attachedRoutes,
+		Conditions:     conditions,
+	}
+}
+
+func buildListenerStatus[T any](generation int64, attachedRoutesMap map[gwv1.SectionName]int32, validatedListeners routeutils.ValidatedGatewayListeners, isProgrammed bool, constructor func(gwv1.SectionName, []gwv1.RouteGroupKind, int32, []metav1.Condition) T) []T {
+	var listenerStatuses []T
 	validateListenerResults := validatedListeners.GatewayListenerValidation
 
 	for listenerName, listenerValidationResult := range validateListenerResults.Results {
 		conditions := getListenerConditions(generation, listenerValidationResult, isProgrammed)
-
-		listenerStatus := gwv1.ListenerStatus{
-			Name:           listenerName,
-			SupportedKinds: listenerValidationResult.SupportedKinds,
-			AttachedRoutes: attachedRoutesMap[listenerName],
-			Conditions:     conditions,
-		}
+		listenerStatus := constructor(listenerName, listenerValidationResult.SupportedKinds, attachedRoutesMap[listenerName], conditions)
 		listenerStatuses = append(listenerStatuses, listenerStatus)
 	}
 	return listenerStatuses

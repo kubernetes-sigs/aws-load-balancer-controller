@@ -3,6 +3,7 @@ package routeutils
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -15,15 +16,21 @@ type ListenerSetStatusData struct {
 	ListenerSetStatusInfo ListenerSetStatusInfo
 	ListenerSetMetadata   ListenerSetMetadata
 	ParentRef             gwv1.ParentReference
+	RetryCount            uint
 }
 
 type ListenerSetStatusInfo struct {
-	Accepted            bool
-	AcceptedReason      string
-	AcceptedMessage     string
-	ResolvedRefs        bool
-	ResolvedRefsReason  string
-	ResolvedRefsMessage string
+	Accepted          bool
+	AcceptedReason    string
+	AcceptedMessage   string
+	Programmed        bool
+	ProgrammedReason  string
+	ProgrammedMessage string
+}
+
+type ListenerSetListenerInfo struct {
+	Version  time.Time
+	Statuses []gwv1.ListenerEntryStatus
 }
 
 type ListenerSetMetadata struct {
