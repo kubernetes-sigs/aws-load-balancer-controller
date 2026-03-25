@@ -25,7 +25,7 @@ import (
 // It also handles "use-annotation" backends by parsing the corresponding actions.* annotation
 // and translating it into the appropriate Gateway API constructs (backendRefs, filters, ListenerRuleConfigs).
 func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, listenPorts []listenPortEntry, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
-	useRegex := ing.Annotations[annotationKey(annotations.IngressSuffixUseRegexPathMatch)] == "true"
+	useRegex := getString(ing.Annotations, annotations.IngressSuffixUseRegexPathMatch) == "true"
 	// Build parentRefs — one per listener on the gateway
 	var parentRefs []gwv1.ParentReference
 

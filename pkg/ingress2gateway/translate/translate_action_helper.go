@@ -1,7 +1,6 @@
 package translate
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,35 +12,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
-
-// parseActionAnnotation parses the alb.ingress.kubernetes.io/actions.<svcName> JSON annotation.
-func parseActionAnnotation(annos map[string]string, svcName string) (*ingress.Action, error) {
-	key := annotationKey(fmt.Sprintf("actions.%s", svcName))
-	raw, ok := annos[key]
-	if !ok {
-		return nil, fmt.Errorf("missing action annotation %q", key)
-	}
-	var a ingress.Action
-	if err := json.Unmarshal([]byte(raw), &a); err != nil {
-		return nil, fmt.Errorf("failed to parse action annotation %q: %w", key, err)
-	}
-	// Normalize simplified forward schema: targetGroupARN/targetGroupName at top level
-	// gets wrapped into forwardConfig for uniform handling.
-	if a.Type == ingress.ActionTypeForward && (a.TargetGroupARN != nil || a.TargetGroupName != nil) {
-		a = ingress.Action{
-			Type: ingress.ActionTypeForward,
-			ForwardConfig: &ingress.ForwardActionConfig{
-				TargetGroups: []ingress.TargetGroupTuple{
-					{
-						TargetGroupARN:  a.TargetGroupARN,
-						TargetGroupName: a.TargetGroupName,
-					},
-				},
-			},
-		}
-	}
-	return &a, nil
-}
 
 func isUseAnnotation(portName string) bool {
 	return portName == utils.ServicePortUseAnnotation
