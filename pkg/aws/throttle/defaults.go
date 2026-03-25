@@ -45,8 +45,8 @@ func NewDefaultServiceOperationsThrottleConfig() *ServiceOperationsThrottleConfi
 				},
 				{
 					operationPtn: regexp.MustCompile("^Describe.*"),
-					r:            rate.Limit(10),
-					burst:        40,
+					r:            rate.Limit(50),
+					burst:        200,
 				},
 				{
 					operationPtn: regexp.MustCompile("^Modify.*"),
