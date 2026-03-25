@@ -8,6 +8,7 @@ import (
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
@@ -21,7 +22,9 @@ import (
 // is emitted as a separate HTTPRoute without hostnames so it becomes a true catch-all,
 // matching the Ingress behavior where the default backend handles any request regardless
 // of hostname.
-func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, listenPorts []listenPortEntry, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, error) {
+// It also handles "use-annotation" backends by parsing the corresponding actions.* annotation
+// and translating it into the appropriate Gateway API constructs (backendRefs, filters, ListenerRuleConfigs).
+func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, listenPorts []listenPortEntry, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
 	useRegex := ing.Annotations[annotationKey(annotations.IngressSuffixUseRegexPathMatch)] == "true"
 	// Build parentRefs — one per listener on the gateway
 	var parentRefs []gwv1.ParentReference
@@ -49,6 +52,9 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 	var rules []gwv1.HTTPRouteRule
 	var hostnames []gwv1.Hostname
 
+	// Collect LRCs produced by use-annotation backends
+	var listenerRuleConfigs []gatewayv1beta1.ListenerRuleConfiguration
+
 	for _, rule := range ing.Spec.Rules {
 		if rule.Host != "" {
 			hostnames = append(hostnames, gwv1.Hostname(rule.Host))
@@ -64,7 +70,7 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 			if path.Path != "" {
 				pathType, err := toGatewayPathType(path.PathType, useRegex)
 				if err != nil {
-					return nil, nil, fmt.Errorf("ingress %s/%s path %q: %w", namespace, ing.Name, path.Path, err)
+					return nil, nil, nil, fmt.Errorf("ingress %s/%s path %q: %w", namespace, ing.Name, path.Path, err)
 				}
 				pathValue := path.Path
 				// When using regex path match with ImplementationSpecific, the Ingress controller
@@ -80,26 +86,49 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 			}
 			routeRule.Matches = []gwv1.HTTPRouteMatch{match}
 
-			// Build backendRef
-			// TODO: detect "use-annotation" service backends (port.name == "use-annotation")
-			// and translate the corresponding alb.ingress.kubernetes.io/actions.{name} annotation
-			// into the appropriate Gateway API equivalent (HTTPRoute filters, ListenerRuleConfiguration, etc.)
+			// Build backendRef or translate use-annotation action
 			if path.Backend.Service != nil {
-				portNum, err := resolveServicePort(path.Backend.Service.Port, namespace, path.Backend.Service.Name, servicesByKey)
-				if err != nil {
-					return nil, nil, err
-				}
-				trackBackend(path.Backend.Service.Name, portNum)
-				port := gwv1.PortNumber(portNum)
-				routeRule.BackendRefs = []gwv1.HTTPBackendRef{
-					{
-						BackendRef: gwv1.BackendRef{
-							BackendObjectReference: gwv1.BackendObjectReference{
-								Name: gwv1.ObjectName(path.Backend.Service.Name),
-								Port: &port,
+				if isUseAnnotation(path.Backend.Service.Port.Name) {
+					// "use-annotation" backend: parse the actions.* annotation and translate it.
+					svcName := path.Backend.Service.Name
+					parsedAction, err := parseActionAnnotation(ing.Annotations, svcName)
+					if err != nil {
+						return nil, nil, nil, fmt.Errorf("ingress %s/%s failed in parse action annotation: %w", namespace, ing.Name, err)
+					}
+					actionResult, err := translateAction(parsedAction, namespace, svcName, servicesByKey)
+					if err != nil {
+						return nil, nil, nil, fmt.Errorf("ingress %s/%s failed in translate action %q: %w", namespace, ing.Name, svcName, err)
+					}
+					if len(actionResult.BackendRefs) > 0 {
+						routeRule.BackendRefs = actionResult.BackendRefs
+					}
+					if len(actionResult.Filters) > 0 {
+						routeRule.Filters = actionResult.Filters
+					}
+					if actionResult.ListenerRuleConfiguration != nil {
+						listenerRuleConfigs = append(listenerRuleConfigs, *actionResult.ListenerRuleConfiguration)
+					}
+					// Track K8s service backends from forward actions for TGC generation
+					for _, ref := range actionResult.ServiceRefs {
+						trackBackend(ref.name, ref.port)
+					}
+				} else {
+					portNum, err := resolveServicePort(path.Backend.Service.Port, namespace, path.Backend.Service.Name, servicesByKey)
+					if err != nil {
+						return nil, nil, nil, err
+					}
+					trackBackend(path.Backend.Service.Name, portNum)
+					port := gwv1.PortNumber(portNum)
+					routeRule.BackendRefs = []gwv1.HTTPBackendRef{
+						{
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name: gwv1.ObjectName(path.Backend.Service.Name),
+									Port: &port,
+								},
 							},
 						},
-					},
+					}
 				}
 			}
 
@@ -120,7 +149,7 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 	if ing.Spec.DefaultBackend != nil && ing.Spec.DefaultBackend.Service != nil {
 		portNum, err := resolveServicePort(ing.Spec.DefaultBackend.Service.Port, namespace, ing.Spec.DefaultBackend.Service.Name, servicesByKey)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		trackBackend(ing.Spec.DefaultBackend.Service.Name, portNum)
 		port := gwv1.PortNumber(portNum)
@@ -155,7 +184,7 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 		routes = append(routes, newHTTPRoute(utils.GetDefaultHTTPRouteName(namespace, ing.Name), namespace, parentRefs, nil, []gwv1.HTTPRouteRule{*defaultRule}))
 	}
 
-	return routes, svcRefs, nil
+	return routes, svcRefs, listenerRuleConfigs, nil
 }
 
 // resolveServicePort resolves a ServiceBackendPort to a numeric port.
@@ -168,17 +197,22 @@ func resolveServicePort(sbp networking.ServiceBackendPort, namespace, svcName st
 	if sbp.Name == "" {
 		return 0, fmt.Errorf("service %s/%s has no port number or name", namespace, svcName)
 	}
+	return lookupNamedPort(namespace, svcName, sbp.Name, servicesByKey)
+}
+
+// lookupNamedPort resolves a named port to a numeric port by looking up the Service object.
+func lookupNamedPort(namespace, svcName, portName string, servicesByKey map[string]corev1.Service) (int32, error) {
 	svcKey := fmt.Sprintf("%s/%s", namespace, svcName)
 	svc, ok := servicesByKey[svcKey]
 	if !ok {
-		return 0, fmt.Errorf("service %s not found, cannot resolve named port %q", svcKey, sbp.Name)
+		return 0, fmt.Errorf("service %s not found, cannot resolve named port %q", svcKey, portName)
 	}
 	for _, p := range svc.Spec.Ports {
-		if p.Name == sbp.Name {
+		if p.Name == portName {
 			return p.Port, nil
 		}
 	}
-	return 0, fmt.Errorf("service %s has no port named %q", svcKey, sbp.Name)
+	return 0, fmt.Errorf("service %s has no port named %q", svcKey, portName)
 }
 
 // newHTTPRoute constructs an HTTPRoute with the given parameters.

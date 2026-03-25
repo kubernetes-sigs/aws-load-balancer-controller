@@ -91,12 +91,21 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 		gw := buildGateway(gatewayName, namespace, lbConfig, listenPorts)
 		out.Gateways = append(out.Gateways, gw)
 
-		// Build HTTPRoute(s) and collect unique service refs (with resolved ports)
-		routes, svcRefs, err := buildHTTPRoutes(ing, namespace, gatewayName, listenPorts, servicesByKey)
+		// Build HTTPRoute(s), collect unique service refs, and collect ListenerRuleConfigurations
+		routes, svcRefs, lrcs, err := buildHTTPRoutes(ing, namespace, gatewayName, listenPorts, servicesByKey)
 		if err != nil {
 			return nil, err
 		}
 		out.HTTPRoutes = append(out.HTTPRoutes, routes...)
+		// Add migration tags to listenerRuleConfig
+		for i := range lrcs {
+			if lrcs[i].Spec.Tags == nil {
+				tags := make(map[string]string)
+				lrcs[i].Spec.Tags = &tags
+			}
+			(*lrcs[i].Spec.Tags)[utils.MigrationTagKey] = migrationTag
+		}
+		out.ListenerRuleConfigurations = append(out.ListenerRuleConfigurations, lrcs...)
 
 		// Build TargetGroupConfigurations for each unique service
 		for _, svcRef := range svcRefs {

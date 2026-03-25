@@ -68,3 +68,8 @@ func GetDefaultHTTPRouteName(namespace, ingressName string) string {
 func GetTGConfigName(namespace, serviceName string) string {
 	return resourceName(namespace, serviceName, "tg-config")
 }
+
+// GetLRConfigName returns the ListenerRuleConfiguration resource name.
+func GetLRConfigName(namespace, actionName string) string {
+	return resourceName(namespace, actionName, "lr-config")
+}
