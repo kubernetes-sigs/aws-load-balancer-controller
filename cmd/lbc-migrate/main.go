@@ -115,7 +115,7 @@ func runMigrate(ctx context.Context, opts *ingress2gateway.MigrateOptions) error
 			return nil, err
 		}
 		if !o.FromCluster {
-			warnings.CheckMissingResources(resources, os.Stderr)
+			warnings.CheckInputResources(resources, os.Stderr)
 		}
 		return resources, nil
 	}

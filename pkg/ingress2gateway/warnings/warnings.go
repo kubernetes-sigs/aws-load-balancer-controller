@@ -3,32 +3,39 @@ package warnings
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	networking "k8s.io/api/networking/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 )
 
-// CheckMissingResources inspects the InputResources for missing referenced
+// CheckInputResources inspects the InputResources for missing referenced
 // resources and writes warnings to the provided writer (typically os.Stderr).
+// It also detects external target group references in action annotations.
 // It returns the total number of warnings emitted.
-func CheckMissingResources(resources *ingress2gateway.InputResources, w io.Writer) int {
+func CheckInputResources(resources *ingress2gateway.InputResources, w io.Writer) int {
 	warningCount := 0
 
 	// Build lookup sets
 	serviceNames := buildServiceNameSet(resources)
 	ingressClassNames := buildIngressClassNameSet(resources)
 
+	hasExternalTG := false
 	for _, ing := range resources.Ingresses {
-		// Check for missing Services referenced in backends
 		warningCount += checkMissingServices(ing, serviceNames, w)
-
-		// Check for missing IngressClass
 		warningCount += checkMissingIngressClass(ing, ingressClassNames, w)
+		if !hasExternalTG {
+			hasExternalTG = checkExternalTargetGroups(ing)
+		}
 	}
 
 	if warningCount > 0 {
-		fmt.Fprintf(w, "\nTip: Use --from-cluster to automatically read all referenced resources,\n")
-		fmt.Fprintf(w, "     or include Service/IngressClass/IngressClassParams files in your input.\n\n")
+		fmt.Fprint(w, utils.TipUseFromClusterMessage)
+	}
+
+	if hasExternalTG {
+		fmt.Fprintln(w, utils.WarnExternalTargetGroupMessage)
 	}
 
 	return warningCount
@@ -77,6 +84,11 @@ func checkMissingServices(ing networking.Ingress, serviceNames map[string]struct
 			if path.Backend.Service == nil {
 				continue
 			}
+			// Skip use-annotation backends — the service name is a key into the
+			// actions.* annotation, not a real K8s Service.
+			if path.Backend.Service.Port.Name == utils.ServicePortUseAnnotation {
+				continue
+			}
 			svcKey := fmt.Sprintf("%s/%s", namespace, path.Backend.Service.Name)
 			if _, ok := serviceNames[svcKey]; !ok {
 				fmt.Fprintf(w, "WARNING: Ingress %q references Service %q but it was not provided. Service-level annotation overrides may be missing.\n",
@@ -106,4 +118,17 @@ func checkMissingIngressClass(ing networking.Ingress, ingressClassNames map[stri
 		return 1
 	}
 	return 0
+}
+
+// checkExternalTargetGroups scans action annotations for targetGroupARN or targetGroupName references.
+func checkExternalTargetGroups(ing networking.Ingress) bool {
+	for key, value := range ing.Annotations {
+		if !strings.HasPrefix(key, utils.ActionAnnotationPrefix) {
+			continue
+		}
+		if strings.Contains(value, utils.JSONFieldTargetGroupARN) || strings.Contains(value, utils.JSONFieldTargetGroupName) {
+			return true
+		}
+	}
+	return false
 }

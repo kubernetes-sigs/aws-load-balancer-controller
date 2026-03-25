@@ -88,8 +88,12 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 		},
 		Routing: {
 			annotations.IngressSuffixSSLRedirect,
-			// TODO: "use-annotation" action backends (alb.ingress.kubernetes.io/actions.{name})
-			// are dynamically named and not tracked here. They need detection in the HTTPRoute builder.
+			// NOTE: "use-annotation" action backends (alb.ingress.kubernetes.io/actions.{name}),
+			// condition annotations (alb.ingress.kubernetes.io/conditions.{name}), and
+			// transform annotations (alb.ingress.kubernetes.io/transforms.{name}) are dynamically
+			// named and cannot be tracked as static suffixes here.
+			// actions.* translation is implemented in translate_action_helper.go (forward, redirect, fixed-response).
+			// conditions.*, transforms.*, and ssl-redirect are planned for subsequent PRs.
 		},
 		Authentication: {
 			annotations.IngressSuffixAuthType,

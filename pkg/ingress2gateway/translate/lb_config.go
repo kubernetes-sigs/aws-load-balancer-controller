@@ -1,7 +1,6 @@
 package translate
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -146,12 +145,9 @@ func buildListenerConfigurations(annos map[string]string, listenPorts []listenPo
 
 	certARNs := getStringSlice(annos, annotations.IngressSuffixCertificateARN)
 	sslPolicy := getString(annos, annotations.IngressSuffixSSLPolicy)
-	mutualAuthJSON := getString(annos, annotations.IngressSuffixMutualAuthentication)
 
 	var mutualAuthEntries []mutualAuthEntry
-	if mutualAuthJSON != "" {
-		_ = json.Unmarshal([]byte(mutualAuthJSON), &mutualAuthEntries)
-	}
+	ingressAnnotationParser.ParseJSONAnnotation(annotations.IngressSuffixMutualAuthentication, &mutualAuthEntries, annos)
 
 	var meaningful []gatewayv1beta1.ListenerConfiguration
 	for _, lp := range listenPorts {

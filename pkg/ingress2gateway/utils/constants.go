@@ -18,4 +18,43 @@ const (
 
 	// ProtocolHTTPS is the HTTPS protocol string used in listen-ports and ProtocolPort.
 	ProtocolHTTPS = "HTTPS"
+
+	// LBCGatewayAPIGroup is the API group for LBC's Gateway API CRDs (LoadBalancerConfiguration, etc).
+	LBCGatewayAPIGroup = "gateway.k8s.aws"
+
+	// TargetGroupARNPrefix is the path segment in an ELB target group ARN that precedes the TG name.
+	// ARN format: arn:aws:elasticloadbalancing:<region>:<account>:targetgroup/<name>/<id>
+	TargetGroupARNPrefix = "targetgroup/"
+
+	// ServicePortUseAnnotation is the magic port name that signals the backend
+	// is defined by an actions.* annotation rather than a real K8s service.
+	ServicePortUseAnnotation = "use-annotation"
+
+	// TargetGroupNameBackendKind is the backendRef Kind recognized by the gateway
+	// controller for referencing external target groups by name.
+	TargetGroupNameBackendKind = "TargetGroupName"
+
+	// ActionAnnotationPrefix is the full annotation key prefix for action annotations.
+	ActionAnnotationPrefix = "alb.ingress.kubernetes.io/actions."
+
+	// JSONFieldTargetGroupARN is the JSON field name for target group ARN in action annotations.
+	JSONFieldTargetGroupARN = "targetGroupARN"
+
+	// JSONFieldTargetGroupName is the JSON field name for target group name in action annotations.
+	JSONFieldTargetGroupName = "targetGroupName"
+
+	// WarnExternalTargetGroupMessage is the warning message for external target group references.
+	WarnExternalTargetGroupMessage = `
+		WARNING: Generated manifests reference external target groups (TargetGroupName/TargetGroupARN).
+		External TGs can only be associated with one ALB at a time.
+		Applying the Gateway manifests while the Ingress ALB is still active will fail.
+		To migrate, either:
+			1. Delete the Ingress rules referencing the external TG before applying Gateway manifests (cutover)
+			2. Create a duplicate TG and update the generated Gateway manifest to use the new TG name`
+
+	// TipUseFromClusterMessage is the tip shown when missing resources are detected.
+	TipUseFromClusterMessage = `
+		Tip: Use --from-cluster to automatically read all referenced resources,
+			or include Service/IngressClass/IngressClassParams files in your input.
+		`
 )

@@ -267,7 +267,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routes, _, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil)
+			routes, _, _, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil)
 			require.NoError(t, err)
 			require.Len(t, routes, tt.wantRoutes)
 			if tt.check != nil {
