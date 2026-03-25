@@ -122,6 +122,39 @@ func emptyListenerSetLoadResult() listenerSetLoadResult {
 	}
 }
 
+// buildValidatedGatewayListeners creates a ValidatedGatewayListeners with entries for the given gateway listeners.
+func buildValidatedGatewayListeners(gwListeners []gwv1.Listener) ValidatedGatewayListeners {
+	results := make(map[gwv1.SectionName]ListenerValidationResult)
+	for _, l := range gwListeners {
+		results[l.Name] = ListenerValidationResult{
+			ListenerName: l.Name,
+			IsValid:      true,
+		}
+	}
+	return ValidatedGatewayListeners{
+		GatewayListenerValidation: ListenerValidationResults{
+			Results: results,
+		},
+		ListenerSetListenerValidation: make(map[types.NamespacedName]ListenerValidationResults),
+	}
+}
+
+// buildValidatedGatewayListenersWithLS creates a ValidatedGatewayListeners with entries for gateway and listener set listeners.
+func buildValidatedGatewayListenersWithLS(gwListeners []gwv1.Listener, lsNsn types.NamespacedName, lsListeners []gwv1.Listener) ValidatedGatewayListeners {
+	vgl := buildValidatedGatewayListeners(gwListeners)
+	lsResults := make(map[gwv1.SectionName]ListenerValidationResult)
+	for _, l := range lsListeners {
+		lsResults[l.Name] = ListenerValidationResult{
+			ListenerName: l.Name,
+			IsValid:      true,
+		}
+	}
+	vgl.ListenerSetListenerValidation[lsNsn] = ListenerValidationResults{
+		Results: lsResults,
+	}
+	return vgl
+}
+
 func Test_mapListenersAndRoutes(t *testing.T) {
 	gw := gwv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
@@ -146,7 +179,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 		routes                    []preLoadRouteDescriptor
 		attachmentResults         map[string]mockAttachmentResult
 		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
-		expectedRoutesPerListener map[gwv1.SectionName]int32
 		expectedFailedCount       int
 		expectedMatchedParentRefs map[string][]gwv1.ParentReference
 		expectErr                 bool
@@ -160,7 +192,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				80:  {},
 				443: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0},
 			expectedFailedCount:       0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{},
 		},
@@ -179,8 +210,7 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				80:  {route1},
 				443: {route2},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 1, "https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				route1.GetRouteIdentifier(): {gwParentRef("gw1")},
 				route2.GetRouteIdentifier(): {gwParentRef("gw1")},
@@ -201,8 +231,7 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				80:  {route1, route2},
 				443: {route1, route2},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 2, "https": 2},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				route1.GetRouteIdentifier(): {gwParentRef("gw1")},
 				route2.GetRouteIdentifier(): {gwParentRef("gw1")},
@@ -234,8 +263,7 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
 				80: {route1}, // deduplicated
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http-a": 1, "http-b": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				route1.GetRouteIdentifier(): {gwParentRef("gw1")},
 			},
@@ -251,7 +279,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				80:  {},
 				443: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0},
 			expectedFailedCount:       2, // one rejection per listener
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{},
 		},
@@ -265,7 +292,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				80:  {},
 				443: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0},
 			expectedFailedCount:       0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{},
 		},
@@ -292,8 +318,7 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				80:  {route1},
 				443: {route1},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 1, "https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				route1.GetRouteIdentifier(): {gwParentRef("gw1")},
 			},
@@ -306,7 +331,8 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 				listenerAttachmentHelper: &mockListenerAttachmentHelper{results: tc.attachmentResults},
 				logger:                   logr.Discard(),
 			}
-			result, err := mapper.mapListenersAndRoutes(context.Background(), tc.gw, tc.listeners, tc.routes)
+			validationResults := buildValidatedGatewayListeners(tc.listeners.GatewayListeners)
+			result, err := mapper.mapListenersAndRoutes(context.Background(), tc.gw, tc.listeners, tc.routes, validationResults)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -317,9 +343,6 @@ func Test_mapListenersAndRoutes(t *testing.T) {
 			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort))
 			for port, expectedRoutes := range tc.expectedRoutesByPort {
 				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
-			}
-			if tc.expectedRoutesPerListener != nil {
-				assert.Equal(t, tc.expectedRoutesPerListener, result.routesPerListener)
 			}
 			assert.Equal(t, tc.expectedFailedCount, len(result.failedRoutes))
 			assert.Equal(t, tc.expectedMatchedParentRefs, result.matchedParentRefs)
@@ -339,12 +362,11 @@ func Test_mapListenersAndRoutes_sectionName(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                      string
-		routes                    []preLoadRouteDescriptor
-		attachmentResults         map[string]mockAttachmentResult
-		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
-		expectedRoutesPerListener map[gwv1.SectionName]int32
-		expectedFailedCount       int
+		name                 string
+		routes               []preLoadRouteDescriptor
+		attachmentResults    map[string]mockAttachmentResult
+		expectedRoutesByPort map[int32][]preLoadRouteDescriptor
+		expectedFailedCount  int
 	}{
 		{
 			name:   "route with sectionName targets specific listener",
@@ -357,8 +379,7 @@ func Test_mapListenersAndRoutes_sectionName(t *testing.T) {
 				80:  {},
 				443: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithSection("gw1", "https"))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 		},
 		{
 			name:              "route with non-existent sectionName produces NoMatchingParent failure",
@@ -368,8 +389,7 @@ func Test_mapListenersAndRoutes_sectionName(t *testing.T) {
 				80:  {},
 				443: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0},
-			expectedFailedCount:       1,
+			expectedFailedCount: 1,
 		},
 		{
 			name:   "route with port filter only matches listeners on that port",
@@ -381,8 +401,7 @@ func Test_mapListenersAndRoutes_sectionName(t *testing.T) {
 				80:  {},
 				443: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 443))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 		},
 	}
 
@@ -393,14 +412,14 @@ func Test_mapListenersAndRoutes_sectionName(t *testing.T) {
 				logger:                   logr.Discard(),
 			}
 			listeners := allListeners{GatewayListeners: gw.Spec.Listeners, ListenerSetListeners: emptyListenerSetLoadResult()}
-			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes)
+			validationResults := buildValidatedGatewayListeners(gw.Spec.Listeners)
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes, validationResults)
 
 			assert.NoError(t, err)
 			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort))
 			for port, expectedRoutes := range tc.expectedRoutesByPort {
 				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
 			}
-			assert.Equal(t, tc.expectedRoutesPerListener, result.routesPerListener)
 			assert.Equal(t, tc.expectedFailedCount, len(result.failedRoutes))
 		})
 	}
@@ -430,13 +449,13 @@ func Test_mapListenersAndRoutes_differentRouteKinds(t *testing.T) {
 	}
 
 	listeners := allListeners{GatewayListeners: gw.Spec.Listeners, ListenerSetListeners: emptyListenerSetLoadResult()}
-	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{httpRoute, grpcRoute})
+	validationResults := buildValidatedGatewayListeners(gw.Spec.Listeners)
+	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{httpRoute, grpcRoute}, validationResults)
 
 	assert.NoError(t, err)
 	// Both routes should appear on port 443 since they have different route identifiers (kind is part of the ID)
 	assert.Equal(t, 1, len(result.routesByPort))
 	assert.ElementsMatch(t, []preLoadRouteDescriptor{httpRoute, grpcRoute}, result.routesByPort[443])
-	assert.Equal(t, map[gwv1.SectionName]int32{"https": 2}, result.routesPerListener)
 	assert.Equal(t, 0, len(result.failedRoutes))
 	assert.Equal(t, map[string][]gwv1.ParentReference{
 		httpRoute.GetRouteIdentifier(): {gwParentRef("gw1")},
@@ -489,7 +508,8 @@ func Test_mapListenersAndRoutes_listenerSet(t *testing.T) {
 	}
 
 	listeners := allListeners{GatewayListeners: gw.Spec.Listeners, ListenerSetListeners: listenerSetResult}
-	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{gwRoute, lsRoute})
+	validationResults := buildValidatedGatewayListenersWithLS(gw.Spec.Listeners, lsNsn, []gwv1.Listener{lsListener})
+	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{gwRoute, lsRoute}, validationResults)
 
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, []preLoadRouteDescriptor{gwRoute}, result.routesByPort[80])
@@ -545,7 +565,8 @@ func Test_mapListenersAndRoutes_listenerSetAndGatewaySameListenerName(t *testing
 	}
 
 	listeners := allListeners{GatewayListeners: gw.Spec.Listeners, ListenerSetListeners: listenerSetResult}
-	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{gwRoute, lsRoute})
+	validationResults := buildValidatedGatewayListenersWithLS(gw.Spec.Listeners, lsNsn, []gwv1.Listener{lsListener})
+	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{gwRoute, lsRoute}, validationResults)
 
 	assert.NoError(t, err)
 	// Routes should be on different ports despite listeners sharing a name
@@ -578,7 +599,8 @@ func Test_mapListenersAndRoutes_compatibleHostnamesAccumulated(t *testing.T) {
 	}
 
 	listeners := allListeners{GatewayListeners: gw.Spec.Listeners, ListenerSetListeners: emptyListenerSetLoadResult()}
-	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{route})
+	validationResults := buildValidatedGatewayListeners(gw.Spec.Listeners)
+	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{route}, validationResults)
 
 	assert.NoError(t, err)
 	// Both hostnames should be accumulated for the route on port 80
@@ -618,7 +640,8 @@ func Test_mapListenersAndRoutes_partialAttachmentSucceeds(t *testing.T) {
 	}
 
 	listeners := allListeners{GatewayListeners: gw.Spec.Listeners, ListenerSetListeners: emptyListenerSetLoadResult()}
-	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{route})
+	validationResults := buildValidatedGatewayListeners(gw.Spec.Listeners)
+	result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{route}, validationResults)
 
 	assert.NoError(t, err)
 	// Route should still be mapped since at least one listener accepted
@@ -657,7 +680,6 @@ func Test_mapListenersAndRoutes_gatewayAndListenerSetCombinations(t *testing.T) 
 		routes                    []preLoadRouteDescriptor
 		attachmentResults         map[string]mockAttachmentResult
 		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
-		expectedRoutesPerListener map[gwv1.SectionName]int32
 		expectedFailedCount       int
 		expectedMatchedParentRefs map[string][]gwv1.ParentReference
 	}{
@@ -677,8 +699,7 @@ func Test_mapListenersAndRoutes_gatewayAndListenerSetCombinations(t *testing.T) 
 				80:  {makeHTTPRoute("gw-route", "ns-gw", gwParent)},
 				443: {makeHTTPRoute("ls-route", "ns-gw", lsParent)},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"gw-http": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("gw-route", "ns-gw", gwParent).GetRouteIdentifier(): {gwParent},
 				makeHTTPRoute("ls-route", "ns-gw", lsParent).GetRouteIdentifier(): {lsParent},
@@ -700,8 +721,7 @@ func Test_mapListenersAndRoutes_gatewayAndListenerSetCombinations(t *testing.T) 
 				80:  {makeHTTPRoute("shared-route", "ns-gw", gwParent, lsParent)},
 				443: {makeHTTPRoute("shared-route", "ns-gw", gwParent, lsParent)},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"gw-http": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("shared-route", "ns-gw", gwParent, lsParent).GetRouteIdentifier(): {gwParent, lsParent},
 			},
@@ -722,8 +742,7 @@ func Test_mapListenersAndRoutes_gatewayAndListenerSetCombinations(t *testing.T) 
 				80:  {makeHTTPRoute("gw-route", "ns-gw", gwParent)},
 				443: {makeHTTPRoute("ls-route", "ns-gw", lsParent)},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"shared-name": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("gw-route", "ns-gw", gwParent).GetRouteIdentifier(): {gwParent},
 				makeHTTPRoute("ls-route", "ns-gw", lsParent).GetRouteIdentifier(): {lsParent},
@@ -744,8 +763,7 @@ func Test_mapListenersAndRoutes_gatewayAndListenerSetCombinations(t *testing.T) 
 			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
 				80: {makeHTTPRoute("gw-route", "ns-gw", gwParent), makeHTTPRoute("ls-route", "ns-gw", lsParent)},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"gw-http": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("gw-route", "ns-gw", gwParent).GetRouteIdentifier(): {gwParent},
 				makeHTTPRoute("ls-route", "ns-gw", lsParent).GetRouteIdentifier(): {lsParent},
@@ -776,13 +794,13 @@ func Test_mapListenersAndRoutes_gatewayAndListenerSetCombinations(t *testing.T) 
 				logger:                   logr.Discard(),
 			}
 
-			result, err := mapper.mapListenersAndRoutes(context.Background(), *gw, listeners, tc.routes)
+			validationResults := buildValidatedGatewayListenersWithLS(tc.gwListeners, lsNsn, tc.lsListeners)
+			result, err := mapper.mapListenersAndRoutes(context.Background(), *gw, listeners, tc.routes, validationResults)
 			assert.NoError(t, err)
 			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort), "routesByPort length mismatch")
 			for port, expectedRoutes := range tc.expectedRoutesByPort {
 				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
 			}
-			assert.Equal(t, tc.expectedRoutesPerListener, result.routesPerListener)
 			assert.Equal(t, tc.expectedFailedCount, len(result.failedRoutes))
 			assert.Equal(t, tc.expectedMatchedParentRefs, result.matchedParentRefs)
 		})
@@ -817,7 +835,6 @@ func Test_mapListenersAndRoutes_sectionNameWithPortFiltering(t *testing.T) {
 		routes                    []preLoadRouteDescriptor
 		attachmentResults         map[string]mockAttachmentResult
 		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
-		expectedRoutesPerListener map[gwv1.SectionName]int32
 		expectedFailedCount       int
 		expectedMatchedParentRefs map[string][]gwv1.ParentReference
 	}{
@@ -834,8 +851,7 @@ func Test_mapListenersAndRoutes_sectionNameWithPortFiltering(t *testing.T) {
 				80:  {},
 				443: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithSectionAndPort("gw1", "https", 443))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("route1", "ns-gw", gwParentRefWithSectionAndPort("gw1", "https", 443)).GetRouteIdentifier(): {
 					gwParentRefWithSectionAndPort("gw1", "https", 443),
@@ -853,7 +869,6 @@ func Test_mapListenersAndRoutes_sectionNameWithPortFiltering(t *testing.T) {
 				80:  {},
 				443: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0},
 			// The route gets a NoMatchingParent failure because the sectionName lookup succeeds
 			// but the port check fails, so no attachment is attempted and failedRoutes gets a
 			// synthetic NoMatchingParent entry.
@@ -871,7 +886,6 @@ func Test_mapListenersAndRoutes_sectionNameWithPortFiltering(t *testing.T) {
 				80:  {},
 				443: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0},
 			// Attachment was attempted (sectionName+port matched) but the listener rejected it,
 			// so we get 1 failed route from the listener rejection itself.
 			expectedFailedCount:       1,
@@ -885,14 +899,14 @@ func Test_mapListenersAndRoutes_sectionNameWithPortFiltering(t *testing.T) {
 				listenerAttachmentHelper: &mockListenerAttachmentHelper{results: tc.attachmentResults},
 				logger:                   logr.Discard(),
 			}
-			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes)
+			validationResults := buildValidatedGatewayListeners(gw.Spec.Listeners)
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes, validationResults)
 
 			assert.NoError(t, err)
 			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort))
 			for port, expectedRoutes := range tc.expectedRoutesByPort {
 				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
 			}
-			assert.Equal(t, tc.expectedRoutesPerListener, result.routesPerListener)
 			assert.Equal(t, tc.expectedFailedCount, len(result.failedRoutes))
 			assert.Equal(t, tc.expectedMatchedParentRefs, result.matchedParentRefs)
 		})
@@ -906,7 +920,6 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 		parentRef                 gwv1.ParentReference
 		attachmentResults         map[string]mockAttachmentResult
 		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
-		expectedRoutesPerListener map[gwv1.SectionName]int32
 		expectedFailedCount       int
 		expectedMatchedParentRefs map[string][]gwv1.ParentReference
 	}{
@@ -921,8 +934,7 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
 				80: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 80))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 80)).GetRouteIdentifier(): {
 					gwParentRefWithPort("gw1", 80),
@@ -938,7 +950,6 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
 				80: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0},
 			expectedFailedCount:       1,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{},
 		},
@@ -957,8 +968,7 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 				80:  {},
 				443: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 443))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 443)).GetRouteIdentifier(): {
 					gwParentRefWithPort("gw1", 443),
@@ -981,8 +991,7 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
 				80: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 80))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http-a": 1, "http-b": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 80)).GetRouteIdentifier(): {
 					gwParentRefWithPort("gw1", 80),
@@ -1007,8 +1016,7 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 				80:  {},
 				443: {makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 443))},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 1, "alt-https": 1},
-			expectedFailedCount:       0,
+			expectedFailedCount: 0,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{
 				makeHTTPRoute("route1", "ns-gw", gwParentRefWithPort("gw1", 443)).GetRouteIdentifier(): {
 					gwParentRefWithPort("gw1", 443),
@@ -1029,7 +1037,6 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 				443:   {},
 				50051: {},
 			},
-			expectedRoutesPerListener: map[gwv1.SectionName]int32{"http": 0, "https": 0, "grpc": 0},
 			expectedFailedCount:       1,
 			expectedMatchedParentRefs: map[string][]gwv1.ParentReference{},
 		},
@@ -1048,14 +1055,14 @@ func Test_mapListenersAndRoutes_portFilteringNoSectionName(t *testing.T) {
 				listenerAttachmentHelper: &mockListenerAttachmentHelper{results: tc.attachmentResults},
 				logger:                   logr.Discard(),
 			}
-			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{route})
+			validationResults := buildValidatedGatewayListeners(tc.gwListeners)
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{route}, validationResults)
 
 			assert.NoError(t, err)
 			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort), "routesByPort length mismatch")
 			for port, expectedRoutes := range tc.expectedRoutesByPort {
 				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
 			}
-			assert.Equal(t, tc.expectedRoutesPerListener, result.routesPerListener)
 			assert.Equal(t, tc.expectedFailedCount, len(result.failedRoutes))
 			assert.Equal(t, tc.expectedMatchedParentRefs, result.matchedParentRefs)
 		})
@@ -1167,6 +1174,7 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 			lsObj := gwv1.ListenerSet{ObjectMeta: metav1.ObjectMeta{Name: "my-ls", Namespace: "ns-gw"}}
 
 			var listenerSetResult listenerSetLoadResult
+			var validationResults ValidatedGatewayListeners
 			if len(tc.lsListeners) > 0 {
 				lsSources := make([]listenerSetListenerSource, 0, len(tc.lsListeners))
 				for _, l := range tc.lsListeners {
@@ -1176,8 +1184,10 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 					listenersPerListenerSet: map[types.NamespacedName][]listenerSetListenerSource{lsNsn: lsSources},
 					acceptedListenerSets:    map[types.NamespacedName]gwv1.ListenerSet{lsNsn: lsObj},
 				}
+				validationResults = buildValidatedGatewayListenersWithLS(tc.gwListeners, lsNsn, tc.lsListeners)
 			} else {
 				listenerSetResult = emptyListenerSetLoadResult()
+				validationResults = buildValidatedGatewayListeners(tc.gwListeners)
 			}
 
 			listeners := allListeners{GatewayListeners: tc.gwListeners, ListenerSetListeners: listenerSetResult}
@@ -1186,7 +1196,7 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 				listenerAttachmentHelper: &mockListenerAttachmentHelper{results: tc.attachmentResults},
 				logger:                   logr.Discard(),
 			}
-			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes)
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes, validationResults)
 
 			assert.NoError(t, err)
 			assert.ElementsMatch(t, tc.expectedAttachedListeners, result.attachedListeners)
@@ -1196,6 +1206,276 @@ func Test_mapListenersAndRoutes_attachedListeners(t *testing.T) {
 					assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
 				}
 			}
+		})
+	}
+}
+
+func Test_mapListenersAndRoutes_validationFiltering(t *testing.T) {
+	gw := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw1", Namespace: "ns-gw"},
+		Spec: gwv1.GatewaySpec{
+			Listeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+				{Name: "https", Port: 443},
+			},
+		},
+	}
+
+	route1 := makeHTTPRoute("route1", "ns-gw", gwParentRef("gw1"))
+	route2 := makeHTTPRoute("route2", "ns-gw", gwParentRef("gw1"))
+
+	testCases := []struct {
+		name                      string
+		gwListeners               []gwv1.Listener
+		routes                    []preLoadRouteDescriptor
+		attachmentResults         map[string]mockAttachmentResult
+		validationResults         ValidatedGatewayListeners
+		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
+		expectedAttachedListeners []gwv1.Listener
+		expectedFailedCount       int
+		expectedMatchedParentRefs map[string][]gwv1.ParentReference
+	}{
+		{
+			name:        "invalid gateway listener is excluded from routes and attachedListeners",
+			gwListeners: gw.Spec.Listeners,
+			routes:      []preLoadRouteDescriptor{route1},
+			attachmentResults: map[string]mockAttachmentResult{
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[0], route1): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[1], route1): {},
+			},
+			validationResults: ValidatedGatewayListeners{
+				GatewayListenerValidation: ListenerValidationResults{
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"http":  {ListenerName: "http", IsValid: true},
+						"https": {ListenerName: "https", IsValid: false},
+					},
+				},
+				ListenerSetListenerValidation: make(map[types.NamespacedName]ListenerValidationResults),
+			},
+			// Port 443 still exists in the map (pre-populated) but has no routes
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:  {route1},
+				443: {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+			},
+		},
+		{
+			name:        "all gateway listeners invalid produces empty route lists",
+			gwListeners: gw.Spec.Listeners,
+			routes:      []preLoadRouteDescriptor{route1},
+			attachmentResults: map[string]mockAttachmentResult{
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[0], route1): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[1], route1): {},
+			},
+			validationResults: ValidatedGatewayListeners{
+				GatewayListenerValidation: ListenerValidationResults{
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"http":  {ListenerName: "http", IsValid: false},
+						"https": {ListenerName: "https", IsValid: false},
+					},
+				},
+				ListenerSetListenerValidation: make(map[types.NamespacedName]ListenerValidationResults),
+			},
+			// Ports are pre-populated but no routes or listeners are added
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:  {},
+				443: {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{},
+		},
+		{
+			name:        "missing validation entry for listener excludes it",
+			gwListeners: gw.Spec.Listeners,
+			routes:      []preLoadRouteDescriptor{route1},
+			attachmentResults: map[string]mockAttachmentResult{
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[0], route1): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[1], route1): {},
+			},
+			validationResults: ValidatedGatewayListeners{
+				GatewayListenerValidation: ListenerValidationResults{
+					// Only "http" has a validation entry; "https" is missing entirely
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"http": {ListenerName: "http", IsValid: true},
+					},
+				},
+				ListenerSetListenerValidation: make(map[types.NamespacedName]ListenerValidationResults),
+			},
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:  {route1},
+				443: {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+			},
+		},
+		{
+			name:        "valid listener gets routes while invalid sibling on same port is excluded",
+			gwListeners: []gwv1.Listener{{Name: "http-a", Port: 80}, {Name: "http-b", Port: 80}},
+			routes:      []preLoadRouteDescriptor{route1},
+			attachmentResults: map[string]mockAttachmentResult{
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gwv1.Listener{Name: "http-a", Port: 80}, route1): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gwv1.Listener{Name: "http-b", Port: 80}, route1): {},
+			},
+			validationResults: ValidatedGatewayListeners{
+				GatewayListenerValidation: ListenerValidationResults{
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"http-a": {ListenerName: "http-a", IsValid: true},
+						"http-b": {ListenerName: "http-b", IsValid: false},
+					},
+				},
+				ListenerSetListenerValidation: make(map[types.NamespacedName]ListenerValidationResults),
+			},
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80: {route1},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http-a", Port: 80},
+			},
+		},
+		{
+			name:        "multiple routes with mix of valid and invalid listeners",
+			gwListeners: gw.Spec.Listeners,
+			routes:      []preLoadRouteDescriptor{route1, route2},
+			attachmentResults: map[string]mockAttachmentResult{
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[0], route1): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[1], route1): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[0], route2): {},
+				mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[1], route2): {},
+			},
+			validationResults: ValidatedGatewayListeners{
+				GatewayListenerValidation: ListenerValidationResults{
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"http":  {ListenerName: "http", IsValid: true},
+						"https": {ListenerName: "https", IsValid: false},
+					},
+				},
+				ListenerSetListenerValidation: make(map[types.NamespacedName]ListenerValidationResults),
+			},
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:  {route1, route2},
+				443: {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gw := gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Name: "gw1", Namespace: "ns-gw"},
+				Spec:       gwv1.GatewaySpec{Listeners: tc.gwListeners},
+			}
+			listeners := allListeners{GatewayListeners: tc.gwListeners, ListenerSetListeners: emptyListenerSetLoadResult()}
+			mapper := listenerToRouteMapperImpl{
+				listenerAttachmentHelper: &mockListenerAttachmentHelper{results: tc.attachmentResults},
+				logger:                   logr.Discard(),
+			}
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, tc.routes, tc.validationResults)
+
+			assert.NoError(t, err)
+			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort), "routesByPort length mismatch")
+			for port, expectedRoutes := range tc.expectedRoutesByPort {
+				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
+			}
+			assert.ElementsMatch(t, tc.expectedAttachedListeners, result.attachedListeners)
+		})
+	}
+}
+
+func Test_mapListenersAndRoutes_validationFiltering_listenerSet(t *testing.T) {
+	gw := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw1", Namespace: "ns-gw"},
+		Spec: gwv1.GatewaySpec{
+			Listeners: []gwv1.Listener{{Name: "http", Port: 80}},
+		},
+	}
+
+	lsNsn := types.NamespacedName{Namespace: "ns-gw", Name: "my-ls"}
+	lsObj := gwv1.ListenerSet{ObjectMeta: metav1.ObjectMeta{Name: "my-ls", Namespace: "ns-gw"}}
+	lsListener := gwv1.Listener{Name: "ls-https", Port: 443}
+	lsParent := lsParentRef("my-ls", "ns-gw")
+
+	gwRoute := makeHTTPRoute("gw-route", "ns-gw", gwParentRef("gw1"))
+	lsRoute := makeHTTPRoute("ls-route", "ns-gw", lsParent)
+
+	testCases := []struct {
+		name                      string
+		lsValid                   bool
+		expectedRoutesByPort      map[int32][]preLoadRouteDescriptor
+		expectedAttachedListeners []gwv1.Listener
+	}{
+		{
+			name:    "valid listener set listener is included",
+			lsValid: true,
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:  {gwRoute},
+				443: {lsRoute},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+				{Name: "ls-https", Port: 443},
+			},
+		},
+		{
+			name:    "invalid listener set listener is excluded",
+			lsValid: false,
+			expectedRoutesByPort: map[int32][]preLoadRouteDescriptor{
+				80:  {gwRoute},
+				443: {},
+			},
+			expectedAttachedListeners: []gwv1.Listener{
+				{Name: "http", Port: 80},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			lsSources := []listenerSetListenerSource{{parentRef: lsObj, listener: lsListener}}
+			listeners := allListeners{
+				GatewayListeners: gw.Spec.Listeners,
+				ListenerSetListeners: listenerSetLoadResult{
+					listenersPerListenerSet: map[types.NamespacedName][]listenerSetListenerSource{lsNsn: lsSources},
+					acceptedListenerSets:    map[types.NamespacedName]gwv1.ListenerSet{lsNsn: lsObj},
+				},
+			}
+
+			validationResults := ValidatedGatewayListeners{
+				GatewayListenerValidation: ListenerValidationResults{
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"http": {ListenerName: "http", IsValid: true},
+					},
+				},
+				ListenerSetListenerValidation: map[types.NamespacedName]ListenerValidationResults{
+					lsNsn: {
+						Results: map[gwv1.SectionName]ListenerValidationResult{
+							"ls-https": {ListenerName: "ls-https", IsValid: tc.lsValid},
+						},
+					},
+				},
+			}
+
+			mapper := listenerToRouteMapperImpl{
+				listenerAttachmentHelper: &mockListenerAttachmentHelper{
+					results: map[string]mockAttachmentResult{
+						mockAttachmentKey(gwv1.ParentReference{Name: "gw1"}, gw.Spec.Listeners[0], gwRoute): {},
+						mockAttachmentKey(lsParent, lsListener, lsRoute):                                    {},
+					},
+				},
+				logger: logr.Discard(),
+			}
+
+			result, err := mapper.mapListenersAndRoutes(context.Background(), gw, listeners, []preLoadRouteDescriptor{gwRoute, lsRoute}, validationResults)
+			assert.NoError(t, err)
+			assert.Equal(t, len(tc.expectedRoutesByPort), len(result.routesByPort), "routesByPort length mismatch")
+			for port, expectedRoutes := range tc.expectedRoutesByPort {
+				assert.ElementsMatch(t, expectedRoutes, result.routesByPort[port], "port %d", port)
+			}
+			assert.ElementsMatch(t, tc.expectedAttachedListeners, result.attachedListeners)
 		})
 	}
 }
