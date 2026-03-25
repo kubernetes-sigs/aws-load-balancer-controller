@@ -6,6 +6,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -29,16 +30,66 @@ func generateListenerEntryStatus(listenerName gwv1.SectionName, supportedKinds [
 	}
 }
 
-func buildListenerStatus[T any](generation int64, attachedRoutesMap map[gwv1.SectionName]int32, validatedListeners routeutils.ValidatedGatewayListeners, isProgrammed bool, constructor func(gwv1.SectionName, []gwv1.RouteGroupKind, int32, []metav1.Condition) T) []T {
+func buildListenerStatus[T any](generation int64, validateListenerResults routeutils.ListenerValidationResults, isProgrammed bool, constructor func(gwv1.SectionName, []gwv1.RouteGroupKind, int32, []metav1.Condition) T) []T {
 	var listenerStatuses []T
-	validateListenerResults := validatedListeners.GatewayListenerValidation
-
 	for listenerName, listenerValidationResult := range validateListenerResults.Results {
 		conditions := getListenerConditions(generation, listenerValidationResult, isProgrammed)
-		listenerStatus := constructor(listenerName, listenerValidationResult.SupportedKinds, attachedRoutesMap[listenerName], conditions)
+		listenerStatus := constructor(listenerName, listenerValidationResult.SupportedKinds, listenerValidationResult.AttachedRoutesCount, conditions)
 		listenerStatuses = append(listenerStatuses, listenerStatus)
 	}
 	return listenerStatuses
+}
+
+func buildListenerSetStatus(listenerSetNamespacedName types.NamespacedName, results routeutils.ListenerValidationResults, isGatewayProgrammed bool) (routeutils.ListenerSetStatusData, []gwv1.ListenerEntryStatus) {
+
+	acceptedReason := string(gwv1.ListenerSetReasonAccepted)
+	acceptedMessage := string(gwv1.ListenerSetReasonAccepted)
+	if results.HasErrors {
+		acceptedReason = string(gwv1.ListenerSetReasonListenersNotValid)
+		acceptedMessage = "Some listeners are not valid"
+	}
+
+	programmed := isGatewayProgrammed
+	programmedReason := string(gwv1.ListenerSetReasonProgrammed)
+	programmedMessage := string(gwv1.ListenerSetReasonProgrammed)
+	if !programmed {
+		programmedReason = string(gwv1.ListenerSetReasonPending)
+		programmedMessage = "Parent gateway not yet programmed"
+	}
+
+	return routeutils.ListenerSetStatusData{
+		ListenerSetMetadata: routeutils.ListenerSetMetadata{
+			ListenerSetName:      listenerSetNamespacedName.Name,
+			ListenerSetNamespace: listenerSetNamespacedName.Namespace,
+			Generation:           results.Generation,
+		},
+		ListenerSetStatusInfo: routeutils.ListenerSetStatusInfo{
+			Accepted:          true,
+			AcceptedReason:    acceptedReason,
+			AcceptedMessage:   acceptedMessage,
+			Programmed:        programmed,
+			ProgrammedReason:  programmedReason,
+			ProgrammedMessage: programmedMessage,
+		},
+	}, buildListenerStatus(results.Generation, results, programmed, generateListenerEntryStatus)
+}
+
+func buildRejectedListenerSetStatus(rejectedListenerSet gwv1.ListenerSet) (routeutils.ListenerSetStatusData, []gwv1.ListenerEntryStatus) {
+	return routeutils.ListenerSetStatusData{
+		ListenerSetMetadata: routeutils.ListenerSetMetadata{
+			ListenerSetName:      rejectedListenerSet.Name,
+			ListenerSetNamespace: rejectedListenerSet.Namespace,
+			Generation:           rejectedListenerSet.Generation,
+		},
+		ListenerSetStatusInfo: routeutils.ListenerSetStatusInfo{
+			Accepted:          false,
+			AcceptedReason:    string(gwv1.ListenerSetReasonNotAllowed),
+			AcceptedMessage:   "Parent Gateway rejected ListenerSet",
+			Programmed:        false,
+			ProgrammedReason:  string(gwv1.ListenerSetReasonNotAllowed),
+			ProgrammedMessage: "Parent Gateway rejected ListenerSet",
+		},
+	}, []gwv1.ListenerEntryStatus{}
 }
 
 func getListenerConditions(generation int64, listenerValidationResult routeutils.ListenerValidationResult, isProgrammed bool) []metav1.Condition {

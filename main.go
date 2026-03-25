@@ -536,6 +536,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.reconcileCounters,
 			cfg.targetGroupCollector,
 			cfg.targetGroupARNMapper,
+			cfg.listenerSetStatusUpdater,
 		)
 	case gateway_constants.ALBGatewayController:
 		reconciler = gateway.NewALBGatewayReconciler(
@@ -560,6 +561,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.reconcileCounters,
 			cfg.targetGroupCollector,
 			cfg.targetGroupARNMapper,
+			cfg.listenerSetStatusUpdater,
 		)
 	default:
 		return fmt.Errorf("unknown controller type: %s", controllerType)

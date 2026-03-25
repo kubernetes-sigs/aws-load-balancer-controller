@@ -14,11 +14,11 @@ import (
 
 type mockListenerSetLoader struct {
 	result   listenerSetLoadResult
-	rejected []*gwv1.ListenerSet
+	rejected []gwv1.ListenerSet
 	error    error
 }
 
-func (l *mockListenerSetLoader) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []*gwv1.ListenerSet, error) {
+func (l *mockListenerSetLoader) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []gwv1.ListenerSet, error) {
 	return l.result, l.rejected, l.error
 }
 
@@ -269,7 +269,7 @@ func TestValidateListeners(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := validateListeners(allListeners{GatewayListeners: tt.listeners}, tt.controllerName)
+			result := validateListeners(allListeners{GatewayListeners: tt.listeners}, 0, tt.controllerName)
 
 			assert.Equal(t, tt.expectedErrors, result.GatewayListenerValidation.HasErrors)
 			assert.Equal(t, tt.expectedCount, len(result.GatewayListenerValidation.Results))
@@ -571,7 +571,7 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 				GatewayListeners:     tt.gatewayListeners,
 				ListenerSetListeners: tt.listenerSetLoadResult,
 			}
-			result := validateListeners(input, tt.controllerName)
+			result := validateListeners(input, 0, tt.controllerName)
 
 			assert.Equal(t, tt.expectedGatewayHasErrors, result.GatewayListenerValidation.HasErrors)
 			assert.Equal(t, tt.expectedHasErrors, result.HasErrors())

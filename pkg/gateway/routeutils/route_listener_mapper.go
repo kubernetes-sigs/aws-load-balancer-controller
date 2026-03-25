@@ -2,12 +2,10 @@ package routeutils
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -216,10 +214,6 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 
 	for listenerSetNsn, listenerRouteMapping := range listenerSetListeners {
 		ltr.generateRoutePerPortSet(listenerRouteMapping, listenerSetListenerSectionNameToListener[listenerSetNsn], seen, routesForListenerPorts, &finalListeners, listenerValidationResults.ListenerSetListenerValidation[listenerSetNsn].Results)
-	}
-
-	for _, v := range finalListeners {
-		ltr.logger.Info(fmt.Sprintf("Got this listener %+v [gw %+v]", v, k8s.NamespacedName(&gw)))
 	}
 
 	return listenerRouteMapResult{

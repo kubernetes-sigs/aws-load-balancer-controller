@@ -75,7 +75,6 @@ func (statusUpdater *listenerSetStatusReconcilerImpl) handleItem(status routeuti
 	statusUpdater.listenerSetListenerCacheMutex.RLock()
 	listenerData := statusUpdater.listenerSetListenerCache[nsn]
 	statusUpdater.listenerSetListenerCacheMutex.RUnlock()
-
 	err := statusUpdater.doStatusUpdate(status, listenerData)
 
 	if err != nil {

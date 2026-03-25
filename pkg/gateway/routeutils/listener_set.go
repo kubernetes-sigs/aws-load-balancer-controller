@@ -23,7 +23,7 @@ const (
 )
 
 type listenerSetLoader interface {
-	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []*gwv1.ListenerSet, error)
+	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []gwv1.ListenerSet, error)
 }
 
 type listenerSetLoaderImpl struct {
@@ -45,14 +45,14 @@ type listenerSetLoadResult struct {
 	acceptedListenerSets    map[types.NamespacedName]gwv1.ListenerSet
 }
 
-func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []*gwv1.ListenerSet, error) {
+func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []gwv1.ListenerSet, error) {
 	listenerSets := &gwv1.ListenerSetList{}
 	err := l.k8sClient.List(ctx, listenerSets)
 	if err != nil {
 		return listenerSetLoadResult{}, nil, err
 	}
 
-	rejectedListenerSets := make([]*gwv1.ListenerSet, 0)
+	rejectedListenerSets := make([]gwv1.ListenerSet, 0)
 
 	listenersPerListenerSet := make(map[types.NamespacedName][]listenerSetListenerSource)
 	acceptedListenerSets := make(map[types.NamespacedName]gwv1.ListenerSet)
@@ -73,7 +73,7 @@ func (l *listenerSetLoaderImpl) retrieveListenersFromListenerSets(ctx context.Co
 			acceptedListenerSets[nsn] = listenerSets.Items[i]
 			break
 		case gatewayRejectedHandshakeState:
-			rejectedListenerSets = append(rejectedListenerSets, &listenerSets.Items[i])
+			rejectedListenerSets = append(rejectedListenerSets, listenerSets.Items[i])
 			break
 		case irrelevantResourceHandshakeState:
 			// Nothing to do here, the listener set and gateway have no relation.

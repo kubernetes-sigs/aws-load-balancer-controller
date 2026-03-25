@@ -233,17 +233,12 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 
 	loaderResults, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.controllerName, resolvedDefaultTGC)
 
-	validationHasErrors := false
-	if loaderResults != nil {
-		validationHasErrors = loaderResults.ValidationResults.HasErrors()
-	}
-	
-	if err != nil || validationHasErrors {
+	if err != nil {
 		var loaderErr routeutils.LoaderError
-		if errors.As(err, &loaderErr) || validationHasErrors {
+		if errors.As(err, &loaderErr) {
 			var gatewayReason gwv1.GatewayConditionReason
 			var gatewayMessage string
-			if loaderErr == nil && validationHasErrors {
+			if loaderErr == nil {
 				gatewayReason = gwv1.GatewayReasonAccepted
 				gatewayMessage = gateway_constants.GatewayAcceptedFalseMessage
 			} else {
@@ -291,7 +286,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	if lb == nil {
-		err = r.reconcileDelete(ctx, gw, stack, allRoutes)
+		err = r.reconcileDelete(ctx, gw, stack)
 		if err != nil {
 			r.logger.Error(err, "Failed to process gateway delete")
 			return err
@@ -314,7 +309,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	return nil
 }
 
-func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, routes map[int32][]routeutils.RouteDescriptor) error {
+func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, stack core.Stack) error {
 	if k8s.HasFinalizer(gw, r.finalizer) {
 		err := r.deployModel(ctx, gw, stack, nil)
 		if err != nil {
@@ -419,22 +414,34 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	var needPatch bool
 	var requeueNeeded bool
 	isProgrammed := isGatewayProgrammed(*lbStatus)
+
+	var gatewayProgrammedConditionStatus metav1.ConditionStatus
+	var gatewayProgrammedConditionReason string
+
 	if isProgrammed {
-		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), metav1.ConditionTrue, string(gwv1.GatewayConditionProgrammed), lbStatus.LoadBalancerARN)
+		gatewayProgrammedConditionStatus = metav1.ConditionTrue
+		gatewayProgrammedConditionReason = string(gwv1.GatewayConditionProgrammed)
+		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), gatewayProgrammedConditionStatus, gatewayProgrammedConditionReason, lbStatus.LoadBalancerARN)
 	} else {
 		// Set Programmed to Unknown while ALB is provisioning
-		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), metav1.ConditionUnknown, string(gwv1.GatewayReasonPending), gateway_constants.GatewayProgrammedPendingMessage)
+		gatewayProgrammedConditionStatus = metav1.ConditionUnknown
+		gatewayProgrammedConditionReason = string(gwv1.GatewayReasonPending)
+		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), gatewayProgrammedConditionStatus, gatewayProgrammedConditionReason, gateway_constants.GatewayProgrammedPendingMessage)
 		requeueNeeded = true
 	}
 
-	needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionTrue, string(gwv1.GatewayConditionAccepted), "") || needPatch
+	acceptedConditioned := gwv1.GatewayReasonAccepted
+	if loaderResults.ValidationResults.HasErrors() {
+		acceptedConditioned = gwv1.GatewayReasonListenersNotValid
+	}
+
+	needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionTrue, string(acceptedConditioned), "") || needPatch
 	normalizedDNSName := strings.ToLower(lbStatus.DNSName)
 	if len(gw.Status.Addresses) != 1 ||
 		gw.Status.Addresses[0].Value != normalizedDNSName {
-		ipAddressType := gwv1.HostnameAddressType
 		gw.Status.Addresses = []gwv1.GatewayStatusAddress{
 			{
-				Type:  &ipAddressType,
+				Type:  new(gwv1.HostnameAddressType),
 				Value: normalizedDNSName,
 			},
 		}
@@ -442,10 +449,18 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses := buildListenerStatus(gw.GetGeneration(), loaderResults.AttachedRoutesMap, loaderResults.ValidationResults, isProgrammed, generateListenerStatus)
+	ListenerStatuses := buildListenerStatus(gw.GetGeneration(), loaderResults.ValidationResults.GatewayListenerValidation, isProgrammed, generateListenerStatus)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
+	}
+
+	for nsn, listenerValidationResults := range loaderResults.ValidationResults.ListenerSetListenerValidation {
+		r.listenerSetStatusSubmitter.Enqueue(buildListenerSetStatus(nsn, listenerValidationResults, isProgrammed))
+	}
+
+	for _, rejectedListenerSet := range loaderResults.RejectedListenerSets {
+		r.listenerSetStatusSubmitter.Enqueue(buildRejectedListenerSetStatus(rejectedListenerSet))
 	}
 
 	if needPatch {
@@ -472,8 +487,7 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	// update listener status
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
-		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses := buildListenerStatus(gw.GetGeneration(), attachedRoutesMap, listenerValidationResults, false, generateListenerStatus)
+		ListenerStatuses := buildListenerStatus(gw.GetGeneration(), listenerValidationResults.GatewayListenerValidation, false, generateListenerStatus)
 		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true
