@@ -149,7 +149,6 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 	listenerSetListenerSectionNameToListener := make(map[types.NamespacedName]map[gwv1.SectionName]gwv1.Listener)
 
 	for nsn, listenerSet := range listeners.ListenerSetListeners.listenersPerListenerSet {
-		ltr.logger.Info("Got this listener set", "namespace", nsn)
 		listenerSetListenerSectionNameToListener[nsn] = make(map[gwv1.SectionName]gwv1.Listener)
 		listenerSetListeners[nsn] = make(map[gwv1.SectionName][]routeParentRefTuple)
 		for _, listenerSetSource := range listenerSet {

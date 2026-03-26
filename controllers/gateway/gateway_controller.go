@@ -448,6 +448,12 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 		needPatch = true
 	}
 
+	connectedListenerSets := int32(len(loaderResults.ValidationResults.ListenerSetListenerValidation))
+	if gw.Status.AttachedListenerSets == nil || *gw.Status.AttachedListenerSets != connectedListenerSets {
+		gw.Status.AttachedListenerSets = &connectedListenerSets
+		needPatch = true
+	}
+
 	// update listeners status
 	ListenerStatuses := buildListenerStatus(gw.GetGeneration(), loaderResults.ValidationResults.GatewayListenerValidation, isProgrammed, generateListenerStatus)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
@@ -657,6 +663,10 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("Service"), constants.NLBGatewayController)
 	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("ReferenceGrant"))
+	listenerSetEventHandler := eventhandlers.NewEnqueueRequestsForListenerSetEvent(
+		r.k8sClient, r.eventRecorder, r.controllerName,
+		loggerPrefix.WithName("ListenerSet"),
+	)
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -688,6 +698,9 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TLSRoute{}, tlsRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ListenerSet{}, listenerSetEventHandler)); err != nil {
 		return err
 	}
 	return nil

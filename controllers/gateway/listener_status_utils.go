@@ -49,12 +49,23 @@ func buildListenerSetStatus(listenerSetNamespacedName types.NamespacedName, resu
 		acceptedMessage = "Some listeners are not valid"
 	}
 
-	programmed := isGatewayProgrammed
+	hasSuccess := false
+	for _, result := range results.Results {
+		if result.IsValid {
+			hasSuccess = true
+		}
+	}
+
+	programmed := isGatewayProgrammed && hasSuccess
 	programmedReason := string(gwv1.ListenerSetReasonProgrammed)
 	programmedMessage := string(gwv1.ListenerSetReasonProgrammed)
 	if !programmed {
 		programmedReason = string(gwv1.ListenerSetReasonPending)
-		programmedMessage = "Parent gateway not yet programmed"
+		if isGatewayProgrammed {
+			programmedMessage = "Parent gateway not yet programmed"
+		} else {
+			programmedMessage = "No valid listeners to materialize"
+		}
 	}
 
 	return routeutils.ListenerSetStatusData{
@@ -64,7 +75,7 @@ func buildListenerSetStatus(listenerSetNamespacedName types.NamespacedName, resu
 			Generation:           results.Generation,
 		},
 		ListenerSetStatusInfo: routeutils.ListenerSetStatusInfo{
-			Accepted:          true,
+			Accepted:          hasSuccess,
 			AcceptedReason:    acceptedReason,
 			AcceptedMessage:   acceptedMessage,
 			Programmed:        programmed,
@@ -180,9 +191,9 @@ func buildAcceptedCondition(generation int64, reason gwv1.ListenerConditionReaso
 }
 
 func buildConflictedCondition(generation int64, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
-	status := metav1.ConditionTrue
+	status := metav1.ConditionFalse
 	if reason != gwv1.ListenerReasonNoConflicts {
-		status = metav1.ConditionFalse
+		status = metav1.ConditionTrue
 	}
 	return metav1.Condition{
 		Type:               string(gwv1.ListenerConditionConflicted),
