@@ -6,16 +6,16 @@ strict: true
 
 nav:
   - Home:
-    - Welcome: index.md
-    - How it works: how-it-works.md
+      - Welcome: index.md
+      - How it works: how-it-works.md
   - Deployment:
-    - Installation Guide: deploy/installation.md
-    - Configurations: deploy/configurations.md
-    - Subnet Discovery: deploy/subnet_discovery.md
-    - Security Group Management: deploy/security_groups.md
-    - Pod Readiness Gate: deploy/pod_readiness_gate.md
-    - Scaling your LBC: deploy/scaling.md
-    - Upgrade:
+      - Installation Guide: deploy/installation.md
+      - Configurations: deploy/configurations.md
+      - Subnet Discovery: deploy/subnet_discovery.md
+      - Security Group Management: deploy/security_groups.md
+      - Pod Readiness Gate: deploy/pod_readiness_gate.md
+      - Scaling your LBC: deploy/scaling.md
+      - Upgrade:
           - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
   - Guide:
       - Ingress:
@@ -39,6 +39,7 @@ nav:
               - TargetGroupConfiguration: guide/gateway/targetgroupconfig.md
               - ListenerRuleConfiguration: guide/gateway/listenerruleconfig.md
               - Gateway Chaining: guide/gateway/gateway_chaining.md
+              - ListenerSets: guide/gateway/listenersets.md
               - Specification: guide/gateway/spec.md
       - AWS Global Accelerator (New):
           - Overview: guide/globalaccelerator/aga-controller.md
@@ -50,25 +51,23 @@ nav:
           - SSL Redirect: guide/tasks/ssl_redirect.md
           - URL Rewrite: guide/tasks/url_rewrite.md
       - Use Cases:
-        - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
-        - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
-        - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
-        - Blue/Green: guide/use_cases/blue_green/index.md
-        - MultiCluster Target Groups: guide/use_cases/multi_cluster/index.md
-        - QUIC: guide/use_cases/quic/index.md
-        - Legacy Target Groups: guide/use_cases/legacy_app_integration/index.md
+          - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
+          - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
+          - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
+          - Blue/Green: guide/use_cases/blue_green/index.md
+          - MultiCluster Target Groups: guide/use_cases/multi_cluster/index.md
+          - QUIC: guide/use_cases/quic/index.md
+          - Legacy Target Groups: guide/use_cases/legacy_app_integration/index.md
       - Metrics:
           - Prometheus: guide/metrics/prometheus/index.md
       - ALB Target Optimizer:
-          - Target Control Agent : guide/ingress/alb-target-agent.md
-          - ALBTargetControlConfig : guide/ingress/alb-target-agent-spec.md
+          - Target Control Agent: guide/ingress/alb-target-agent.md
+          - ALBTargetControlConfig: guide/ingress/alb-target-agent-spec.md
   - Examples:
-    - EchoServer: examples/echo_server.md
-    - gRPCServer: examples/grpc_server.md
-    - Setup External DNS: guide/integrations/external_dns.md
-    - RBAC to access OIDC Secret: examples/secrets_access.md
-
-
+      - EchoServer: examples/echo_server.md
+      - gRPCServer: examples/grpc_server.md
+      - Setup External DNS: guide/integrations/external_dns.md
+      - RBAC to access OIDC Secret: examples/secrets_access.md
 
 plugins:
   - search
