@@ -54,10 +54,10 @@ type Loader interface {
 }
 
 type LoaderResult struct {
-	Routes            map[int32][]RouteDescriptor
-	Listeners         []gwv1.Listener
-	AttachedRoutesMap map[gwv1.SectionName]int32
-	ValidationResults ValidatedGatewayListeners
+	Routes               map[int32][]RouteDescriptor
+	Listeners            []gwv1.Listener
+	ValidationResults    ValidatedGatewayListeners
+	RejectedListenerSets []gwv1.ListenerSet
 }
 
 var _ Loader = &loaderImpl{}
@@ -110,10 +110,6 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		return nil, err
 	}
 
-	if len(rejectedListenerSets) > 0 {
-		// Submit these rejected listener sets to a status updater //
-	}
-
 	for route, loader := range l.allRouteLoaders {
 		applicable := filter.IsApplicable(route)
 		l.logger.V(1).Info("Processing route", "route", route, "is applicable", applicable)
@@ -130,10 +126,11 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		GatewayListeners:     gw.Spec.Listeners,
 		ListenerSetListeners: listenerSetListeners,
 	}
-	listenerValidationResults := validateListeners(gatewayListeners, controllerName)
+
+	listenerValidationResults := validateListeners(gatewayListeners, gw.Generation, controllerName)
 
 	//  2. Map routes to relevant listeners
-	mapResult, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes)
+	mapResult, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes, listenerValidationResults)
 	if mapResult.failedRoutes != nil {
 		routeStatusUpdates = append(routeStatusUpdates, mapResult.failedRoutes...)
 	}
@@ -161,9 +158,10 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 
 	return &LoaderResult{
-		Routes:            loadedRoute,
-		AttachedRoutesMap: mapResult.routesPerListener,
-		ValidationResults: listenerValidationResults,
+		Routes:               loadedRoute,
+		Listeners:            mapResult.attachedListeners,
+		ValidationResults:    listenerValidationResults,
+		RejectedListenerSets: rejectedListenerSets,
 	}, nil
 }
 

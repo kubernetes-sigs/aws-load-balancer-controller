@@ -20,12 +20,11 @@ type mockMapper struct {
 	t                  *testing.T
 	expectedRoutes     []preLoadRouteDescriptor
 	mapToReturn        map[int32][]preLoadRouteDescriptor
-	listenerRouteCount map[gwv1.SectionName]int32
 	routeStatusUpdates []RouteData
 	matchedParentRefs  map[string][]gwv1.ParentReference
 }
 
-func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error) {
+func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor, listenerValidationResults ValidatedGatewayListeners) (listenerRouteMapResult, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	matchedParentRefs := make(map[string][]gwv1.ParentReference)
 	for _, routeList := range m.mapToReturn {
@@ -42,7 +41,6 @@ func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway,
 		compatibleHostnamesByPort: make(map[int32]map[string]sets.Set[gwv1.Hostname]),
 		failedRoutes:              m.routeStatusUpdates,
 		matchedParentRefs:         m.matchedParentRefs,
-		routesPerListener:         m.listenerRouteCount,
 	}, nil
 }
 
@@ -189,15 +187,19 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                     string
-		acceptedKinds            sets.Set[RouteKind]
-		expectedMap              map[int32][]RouteDescriptor
-		expectedPreloadMap       map[int32][]preLoadRouteDescriptor
-		parentRefs               map[string][]gwv1.ParentReference
-		expectedPreMappedRoutes  []preLoadRouteDescriptor
-		mapperRouteStatusUpdates []RouteData
-		expectedReconcileQueue   map[string]bool // generateRouteDataCacheKey -> succeeded
-		expectError              bool
+		name                       string
+		acceptedKinds              sets.Set[RouteKind]
+		expectedMap                map[int32][]RouteDescriptor
+		expectedPreloadMap         map[int32][]preLoadRouteDescriptor
+		parentRefs                 map[string][]gwv1.ParentReference
+		expectedPreMappedRoutes    []preLoadRouteDescriptor
+		mapperRouteStatusUpdates   []RouteData
+		expectedReconcileQueue     map[string]bool // generateRouteDataCacheKey -> succeeded
+		expectError                bool
+		lsLoaderResult             listenerSetLoadResult
+		lsLoaderRejected           []gwv1.ListenerSet
+		expectedRejectedLSSetsLen  int
+		expectedRejectedLSSetNames []string
 	}{
 		{
 			name:                    "filter allows no routes",
@@ -748,11 +750,112 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                    "rejected listener sets are propagated in result",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+			},
+			lsLoaderRejected: []gwv1.ListenerSet{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "rejected-ls-1",
+						Namespace: "ls-ns-1",
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "rejected-ls-2",
+						Namespace: "ls-ns-2",
+					},
+				},
+			},
+			expectedRejectedLSSetsLen:  2,
+			expectedRejectedLSSetNames: []string{"rejected-ls-1", "rejected-ls-2"},
+		},
+		{
+			name:                    "no rejected listener sets yields empty slice in result",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+			},
+			lsLoaderRejected:           nil,
+			expectedRejectedLSSetsLen:  0,
+			expectedRejectedLSSetNames: nil,
+		},
+		{
+			name:                    "single rejected listener set is propagated",
+			acceptedKinds:           make(sets.Set[RouteKind]),
+			expectedPreMappedRoutes: make([]preLoadRouteDescriptor, 0),
+			expectedMap:             make(map[int32][]RouteDescriptor),
+			expectedReconcileQueue:  map[string]bool{},
+			parentRefs:              map[string][]gwv1.ParentReference{},
+			lsLoaderRejected: []gwv1.ListenerSet{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "rejected-ls-only",
+						Namespace: "ls-ns",
+					},
+				},
+			},
+			expectedRejectedLSSetsLen:  1,
+			expectedRejectedLSSetNames: []string{"rejected-ls-only"},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			routeReconciler := NewMockRouteReconciler()
+			lsResult := tc.lsLoaderResult
+			if lsResult.listenersPerListenerSet == nil {
+				lsResult = listenerSetLoadResult{}
+			}
 			loader := loaderImpl{
 				mapper: &mockMapper{
 					t:                  t,
@@ -765,7 +868,8 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				logger:          logr.Discard(),
 				routeSubmitter:  routeReconciler,
 				lsLoader: &mockListenerSetLoader{
-					result: listenerSetLoadResult{},
+					result:   lsResult,
+					rejected: tc.lsLoaderRejected,
 				},
 			}
 
@@ -789,6 +893,15 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				v, ok := tc.expectedReconcileQueue[ak]
 				assert.True(t, ok, ak)
 				assert.Equal(t, v, actual.RouteData.RouteStatusInfo.Accepted, ak)
+			}
+
+			assert.Equal(t, tc.expectedRejectedLSSetsLen, len(result.RejectedListenerSets))
+			if tc.expectedRejectedLSSetNames != nil {
+				actualNames := make([]string, 0, len(result.RejectedListenerSets))
+				for _, ls := range result.RejectedListenerSets {
+					actualNames = append(actualNames, ls.Name)
+				}
+				assert.ElementsMatch(t, tc.expectedRejectedLSSetNames, actualNames)
 			}
 
 		})

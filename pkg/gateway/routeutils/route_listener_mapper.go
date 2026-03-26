@@ -16,7 +16,7 @@ type listenerRouteMapResult struct {
 	compatibleHostnamesByPort map[int32]map[string]sets.Set[gwv1.Hostname]
 	failedRoutes              []RouteData
 	matchedParentRefs         map[string][]gwv1.ParentReference
-	routesPerListener         map[gwv1.SectionName]int32
+	attachedListeners         []gwv1.Listener
 }
 
 // attachmentState groups the mutable accumulator maps threaded through the attachment methods.
@@ -39,7 +39,7 @@ type parentResolution struct {
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error)
+	mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor, listenerValidationResults ValidatedGatewayListeners) (listenerRouteMapResult, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
@@ -109,7 +109,7 @@ func (ltr *listenerToRouteMapperImpl) resolveParentRef(
 }
 
 // mapListenersAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
-func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor) (listenerRouteMapResult, error) {
+func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor, listenerValidationResults ValidatedGatewayListeners) (listenerRouteMapResult, error) {
 	// Step 1 - Generate initial state maps, to allow for quick calculations.
 
 	state := &attachmentState{
@@ -121,6 +121,10 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 
 	failedRoutes := make([]RouteData, 0)
 
+	finalListeners := make([]gwv1.Listener, 0)
+	routesForListenerPorts := make(map[int32][]preLoadRouteDescriptor)
+	seen := make(map[int32]sets.Set[string])
+
 	// gatewayListenerMapping - maps the routes that have successfully attached to a listener belonging to a Gateway.
 	gatewayListenerMapping := map[gwv1.SectionName][]routeParentRefTuple{}
 	// gatewayListenerSectionNameToListener - maps the listener section name to the listener object, specifically for the Gateway.
@@ -129,6 +133,12 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 	for _, l := range listeners.GatewayListeners {
 		gatewayListenerMapping[l.Name] = make([]routeParentRefTuple, 0)
 		gatewayListenerSectionNameToListener[l.Name] = l
+		// Populate initial value for this port, this ensures that we materialize listeners w/ no routes.
+		_, ok := seen[l.Port]
+		if !ok {
+			seen[l.Port] = make(sets.Set[string])
+			routesForListenerPorts[l.Port] = make([]preLoadRouteDescriptor, 0)
+		}
 	}
 
 	// Now do the same for listeners coming from a ListenerSet.
@@ -144,6 +154,12 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 		for _, listenerSetSource := range listenerSet {
 			listenerSetListenerSectionNameToListener[nsn][listenerSetSource.listener.Name] = listenerSetSource.listener
 			listenerSetListeners[nsn][listenerSetSource.listener.Name] = make([]routeParentRefTuple, 0)
+			// Populate initial value for this port, this ensures that we materialize listeners w/ no routes.
+			_, ok := seen[listenerSetSource.listener.Port]
+			if !ok {
+				seen[listenerSetSource.listener.Port] = make(sets.Set[string])
+				routesForListenerPorts[listenerSetSource.listener.Port] = make([]preLoadRouteDescriptor, 0)
+			}
 		}
 	}
 
@@ -172,18 +188,31 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 		}
 	}
 
-	routesPerListener := make(map[gwv1.SectionName]int32)
 	for sn, snRoutes := range gatewayListenerMapping {
-		routesPerListener[sn] = int32(len(snRoutes))
+		lvr, ok := listenerValidationResults.GatewayListenerValidation.Results[sn]
+		if ok {
+			lvr.AttachedRoutesCount = int32(len(snRoutes))
+			listenerValidationResults.GatewayListenerValidation.Results[sn] = lvr
+		}
 	}
 
-	routesForListenerPorts := make(map[int32][]preLoadRouteDescriptor)
-	seen := make(map[int32]sets.Set[string])
+	for nsn, snRouteMapping := range listenerSetListeners {
+		for sn, snRoutes := range snRouteMapping {
+			validationmap, foundListenerSet := listenerValidationResults.ListenerSetListenerValidation[nsn]
+			if foundListenerSet {
+				lvr, foundSection := validationmap.Results[sn]
+				if foundSection {
+					lvr.AttachedRoutesCount = int32(len(snRoutes))
+					validationmap.Results[sn] = lvr
+				}
+			}
+		}
+	}
 
-	ltr.generateRoutePerPortSet(gatewayListenerMapping, gatewayListenerSectionNameToListener, seen, routesForListenerPorts)
+	ltr.generateRoutePerPortSet(gatewayListenerMapping, gatewayListenerSectionNameToListener, seen, routesForListenerPorts, &finalListeners, listenerValidationResults.GatewayListenerValidation.Results)
 
 	for listenerSetNsn, listenerRouteMapping := range listenerSetListeners {
-		ltr.generateRoutePerPortSet(listenerRouteMapping, listenerSetListenerSectionNameToListener[listenerSetNsn], seen, routesForListenerPorts)
+		ltr.generateRoutePerPortSet(listenerRouteMapping, listenerSetListenerSectionNameToListener[listenerSetNsn], seen, routesForListenerPorts, &finalListeners, listenerValidationResults.ListenerSetListenerValidation[listenerSetNsn].Results)
 	}
 
 	return listenerRouteMapResult{
@@ -191,7 +220,7 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 		compatibleHostnamesByPort: state.compatibleHostnamesByPort,
 		failedRoutes:              failedRoutes,
 		matchedParentRefs:         state.matchedParentRefs,
-		routesPerListener:         routesPerListener,
+		attachedListeners:         finalListeners,
 	}, nil
 }
 
@@ -274,14 +303,15 @@ func (ltr *listenerToRouteMapperImpl) attemptRouteSectionAttachment(ctx context.
 	return nil, nil
 }
 
-func (ltr *listenerToRouteMapperImpl) generateRoutePerPortSet(listenerRouteMapping map[gwv1.SectionName][]routeParentRefTuple, sectionNameToPort map[gwv1.SectionName]gwv1.Listener, seen map[int32]sets.Set[string], result map[int32][]preLoadRouteDescriptor) {
+func (ltr *listenerToRouteMapperImpl) generateRoutePerPortSet(listenerRouteMapping map[gwv1.SectionName][]routeParentRefTuple, sectionNameToPort map[gwv1.SectionName]gwv1.Listener, seen map[int32]sets.Set[string], result map[int32][]preLoadRouteDescriptor, finalListeners *[]gwv1.Listener, listenerValidationResult map[gwv1.SectionName]ListenerValidationResult) {
 	for sectionName, listenerRoutes := range listenerRouteMapping {
-		targetPort := sectionNameToPort[sectionName].Port
-		_, ok := result[targetPort]
-		if !ok {
-			result[targetPort] = make([]preLoadRouteDescriptor, 0)
-			seen[targetPort] = make(sets.Set[string])
+		validation, ok := listenerValidationResult[sectionName]
+		if !ok || !validation.IsValid {
+			continue
 		}
+
+		targetPort := sectionNameToPort[sectionName].Port
+		*finalListeners = append(*finalListeners, sectionNameToPort[sectionName])
 		for _, lr := range listenerRoutes {
 			id := lr.route.GetRouteIdentifier()
 			if seen[targetPort].Has(id) {

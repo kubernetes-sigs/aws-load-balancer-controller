@@ -3,6 +3,7 @@ package routeutils
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -10,6 +11,32 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+type ListenerSetStatusData struct {
+	ListenerSetStatusInfo ListenerSetStatusInfo
+	ListenerSetMetadata   ListenerSetMetadata
+	RetryCount            uint
+}
+
+type ListenerSetStatusInfo struct {
+	Accepted          bool
+	AcceptedReason    string
+	AcceptedMessage   string
+	Programmed        bool
+	ProgrammedReason  string
+	ProgrammedMessage string
+}
+
+type ListenerSetListenerInfo struct {
+	Version  time.Time
+	Statuses []gwv1.ListenerEntryStatus
+}
+
+type ListenerSetMetadata struct {
+	ListenerSetName      string
+	ListenerSetNamespace string
+	Generation           int64
+}
 
 type listenerSetListenerSource struct {
 	parentRef gwv1.ListenerSet
@@ -44,16 +71,18 @@ func (v ValidatedGatewayListeners) HasErrors() bool {
 }
 
 type ListenerValidationResult struct {
-	ListenerName   gwv1.SectionName
-	IsValid        bool
-	Reason         gwv1.ListenerConditionReason
-	Message        string
-	SupportedKinds []gwv1.RouteGroupKind
+	ListenerName        gwv1.SectionName
+	IsValid             bool
+	Reason              gwv1.ListenerConditionReason
+	Message             string
+	SupportedKinds      []gwv1.RouteGroupKind
+	AttachedRoutesCount int32
 }
 
 type ListenerValidationResults struct {
-	Results   map[gwv1.SectionName]ListenerValidationResult
-	HasErrors bool
+	Results    map[gwv1.SectionName]ListenerValidationResult
+	Generation int64
+	HasErrors  bool
 }
 
 // validateListeners validates all listeners configurations in a Gateway against controller-specific requirements.
@@ -61,7 +90,7 @@ type ListenerValidationResults struct {
 // It checks for supported route kinds, valid port ranges (1-65535), controller-compatible protocols
 // (ALB: HTTP/HTTPS/GRPC, NLB: TCP/UDP/TLS), protocol conflicts on same ports (except TCP+UDP),
 // hostname conflicts - same port trying to use same hostname
-func validateListeners(configuredListeners allListeners, controllerName string) ValidatedGatewayListeners {
+func validateListeners(configuredListeners allListeners, gatewayGeneration int64, controllerName string) ValidatedGatewayListeners {
 	portHostnameMap := make(map[string]bool)
 	portProtocolMap := make(map[gwv1.PortNumber]gwv1.ProtocolType)
 
@@ -71,7 +100,7 @@ func validateListeners(configuredListeners allListeners, controllerName string) 
 	// listeners to pass validation, any listener set listeners that will conflict will fail validation but not
 	// block the listener attachment process.
 
-	gatewayValidationResults := validateListenerList(configuredListeners.GatewayListeners, portHostnameMap, portProtocolMap, controllerName)
+	gatewayValidationResults := validateListenerList(configuredListeners.GatewayListeners, portHostnameMap, portProtocolMap, controllerName, gatewayGeneration)
 
 	listenerSetPriorityOrder := arrangeListenerSetsForValidation(configuredListeners.ListenerSetListeners)
 
@@ -84,7 +113,7 @@ func validateListeners(configuredListeners allListeners, controllerName string) 
 
 	for _, ls := range listenerSetPriorityOrder {
 		listenerSetListeners := configuredListeners.ListenerSetListeners.listenersPerListenerSet[k8s.NamespacedName(ls)]
-		listenerSetValidationResults[k8s.NamespacedName(ls)] = validateListenerList(extractListenerFromListenerSource(listenerSetListeners), portHostnameMap, portProtocolMap, controllerName)
+		listenerSetValidationResults[k8s.NamespacedName(ls)] = validateListenerList(extractListenerFromListenerSource(listenerSetListeners), portHostnameMap, portProtocolMap, controllerName, ls.Generation)
 	}
 
 	return ValidatedGatewayListeners{
@@ -93,9 +122,10 @@ func validateListeners(configuredListeners allListeners, controllerName string) 
 	}
 }
 
-func validateListenerList(listenerList []gwv1.Listener, portHostnameMap map[string]bool, portProtocolMap map[gwv1.PortNumber]gwv1.ProtocolType, controllerName string) ListenerValidationResults {
+func validateListenerList(listenerList []gwv1.Listener, portHostnameMap map[string]bool, portProtocolMap map[gwv1.PortNumber]gwv1.ProtocolType, controllerName string, generation int64) ListenerValidationResults {
 	results := ListenerValidationResults{
-		Results: make(map[gwv1.SectionName]ListenerValidationResult),
+		Results:    make(map[gwv1.SectionName]ListenerValidationResult),
+		Generation: generation,
 	}
 
 	for _, listener := range listenerList {

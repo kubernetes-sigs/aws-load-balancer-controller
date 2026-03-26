@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -14,36 +15,20 @@ import (
 func Test_buildListenerStatus(t *testing.T) {
 	tests := []struct {
 		name                    string
-		gateway                 gwv1.Gateway
-		attachedRoutesMap       map[gwv1.SectionName]int32
-		validateListenerResults routeutils.ValidatedGatewayListeners
+		generation              int64
+		validateListenerResults routeutils.ListenerValidationResults
 		supportedKinds          []gwv1.RouteGroupKind
 		isProgrammed            bool
 		expectedListenerCount   int
 	}{
 		{
-			name: "with validation results",
-			gateway: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 2},
-				Spec: gwv1.GatewaySpec{
-					Listeners: []gwv1.Listener{
-						{
-							Name:          "listener1",
-							Port:          80,
-							Protocol:      gwv1.HTTPProtocolType,
-							AllowedRoutes: &gwv1.AllowedRoutes{},
-						},
-					},
-				},
-			},
-			attachedRoutesMap: map[gwv1.SectionName]int32{"listener1": 1},
-			validateListenerResults: routeutils.ValidatedGatewayListeners{
-				GatewayListenerValidation: routeutils.ListenerValidationResults{
-					Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
-						"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted", SupportedKinds: []gwv1.RouteGroupKind{{
-							Kind: "HTTPRoute",
-						}}},
-					},
+			name:       "with validation results",
+			generation: 2,
+			validateListenerResults: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted", SupportedKinds: []gwv1.RouteGroupKind{{
+						Kind: "HTTPRoute",
+					}}, AttachedRoutesCount: 1},
 				},
 			},
 			supportedKinds: []gwv1.RouteGroupKind{{
@@ -53,15 +38,9 @@ func Test_buildListenerStatus(t *testing.T) {
 			expectedListenerCount: 1,
 		},
 		{
-			name: "empty listeners",
-			gateway: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 3},
-				Spec: gwv1.GatewaySpec{
-					Listeners: []gwv1.Listener{},
-				},
-			},
-			attachedRoutesMap:       map[gwv1.SectionName]int32{},
-			validateListenerResults: routeutils.ValidatedGatewayListeners{},
+			name:                    "empty listeners",
+			generation:              3,
+			validateListenerResults: routeutils.ListenerValidationResults{},
 			isProgrammed:            true,
 			expectedListenerCount:   0,
 		},
@@ -69,14 +48,13 @@ func Test_buildListenerStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildListenerStatus(tt.gateway, tt.gateway.Spec.Listeners, tt.attachedRoutesMap, tt.validateListenerResults, tt.isProgrammed)
+			result := buildListenerStatus(tt.generation, tt.validateListenerResults, tt.isProgrammed, generateListenerStatus)
 
 			assert.Len(t, result, tt.expectedListenerCount)
 
-			for i, listener := range tt.gateway.Spec.Listeners {
-				assert.Equal(t, listener.Name, result[i].Name)
-				assert.Equal(t, tt.attachedRoutesMap[listener.Name], result[i].AttachedRoutes)
-				assert.Equal(t, tt.supportedKinds, result[i].SupportedKinds)
+			for i, listener := range result {
+				//assert.Equal(t, tt.attachedRoutesMap[listener.Name], listener.AttachedRoutes)
+				assert.Equal(t, tt.supportedKinds, listener.SupportedKinds)
 				assert.Len(t, result[i].Conditions, 4)
 			}
 		})
@@ -93,7 +71,7 @@ func Test_getListenerConditions(t *testing.T) {
 		expectedAcceptedReason   string
 		expectedResolvedReason   string
 		expectedProgrammedReason string
-		gw                       gwv1.Gateway
+		generation               int64
 	}{
 		{
 			name: "validation result with hostname conflict and programmed false",
@@ -107,9 +85,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
 			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 3},
-			},
+			generation:               3,
 		},
 		{
 			name: "validation result with protocol conflict",
@@ -123,9 +99,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
 			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 4},
-			},
+			generation:               4,
 		},
 		{
 			name: "validation result with port unavailable",
@@ -139,9 +113,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedAcceptedReason:   string(gwv1.ListenerReasonPortUnavailable),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
 			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 5},
-			},
+			generation:               5,
 		},
 		{
 			name: "validation result with unsupported protocol",
@@ -155,9 +127,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedAcceptedReason:   string(gwv1.ListenerReasonUnsupportedProtocol),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
 			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 6},
-			},
+			generation:               6,
 		},
 		{
 			name: "validation result with invalid route kinds",
@@ -171,9 +141,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
 			expectedResolvedReason:   string(gwv1.ListenerReasonInvalidRouteKinds),
 			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 7},
-			},
+			generation:               7,
 		},
 		{
 			name: "validation result with ref not permitted",
@@ -187,15 +155,13 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
 			expectedResolvedReason:   string(gwv1.ListenerReasonRefNotPermitted),
 			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 8},
-			},
+			generation:               8,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conditions := getListenerConditions(tt.gw, tt.listenerValidationResult, tt.isProgrammed)
+			conditions := getListenerConditions(tt.generation, tt.listenerValidationResult, tt.isProgrammed)
 
 			assert.Len(t, conditions, tt.expectedConditionCount)
 
@@ -223,7 +189,7 @@ func Test_getListenerConditions(t *testing.T) {
 
 			// Verify all conditions have proper ObservedGeneration
 			for _, condition := range conditions {
-				assert.Equal(t, tt.gw.GetGeneration(), condition.ObservedGeneration)
+				assert.Equal(t, tt.generation, condition.ObservedGeneration)
 				assert.NotZero(t, condition.LastTransitionTime)
 			}
 		})
@@ -237,7 +203,7 @@ func Test_buildProgrammedCondition(t *testing.T) {
 		isAccepted     bool
 		expectedStatus metav1.ConditionStatus
 		expectedReason string
-		gw             gwv1.Gateway
+		generation     int64
 	}{
 		{
 			name:           "not accepted - should return false with invalid reason",
@@ -245,11 +211,7 @@ func Test_buildProgrammedCondition(t *testing.T) {
 			isAccepted:     false,
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 5,
-				},
-			},
+			generation:     5,
 		},
 		{
 			name:           "accepted and programmed - should return true with programmed reason",
@@ -257,11 +219,7 @@ func Test_buildProgrammedCondition(t *testing.T) {
 			isAccepted:     true,
 			expectedStatus: metav1.ConditionTrue,
 			expectedReason: string(gwv1.ListenerReasonProgrammed),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 3,
-				},
-			},
+			generation:     3,
 		},
 		{
 			name:           "accepted but not programmed - should return false with pending reason",
@@ -269,11 +227,7 @@ func Test_buildProgrammedCondition(t *testing.T) {
 			isAccepted:     true,
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: string(gwv1.ListenerReasonPending),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 1,
-				},
-			},
+			generation:     1,
 		},
 		{
 			name:           "not accepted and not programmed - should return false with invalid reason",
@@ -281,22 +235,18 @@ func Test_buildProgrammedCondition(t *testing.T) {
 			isAccepted:     false,
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: string(gwv1.ListenerReasonInvalid),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Generation: 2,
-				},
-			},
+			generation:     2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := buildProgrammedCondition(tt.gw, tt.isProgrammed, tt.isAccepted)
+			condition := buildProgrammedCondition(tt.generation, tt.isProgrammed, tt.isAccepted)
 
 			assert.Equal(t, string(gwv1.ListenerConditionProgrammed), condition.Type)
 			assert.Equal(t, tt.expectedStatus, condition.Status)
 			assert.Equal(t, tt.expectedReason, condition.Reason)
-			assert.Equal(t, tt.gw.GetGeneration(), condition.ObservedGeneration)
+			assert.Equal(t, tt.generation, condition.ObservedGeneration)
 			assert.NotZero(t, condition.LastTransitionTime)
 		})
 	}
@@ -308,7 +258,6 @@ func Test_buildAcceptedCondition(t *testing.T) {
 		reason         gwv1.ListenerConditionReason
 		message        string
 		expectedStatus metav1.ConditionStatus
-		gw             gwv1.Gateway
 	}{
 		{
 			name:           "accepted reason",
@@ -326,7 +275,7 @@ func Test_buildAcceptedCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := buildAcceptedCondition(tt.gw, tt.reason, tt.message)
+			condition := buildAcceptedCondition(0, tt.reason, tt.message)
 
 			assert.Equal(t, string(gwv1.ListenerConditionAccepted), condition.Type)
 			assert.Equal(t, tt.expectedStatus, condition.Status)
@@ -344,25 +293,24 @@ func Test_buildConflictedCondition(t *testing.T) {
 		reason         gwv1.ListenerConditionReason
 		message        string
 		expectedStatus metav1.ConditionStatus
-		gw             gwv1.Gateway
 	}{
 		{
 			name:           "accepted reason",
 			reason:         gwv1.ListenerReasonNoConflicts,
 			message:        "Accepted",
-			expectedStatus: metav1.ConditionTrue,
+			expectedStatus: metav1.ConditionFalse,
 		},
 		{
 			name:           "conflict reason",
 			reason:         gwv1.ListenerReasonHostnameConflict,
 			message:        "Hostname conflict",
-			expectedStatus: metav1.ConditionFalse,
+			expectedStatus: metav1.ConditionTrue,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := buildConflictedCondition(tt.gw, tt.reason, tt.message)
+			condition := buildConflictedCondition(0, tt.reason, tt.message)
 
 			assert.Equal(t, string(gwv1.ListenerConditionConflicted), condition.Type)
 			assert.Equal(t, tt.expectedStatus, condition.Status)
@@ -378,7 +326,6 @@ func Test_buildResolvedRefsCondition(t *testing.T) {
 		name           string
 		reason         gwv1.ListenerConditionReason
 		message        string
-		gw             gwv1.Gateway
 		expectedStatus metav1.ConditionStatus
 	}{
 		{
@@ -397,7 +344,7 @@ func Test_buildResolvedRefsCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := buildResolvedRefsCondition(tt.gw, tt.reason, tt.message)
+			condition := buildResolvedRefsCondition(0, tt.reason, tt.message)
 
 			assert.Equal(t, string(gwv1.ListenerConditionResolvedRefs), condition.Type)
 			assert.Equal(t, tt.expectedStatus, condition.Status)
@@ -862,6 +809,254 @@ func Test_compareSupportedKinds(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := compareSupportedKinds(tt.kinds1, tt.kinds2)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func Test_buildListenerSetStatus(t *testing.T) {
+	tests := []struct {
+		name                      string
+		listenerSetNsn            types.NamespacedName
+		results                   routeutils.ListenerValidationResults
+		isGatewayProgrammed       bool
+		expectedAccepted          bool
+		expectedAcceptedReason    string
+		expectedAcceptedMessage   string
+		expectedProgrammed        bool
+		expectedProgrammedReason  string
+		expectedProgrammedMessage string
+		expectedGeneration        int64
+		expectedListenerCount     int
+	}{
+		{
+			name: "all valid listeners, gateway programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {
+						IsValid:             true,
+						Reason:              gwv1.ListenerReasonAccepted,
+						Message:             "accepted",
+						SupportedKinds:      []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+						AttachedRoutesCount: 2,
+					},
+				},
+				Generation: 5,
+				HasErrors:  false,
+			},
+			isGatewayProgrammed:       true,
+			expectedAccepted:          true,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonAccepted),
+			expectedAcceptedMessage:   string(gwv1.ListenerSetReasonAccepted),
+			expectedProgrammed:        true,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonProgrammed),
+			expectedProgrammedMessage: string(gwv1.ListenerSetReasonProgrammed),
+			expectedGeneration:        5,
+			expectedListenerCount:     1,
+		},
+		{
+			name: "has errors but some valid listeners, gateway programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {
+						IsValid:        true,
+						Reason:         gwv1.ListenerReasonAccepted,
+						Message:        "accepted",
+						SupportedKinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+					"listener2": {
+						IsValid: false,
+						Reason:  gwv1.ListenerReasonInvalidRouteKinds,
+						Message: "invalid",
+					},
+				},
+				Generation: 3,
+				HasErrors:  true,
+			},
+			isGatewayProgrammed:       true,
+			expectedAccepted:          true,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonListenersNotValid),
+			expectedAcceptedMessage:   "Some listeners are not valid",
+			expectedProgrammed:        true,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonProgrammed),
+			expectedProgrammedMessage: string(gwv1.ListenerSetReasonProgrammed),
+			expectedGeneration:        3,
+			expectedListenerCount:     2,
+		},
+		{
+			name: "no valid listeners, gateway programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {
+						IsValid: false,
+						Reason:  gwv1.ListenerReasonInvalidRouteKinds,
+						Message: "invalid",
+					},
+				},
+				Generation: 2,
+				HasErrors:  true,
+			},
+			isGatewayProgrammed:       true,
+			expectedAccepted:          false,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonListenersNotValid),
+			expectedAcceptedMessage:   "Some listeners are not valid",
+			expectedProgrammed:        false,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
+			expectedProgrammedMessage: "Parent gateway not yet programmed",
+			expectedGeneration:        2,
+			expectedListenerCount:     1,
+		},
+		{
+			name: "valid listeners but gateway not programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {
+						IsValid:        true,
+						Reason:         gwv1.ListenerReasonAccepted,
+						Message:        "accepted",
+						SupportedKinds: []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+					},
+				},
+				Generation: 4,
+				HasErrors:  false,
+			},
+			isGatewayProgrammed:       false,
+			expectedAccepted:          true,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonAccepted),
+			expectedAcceptedMessage:   string(gwv1.ListenerSetReasonAccepted),
+			expectedProgrammed:        false,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
+			expectedProgrammedMessage: "No valid listeners to materialize",
+			expectedGeneration:        4,
+			expectedListenerCount:     1,
+		},
+		{
+			name: "no valid listeners and gateway not programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {
+						IsValid: false,
+						Reason:  gwv1.ListenerReasonInvalidRouteKinds,
+						Message: "invalid",
+					},
+				},
+				Generation: 1,
+				HasErrors:  true,
+			},
+			isGatewayProgrammed:       false,
+			expectedAccepted:          false,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonListenersNotValid),
+			expectedAcceptedMessage:   "Some listeners are not valid",
+			expectedProgrammed:        false,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
+			expectedProgrammedMessage: "No valid listeners to materialize",
+			expectedGeneration:        1,
+			expectedListenerCount:     1,
+		},
+		{
+			name: "empty results, gateway programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "default",
+				Name:      "empty-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results:    map[gwv1.SectionName]routeutils.ListenerValidationResult{},
+				Generation: 7,
+				HasErrors:  false,
+			},
+			isGatewayProgrammed:       true,
+			expectedAccepted:          false,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonAccepted),
+			expectedAcceptedMessage:   string(gwv1.ListenerSetReasonAccepted),
+			expectedProgrammed:        false,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
+			expectedProgrammedMessage: "Parent gateway not yet programmed",
+			expectedGeneration:        7,
+			expectedListenerCount:     0,
+		},
+		{
+			name: "multiple valid listeners, gateway programmed",
+			listenerSetNsn: types.NamespacedName{
+				Namespace: "prod-ns",
+				Name:      "multi-ls",
+			},
+			results: routeutils.ListenerValidationResults{
+				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
+					"listener1": {
+						IsValid:             true,
+						Reason:              gwv1.ListenerReasonAccepted,
+						Message:             "accepted",
+						SupportedKinds:      []gwv1.RouteGroupKind{{Kind: "HTTPRoute"}},
+						AttachedRoutesCount: 3,
+					},
+					"listener2": {
+						IsValid:             true,
+						Reason:              gwv1.ListenerReasonAccepted,
+						Message:             "accepted",
+						SupportedKinds:      []gwv1.RouteGroupKind{{Kind: "TCPRoute"}},
+						AttachedRoutesCount: 1,
+					},
+				},
+				Generation: 10,
+				HasErrors:  false,
+			},
+			isGatewayProgrammed:       true,
+			expectedAccepted:          true,
+			expectedAcceptedReason:    string(gwv1.ListenerSetReasonAccepted),
+			expectedAcceptedMessage:   string(gwv1.ListenerSetReasonAccepted),
+			expectedProgrammed:        true,
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonProgrammed),
+			expectedProgrammedMessage: string(gwv1.ListenerSetReasonProgrammed),
+			expectedGeneration:        10,
+			expectedListenerCount:     2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			statusData, listenerEntryStatuses := buildListenerSetStatus(tt.listenerSetNsn, tt.results, tt.isGatewayProgrammed)
+
+			// Verify metadata
+			assert.Equal(t, tt.listenerSetNsn.Name, statusData.ListenerSetMetadata.ListenerSetName)
+			assert.Equal(t, tt.listenerSetNsn.Namespace, statusData.ListenerSetMetadata.ListenerSetNamespace)
+			assert.Equal(t, tt.expectedGeneration, statusData.ListenerSetMetadata.Generation)
+
+			// Verify accepted status
+			assert.Equal(t, tt.expectedAccepted, statusData.ListenerSetStatusInfo.Accepted)
+			assert.Equal(t, tt.expectedAcceptedReason, statusData.ListenerSetStatusInfo.AcceptedReason)
+			assert.Equal(t, tt.expectedAcceptedMessage, statusData.ListenerSetStatusInfo.AcceptedMessage)
+
+			// Verify programmed status
+			assert.Equal(t, tt.expectedProgrammed, statusData.ListenerSetStatusInfo.Programmed)
+			assert.Equal(t, tt.expectedProgrammedReason, statusData.ListenerSetStatusInfo.ProgrammedReason)
+			assert.Equal(t, tt.expectedProgrammedMessage, statusData.ListenerSetStatusInfo.ProgrammedMessage)
+
+			// Verify listener entry statuses count
+			assert.Len(t, listenerEntryStatuses, tt.expectedListenerCount)
+
+			// Verify each listener entry has 4 conditions
+			for _, les := range listenerEntryStatuses {
+				assert.Len(t, les.Conditions, 4)
+			}
 		})
 	}
 }

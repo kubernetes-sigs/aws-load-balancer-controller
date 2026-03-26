@@ -338,6 +338,20 @@ func Test_getParentStatusKey(t *testing.T) {
 			},
 			want: "networking.k8s.io/Gateway/test-namespace/test-gateway//",
 		},
+		{
+			name: "ListenerSet parent ref",
+			status: gwv1.RouteParentStatus{
+				ParentRef: gwv1.ParentReference{
+					Group:       (*gwv1.Group)(ptr.To("gateway.networking.k8s.io")),
+					Kind:        (*gwv1.Kind)(ptr.To("ListenerSet")),
+					Namespace:   (*gwv1.Namespace)(ptr.To("ls-namespace")),
+					Name:        "test-listener-set",
+					SectionName: (*gwv1.SectionName)(ptr.To("ls-section")),
+					Port:        portPtr(8080),
+				},
+			},
+			want: "gateway.networking.k8s.io/ListenerSet/ls-namespace/test-listener-set/ls-section/8080",
+		},
 	}
 
 	for _, tt := range tests {
@@ -345,6 +359,131 @@ func Test_getParentStatusKey(t *testing.T) {
 			got := getParentStatusKey(tt.status.ParentRef, routeNamespace)
 			if got != tt.want {
 				t.Errorf("getParentStatusKey() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_resolveParentResource(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	gwv1.Install(scheme)
+
+	listenerSetKind := gwv1.Kind("ListenerSet")
+	gatewayKind := gwv1.Kind("Gateway")
+	testNamespace := gwv1.Namespace("test-namespace")
+
+	tests := []struct {
+		name       string
+		parentRef  gwv1.ParentReference
+		namespace  string
+		objects    []client.Object
+		wantErr    bool
+		errContain string
+	}{
+		{
+			name: "resolve Gateway - exists",
+			parentRef: gwv1.ParentReference{
+				Kind:      &gatewayKind,
+				Name:      "test-gateway",
+				Namespace: &testNamespace,
+			},
+			namespace: "default",
+			objects: []client.Object{
+				&gwv1.Gateway{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-gateway",
+						Namespace: "test-namespace",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "resolve Gateway - not found",
+			parentRef: gwv1.ParentReference{
+				Kind:      &gatewayKind,
+				Name:      "missing-gateway",
+				Namespace: &testNamespace,
+			},
+			namespace: "default",
+			objects:   []client.Object{},
+			wantErr:   true,
+		},
+		{
+			name: "resolve ListenerSet - exists",
+			parentRef: gwv1.ParentReference{
+				Kind:      &listenerSetKind,
+				Name:      "test-listener-set",
+				Namespace: &testNamespace,
+			},
+			namespace: "default",
+			objects: []client.Object{
+				&gwv1.ListenerSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-listener-set",
+						Namespace: "test-namespace",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "resolve ListenerSet - not found",
+			parentRef: gwv1.ParentReference{
+				Kind:      &listenerSetKind,
+				Name:      "missing-listener-set",
+				Namespace: &testNamespace,
+			},
+			namespace: "default",
+			objects:   []client.Object{},
+			wantErr:   true,
+		},
+		{
+			name: "resolve ListenerSet - uses route namespace when parentRef namespace is nil",
+			parentRef: gwv1.ParentReference{
+				Kind: &listenerSetKind,
+				Name: "test-listener-set",
+			},
+			namespace: "route-namespace",
+			objects: []client.Object{
+				&gwv1.ListenerSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-listener-set",
+						Namespace: "route-namespace",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "unknown parent reference kind",
+			parentRef: gwv1.ParentReference{
+				Kind: (*gwv1.Kind)(ptr.To("UnknownKind")),
+				Name: "test-resource",
+			},
+			namespace:  "default",
+			objects:    []client.Object{},
+			wantErr:    true,
+			errContain: "Unknown parent reference kind UnknownKind",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithObjects(tt.objects...).Build()
+			reconciler := &routeReconcilerImpl{
+				logger:    logr.New(&log.NullLogSink{}),
+				k8sClient: k8sClient,
+			}
+			err := reconciler.resolveParentResource(tt.parentRef, tt.namespace)
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContain != "" {
+					assert.Contains(t, err.Error(), tt.errContain)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

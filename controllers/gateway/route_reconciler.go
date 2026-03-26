@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -188,8 +189,8 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
 			// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
 			d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
-			// handle parentRefNotExist: resolve ref Gateway, if parentRef does not have namespace, getting it from Route
-			if _, err := d.resolveRefGateway(parentRef, route.GetNamespace()); err != nil {
+			// handle parentRefNotExist: resolve ref resource, if parentRef does not have namespace, getting it from Route
+			if err := d.resolveParentResource(parentRef, route.GetNamespace()); err != nil {
 				// set conditions if resolvedRef = false
 				d.setConditionsBasedOnResolveRefGateway(route, &newRouteParentStatus, err)
 			}
@@ -212,19 +213,37 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 	return nil
 }
 
-func (d *routeReconcilerImpl) resolveRefGateway(parentRef gwv1.ParentReference, namespace string) (*gwv1.Gateway, error) {
-	gateway := &gwv1.Gateway{}
+func (d *routeReconcilerImpl) resolveParentResource(parentRef gwv1.ParentReference, namespace string) error {
+
+	targetParentRefKind := "Gateway"
+	if parentRef.Kind != nil {
+		targetParentRefKind = string(*parentRef.Kind)
+	}
 
 	if parentRef.Namespace != nil {
 		namespace = string(*parentRef.Namespace)
 	}
 
-	// check if gateway in ParentRef exists
-	if err := d.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: string(parentRef.Name)}, gateway); err != nil {
-		return nil, err
+	var obj client.Object
+
+	switch targetParentRefKind {
+	case "Gateway":
+		obj = &gwv1.Gateway{}
+		break
+	case "ListenerSet":
+		obj = &gwv1.ListenerSet{}
+		break
+	default:
+		return errors.New(fmt.Sprintf("Unknown parent reference kind %s", targetParentRefKind))
+
 	}
 
-	return gateway, nil
+	// check if gateway in ParentRef exists
+	if err := d.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: string(parentRef.Name)}, obj); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // setCondition based on RouteStatusInfo
