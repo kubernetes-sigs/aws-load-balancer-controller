@@ -488,6 +488,12 @@ serviceMutatorWebhookConfig:
     #   - <value>
     matchLabels: {}
       # key: value
+  # array of namespace selectors for the service mutator webhook
+  namespaceSelectors:
+  # - key: <key>
+  #   operator: <operator>
+  #   values:
+  #   - <value>
   # which operations trigger the webhook
   operations:
   - CREATE

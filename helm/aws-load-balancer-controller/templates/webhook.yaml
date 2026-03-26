@@ -114,6 +114,11 @@ webhooks:
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
+  {{- if .Values.serviceMutatorWebhookConfig.namespaceSelectors }}
+  namespaceSelector:
+    matchExpressions:
+    {{- toYaml .Values.serviceMutatorWebhookConfig.namespaceSelectors | nindent 4 }}
+  {{- end }}
   objectSelector:
     matchExpressions:
     - key: app.kubernetes.io/name
