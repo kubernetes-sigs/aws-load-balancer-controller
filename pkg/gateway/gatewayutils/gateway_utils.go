@@ -74,16 +74,38 @@ func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Cli
 	}
 	impactedGateways := make([]types.NamespacedName, 0, len(parentRefs))
 	unknownGateways := make([]types.NamespacedName, 0, len(parentRefs))
+	failedListenerSetResolutions := make([]types.NamespacedName, 0)
 	var err error
 	for _, parent := range parentRefs {
-		gwNamespace := resourceNamespace
+		namespaceToUse := resourceNamespace
 		if parent.Namespace != nil {
-			gwNamespace = string(*parent.Namespace)
+			namespaceToUse = string(*parent.Namespace)
 		}
 
-		gwName := types.NamespacedName{
-			Namespace: gwNamespace,
+		parentResourceNsn := types.NamespacedName{
+			Namespace: namespaceToUse,
 			Name:      string(parent.Name),
+		}
+
+		var gwName types.NamespacedName
+		if parent.Kind != nil && *parent.Kind == "ListenerSet" {
+			ls := &gwv1.ListenerSet{}
+			if err := k8sClient.Get(ctx, parentResourceNsn, ls); err != nil {
+				failedListenerSetResolutions = append(failedListenerSetResolutions, parentResourceNsn)
+				continue
+			}
+
+			gwNamespace := ls.Namespace
+			if ls.Spec.ParentRef.Namespace != nil {
+				gwNamespace = string(*ls.Spec.ParentRef.Namespace)
+			}
+
+			gwName = types.NamespacedName{
+				Namespace: gwNamespace,
+				Name:      string(ls.Spec.ParentRef.Name),
+			}
+		} else {
+			gwName = parentResourceNsn
 		}
 
 		gw := &gwv1.Gateway{}
@@ -97,8 +119,12 @@ func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Cli
 			impactedGateways = append(impactedGateways, gwName)
 		}
 	}
-	if len(unknownGateways) > 0 {
+	if len(unknownGateways) > 0 && len(failedListenerSetResolutions) > 0 {
+		err = fmt.Errorf("failed to list gateways, %s, failed to resolve listenersets %s", unknownGateways, failedListenerSetResolutions)
+	} else if len(unknownGateways) > 0 {
 		err = fmt.Errorf("failed to list gateways, %s", unknownGateways)
+	} else if len(failedListenerSetResolutions) > 0 {
+		err = fmt.Errorf("failed to resolve listenersets %s", failedListenerSetResolutions)
 	}
 	return impactedGateways, err
 }
@@ -178,7 +204,7 @@ func GetGatewaysManagedByGatewayClass(ctx context.Context, k8sClient client.Clie
 // removeDuplicateParentRefs make sure parentRefs in list is unique
 func removeDuplicateParentRefs(parentRefs []gwv1.ParentReference, resourceNamespace string) []gwv1.ParentReference {
 	result := make([]gwv1.ParentReference, 0, len(parentRefs))
-	exist := sets.Set[types.NamespacedName]{}
+	exist := map[string]sets.Set[types.NamespacedName]{}
 	for _, parentRef := range parentRefs {
 		var namespaceToUse string
 		if parentRef.Namespace != nil {
@@ -190,8 +216,17 @@ func removeDuplicateParentRefs(parentRefs []gwv1.ParentReference, resourceNamesp
 			Namespace: namespaceToUse,
 			Name:      string(parentRef.Name),
 		}
-		if !exist.Has(namespacedName) {
-			exist.Insert(namespacedName)
+		kind := "Gateway"
+		if parentRef.Kind != nil {
+			kind = string(*parentRef.Kind)
+		}
+
+		if _, kindOk := exist[kind]; !kindOk {
+			exist[kind] = sets.Set[types.NamespacedName]{}
+		}
+
+		if !exist[kind].Has(namespacedName) {
+			exist[kind].Insert(namespacedName)
 			result = append(result, parentRef)
 		}
 	}
