@@ -69,11 +69,10 @@ func buildHttpPathCondition(path *gwv1.HTTPPathMatch) ([]elbv2model.RuleConditio
 
 	}
 
-	// exact path shouldn't contain any wildcards.
+	// For exact path type, pass the value through as-is to ALB.
+	// ALB natively handles wildcard characters (* and ?) in values,
+	// so we don't reject them here.
 	if pathType == gwv1.PathMatchExact {
-		if strings.ContainsAny(pathValue, "*?") {
-			return nil, errors.Errorf("exact path shouldn't contain wildcards: %v", path)
-		}
 		pathValues = append(pathValues, pathValue)
 	}
 
@@ -253,29 +252,55 @@ func buildSourceIpCondition(condition elbv2gw.ListenerRuleCondition) []elbv2mode
 	}
 }
 
-// BuildSourceIpInCondition : takes source ip configuration from listener rule configuration CRD, then AND it to condition list
-func BuildSourceIpInCondition(ruleWithPrecedence RulePrecedence, conditionsList []elbv2model.RuleCondition) []elbv2model.RuleCondition {
+// BuildConditionsFromListenerRuleConfig takes conditions from ListenerRuleConfiguration CRD and ANDs them into the condition list.
+// Supports source-ip and host-header condition types.
+func BuildConditionsFromListenerRuleConfig(ruleWithPrecedence RulePrecedence, conditionsList []elbv2model.RuleCondition) []elbv2model.RuleCondition {
 	rule := ruleWithPrecedence.CommonRulePrecedence.Rule
 	matchIndex := ruleWithPrecedence.CommonRulePrecedence.MatchIndexInRule
 	if rule.GetListenerRuleConfig() != nil {
 		conditionsFromRuleConfig := rule.GetListenerRuleConfig().Spec.Conditions
 		for _, condition := range conditionsFromRuleConfig {
+			var lrcConditions []elbv2model.RuleCondition
 			switch condition.Field {
 			case elbv2gw.ListenerRuleConditionFieldSourceIP:
-				sourceIpCondition := buildSourceIpCondition(condition)
-				if condition.MatchIndexes == nil {
-					conditionsList = append(conditionsList, sourceIpCondition...)
-				} else {
-					for _, index := range *condition.MatchIndexes {
-						if index == matchIndex {
-							conditionsList = append(conditionsList, sourceIpCondition...)
-						}
+				lrcConditions = buildSourceIpCondition(condition)
+			case elbv2gw.ListenerRuleConditionFieldHostHeader:
+				lrcConditions = buildHostHeaderCondition(condition)
+			}
+			if len(lrcConditions) == 0 {
+				continue
+			}
+			if condition.MatchIndexes == nil {
+				conditionsList = append(conditionsList, lrcConditions...)
+			} else {
+				for _, index := range *condition.MatchIndexes {
+					if index == matchIndex {
+						conditionsList = append(conditionsList, lrcConditions...)
 					}
 				}
 			}
 		}
 	}
 	return conditionsList
+}
+
+func buildHostHeaderCondition(condition elbv2gw.ListenerRuleCondition) []elbv2model.RuleCondition {
+	if condition.HostHeaderConfig == nil {
+		return nil
+	}
+	hostHeaderConfig := &elbv2model.HostHeaderConditionConfig{}
+	if len(condition.HostHeaderConfig.Values) > 0 {
+		hostHeaderConfig.Values = condition.HostHeaderConfig.Values
+	}
+	if len(condition.HostHeaderConfig.RegexValues) > 0 {
+		hostHeaderConfig.RegexValues = condition.HostHeaderConfig.RegexValues
+	}
+	return []elbv2model.RuleCondition{
+		{
+			Field:            elbv2model.RuleConditionFieldHostHeader,
+			HostHeaderConfig: hostHeaderConfig,
+		},
+	}
 }
 
 // generateValuesFromMatchHeaderValue takes in header value from route match

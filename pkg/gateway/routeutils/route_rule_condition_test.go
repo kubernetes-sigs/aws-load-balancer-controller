@@ -201,7 +201,15 @@ func Test_buildHttpPathCondition(t *testing.T) {
 				Type:  &exactType,
 				Value: &pathValueWithWildcard,
 			},
-			wantErr: true,
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{"/prefix*"},
+					},
+				},
+			},
+			wantErr: false,
 		},
 		{
 			name: "regular expression path type",
@@ -770,7 +778,7 @@ func TestGenerateValuesFromMatchHeaderValue(t *testing.T) {
 	}
 }
 
-func Test_BuildSourceIpInCondition(t *testing.T) {
+func Test_BuildLRCConditions(t *testing.T) {
 	matchIndex0 := 0
 	matchIndex1 := 1
 
@@ -938,7 +946,64 @@ func Test_BuildSourceIpInCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BuildSourceIpInCondition(tt.ruleWithPrecedence, tt.conditionsList)
+			result := BuildConditionsFromListenerRuleConfig(tt.ruleWithPrecedence, tt.conditionsList)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func Test_buildHostHeaderCondition(t *testing.T) {
+	tests := []struct {
+		name      string
+		condition elbv2gw.ListenerRuleCondition
+		expected  []elbv2model.RuleCondition
+	}{
+		{
+			name: "nil hostHeaderConfig returns nil",
+			condition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+			},
+			expected: nil,
+		},
+		{
+			name: "host header with values",
+			condition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2gw.HostHeaderConditionConfig{
+					Values: []string{"*.example.com", "www.test.com"},
+				},
+			},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"*.example.com", "www.test.com"},
+					},
+				},
+			},
+		},
+		{
+			name: "host header with regexValues",
+			condition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2gw.HostHeaderConditionConfig{
+					RegexValues: []string{"^(.+)\\.example\\.com$"},
+				},
+			},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						RegexValues: []string{"^(.+)\\.example\\.com$"},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildHostHeaderCondition(tt.condition)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

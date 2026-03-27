@@ -5,11 +5,12 @@ import (
 )
 
 // ListenerRuleConditionField defines the field in the HTTP request to match
-// +kubebuilder:validation:Enum=source-ip
+// +kubebuilder:validation:Enum=source-ip;host-header
 type ListenerRuleConditionField string
 
 const (
-	ListenerRuleConditionFieldSourceIP ListenerRuleConditionField = "source-ip"
+	ListenerRuleConditionFieldSourceIP   ListenerRuleConditionField = "source-ip"
+	ListenerRuleConditionFieldHostHeader ListenerRuleConditionField = "host-header"
 )
 
 // AuthenticateCognitoActionConditionalBehaviorEnum defines the behavior when a user is not authenticated
@@ -41,8 +42,25 @@ type SourceIPConditionConfig struct {
 	Values []string `json:"values"`
 }
 
+// Information about a host header condition
+// +kubebuilder:validation:XValidation:rule="(has(self.values) && !has(self.regexValues)) || (!has(self.values) && has(self.regexValues))",message="exactly one of values or regexValues must be specified"
+type HostHeaderConditionConfig struct {
+	// One or more host header values using wildcard syntax (* matches 0+ chars, ? matches 1 char).
+	// Mutually exclusive with regexValues.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	Values []string `json:"values,omitempty"`
+
+	// One or more host header values using regex syntax.
+	// Mutually exclusive with values.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	RegexValues []string `json:"regexValues,omitempty"`
+}
+
 // Information about a condition for a listener rule
 // +kubebuilder:validation:XValidation:rule="has(self.field) && self.field == 'source-ip' ? has(self.sourceIPConfig) : !has(self.sourceIPConfig)",message="sourceIPConfig must be specified only when field is 'source-ip'"
+// +kubebuilder:validation:XValidation:rule="has(self.field) && self.field == 'host-header' ? has(self.hostHeaderConfig) : !has(self.hostHeaderConfig)",message="hostHeaderConfig must be specified only when field is 'host-header'"
 type ListenerRuleCondition struct {
 	// The field in the HTTP request
 	Field ListenerRuleConditionField `json:"field"`
@@ -51,8 +69,12 @@ type ListenerRuleCondition struct {
 	// +optional
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
 
-	// Indexes of Match in a rule to apply source ip to
-	// If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
+	// Information for a host header condition
+	// +optional
+	HostHeaderConfig *HostHeaderConditionConfig `json:"hostHeaderConfig,omitempty"`
+
+	// Indexes of Match in a rule to apply the condition to.
+	// If MatchIndexes is not provided, the condition will be applied to all matches where ListenerRuleConfiguration is used.
 	// +optional
 	MatchIndexes *[]int `json:"matchIndexes,omitempty"`
 }
@@ -337,7 +359,7 @@ type ListenerRuleConfigurationSpec struct {
 	// Conditions defines the circumstances under which the rule actions will be performed.
 	// This CRD implementation currently supports only the source-ip condition type
 	//
-	// For other condition types (such as path-pattern, host-header, http-header, etc.),
+	// For other condition types (such as path-pattern, http-header, etc.),
 	// please use the standard Gateway API HTTPRoute or other route resources, which provide
 	// native support for those conditions through the Gateway API specification.
 	// +optional

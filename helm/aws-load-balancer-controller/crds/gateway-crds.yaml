@@ -368,7 +368,7 @@ spec:
                   Conditions defines the circumstances under which the rule actions will be performed.
                   This CRD implementation currently supports only the source-ip condition type
 
-                  For other condition types (such as path-pattern, host-header, http-header, etc.),
+                  For other condition types (such as path-pattern, http-header, etc.),
                   please use the standard Gateway API HTTPRoute or other route resources, which provide
                   native support for those conditions through the Gateway API specification.
                 items:
@@ -378,11 +378,36 @@ spec:
                       description: The field in the HTTP request
                       enum:
                       - source-ip
+                      - host-header
                       type: string
+                    hostHeaderConfig:
+                      description: Information for a host header condition
+                      properties:
+                        regexValues:
+                          description: |-
+                            One or more host header values using regex syntax.
+                            Mutually exclusive with values.
+                          items:
+                            type: string
+                          minItems: 1
+                          type: array
+                        values:
+                          description: |-
+                            One or more host header values using wildcard syntax (* matches 0+ chars, ? matches 1 char).
+                            Mutually exclusive with regexValues.
+                          items:
+                            type: string
+                          minItems: 1
+                          type: array
+                      type: object
+                      x-kubernetes-validations:
+                      - message: exactly one of values or regexValues must be specified
+                        rule: (has(self.values) && !has(self.regexValues)) || (!has(self.values)
+                          && has(self.regexValues))
                     matchIndexes:
                       description: |-
-                        Indexes of Match in a rule to apply source ip to
-                        If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
+                        Indexes of Match in a rule to apply the condition to.
+                        If MatchIndexes is not provided, the condition will be applied to all matches where ListenerRuleConfiguration is used.
                       items:
                         type: integer
                       type: array
@@ -405,6 +430,10 @@ spec:
                   - message: sourceIPConfig must be specified only when field is 'source-ip'
                     rule: 'has(self.field) && self.field == ''source-ip'' ? has(self.sourceIPConfig)
                       : !has(self.sourceIPConfig)'
+                  - message: hostHeaderConfig must be specified only when field is
+                      'host-header'
+                    rule: 'has(self.field) && self.field == ''host-header'' ? has(self.hostHeaderConfig)
+                      : !has(self.hostHeaderConfig)'
                 minItems: 1
                 type: array
               tags:

@@ -8,7 +8,8 @@
 
 ## Prerequisites
 
-Before applying the generated manifests, ensure the Gateway API CRDs are installed in your cluster at a compatible version. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
+- The Gateway API CRDs must be installed in your cluster at a compatible version before applying the generated manifests. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
+- The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations or enforce the same constraints as the ingress controller (e.g., ALB rule limits, mutually exclusive annotation combinations). If an Ingress has invalid or conflicting annotations, the output may be incorrect or incomplete without warning.
 
 ## Installation
 
