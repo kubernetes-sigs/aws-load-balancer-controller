@@ -35,7 +35,9 @@ type CloudConfig struct {
 	// VPC tags List
 	VpcTags map[string]string
 
-	// VPC Name Tag Key, default "Name"
+	// Deprecated: VPC Name Tag Key, default "Name".
+	// Previously used to select a single tag from --aws-vpc-tags.
+	// All tags are now always used for VPC lookup. This field is ignored.
 	VpcNameTagKey string
 
 	// VPC cache TTL in minutes
@@ -53,7 +55,7 @@ func (cfg *CloudConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.Var(cfg.ThrottleConfig, flagAWSAPIThrottle, "throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst")
 	fs.StringVar(&cfg.VpcID, flagAWSVpcID, defaultVpcID, "AWS VpcID for the LoadBalancer resources")
 	fs.StringToStringVar(&cfg.VpcTags, flagAWSVpcTags, nil, "AWS VPC tags List,format: tagkey1=tagvalue1,tagkey2=tagvalue2")
-	fs.StringVar(&cfg.VpcNameTagKey, flagAWSVpcNameTagKey, defaultVpcNameTagKey, "AWS tag key for identifying the VPC")
+	fs.StringVar(&cfg.VpcNameTagKey, flagAWSVpcNameTagKey, defaultVpcNameTagKey, "[DEPRECATED] Previously used to select a single tag from --aws-vpc-tags. All tags are now always used for VPC lookup. This flag will be removed in a future release.")
 	fs.IntVar(&cfg.MaxRetries, flagAWSMaxRetries, defaultAPIMaxRetries, "Maximum retries for AWS APIs")
 	fs.StringToStringVar(&cfg.AWSEndpoints, flagAWSAPIEndpoints, nil, "Custom AWS endpoint configuration, format: serviceID1=URL1,serviceID2=URL2")
 }
