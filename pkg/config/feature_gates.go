@@ -10,6 +10,13 @@ import (
 
 type Feature string
 
+type FeatureStatus struct {
+	// Enabled - Is this feature enabled?
+	Enabled bool
+	// IsDefaulted - Did the user specify this flag, or have we fallen back to the default feature state?
+	IsDefaulted bool
+}
+
 const (
 	ListenerRulesTagging          Feature = "ListenerRulesTagging"
 	WeightedTargetGroups          Feature = "WeightedTargetGroups"
@@ -37,6 +44,9 @@ type FeatureGates interface {
 	// Enabled returns whether a feature is enabled
 	Enabled(feature Feature) bool
 
+	// GetFeatureStatus returns Enabled(feature) but with more metadata
+	GetFeatureStatus(feature Feature) FeatureStatus
+
 	// Enable will enable a feature
 	Enable(feature Feature)
 
@@ -51,33 +61,33 @@ var _ FeatureGates = (*defaultFeatureGates)(nil)
 var _ pflag.Value = (*defaultFeatureGates)(nil)
 
 type defaultFeatureGates struct {
-	featureState map[Feature]bool
+	featureState map[Feature]FeatureStatus
 }
 
 // NewFeatureGates constructs new featureGates
 func NewFeatureGates() FeatureGates {
 	return &defaultFeatureGates{
-		featureState: map[Feature]bool{
-			ListenerRulesTagging:          true,
-			WeightedTargetGroups:          true,
-			ServiceTypeLoadBalancerOnly:   false,
-			EndpointsFailOpen:             true,
-			EnableServiceController:       true,
-			EnableIPTargetType:            true,
-			EnableRGTAPI:                  false,
-			SubnetsClusterTagCheck:        true,
-			NLBHealthCheckAdvancedConfig:  true,
-			NLBSecurityGroup:              true,
-			ALBSingleSubnet:               false,
-			SubnetDiscoveryByReachability: true,
-			LBCapacityReservation:         true,
-			NLBGatewayAPI:                 false,
-			ALBGatewayAPI:                 false,
-			GlobalAcceleratorController:   false,
-			EnableTCPUDPListenerType:      false,
-			EnhancedDefaultBehavior:       false,
-			EnableDefaultTagsLowPriority:  false,
-			ALBTargetControlAgent:         false,
+		featureState: map[Feature]FeatureStatus{
+			ListenerRulesTagging:          generateDefaultFeatureStatus(true),
+			WeightedTargetGroups:          generateDefaultFeatureStatus(true),
+			ServiceTypeLoadBalancerOnly:   generateDefaultFeatureStatus(false),
+			EndpointsFailOpen:             generateDefaultFeatureStatus(true),
+			EnableServiceController:       generateDefaultFeatureStatus(true),
+			EnableIPTargetType:            generateDefaultFeatureStatus(true),
+			EnableRGTAPI:                  generateDefaultFeatureStatus(false),
+			SubnetsClusterTagCheck:        generateDefaultFeatureStatus(true),
+			NLBHealthCheckAdvancedConfig:  generateDefaultFeatureStatus(true),
+			NLBSecurityGroup:              generateDefaultFeatureStatus(true),
+			ALBSingleSubnet:               generateDefaultFeatureStatus(false),
+			SubnetDiscoveryByReachability: generateDefaultFeatureStatus(true),
+			LBCapacityReservation:         generateDefaultFeatureStatus(true),
+			NLBGatewayAPI:                 generateDefaultFeatureStatus(true),
+			ALBGatewayAPI:                 generateDefaultFeatureStatus(true),
+			GlobalAcceleratorController:   generateDefaultFeatureStatus(false),
+			EnableTCPUDPListenerType:      generateDefaultFeatureStatus(false),
+			EnhancedDefaultBehavior:       generateDefaultFeatureStatus(false),
+			EnableDefaultTagsLowPriority:  generateDefaultFeatureStatus(false),
+			ALBTargetControlAgent:         generateDefaultFeatureStatus(false),
 		},
 	}
 }
@@ -86,16 +96,24 @@ func (f *defaultFeatureGates) BindFlags(fs *pflag.FlagSet) {
 	fs.Var(f, "feature-gates", "A set of key=bool pairs enable/disable features")
 }
 
+func (f *defaultFeatureGates) GetFeatureStatus(feature Feature) FeatureStatus {
+	// Return a copy to not corrupt internal state.
+	return FeatureStatus{
+		Enabled:     f.featureState[feature].Enabled,
+		IsDefaulted: f.featureState[feature].IsDefaulted,
+	}
+}
+
 func (f *defaultFeatureGates) Enabled(feature Feature) bool {
-	return f.featureState[feature]
+	return f.featureState[feature].Enabled
 }
 
 func (f *defaultFeatureGates) Enable(feature Feature) {
-	f.featureState[feature] = true
+	f.featureState[feature] = generateSetFeatureStatus(true)
 }
 
 func (f *defaultFeatureGates) Disable(feature Feature) {
-	f.featureState[feature] = false
+	f.featureState[feature] = generateSetFeatureStatus(false)
 }
 
 func (f *defaultFeatureGates) String() string {
@@ -137,11 +155,25 @@ func (f *defaultFeatureGates) Set(value string) error {
 		if !ok {
 			return fmt.Errorf("unknown feature: %v", k)
 		}
-		f.featureState[Feature(k)] = v
+		f.featureState[Feature(k)] = generateSetFeatureStatus(v)
 	}
 	return nil
 }
 
 func (f *defaultFeatureGates) Type() string {
 	return "mapStringBool"
+}
+
+func generateDefaultFeatureStatus(enabled bool) FeatureStatus {
+	return FeatureStatus{
+		Enabled:     enabled,
+		IsDefaulted: true,
+	}
+}
+
+func generateSetFeatureStatus(enabled bool) FeatureStatus {
+	return FeatureStatus{
+		Enabled:     enabled,
+		IsDefaulted: false,
+	}
 }

@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -92,7 +93,7 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	case "TCPRoute":
 		route = &gwalpha2.TCPRoute{}
 	case "TLSRoute":
-		route = &gwalpha2.TLSRoute{}
+		route = &gwv1.TLSRoute{}
 	}
 
 	if err := d.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: routeNamespace, Name: routeName}, route); err != nil {
@@ -108,7 +109,7 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
 		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
-			d.logger.Error(err, "Failed to patch route status")
+			d.logger.Error(err, "Failed to patch route status", "route", route)
 			return err
 		}
 	}
@@ -149,7 +150,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 		originalRouteStatus = r.Status.Parents
 		ParentRefs = r.Spec.ParentRefs
-	case *gwalpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		if r.Status.Parents == nil {
 			r.Status.Parents = []gwv1.RouteParentStatus{}
 		}
@@ -162,6 +163,18 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 	var newRouteStatus []gwv1.RouteParentStatus
 	originalRouteStatusMap := createOriginalRouteStatusMap(originalRouteStatus, routeNamespace)
 	for _, parentRef := range ParentRefs {
+		parentRefKey := getParentStatusKey(parentRef, routeNamespace)
+		// Generate key for routeData's parentRef
+		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
+		if parentRefKey != routeDataParentRefKey {
+			// This parent ref is not the one we are looking for.
+			status, ok := originalRouteStatusMap[parentRefKey]
+			if ok {
+				newRouteStatus = append(newRouteStatus, status)
+			}
+			continue
+		}
+
 		newRouteParentStatus := gwv1.RouteParentStatus{
 			ParentRef:      parentRef,
 			ControllerName: gwv1.GatewayController(controllerName),
@@ -172,19 +185,12 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 			newRouteParentStatus.Conditions = status.Conditions
 		}
 
-		// Generate key for routeData's parentRef
-		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
-
 		// do not allow backward generation update, Accepted and ResolvedRef always have same generation based on our implementation
 		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
 			// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
-			parentRefKey := getParentStatusKey(parentRef, routeNamespace)
-			if parentRefKey == routeDataParentRefKey {
-				d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
-			}
-
-			// handle parentRefNotExist: resolve ref Gateway, if parentRef does not have namespace, getting it from Route
-			if _, err := d.resolveRefGateway(parentRef, route.GetNamespace()); err != nil {
+			d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
+			// handle parentRefNotExist: resolve ref resource, if parentRef does not have namespace, getting it from Route
+			if err := d.resolveParentResource(parentRef, route.GetNamespace()); err != nil {
 				// set conditions if resolvedRef = false
 				d.setConditionsBasedOnResolveRefGateway(route, &newRouteParentStatus, err)
 			}
@@ -197,7 +203,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		r.Status.Parents = newRouteStatus
 	case *gwv1.GRPCRoute:
 		r.Status.Parents = newRouteStatus
-	case *gwalpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		r.Status.Parents = newRouteStatus
 	case *gwalpha2.UDPRoute:
 		r.Status.Parents = newRouteStatus
@@ -207,19 +213,37 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 	return nil
 }
 
-func (d *routeReconcilerImpl) resolveRefGateway(parentRef gwv1.ParentReference, namespace string) (*gwv1.Gateway, error) {
-	gateway := &gwv1.Gateway{}
+func (d *routeReconcilerImpl) resolveParentResource(parentRef gwv1.ParentReference, namespace string) error {
+
+	targetParentRefKind := "Gateway"
+	if parentRef.Kind != nil {
+		targetParentRefKind = string(*parentRef.Kind)
+	}
 
 	if parentRef.Namespace != nil {
 		namespace = string(*parentRef.Namespace)
 	}
 
-	// check if gateway in ParentRef exists
-	if err := d.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: string(parentRef.Name)}, gateway); err != nil {
-		return nil, err
+	var obj client.Object
+
+	switch targetParentRefKind {
+	case "Gateway":
+		obj = &gwv1.Gateway{}
+		break
+	case "ListenerSet":
+		obj = &gwv1.ListenerSet{}
+		break
+	default:
+		return errors.New(fmt.Sprintf("Unknown parent reference kind %s", targetParentRefKind))
+
 	}
 
-	return gateway, nil
+	// check if gateway in ParentRef exists
+	if err := d.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: string(parentRef.Name)}, obj); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // setCondition based on RouteStatusInfo
@@ -347,7 +371,7 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 		routeStatus = r.Status.Parents
 	case *gwv1.GRPCRoute:
 		routeStatus = r.Status.Parents
-	case *gwalpha2.TLSRoute:
+	case *gwv1.TLSRoute:
 		routeStatus = r.Status.Parents
 	case *gwalpha2.UDPRoute:
 		routeStatus = r.Status.Parents

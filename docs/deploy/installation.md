@@ -92,15 +92,15 @@ Example condition for cluster name resource tag:
 2. Download an IAM policy for the LBC using one of the following commands:<p>
     If your cluster is in a US Gov Cloud region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.0.0/docs/install/iam_policy_us-gov.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy_us-gov.json
     ```
     If your cluster is in a China region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.0.0/docs/install/iam_policy_cn.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy_cn.json
     ```
     If your cluster is in any other region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.0.0/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy.json
     ```
 
 3. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
@@ -132,7 +132,7 @@ Follow the Pod Identity set-up guide [here](https://docs.aws.amazon.com/eks/late
 ### Option C: Attach IAM policies to nodes
 If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.0.0/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy.json
 ```
 
 When using this option, IMDS *must* be enabled. The controller retrieves the instance credentials using IMDS. Use IRSA to avoid usage of IMDS.
@@ -274,7 +274,7 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ### Apply YAML
     1. Download the spec for the LBC.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.0.0/v3_0_0_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.1.0/v3_1_0_full.yaml
     ```
     2. Edit the saved yaml file, go to the Deployment spec, and set the controller `--cluster-name` arg value to your EKS cluster name
     ```
@@ -298,15 +298,15 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ```
     4. Apply the yaml file
     ```
-    kubectl apply -f v3_0_0_full.yaml
+    kubectl apply -f v3_1_0_full.yaml
     ```
     5. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.0.0/v3_0_0_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.1.0/v3_1_0_ingclass.yaml
     ```
     6. Apply the ingressclass and params
     ```
-    kubectl apply -f v3_0_0_ingclass.yaml
+    kubectl apply -f v3_1_0_ingclass.yaml
     ```
 
 ## Create Update Strategy
@@ -314,3 +314,46 @@ We recommend using the Helm chart to install the controller. The chart supports 
 The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.
 
 You can upgrade using [`helm upgrade`](https://helm.sh/docs/helm/helm_upgrade/) or another strategy to manage the controller deployment.
+
+## ArgoCD users
+
+[Reference Issue](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/4605)
+
+Users utilizing ArgoCD or similar GitOps tools may encounter webhook certificate issues during deployments.
+When ArgoCD syncs resources, it regenerates the TLS secret used by the AWS Load Balancer Controller webhook.
+This causes the webhook to stop responding because the certificate in the secret no longer matches the
+certificate mounted in the controller pod, breaking the webhook's TLS handshake.
+
+**Recommended solution:** Use [Cert Manager](https://cert-manager.io/) to manage webhook certificates,
+which handles certificate rotation properly.
+
+**Alternative solution:** If Cert Manager cannot be used, configure ArgoCD to ignore the webhook TLS
+resources and let the AWS Load Balancer Controller Helm installation manage them.
+
+Add the following to your ArgoCD Application's `ignoreDifferences` section:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-load-balancer-controller
+spec:
+  ignoreDifferences:
+    - kind: Secret
+      name: aws-load-balancer-tls
+      jqPathExpressions:
+        - .data
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      name: aws-load-balancer-webhook
+      jqPathExpressions:
+        - .webhooks[].clientConfig.caBundle
+```
+
+This prevents ArgoCD from overwriting the certificate data and CA bundles that the controller manages.
+

@@ -18,10 +18,156 @@ spec:
 Defines the Kubernetes object to attach the Target Group settings to.
 
 - **group**: The group of the referent. For example, "gateway.networking.k8s.io". When unspecified or empty string, core API group is inferred.
-- **kind**: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified.
+- **kind**: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified. Supported values: `Service`, `Gateway` (for Gateway-as-backend use case only).
 - **name**: The name of the referent.
 
-**Default** No default, required field
+**Default** Optional. When omitted, this TGC can only be used as a default target group configuration via LoadBalancerConfiguration's `defaultTargetGroupConfiguration` reference. A TGC with `targetReference` set cannot be used as a `defaultTargetGroupConfiguration` — the controller will error the Gateway reconciliation if an LBC references a TGC that has `targetReference`.
+
+### Configuration Resolution Order
+
+When the controller builds a target group for a Service backend, it resolves configuration in this order:
+
+1. **Service-level TargetGroupConfiguration** — A TGC in the Service's namespace with `targetReference.kind: Service` (or unset) and `targetReference.name` matching the Service name.
+2. **Gateway-level default TargetGroupConfiguration** — Resolved from the `defaultTargetGroupConfiguration` references on both the Gateway LBC and GatewayClass LBC, then merged (see below).
+3. **Controller defaults** — Hardcoded defaults (e.g., `targetType: instance`) and the `--default-target-type` controller flag.
+
+When both a Service-level TGC and a Gateway-level default TGC exist, the controller performs a **field-level merge**. For each top-level field in `TargetGroupProps`, the Service TGC value is used if set; otherwise the Gateway-level default TGC value is used as a fallback.
+
+This means a Service-level TGC only needs to specify the fields it wants to override — all other fields are inherited from the Gateway-level default TGC automatically.
+
+> **Note:**
+>
+> - The default TGC provides fallback values, not enforced policies. A Service-level TGC can always override any field set by the default TGC. The `mergingMode` on the GatewayClass LBC only controls precedence between the GatewayClass and Gateway default TGCs — it does not prevent Service-level overrides.
+> - The merge is shallow at the `TargetGroupProps` field level. For example, if a Service TGC sets `healthCheckConfig`, the entire health check block comes from the Service TGC — individual sub-fields like `healthCheckInterval` are not merged from the default TGC. `tags` and `targetGroupAttributes` are the exception: these are merged at the key level across both TGCs.
+
+### GatewayClass + Gateway Default TGC Merging
+
+When both the GatewayClass LBC and the Gateway LBC define a `defaultTargetGroupConfiguration`, the controller resolves both TGCs and merges their `defaultConfiguration` props field-by-field. The `mergingMode` on the GatewayClass LBC controls which one wins on overlapping fields:
+
+- `prefer-gateway-class` (default): GatewayClass TGC fields win on overlap. Gateway TGC fills in unset fields.
+- `prefer-gateway`: Gateway TGC fields win on overlap. GatewayClass TGC fills in unset fields.
+
+Non-overlapping fields from both TGCs are always preserved regardless of `mergingMode`.
+
+> **Note:** Only `defaultConfiguration` props are merged field-by-field across the two default TGCs. `routeConfigurations` are **not** merged — the high-priority TGC's `routeConfigurations` are used entirely, and the low-priority TGC's route configs are discarded. If you need route-specific overrides from both levels, define them in the winning TGC.
+
+The Gateway LBC's default TGC must be in the same namespace as the Gateway. If it is in a different namespace, it is ignored and the GatewayClass default TGC is used alone.
+
+### Example: Gateway-Level Defaults via LoadBalancerConfiguration
+
+Default TGC (platform team baseline):
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: gateway-defaults
+  namespace: gateway-system
+spec:
+  # No targetReference — this TGC is only used as a default via LBC
+  defaultConfiguration:
+    targetType: ip
+    healthCheckConfig:
+      healthCheckPath: /healthz
+      healthCheckInterval: 15
+    targetGroupAttributes:
+      - key: deregistration_delay.timeout_seconds
+        value: "30"
+```
+
+LoadBalancerConfiguration referencing the default TGC:
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: my-lb-config
+  namespace: gateway-system
+spec:
+  scheme: internal
+  defaultTargetGroupConfiguration:
+    name: gateway-defaults
+```
+
+Gateway referencing the LBC via `infrastructure.parametersRef`:
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: gateway-system
+spec:
+  gatewayClassName: gateway.k8s.aws/alb
+  infrastructure:
+    parametersRef:
+      group: gateway.k8s.aws
+      kind: LoadBalancerConfiguration
+      name: my-lb-config
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+```
+
+Service-level TGC (app team override — only sets what differs):
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: service-a-tgc
+  namespace: app-ns
+spec:
+  targetReference:
+    name: service-a
+  defaultConfiguration:
+    healthCheckConfig:
+      healthCheckPath: /service-a/health
+```
+
+Effective configuration for `service-a`:
+- `targetType: ip` — inherited from Gateway default TGC
+- `healthCheckConfig: { healthCheckPath: /service-a/health }` — from Service TGC (replaces entire health check block)
+- `targetGroupAttributes: [deregistration_delay: 30]` — inherited from Gateway default TGC
+
+### Example: GatewayClass-Level Defaults
+
+Cluster admins can set org-wide defaults by attaching a default TGC to the GatewayClass LBC:
+
+```yaml
+# Admin's default TGC
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: org-defaults
+  namespace: kube-system
+spec:
+  defaultConfiguration:
+    targetType: ip
+---
+# GatewayClass LBC references it
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: org-lb-config
+  namespace: kube-system
+spec:
+  mergingMode: prefer-gateway  # let teams override
+  defaultTargetGroupConfiguration:
+    name: org-defaults
+---
+# GatewayClass points to the LBC
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: gateway.k8s.aws/alb
+spec:
+  controllerName: gateway.k8s.aws/alb
+  parametersRef:
+    group: gateway.k8s.aws
+    kind: LoadBalancerConfiguration
+    name: org-lb-config
+    namespace: kube-system
+```
+
+All Gateways in this class inherit `targetType: ip` unless they override via their own Gateway-level LBC with its own `defaultTargetGroupConfiguration`.
 
 ### DefaultConfiguration
 
@@ -256,6 +402,20 @@ Options:
 - GRPC
 
 **Default** No default
+
+
+### TargetControlPort
+
+`targetControlPort`
+
+```yaml
+targetControlPort: 100
+```
+
+[Application Load Balancer] The port on which the target communicates its capacity. This value can't be modified after target group creation.
+
+For more information, check out the [Target Optimizer Guide](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-register-targets.html#register-targets-target-optimizer)
+
 
 ### EnableMultiCluster
 

@@ -310,8 +310,7 @@ const baseStackJSON = `
                     "template":{
                         "metadata":{
                             "name":"k8s-ns1-svc1-9889425938",
-                            "namespace":"ns-1",
-                            "creationTimestamp":null
+                            "namespace":"ns-1"
                         },
                         "spec":{
                             "targetGroupARN":{
@@ -353,8 +352,7 @@ const baseStackJSON = `
                     "template":{
                         "metadata":{
                             "name":"k8s-ns1-svc2-9889425938",
-                            "namespace":"ns-1",
-                            "creationTimestamp":null
+                            "namespace":"ns-1"
                         },
                         "spec":{
                             "targetGroupARN":{
@@ -396,8 +394,7 @@ const baseStackJSON = `
                     "template":{
                         "metadata":{
                             "name":"k8s-ns1-svc3-bf42870fba",
-                            "namespace":"ns-1",
-                            "creationTimestamp":null
+                            "namespace":"ns-1"
                         },
                         "spec":{
                             "targetGroupARN":{
@@ -1755,7 +1752,6 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"template": {
 						"metadata": {
-							"creationTimestamp": null,
 							"name": "k8s-ns1-svc1-90b7d93b18",
 							"namespace": "ns-1"
 						},
@@ -2629,8 +2625,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "template":{
                         "metadata":{
                             "name":"k8s-ns1-svc1-6350990f3a",
-                            "namespace":"ns-1",
-                            "creationTimestamp":null
+                            "namespace":"ns-1"
                         },
                         "spec":{
                             "targetGroupARN":{
@@ -2672,8 +2667,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "template":{
                         "metadata":{
                             "name":"k8s-ns1-svc2-6350990f3a",
-                            "namespace":"ns-1",
-                            "creationTimestamp":null
+                            "namespace":"ns-1"
                         },
                         "spec":{
                             "targetGroupARN":{
@@ -2715,8 +2709,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                     "template":{
                         "metadata":{
                             "name":"k8s-ns1-svc3-bf42870fba",
-                            "namespace":"ns-1",
-                            "creationTimestamp":null
+                            "namespace":"ns-1"
                         },
                         "spec":{
                             "targetGroupARN":{
@@ -3436,7 +3429,6 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"template": {
 						"metadata": {
-							"creationTimestamp": null,
 							"name": "k8s-ns1-svcipv6-c387b9e773",
 							"namespace": "ns-1"
 						},
@@ -3711,7 +3703,6 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"template": {
 						"metadata": {
-							"creationTimestamp": null,
 							"name": "k8s-ns1-svcnamed-3430e53ee8",
 							"namespace": "ns-1"
 						},
@@ -3877,7 +3868,6 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				"spec": {
 					"template": {
 						"metadata": {
-							"creationTimestamp": null,
 							"name": "k8s-ns1-svcnamed-3430e53ee8",
 							"namespace": "ns-1"
 						},
@@ -4848,13 +4838,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				err = json.Unmarshal(wantStackJSON, &wantStack)
 				require.NoError(t, err, "unmarshalling wantStack")
 
-				// Set explicit null on all creationTimestamps in the binding, as JSON merge patches can't do that.
 				for binding, value := range wantStack.Resources["K8S::ElasticLoadBalancingV2::TargetGroupBinding"] {
 					if bindingMap, ok := value.(map[string]interface{}); ok {
 						if specMap, ok := bindingMap["spec"].(map[string]interface{}); ok {
 							if templateMap, ok := specMap["template"].(map[string]interface{}); ok {
 								if metadataMap, ok := templateMap["metadata"].(map[string]interface{}); ok {
-									metadataMap["creationTimestamp"] = nil
 									templateMap["metadata"] = metadataMap
 									specMap["template"] = templateMap
 									bindingMap["spec"] = specMap

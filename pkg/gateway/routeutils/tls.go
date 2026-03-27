@@ -2,13 +2,13 @@ package routeutils
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"time"
 )
 
 /*
@@ -21,15 +21,15 @@ TLS specific features of the route.
 
 var _ RouteRule = &convertedTLSRouteRule{}
 
-var defaultTLSRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](commonBackendLoader, listenerRuleConfigLoader)
+var defaultTLSRuleAccumulator = newAttachedRuleAccumulator[gwv1.TLSRouteRule](commonBackendLoader, listenerRuleConfigLoader)
 
 type convertedTLSRouteRule struct {
-	rule               *gwalpha2.TLSRouteRule
+	rule               *gwv1.TLSRouteRule
 	backends           []Backend
 	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
-func convertTLSRouteRule(rule *gwalpha2.TLSRouteRule, backends []Backend) RouteRule {
+func convertTLSRouteRule(rule *gwv1.TLSRouteRule, backends []Backend) RouteRule {
 	return &convertedTLSRouteRule{
 		rule:               rule,
 		backends:           backends,
@@ -52,9 +52,9 @@ func (t *convertedTLSRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCon
 /* Route Description */
 
 type tlsRouteDescription struct {
-	route                     *gwalpha2.TLSRoute
+	route                     *gwv1.TLSRoute
 	rules                     []RouteRule
-	ruleAccumulator           attachedRuleAccumulator[gwalpha2.TLSRouteRule]
+	ruleAccumulator           attachedRuleAccumulator[gwv1.TLSRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
@@ -62,14 +62,14 @@ func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
 	return tlsRoute.rules
 }
 
-func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-	convertedRules, allErrors := tlsRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tlsRoute, tlsRoute.route.Spec.Rules, func(rule gwalpha2.TLSRouteRule) []gwv1.BackendRef {
+func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
+	convertedRules, allErrors := tlsRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tlsRoute, tlsRoute.route.Spec.Rules, func(rule gwv1.TLSRouteRule) []gwv1.BackendRef {
 		return rule.BackendRefs
-	}, func(rule gwalpha2.TLSRouteRule) []gwv1.LocalObjectReference {
+	}, func(rule gwv1.TLSRouteRule) []gwv1.LocalObjectReference {
 		return []gwv1.LocalObjectReference{}
-	}, func(trr *gwalpha2.TLSRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
+	}, func(trr *gwv1.TLSRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertTLSRouteRule(trr, backends)
-	})
+	}, gatewayDefaultTGConfig)
 	tlsRoute.rules = convertedRules
 	return tlsRoute, allErrors
 }
@@ -90,7 +90,7 @@ func (tlsRoute *tlsRouteDescription) GetRouteGeneration() int64 {
 	return tlsRoute.route.Generation
 }
 
-func convertTLSRoute(r gwalpha2.TLSRoute) *tlsRouteDescription {
+func convertTLSRoute(r gwv1.TLSRoute) *tlsRouteDescription {
 	return &tlsRouteDescription{route: &r, ruleAccumulator: defaultTLSRuleAccumulator}
 }
 
@@ -135,7 +135,7 @@ func (tlsRoute *tlsRouteDescription) setCompatibleHostnamesByPort(hostnamesByPor
 var _ RouteDescriptor = &tlsRouteDescription{}
 
 func ListTLSRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
-	routeList := &gwalpha2.TLSRouteList{}
+	routeList := &gwv1.TLSRouteList{}
 	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err

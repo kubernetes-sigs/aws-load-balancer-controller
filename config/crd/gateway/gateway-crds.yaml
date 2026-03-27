@@ -505,6 +505,19 @@ spec:
                   customerOwnedIpv4Pool [Application LoadBalancer]
                   is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
                 type: string
+              defaultTargetGroupConfiguration:
+                description: |-
+                  defaultTargetGroupConfiguration references a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration.
+                  The referenced TGC provides default target group properties for all Service backends attached to the Gateway.
+                  Service-level TGCs override these defaults on a per-field basis.
+                properties:
+                  name:
+                    description: name is the name of the TargetGroupConfiguration
+                      resource in the same namespace as this LoadBalancerConfiguration.
+                    type: string
+                required:
+                - name
+                type: object
               disableSecurityGroup:
                 description: |-
                   disableSecurityGroup provisions a load balancer with no security groups.
@@ -1243,8 +1256,10 @@ spec:
                   type: object
                 type: array
               targetReference:
-                description: targetReference the kubernetes object to attach the Target
-                  Group settings to.
+                description: |-
+                  targetReference the kubernetes object to attach the Target Group settings to.
+                  When omitted, this TGC can only be used as a default via LoadBalancerConfiguration's
+                  defaultTargetGroupConfiguration reference.
                 properties:
                   group:
                     default: ""
@@ -1266,8 +1281,6 @@ spec:
                 required:
                 - name
                 type: object
-            required:
-            - targetReference
             type: object
           status:
             description: TargetGroupConfigurationStatus defines the observed state

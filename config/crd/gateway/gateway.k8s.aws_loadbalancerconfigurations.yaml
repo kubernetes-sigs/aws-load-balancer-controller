@@ -50,6 +50,19 @@ spec:
                   customerOwnedIpv4Pool [Application LoadBalancer]
                   is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
                 type: string
+              defaultTargetGroupConfiguration:
+                description: |-
+                  defaultTargetGroupConfiguration references a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration.
+                  The referenced TGC provides default target group properties for all Service backends attached to the Gateway.
+                  Service-level TGCs override these defaults on a per-field basis.
+                properties:
+                  name:
+                    description: name is the name of the TargetGroupConfiguration
+                      resource in the same namespace as this LoadBalancerConfiguration.
+                    type: string
+                required:
+                - name
+                type: object
               disableSecurityGroup:
                 description: |-
                   disableSecurityGroup provisions a load balancer with no security groups.

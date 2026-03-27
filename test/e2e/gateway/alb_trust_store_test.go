@@ -76,7 +76,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
 					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
 								Name: "tls-cert",
@@ -202,7 +202,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
 					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
 								Name: "tls-cert",
@@ -295,7 +295,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
 					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
 								Name: "tls-cert",

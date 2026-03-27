@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v3.0.0
+  tag: v3.1.0
   pullPolicy: IfNotPresent
 
 runtimeClassName: ""
@@ -232,6 +232,17 @@ healthProbeBindAddr: ""
 webhookConfig:
   # disableIngressValidation disables the validation of resources of kind Ingress, false by default
   disableIngressValidation:
+  # whether or not to fail the ingress creation if the webhook fails
+  ingressValdationFailurePolicy: Fail
+  # limit ingress validation webhook to only validate ingresses matching the objectSelector
+  ingressValidationObjectSelector:
+    matchExpressions:
+    matchLabels:
+  # limit ingress validation webhook to only validate ingresses in the namespace matching the object selector.
+  ingressValidationNamespaceSelector:
+    matchExpressions:
+    matchLabels:
+
 
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
@@ -260,6 +271,15 @@ targetgroupbindingMaxConcurrentReconciles:
 
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
+
+# Duration after which TargetGroupBinding will be requeued for reconciliation when it's waiting for AWS resources to update.
+targetgroupbindingRequeueDuration:
+
+# Maximum number of concurrently running reconcile loops for ALB gateways (default 3)
+albGatewayMaxConcurrentReconciles:
+
+# Maximum number of concurrently running reconcile loops for NLB gateways (default 3)
+nlbGatewayMaxConcurrentReconciles:
 
 # Maximum number of concurrently running reconcile loops for GlobalAccelerator objects
 globalAcceleratorMaxConcurrentReconciles:
@@ -396,10 +416,16 @@ controllerConfig:
   # EndpointsFailOpen: true
   # EnableServiceController: true
   # EnableIPTargetType: true
+  # EnableTCPUDPListener: false
+  # EnableRGTAPI: false
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
+  # NLBSecurityGroup: true
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
+  # SubnetDiscoveryByReachability: true
+  # NLBGatewayAPI: true
+  # ALBGatewayAPI: true
   # GlobalAcceleratorController: false
   # EnhancedDefaultBehavior: false
   # EnableDefaultTagsLowPriority: false
@@ -463,6 +489,12 @@ serviceMutatorWebhookConfig:
     #   - <value>
     matchLabels: {}
       # key: value
+  # array of namespace selectors for the service mutator webhook
+  namespaceSelectors:
+  # - key: <key>
+  #   operator: <operator>
+  #   values:
+  #   - <value>
   # which operations trigger the webhook
   operations:
   - CREATE

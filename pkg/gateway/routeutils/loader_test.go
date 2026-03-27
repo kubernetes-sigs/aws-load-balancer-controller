@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -18,21 +19,29 @@ import (
 type mockMapper struct {
 	t                  *testing.T
 	expectedRoutes     []preLoadRouteDescriptor
-	mapToReturn        map[int][]preLoadRouteDescriptor
-	listenerRouteCount map[gwv1.SectionName]int32
+	mapToReturn        map[int32][]preLoadRouteDescriptor
 	routeStatusUpdates []RouteData
+	matchedParentRefs  map[string][]gwv1.ParentReference
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
+func (m *mockMapper) mapListenersAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners allListeners, routes []preLoadRouteDescriptor, listenerValidationResults ValidatedGatewayListeners) (listenerRouteMapResult, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	matchedParentRefs := make(map[string][]gwv1.ParentReference)
 	for _, routeList := range m.mapToReturn {
 		for _, route := range routeList {
 			routeKey := route.GetRouteIdentifier()
-			matchedParentRefs[routeKey] = []gwv1.ParentReference{{}}
+			matchedParentRefs[routeKey] = []gwv1.ParentReference{{
+				Name:      "gw",
+				Namespace: (*gwv1.Namespace)(new("gw-ns")),
+			}}
 		}
 	}
-	return m.mapToReturn, make(map[int32]map[string][]gwv1.Hostname), m.routeStatusUpdates, matchedParentRefs, m.listenerRouteCount, nil
+	return listenerRouteMapResult{
+		routesByPort:              m.mapToReturn,
+		compatibleHostnamesByPort: make(map[int32]map[string]sets.Set[gwv1.Hostname]),
+		failedRoutes:              m.routeStatusUpdates,
+		matchedParentRefs:         m.matchedParentRefs,
+	}, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}
@@ -53,7 +62,7 @@ func (m *mockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv
 	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 
-func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	return m, nil
 }
 
@@ -134,7 +143,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 
 	loadedHTTPRoutes := make([]RouteDescriptor, 0)
 	for _, preload := range preLoadHTTPRoutes {
-		r, _ := preload.loadAttachedRules(nil, nil)
+		r, _ := preload.loadAttachedRules(nil, nil, nil)
 		loadedHTTPRoutes = append(loadedHTTPRoutes, r)
 	}
 
@@ -164,7 +173,7 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 
 	loadedTCPRoutes := make([]RouteDescriptor, 0)
 	for _, preload := range preLoadTCPRoutes {
-		r, _ := preload.loadAttachedRules(nil, nil)
+		r, _ := preload.loadAttachedRules(nil, nil, nil)
 		loadedTCPRoutes = append(loadedTCPRoutes, r)
 	}
 
@@ -178,14 +187,19 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                     string
-		acceptedKinds            sets.Set[RouteKind]
-		expectedMap              map[int32][]RouteDescriptor
-		expectedPreloadMap       map[int][]preLoadRouteDescriptor
-		expectedPreMappedRoutes  []preLoadRouteDescriptor
-		mapperRouteStatusUpdates []RouteData
-		expectedReconcileQueue   map[string]bool // generateRouteDataCacheKey -> succeeded
-		expectError              bool
+		name                       string
+		acceptedKinds              sets.Set[RouteKind]
+		expectedMap                map[int32][]RouteDescriptor
+		expectedPreloadMap         map[int32][]preLoadRouteDescriptor
+		parentRefs                 map[string][]gwv1.ParentReference
+		expectedPreMappedRoutes    []preLoadRouteDescriptor
+		mapperRouteStatusUpdates   []RouteData
+		expectedReconcileQueue     map[string]bool // generateRouteDataCacheKey -> succeeded
+		expectError                bool
+		lsLoaderResult             listenerSetLoadResult
+		lsLoaderRejected           []gwv1.ListenerSet
+		expectedRejectedLSSetsLen  int
+		expectedRejectedLSSetNames []string
 	}{
 		{
 			name:                    "filter allows no routes",
@@ -193,28 +207,333 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			expectedPreMappedRoutes: make([]preLoadRouteDescriptor, 0),
 			expectedMap:             make(map[int32][]RouteDescriptor),
 			expectedReconcileQueue:  map[string]bool{},
+			parentRefs:              map[string][]gwv1.ParentReference{},
 		},
 		{
 			name:                    "filter only allows http route",
 			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80: preLoadHTTPRoutes,
 			},
 			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - explicit section name",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:        "gw",
+					Namespace:   (*gwv1.Namespace)(new("gw-ns")),
+					SectionName: (*gwv1.SectionName)(new("sect1")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:        "gw",
+					Namespace:   (*gwv1.Namespace)(new("gw-ns")),
+					SectionName: (*gwv1.SectionName)(new("sect2")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:        "gw",
+					Namespace:   (*gwv1.Namespace)(new("gw-ns")),
+					SectionName: (*gwv1.SectionName)(new("sect3")),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--sect1": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--sect2": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--sect3": true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - explicit port",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Port:      new(gwv1.PortNumber(80)),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Port:      new(gwv1.PortNumber(80)),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Port:      new(gwv1.PortNumber(80)),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns-80-": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns-80-": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns-80-": true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - explicit port and section name",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:        "gw",
+					Namespace:   (*gwv1.Namespace)(new("gw-ns")),
+					Port:        new(gwv1.PortNumber(80)),
+					SectionName: (*gwv1.SectionName)(new("sect1")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:        "gw",
+					Namespace:   (*gwv1.Namespace)(new("gw-ns")),
+					Port:        new(gwv1.PortNumber(80)),
+					SectionName: (*gwv1.SectionName)(new("sect2")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:        "gw",
+					Namespace:   (*gwv1.Namespace)(new("gw-ns")),
+					Port:        new(gwv1.PortNumber(80)),
+					SectionName: (*gwv1.SectionName)(new("sect3")),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns-80-sect1": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns-80-sect2": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns-80-sect3": true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - explicit parent ref kind - gateway",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Kind:      new(gwv1.Kind(gatewayKind)),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Kind:      new(gwv1.Kind(gatewayKind)),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Kind:      new(gwv1.Kind(gatewayKind)),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - explicit parent ref kind - listenerset",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "ls",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Kind:      new(gwv1.Kind(listenerSetKind)),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "ls",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Kind:      new(gwv1.Kind(listenerSetKind)),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "ls",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					Kind:      new(gwv1.Kind(listenerSetKind)),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"ListenerSet-http1-http1-ns-HTTPRoute-ls-gw-ns--": true,
+				"ListenerSet-http2-http2-ns-HTTPRoute-ls-gw-ns--": true,
+				"ListenerSet-http3-http3-ns-HTTPRoute-ls-gw-ns--": true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - mixed listenerset and gateway kinds",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {
+					{
+						Name:      "ls",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+						Kind:      new(gwv1.Kind(listenerSetKind)),
+					},
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					},
+				},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {
+					{
+						Name:      "ls",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+						Kind:      new(gwv1.Kind(listenerSetKind)),
+					},
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					},
+				},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {
+					{
+						Name:      "ls",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+						Kind:      new(gwv1.Kind(listenerSetKind)),
+					},
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					},
+				},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"ListenerSet-http1-http1-ns-HTTPRoute-ls-gw-ns--": true,
+				"ListenerSet-http2-http2-ns-HTTPRoute-ls-gw-ns--": true,
+				"ListenerSet-http3-http3-ns-HTTPRoute-ls-gw-ns--": true,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--":     true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--":     true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--":     true,
+			},
+		},
+		{
+			name:                    "filter only allows http route - mixed listenerset and gateway kinds - namespaced name collision",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+						Kind:      new(gwv1.Kind(listenerSetKind)),
+					},
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					},
+				},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+						Kind:      new(gwv1.Kind(listenerSetKind)),
+					},
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					},
+				},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+						Kind:      new(gwv1.Kind(listenerSetKind)),
+					},
+					{
+						Name:      "gw",
+						Namespace: (*gwv1.Namespace)(new("gw-ns")),
+					},
+				},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"ListenerSet-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"ListenerSet-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"ListenerSet-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--":     true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--":     true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--":     true,
 			},
 		},
 		{
 			name:                    "filter only allows http route, multiple ports",
 			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80:  preLoadHTTPRoutes,
 				443: preLoadHTTPRoutes,
 			},
@@ -223,32 +542,72 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
 			},
 		},
 		{
 			name:                    "filter only allows tcp route",
 			acceptedKinds:           sets.New[RouteKind](TCPRouteKind),
 			expectedPreMappedRoutes: preLoadTCPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80: preLoadTCPRoutes,
 			},
 			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedTCPRoutes,
 			},
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadTCPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+			},
 			expectedReconcileQueue: map[string]bool{
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--": true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--": true,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--": true,
+				"Gateway-tcp1-tcp1-ns-TCPRoute-gw-gw-ns--": true,
+				"Gateway-tcp2-tcp2-ns-TCPRoute-gw-gw-ns--": true,
+				"Gateway-tcp3-tcp3-ns-TCPRoute-gw-gw-ns--": true,
 			},
 		},
 		{
 			name:                    "filter allows both route kinds",
 			acceptedKinds:           sets.New[RouteKind](TCPRouteKind, HTTPRouteKind),
 			expectedPreMappedRoutes: append(preLoadHTTPRoutes, preLoadTCPRoutes...),
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80:  preLoadTCPRoutes,
 				443: preLoadHTTPRoutes,
 			},
@@ -257,19 +616,45 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    true,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway-tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway-tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
 			},
 		},
 		{
 			name:                    "failed route should lead to only failed version status getting published",
 			acceptedKinds:           sets.New[RouteKind](TCPRouteKind, HTTPRouteKind),
 			expectedPreMappedRoutes: append(preLoadHTTPRoutes, preLoadTCPRoutes...),
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadTCPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80:  preLoadTCPRoutes,
 				443: preLoadHTTPRoutes,
 			},
@@ -278,12 +663,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    false,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway-tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    false,
+				"Gateway-tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{
@@ -307,16 +692,30 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 			name:                    "multiple failed routes",
 			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
-			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
 				80: preLoadHTTPRoutes,
+			},
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: (*gwv1.Namespace)(new("gw-ns")),
+				}},
 			},
 			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": false,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": false,
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": false,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": false,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{
@@ -351,28 +750,134 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                    "rejected listener sets are propagated in result",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+			},
+			lsLoaderRejected: []gwv1.ListenerSet{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "rejected-ls-1",
+						Namespace: "ls-ns-1",
+					},
+				},
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "rejected-ls-2",
+						Namespace: "ls-ns-2",
+					},
+				},
+			},
+			expectedRejectedLSSetsLen:  2,
+			expectedRejectedLSSetNames: []string{"rejected-ls-1", "rejected-ls-2"},
+		},
+		{
+			name:                    "no rejected listener sets yields empty slice in result",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			parentRefs: map[string][]gwv1.ParentReference{
+				preLoadHTTPRoutes[0].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[1].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+				preLoadHTTPRoutes[2].GetRouteIdentifier(): {{
+					Name:      "gw",
+					Namespace: &testNamespace,
+				}},
+			},
+			expectedPreloadMap: map[int32][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+			},
+			lsLoaderRejected:           nil,
+			expectedRejectedLSSetsLen:  0,
+			expectedRejectedLSSetNames: nil,
+		},
+		{
+			name:                    "single rejected listener set is propagated",
+			acceptedKinds:           make(sets.Set[RouteKind]),
+			expectedPreMappedRoutes: make([]preLoadRouteDescriptor, 0),
+			expectedMap:             make(map[int32][]RouteDescriptor),
+			expectedReconcileQueue:  map[string]bool{},
+			parentRefs:              map[string][]gwv1.ParentReference{},
+			lsLoaderRejected: []gwv1.ListenerSet{
+				{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "rejected-ls-only",
+						Namespace: "ls-ns",
+					},
+				},
+			},
+			expectedRejectedLSSetsLen:  1,
+			expectedRejectedLSSetNames: []string{"rejected-ls-only"},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			routeReconciler := NewMockRouteReconciler()
+			lsResult := tc.lsLoaderResult
+			if lsResult.listenersPerListenerSet == nil {
+				lsResult = listenerSetLoadResult{}
+			}
 			loader := loaderImpl{
 				mapper: &mockMapper{
 					t:                  t,
 					expectedRoutes:     tc.expectedPreMappedRoutes,
 					mapToReturn:        tc.expectedPreloadMap,
 					routeStatusUpdates: tc.mapperRouteStatusUpdates,
+					matchedParentRefs:  tc.parentRefs,
 				},
 				allRouteLoaders: allRouteLoaders,
 				logger:          logr.Discard(),
 				routeSubmitter:  routeReconciler,
+				lsLoader: &mockListenerSetLoader{
+					result:   lsResult,
+					rejected: tc.lsLoaderRejected,
+				},
 			}
 
 			filter := &routeFilterImpl{acceptedKinds: tc.acceptedKinds}
 			result, err := loader.LoadRoutesForGateway(context.Background(), gwv1.Gateway{ObjectMeta: v1.ObjectMeta{
 				Name:      "gw",
 				Namespace: "gw-ns",
-			}}, filter, gateway_constants.ALBGatewayController)
+			}}, filter, gateway_constants.ALBGatewayController, nil)
 			if tc.expectError {
 				assert.Error(t, err)
 				return
@@ -386,8 +891,17 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				ak := generateRouteDataCacheKey(actual.RouteData)
 
 				v, ok := tc.expectedReconcileQueue[ak]
-				assert.True(t, ok)
+				assert.True(t, ok, ak)
 				assert.Equal(t, v, actual.RouteData.RouteStatusInfo.Accepted, ak)
+			}
+
+			assert.Equal(t, tc.expectedRejectedLSSetsLen, len(result.RejectedListenerSets))
+			if tc.expectedRejectedLSSetNames != nil {
+				actualNames := make([]string, 0, len(result.RejectedListenerSets))
+				for _, ls := range result.RejectedListenerSets {
+					actualNames = append(actualNames, ls.Name)
+				}
+				assert.ElementsMatch(t, tc.expectedRejectedLSSetNames, actualNames)
 			}
 
 		})

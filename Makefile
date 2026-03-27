@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v3.0.0
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v3.1.0
 # Image URL to use for builder stage in Docker build
 GOLANG_VERSION ?= $(shell cat .go-version)
 BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:$(GOLANG_VERSION)
@@ -44,9 +44,21 @@ all: controller
 test: generate fmt vet manifests helm-lint
 	go test -race ./pkg/... ./webhooks/... ./controllers/... -coverprofile cover.out
 
+# Run tests
+fast-unit-test:
+	go test -race ./pkg/... ./webhooks/... ./controllers/... -coverprofile cover.out
+
 # Build controller binary
 controller: generate fmt vet
 	go build -o bin/controller main.go
+
+# Build lbc-migrate binary
+lbc-migrate: fmt vet
+	go build -o bin/lbc-migrate ./cmd/lbc-migrate
+
+# Install lbc-migrate to $GOBIN (symlink so rebuilds are picked up automatically)
+install-lbc-migrate: lbc-migrate
+	ln -sf $(MAKEFILE_PATH)bin/lbc-migrate $(GOBIN)/lbc-migrate
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
@@ -182,7 +194,7 @@ docs-preview: docs-dependencies
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v3.0 latest -p --update-aliases
+	pipenv run mike deploy v3.1 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:

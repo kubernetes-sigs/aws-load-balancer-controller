@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"strings"
 )
 
 func buildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
@@ -288,6 +289,9 @@ func buildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2g
 }
 
 func buildTargetGroupConfig(name string, spec elbv2gw.TargetGroupConfigurationSpec, svc *corev1.Service) *elbv2gw.TargetGroupConfiguration {
+	if spec.TargetReference == nil {
+		spec.TargetReference = &elbv2gw.Reference{}
+	}
 	spec.TargetReference.Name = svc.Name
 	tgc := &elbv2gw.TargetGroupConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -296,6 +300,18 @@ func buildTargetGroupConfig(name string, spec elbv2gw.TargetGroupConfigurationSp
 		Spec: *(spec.DeepCopy()),
 	}
 	return tgc
+}
+
+// buildDefaultTargetGroupConfig creates a TGC without targetReference, used as a gateway-level default via LBC.
+func buildDefaultTargetGroupConfig(name string, props elbv2gw.TargetGroupProps) *elbv2gw.TargetGroupConfiguration {
+	return &elbv2gw.TargetGroupConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: elbv2gw.TargetGroupConfigurationSpec{
+			DefaultConfiguration: props,
+		},
+	}
 }
 
 func buildListenerRuleConfig(name string, spec elbv2gw.ListenerRuleConfigurationSpec) *elbv2gw.ListenerRuleConfiguration {

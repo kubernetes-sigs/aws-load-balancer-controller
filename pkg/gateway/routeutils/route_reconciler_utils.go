@@ -51,10 +51,7 @@ const (
 	RouteStatusInfoRejectedMessageParentNotMatch     = "Route parentRef does not match listener"
 )
 
-func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, routeNamespaceName types.NamespacedName, routeKind RouteKind, routeGeneration int64, gw gwv1.Gateway, port *gwv1.PortNumber, sectionName *gwv1.SectionName) RouteData {
-	namespace := gwv1.Namespace(gw.Namespace)
-	group := gwv1.Group(gw.GroupVersionKind().Group)
-	kind := gwv1.Kind(gw.GroupVersionKind().Kind)
+func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, routeNamespaceName types.NamespacedName, routeKind RouteKind, routeGeneration int64, parentRef gwv1.ParentReference) RouteData {
 	return RouteData{
 		RouteStatusInfo: RouteStatusInfo{
 			Accepted:     accepted,
@@ -68,13 +65,6 @@ func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message 
 			RouteKind:       string(routeKind),
 			RouteGeneration: routeGeneration,
 		},
-		ParentRef: gwv1.ParentReference{
-			Group:       &group,
-			Kind:        &kind,
-			Name:        gwv1.ObjectName(gw.Name),
-			Namespace:   &namespace,
-			Port:        port,
-			SectionName: sectionName,
-		},
+		ParentRef: parentRef,
 	}
 }

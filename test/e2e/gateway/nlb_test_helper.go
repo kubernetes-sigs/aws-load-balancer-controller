@@ -53,7 +53,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 			Name:     "port443",
 			Port:     443,
 			Protocol: gwv1.TLSProtocolType,
-			TLS: &gwv1.GatewayTLSConfig{
+			TLS: &gwv1.ListenerTLSConfig{
 				Mode: &tlsMode,
 				CertificateRefs: []gwv1.SecretObjectReference{
 					{
@@ -117,7 +117,7 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 					Name:     "port443",
 					Port:     443,
 					Protocol: gwv1.TLSProtocolType,
-					TLS: &gwv1.GatewayTLSConfig{
+					TLS: &gwv1.ListenerTLSConfig{
 						Mode: &tlsMode,
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
@@ -262,6 +262,59 @@ func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framewor
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
+// DeployWithDefaultTGC deploys an NLB stack with a gateway-level default TGC referenced by the LBC,
+// plus two services: svc1 inherits defaults, svc2 has a service-level TGC override.
+func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, defaultTGC *elbv2gw.TargetGroupConfiguration, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	listeners := []gwv1.Listener{
+		{
+			Name:     "port80",
+			Port:     80,
+			Protocol: gwv1.TCPProtocolType,
+		},
+	}
+
+	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
+	svcTCP1 := buildServiceSpec(map[string]string{})
+	svcTCP2 := buildServiceSpec(map[string]string{})
+	svcTCP2.Name = "echoserver-v2"
+	svcTgc := buildTargetGroupConfig("svc2-tgc", svcTgSpec, svcTCP2)
+
+	port := gwalpha2.PortNumber(80)
+	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute([]gwv1.ParentReference{}, []gwalpha2.BackendRef{
+		{
+			BackendObjectReference: gwalpha2.BackendObjectReference{
+				Name: gwalpha2.ObjectName(svcTCP1.Name),
+				Port: &port,
+			},
+		},
+		{
+			BackendObjectReference: gwalpha2.BackendObjectReference{
+				Name: gwalpha2.ObjectName(svcTCP2.Name),
+				Port: &port,
+			},
+		},
+	})}
+
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	gw := buildBasicGatewaySpec(gwc, listeners)
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+
+	s.nlbResourceStack = newNLBResourceStack(
+		[]*appsv1.Deployment{dpTCP},
+		[]*corev1.Service{svcTCP1, svcTCP2},
+		gwc, gw, lbc,
+		[]*elbv2gw.TargetGroupConfiguration{defaultTGC, svcTgc},
+		tcprs, []*gwalpha2.UDPRoute{}, nil,
+		"nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled),
+	)
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
 func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestStack, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, hasTLS bool, readinessGateEnabled bool) error {
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
@@ -319,7 +372,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestSt
 				Namespace: albStack.albResourceStack.commonStack.gw.Namespace,
 			},
 			Spec: elbv2gw.TargetGroupConfigurationSpec{
-				TargetReference: elbv2gw.Reference{
+				TargetReference: &elbv2gw.Reference{
 					Group: nil,
 					Kind:  awssdk.String("Gateway"),
 					Name:  albStack.albResourceStack.commonStack.gw.Name,

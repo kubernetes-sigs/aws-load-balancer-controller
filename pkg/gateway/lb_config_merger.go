@@ -1,8 +1,9 @@
 package gateway
 
 import (
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sort"
+
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 )
 
 type LoadBalancerConfigMerger interface {
@@ -182,5 +183,11 @@ func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw
 		merged.DisableSecurityGroup = highPriority.Spec.DisableSecurityGroup
 	} else {
 		merged.DisableSecurityGroup = lowPriority.Spec.DisableSecurityGroup
+	}
+
+	if highPriority.Spec.DefaultTargetGroupConfiguration != nil {
+		merged.DefaultTargetGroupConfiguration = highPriority.Spec.DefaultTargetGroupConfiguration
+	} else {
+		merged.DefaultTargetGroupConfiguration = lowPriority.Spec.DefaultTargetGroupConfiguration
 	}
 }

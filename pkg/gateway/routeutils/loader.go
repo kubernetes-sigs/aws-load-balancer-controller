@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -49,19 +50,21 @@ var L7RouteFilter LoadRouteFilter = &routeFilterImpl{
 // Loader will load all data Kubernetes that are pertinent to a gateway (Routes, Services, Target Group Configurations).
 // It will output the data using a map which maps listener port to the various routing rules for that port.
 type Loader interface {
-	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string) (*LoaderResult, error)
+	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string, defaultTGConfig *elbv2gw.TargetGroupConfiguration) (*LoaderResult, error)
 }
 
 type LoaderResult struct {
-	Routes            map[int32][]RouteDescriptor
-	AttachedRoutesMap map[gwv1.SectionName]int32
-	ValidationResults ListenerValidationResults
+	Routes               map[int32][]RouteDescriptor
+	Listeners            []gwv1.Listener
+	ValidationResults    ValidatedGatewayListeners
+	RejectedListenerSets []gwv1.ListenerSet
 }
 
 var _ Loader = &loaderImpl{}
 
 type loaderImpl struct {
 	mapper          listenerToRouteMapper
+	lsLoader        listenerSetLoader
 	routeSubmitter  RouteReconcilerSubmitter
 	k8sClient       client.Client
 	logger          logr.Logger
@@ -71,6 +74,7 @@ type loaderImpl struct {
 func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter, logger logr.Logger) Loader {
 	return &loaderImpl{
 		mapper:          newListenerToRouteMapper(k8sClient, logger.WithName("route-mapper")),
+		lsLoader:        newListenerSetLoader(k8sClient, logger.WithName("listener-set-loader")),
 		routeSubmitter:  routeSubmitter,
 		k8sClient:       k8sClient,
 		allRouteLoaders: allRoutes,
@@ -79,7 +83,7 @@ func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter,
 }
 
 // LoadRoutesForGateway loads all relevant data for a single Gateway.
-func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string) (*LoaderResult, error) {
+func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, controllerName string, defaultTGConfig *elbv2gw.TargetGroupConfiguration) (*LoaderResult, error) {
 	// 1. Load all relevant routes according to the filter
 
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
@@ -100,6 +104,12 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		}
 	}()
 
+	listenerSetListeners, rejectedListenerSets, err := l.lsLoader.retrieveListenersFromListenerSets(ctx, gw)
+
+	if err != nil {
+		return nil, err
+	}
+
 	for route, loader := range l.allRouteLoaders {
 		applicable := filter.IsApplicable(route)
 		l.logger.V(1).Info("Processing route", "route", route, "is applicable", applicable)
@@ -112,21 +122,24 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		}
 	}
 
-	// validate listeners configuration and get listener status
-	listenerValidationResults := validateListeners(gw, controllerName)
+	gatewayListeners := allListeners{
+		GatewayListeners:     gw.Spec.Listeners,
+		ListenerSetListeners: listenerSetListeners,
+	}
 
-	// 2. Remove routes that aren't granted attachment by the listener.
-	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes)
+	listenerValidationResults := validateListeners(gatewayListeners, gw.Generation, controllerName)
 
-	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
-
+	//  2. Map routes to relevant listeners
+	mapResult, err := l.mapper.mapListenersAndRoutes(ctx, gw, gatewayListeners, loadedRoutes, listenerValidationResults)
+	if mapResult.failedRoutes != nil {
+		routeStatusUpdates = append(routeStatusUpdates, mapResult.failedRoutes...)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	// 3. Load the underlying resource(s) for each route that is configured.
-	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw, matchedParentRefs)
+	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mapResult.routesByPort, mapResult.compatibleHostnamesByPort, gw, mapResult.matchedParentRefs, defaultTGConfig)
 	routeStatusUpdates = append(routeStatusUpdates, childRouteLoadUpdates...)
 	if err != nil {
 		return nil, err
@@ -136,23 +149,24 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	for _, routeList := range loadedRoute {
 		for _, route := range routeList {
 			routeKey := route.GetRouteIdentifier()
-			if matchedRefs, ok := matchedParentRefs[routeKey]; ok {
+			if matchedRefs, ok := mapResult.matchedParentRefs[routeKey]; ok {
 				for _, parentRef := range matchedRefs {
-					routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw, parentRef.Port, parentRef.SectionName))
+					routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), parentRef))
 				}
 			}
 		}
 	}
 
 	return &LoaderResult{
-		Routes:            loadedRoute,
-		AttachedRoutesMap: attachedRouteMap,
-		ValidationResults: listenerValidationResults,
+		Routes:               loadedRoute,
+		Listeners:            mapResult.attachedListeners,
+		ValidationResults:    listenerValidationResults,
+		RejectedListenerSets: rejectedListenerSets,
 	}, nil
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
-func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string][]gwv1.Hostname, gw gwv1.Gateway, matchedParentRefs map[string][]gwv1.ParentReference) (map[int32][]RouteDescriptor, []RouteData, error) {
+func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int32][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string]sets.Set[gwv1.Hostname], gw gwv1.Gateway, matchedParentRefs map[string][]gwv1.ParentReference, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (map[int32][]RouteDescriptor, []RouteData, error) {
 	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
@@ -167,11 +181,11 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 			cachedRoute, ok := resourceCache[cacheKey]
 			if ok {
-				loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], cachedRoute)
+				loadedRouteData[port] = append(loadedRouteData[port], cachedRoute)
 				continue
 			}
 
-			generatedRoute, loadAttachedRulesErrors := preloadedRoute.loadAttachedRules(ctx, l.k8sClient)
+			generatedRoute, loadAttachedRulesErrors := preloadedRoute.loadAttachedRules(ctx, l.k8sClient, gatewayDefaultTGConfig)
 			if len(loadAttachedRulesErrors) > 0 {
 				for _, lare := range loadAttachedRulesErrors {
 					var loaderErr LoaderError
@@ -205,7 +219,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 						routeKey := preloadedRoute.GetRouteIdentifier()
 						parentRefs := matchedParentRefs[routeKey]
 						for _, parentRef := range parentRefs {
-							failedRoutes = append(failedRoutes, GenerateRouteData(accepted, resolvedRefs, string(routeReason), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw, parentRef.Port, parentRef.SectionName))
+							failedRoutes = append(failedRoutes, GenerateRouteData(accepted, resolvedRefs, string(routeReason), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), parentRef))
 						}
 
 					}
@@ -215,7 +229,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				}
 			}
 
-			loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], generatedRoute)
+			loadedRouteData[port] = append(loadedRouteData[port], generatedRoute)
 			resourceCache[cacheKey] = generatedRoute
 		}
 	}
@@ -226,7 +240,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 		routeKey := route.GetRouteIdentifier()
 		for port, compatibleHostnames := range compatibleHostnamesByPort {
 			if hostnames, exists := compatibleHostnames[routeKey]; exists {
-				hostnamesByPort[port] = hostnames
+				hostnamesByPort[port] = hostnames.UnsortedList()
 			}
 		}
 		if len(hostnamesByPort) > 0 {
@@ -239,6 +253,12 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 func generateRouteDataCacheKey(rd RouteData) string {
 	port := ""
+
+	kind := gatewayKind
+	if rd.ParentRef.Kind != nil {
+		kind = string(*rd.ParentRef.Kind)
+	}
+
 	if rd.ParentRef.Port != nil {
 		port = fmt.Sprintf("%d", *rd.ParentRef.Port)
 	}
@@ -250,5 +270,5 @@ func generateRouteDataCacheKey(rd RouteData) string {
 	if rd.ParentRef.Namespace != nil {
 		namespace = string(*rd.ParentRef.Namespace)
 	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
+	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s", kind, rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
 }

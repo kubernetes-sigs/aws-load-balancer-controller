@@ -11,27 +11,39 @@ The LBC Gateway API implementation supports the following Gateway API routes:
 * L4 (NLBGatewayAPI): UDPRoute, TCPRoute, TLSRoute >=v2.13.3
 * L7 (ALBGatewayAPI): HTTPRoute, GRPCRoute >= 2.14.0
 
-The LBC is built for Gateway API version v1.3.0.
+The LBC is built for Gateway API version v1.5.0.
 
 ## Prerequisites
 * LBC >= v2.13.0
 * For `ip` target type:
     * Pods have native AWS VPC networking configured. For more information, see the [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s#readme) documentation.
 * Installation of Gateway API CRDs
-    * Standard Gateway API CRDs: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml` [REQUIRED]
-    * Experimental Gateway API CRDs: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/experimental-install.yaml` [OPTIONAL: Used for L4 Routes]
+    * Standard Gateway API CRDs: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml` [REQUIRED]
+    * Experimental Gateway API CRDs: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/experimental-install.yaml` [OPTIONAL: Used for L4 Routes]
 * Installation of LBC Gateway API specific CRDs: `kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml`
+
+
+## Upgrading Gateway API CRDs
+
+Most releases of the Gateway API are backwards compatible, meaning you can apply new CRDs without updating the Load Balancer Controller.
+There a few backwards incompatible release.
+
+- Going from a version less than v1.5
+  - v1.5 brings TLSRoute out of alpha and into the v1 API version. Once this happens, old versions of the controller will not work with TLSRoutes.
 
 ## Configuration
 
-By default, the LBC will _not_ listen to Gateway API CRDs. To enable support, specify the following feature flag(s) in the LBC deployment:
+The Load Balancer Controller (LBC) will attempt to detect Gateway CRDs. 
+If they are present, the respective controller will be enabled. 
+To explicitly disable these controllers, use the following feature gates:
 
-* `NLBGatewayAPI`: For enabling L4 Routing
-* `ALBGatewayAPI`: For enabling L7 Routing
+```--feature-gates=NLBGatewayAPI=false,ALBGatewayAPI=false```
 
-```
-- --feature-gates=NLBGatewayAPI=true,ALBGatewayAPI=true
-```
+For the NLB Gateway controller (Layer 4) to be enabled, ensure the following CRDs are installed:
+`Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, and `TLSRoute`
+
+For the ALB Gateway controller (Layer 7) to be enabled, ensure the following CRDs are installed:
+`Gateway`, `GatewayClass`, `HTTPRoute`, and `GRPCRoute`
 
 ## Subnet tagging requirements
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring Elastic Load Balancing for public or private placement.

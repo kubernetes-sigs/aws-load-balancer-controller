@@ -28,7 +28,7 @@ This configuration can then be applied by attaching the `LoadBalancerConfigurati
 When attached directly to a `Gateway` resource, the specified configuration applies specifically to the Load Balancer provisioned for that individual Gateway.
 
 !!! note
-    Make sure that the `LoadBalancerConfiguration` is located in the same namespace as the `Gateway`.
+Make sure that the `LoadBalancerConfiguration` is located in the same namespace as the `Gateway`.
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -70,17 +70,36 @@ It is possible for a `LoadBalancerConfiguration` to be attached to both a `Gatew
 
 The following fields exhibit specific merge behaviors:
 
-* **`tags`**: The tag maps from both configurations are combined. In the event of duplicate tag keys, the value from the higher-priority configuration (as determined by `mergingMode`) will be utilized.
-* **`loadBalancerAttributes`**: The attribute lists are combined. For duplicate attribute keys, the value from the higher-priority configuration will prevail.
-* **`mergeListenerConfig`**: Listener lists are combined. For duplicate `ProtocolPort` keys, the listener configuration from the higher-priority source will be selected.
+- **`tags`**: The tag maps from both configurations are combined. In the event of duplicate tag keys, the value from the higher-priority configuration (as determined by `mergingMode`) will be utilized.
+- **`loadBalancerAttributes`**: The attribute lists are combined. For duplicate attribute keys, the value from the higher-priority configuration will prevail.
+- **`mergeListenerConfig`**: Listener lists are combined. For duplicate `ProtocolPort` keys, the listener configuration from the higher-priority source will be selected.
 
------
+---
 
 ### Customizing Services (Target Groups) using `TargetGroupConfiguration` CRD
 
 The `TargetGroupConfiguration` CRD enables granular customization of the AWS Target Groups created for Kubernetes Services.
 
-For a comprehensive overview of configurable parameters, please refer to the  [TargetGroupConfiguration CRD documentation](./targetgroupconfig.md).
+For a comprehensive overview of configurable parameters, please refer to the [TargetGroupConfiguration CRD documentation](./targetgroupconfig.md).
+
+`TargetGroupConfiguration` can be applied at three levels, listed from broadest to most specific:
+
+1. **GatewayClass-level defaults** — Defaults that apply to all Gateways that belong to a GatewayClass.
+2. **Gateway-level defaults** — Per-Gateway defaults applied to all Service backends behind that Gateway.
+3. **Service-level** — Configuration targeting a specific Service, with optional route-specific overrides.
+
+The controller resolves configuration using the [Configuration Resolution Order](./targetgroupconfig.md#configuration-resolution-order). When configurations exist at multiple levels, they are merged field-by-field — see [GatewayClass + Gateway Default TGC Merging](./targetgroupconfig.md#gatewayclass--gateway-default-tgc-merging) for details on how conflicts between levels are resolved.
+
+#### GatewayClass and Gateway Level Default Target Group Configuration
+
+In addition to per-Service configuration, you can set default target group properties at the Gateway or GatewayClass level. This is done by creating a `TargetGroupConfiguration` without a `targetReference` and referencing it via the [`defaultTargetGroupConfiguration`](./loadbalancerconfig.md#defaulttargetgroupconfiguration) field on a `LoadBalancerConfiguration`.
+
+- **GatewayClass-level**: Attach the `LoadBalancerConfiguration` to a `GatewayClass` to set org-wide defaults for all Gateways in that class. See the [GatewayClass-Level Defaults example](./targetgroupconfig.md#example-gatewayclass-level-defaults).
+- **Gateway-level**: Attach the `LoadBalancerConfiguration` to a `Gateway` via `infrastructure.parametersRef` to set defaults for all Service backends behind that specific Gateway. See the [Gateway-Level Defaults example](./targetgroupconfig.md#example-gateway-level-defaults-via-loadbalancerconfiguration).
+
+Service-level TGCs only need to specify the fields they want to override — all other fields are inherited from the Gateway/GatewayClass-level default TGC automatically.
+
+#### Service-Level Target Group Configuration
 
 **Example: Default Target Group Configuration for a Service**
 
@@ -145,8 +164,8 @@ When both `defaultConfiguration` and `routeConfigurations` within a `TargetGroup
 
 The following fields exhibit specific merge behaviors:
 
-* **`tags`**: The two tag maps are combined. Any duplicate tag keys will result in the value from the higher-priority (route-specific) configuration being used.
-* **`targetGroupAttributes`**: The two attribute lists are combined. Any duplicate attribute keys will result in the attribute value from the higher-priority (route-specific) configuration being applied.
+- **`tags`**: The two tag maps are combined. Any duplicate tag keys will result in the value from the higher-priority (route-specific) configuration being used.
+- **`targetGroupAttributes`**: The two attribute lists are combined. Any duplicate attribute keys will result in the attribute value from the higher-priority (route-specific) configuration being applied.
 
 #### Customizing L7 Routing Rules
 
@@ -161,6 +180,14 @@ An exhaustive list is:
 - [Source IP Conditions](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_SourceIpConditionConfig.html#API_SourceIpConditionConfig_Contents)
 
 For a comprehensive overview of the CRD, please refer to the [ListenerRuleConfiguration CRD documentation](./listenerruleconfig.md).
+
+---
+
+### Attaching additional listeners using ListenerSets
+
+ListenerSets allow you to attach additional listeners to an existing Gateway without modifying the Gateway resource itself. Both ALB and NLB Gateway controllers support ListenerSets.
+
+For a comprehensive overview, please refer to the [ListenerSet documentation](./listenersets.md).
 
 **Example: Adding source IP routing conditions**
 

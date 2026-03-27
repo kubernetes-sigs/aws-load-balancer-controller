@@ -2,13 +2,14 @@ package routeutils
 
 import (
 	"context"
+	"time"
+
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"time"
 )
 
 /*
@@ -62,14 +63,14 @@ func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
 	return tcpRoute.rules
 }
 
-func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
 	convertedRules, allErrors := tcpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tcpRoute, tcpRoute.route.Spec.Rules, func(rule gwalpha2.TCPRouteRule) []gwv1.BackendRef {
 		return rule.BackendRefs
 	}, func(rule gwalpha2.TCPRouteRule) []gwv1.LocalObjectReference {
 		return []gwv1.LocalObjectReference{}
 	}, func(trr *gwalpha2.TCPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertTCPRouteRule(trr, backends)
-	})
+	}, gatewayDefaultTGConfig)
 	tcpRoute.rules = convertedRules
 	return tcpRoute, allErrors
 }

@@ -239,6 +239,86 @@ spec:
               weight: 128
 ```
 
+### Multi-Region Automatic Failover
+
+This example demonstrates automatic failover between AWS regions.
+
+```yaml
+apiVersion: aga.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+  name: failover-accelerator
+  namespace: default
+spec:
+  name: "failover-accelerator"
+  ipAddressType: IPV4
+  listeners:
+    - protocol: TCP
+      portRanges:
+        - fromPort: 80
+          toPort: 80
+        - fromPort: 443
+          toPort: 443
+      endpointGroups:
+        # Primary region endpoint group
+        - trafficDialPercentage: 100  # Primary receives 100% of traffic
+          portOverrides:
+            - listenerPort: 80
+              endpointPort: 8080
+            - listenerPort: 443
+              endpointPort: 8443
+          endpoints:
+            - type: Service
+              name: primary-service
+              weight: 128
+        
+        # Failover region endpoint group (us-west-2)
+        - region: us-west-2
+          trafficDialPercentage: 0
+          portOverrides:
+            - listenerPort: 80
+              endpointPort: 8080
+            - listenerPort: 443
+              endpointPort: 8443
+          endpoints:
+            - type: EndpointID
+              endpointID: arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/failover-lb/1234567890123456
+              weight: 128
+```
+
+### Blue-Green Deployments
+
+Endpoint weights enable gradual traffic shifts between application versions. By assigning a higher weight to your blue environment and a lower weight to green, you can incrementally roll out new versions and monitor their behavior before completing the cutover — reducing deployment risk without requiring additional infrastructure.
+
+```yaml
+apiVersion: aga.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+  name: blue-green-accelerator
+  namespace: default
+spec:
+  name: "blue-green-accelerator"
+  ipAddressType: IPV4
+  listeners:
+    - protocol: TCP
+      portRanges:
+        - fromPort: 80
+          toPort: 80
+        - fromPort: 443
+          toPort: 443
+      endpointGroups:
+        - endpoints:
+            # Blue environment (current stable version)
+            - type: Service
+              name: blue-service
+              weight: 200  # 80% of traffic (200/250) - stable version gets majority
+            
+            # Green environment (new version being deployed)
+            - type: Service
+              name: green-service
+              weight: 50   # 20% of traffic (50/250) - new version gets smaller portion for testing
+```
+
 ### BYOIP (Bring Your Own IP) Configuration
 
 This example demonstrates using your own IP addresses with Global Accelerator.

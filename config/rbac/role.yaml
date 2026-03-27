@@ -182,6 +182,7 @@ rules:
   - gateways/status
   - grpcroutes/status
   - httproutes/status
+  - listenersets/status
   - tcproutes/status
   - tlsroutes/status
   - udproutes/status
@@ -194,6 +195,7 @@ rules:
   resources:
   - grpcroutes
   - httproutes
+  - listenersets
   - tcproutes
   - tlsroutes
   - udproutes
@@ -206,6 +208,7 @@ rules:
   resources:
   - grpcroutes/finalizers
   - httproutes/finalizers
+  - listenersets/finalizers
   - tcproutes/finalizers
   - tlsroutes/finalizers
   - udproutes/finalizers

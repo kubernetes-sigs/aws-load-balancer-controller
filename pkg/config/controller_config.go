@@ -1,11 +1,12 @@
 package config
 
 import (
+	"strings"
+	"time"
+
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
@@ -38,6 +39,7 @@ const (
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
 	flagMaxTargetsPerTargetGroup                     = "max-targets-per-target-group"
+	flagTargetGroupBindingRequeueDuration            = "targetgroupbinding-requeue-duration"
 	defaultLogLevel                                  = "info"
 	defaultGlobalAcceleratorMaxConcurrentReconciles  = 1
 	defaultMaxConcurrentReconciles                   = 3
@@ -49,6 +51,7 @@ const (
 	defaultDisableRestrictedSGRules                  = false
 	defaultLbStabilizationMonitorInterval            = time.Second * 120
 	defaultMaxTargetsPerTargetGroup                  = 0
+	defaultTargetGroupBindingRequeuDuration          = time.Second * 15
 )
 
 var (
@@ -150,6 +153,11 @@ type ControllerConfig struct {
 	// MaxTargetsPerTargetGroup limits the number of targets that will be added to an ELB instance
 	MaxTargetsPerTargetGroup int
 
+	// TargetGroupBindingRequeueDuration specifies the duration after which
+	// TargetGroupBinding will be requeued for reconciliation when it's waiting
+	// for AWS resources to update.
+	TargetGroupBindingRequeueDuration time.Duration
+
 	FeatureGates FeatureGates
 }
 
@@ -200,6 +208,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
 	fs.IntVar(&cfg.MaxTargetsPerTargetGroup, flagMaxTargetsPerTargetGroup, defaultMaxTargetsPerTargetGroup,
 		"Maximum number of targets that can be added to an ELB instance. Use this to prevent TargetGroup quotas being exceeded from blocking reconciliation.")
+	fs.DurationVar(&cfg.TargetGroupBindingRequeueDuration, flagTargetGroupBindingRequeueDuration, defaultTargetGroupBindingRequeuDuration,
+		"Duration after which TargetGroupBinding will be requeued for reconciliation when it's waiting for AWS resources to update.")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)

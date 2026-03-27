@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,8 +13,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 
-	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
+
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func Test_ConvertHTTPRuleToRouteRule(t *testing.T) {
@@ -130,7 +132,7 @@ func Test_ListHTTPRoutes(t *testing.T) {
 
 func Test_HTTP_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockLoader := func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
+	mockLoader := func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,
@@ -197,7 +199,7 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 		ruleAccumulator: newAttachedRuleAccumulator[gwv1.HTTPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
-	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
+	result, errs := routeDescription.loadAttachedRules(context.Background(), nil, nil)
 	assert.Equal(t, 0, len(errs))
 	convertedRules := result.GetAttachedRules()
 	assert.Equal(t, 3, len(convertedRules))

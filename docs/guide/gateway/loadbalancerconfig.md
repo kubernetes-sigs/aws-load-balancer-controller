@@ -770,3 +770,28 @@ See applicable [considerations](https://docs.aws.amazon.com/elasticloadbalancing
 Only applies to Network LoadBalancer Gateways.
 
 **Default** false (Provision with Security Groups)
+
+#### DefaultTargetGroupConfiguration
+
+`defaultTargetGroupConfiguration`
+
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  defaultTargetGroupConfiguration:
+    name: my-default-tgc
+```
+
+References a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration. The referenced TGC provides default target group properties for all backends attached to the Gateway. Backend-specific TGCs (those with a `targetReference`) override these defaults on a per-field basis.
+
+The referenced TGC must not have a `targetReference` set. A TGC with `targetReference` is a service-level TGC and cannot be used as a `defaultTargetGroupConfiguration`. The controller will error the Gateway reconciliation if an LBC references a TGC that has `targetReference`.
+
+When both a GatewayClass LBC and a Gateway LBC define a `defaultTargetGroupConfiguration`, the controller resolves both TGCs and merges their `defaultConfiguration` props field-by-field. The `mergingMode` on the GatewayClass LBC controls which one wins on overlapping fields — non-overlapping fields from both are always preserved. See [TargetGroupConfiguration — GatewayClass + Gateway Default TGC Merging](targetgroupconfig.md#gatewayclass--gateway-default-tgc-merging) for details.
+
+> **Important:** The referenced TGC must exist in the same namespace as the LoadBalancerConfiguration. Cross-namespace references are not supported — the `defaultTargetGroupConfiguration` field only accepts a `name`, not a `namespace`. If the referenced TGC is not found in the LBC's namespace, the controller will error the Gateway reconciliation until the TGC is created or the reference is removed.
+
+**Default** No default target group configuration

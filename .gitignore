@@ -1,3 +1,4 @@
+.DS_Store
 
 # Binaries for programs and plugins
 *.exe
@@ -7,6 +8,7 @@
 *.dylib
 bin
 build
+lbc-migrate
 
 # mkdocs generated live docs
 site

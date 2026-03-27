@@ -1,0 +1,62 @@
+# full_resources.yaml
+# Multi-document YAML containing all four resource types the file reader must parse:
+# Ingress, Service, IngressClass, and IngressClassParams.
+# Based on the 2048 game example from the official AWS LBC docs:
+# https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/spec/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "2048-ingress"
+  namespace: "2048-game"
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  ingressClassName: alb
+  rules:
+    - host: 2048.example.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: "service-2048"
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "service-2048"
+  namespace: "2048-game"
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: app-2048
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: alb
+spec:
+  controller: ingress.k8s.aws/alb
+  parameters:
+    apiGroup: elbv2.k8s.aws
+    kind: IngressClassParams
+    name: alb-params
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: alb-params
+spec:
+  scheme: internet-facing
+  ipAddressType: ipv4
+---
+# This comment-only document should be silently skipped by the reader.
+# It tests that comment-only YAML documents don't produce errors.

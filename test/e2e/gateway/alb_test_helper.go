@@ -62,6 +62,60 @@ func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, g
 	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{}, grpcrs, []*appsv1.Deployment{dp, dpOther}, []*corev1.Service{svc, svcOther}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc, tgcOther}, lrConfSpec, nil, readinessGateEnabled)
 }
 
+// DeployHTTPWithDefaultTGC deploys an ALB stack with a gateway-level default TGC referenced by the LBC,
+// plus two services: svc1 inherits defaults, svc2 has a service-level TGC override.
+func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, defaultTGC *elbv2gw.TargetGroupConfiguration, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	gwListeners := []gwv1.Listener{
+		{
+			Name:     "http80",
+			Port:     80,
+			Protocol: gwv1.HTTPProtocolType,
+		},
+	}
+
+	svc1 := buildServiceSpec(map[string]string{})
+	svc2 := buildServiceSpec(map[string]string{})
+	svc2.Name = "echoserver-v2"
+	svcTgc := buildTargetGroupConfig("svc2-tgc", svcTgSpec, svc2)
+
+	port := gwv1.PortNumber(80)
+	httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{
+		{
+			BackendRefs: []gwv1.HTTPBackendRef{
+				{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
+							Name: gwv1.ObjectName(svc1.Name),
+							Port: &port,
+						},
+					},
+				},
+				{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
+							Name: gwv1.ObjectName(svc2.Name),
+							Port: &port,
+						},
+					},
+				},
+			},
+		},
+	}, nil)
+	lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
+
+	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{httpr}, []*gwv1.GRPCRoute{},
+		[]*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)},
+		[]*corev1.Service{svc1, svc2},
+		lbConfSpec,
+		[]*elbv2gw.TargetGroupConfiguration{defaultTGC, svcTgc},
+		lrcSpec, nil, readinessGateEnabled)
+}
+
 func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
 	gw := buildBasicGatewaySpec(gwc, gwListeners)
