@@ -219,12 +219,14 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 }
 
 func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
+	listenerSetKind := gwv1.Kind("ListenerSet")
 	type args struct {
 		parentRefs                        []gwv1.ParentReference
 		originalParentRefsFromRouteStatus []gwv1.RouteParentStatus
 		resourceNS                        string
 		gateways                          []*gwv1.Gateway
 		gatewayClasses                    []*gwv1.GatewayClass
+		listenerSets                      []*gwv1.ListenerSet
 		gwController                      string
 	}
 	tests := []struct {
@@ -577,6 +579,277 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 			},
 			wantErr: nil,
 		},
+		{
+			name: "listenerset parent ref resolves to managed gateway",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "test-ls",
+						Kind:      &listenerSetKind,
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+				},
+				resourceNS: "test-ns",
+				listenerSets: []*gwv1.ListenerSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-ls",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.ListenerSetSpec{
+							ParentRef: gwv1.ParentGatewayReference{
+								Name: "test-gw",
+							},
+						},
+					},
+				},
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+				},
+				gatewayClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want: []types.NamespacedName{
+				{
+					Namespace: "test-ns",
+					Name:      "test-gw",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "listenerset parent ref with cross-namespace gateway",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "test-ls",
+						Kind:      &listenerSetKind,
+						Namespace: (*gwv1.Namespace)(ptr.To("ls-ns")),
+					},
+				},
+				resourceNS: "route-ns",
+				listenerSets: []*gwv1.ListenerSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-ls",
+							Namespace: "ls-ns",
+						},
+						Spec: gwv1.ListenerSetSpec{
+							ParentRef: gwv1.ParentGatewayReference{
+								Name:      "test-gw",
+								Namespace: (*gwv1.Namespace)(ptr.To("gw-ns")),
+							},
+						},
+					},
+				},
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "gw-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "alb-class",
+						},
+					},
+				},
+				gatewayClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "alb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.ALBGatewayController,
+						},
+					},
+				},
+				gwController: constants.ALBGatewayController,
+			},
+			want: []types.NamespacedName{
+				{
+					Namespace: "gw-ns",
+					Name:      "test-gw",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "listenerset parent ref not found",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "missing-ls",
+						Kind:      &listenerSetKind,
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+				},
+				resourceNS:   "test-ns",
+				gwController: constants.NLBGatewayController,
+			},
+			want:    []types.NamespacedName{},
+			wantErr: fmt.Errorf("failed to resolve listenersets [%s]", types.NamespacedName{Namespace: "test-ns", Name: "missing-ls"}),
+		},
+		{
+			name: "mix of gateway and listenerset parent refs",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "test-gw-direct",
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+					{
+						Name:      "test-ls",
+						Kind:      &listenerSetKind,
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+				},
+				resourceNS: "test-ns",
+				listenerSets: []*gwv1.ListenerSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-ls",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.ListenerSetSpec{
+							ParentRef: gwv1.ParentGatewayReference{
+								Name: "test-gw-from-ls",
+							},
+						},
+					},
+				},
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-direct",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-from-ls",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+				},
+				gatewayClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want: []types.NamespacedName{
+				{
+					Namespace: "test-ns",
+					Name:      "test-gw-direct",
+				},
+				{
+					Namespace: "test-ns",
+					Name:      "test-gw-from-ls",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "unknown gateway and failed listenerset resolution",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "unknown-gw",
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+					{
+						Name:      "missing-ls",
+						Kind:      &listenerSetKind,
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+				},
+				resourceNS:   "test-ns",
+				gwController: constants.NLBGatewayController,
+			},
+			want: []types.NamespacedName{},
+			wantErr: fmt.Errorf("failed to list gateways, [%s], failed to resolve listenersets [%s]",
+				types.NamespacedName{Namespace: "test-ns", Name: "unknown-gw"},
+				types.NamespacedName{Namespace: "test-ns", Name: "missing-ls"}),
+		},
+		{
+			name: "listenerset resolves to unmanaged gateway",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "test-ls",
+						Kind:      &listenerSetKind,
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+				},
+				resourceNS: "test-ns",
+				listenerSets: []*gwv1.ListenerSet{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-ls",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.ListenerSetSpec{
+							ParentRef: gwv1.ParentGatewayReference{
+								Name: "unmanaged-gw",
+							},
+						},
+					},
+				},
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "unmanaged-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "unmanaged-class",
+						},
+					},
+				},
+				gatewayClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "unmanaged-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: "some.other.controller",
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want:    []types.NamespacedName{},
+			wantErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -588,6 +861,9 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 			}
 			for _, gwClass := range tt.args.gatewayClasses {
 				k8sClient.Create(context.Background(), gwClass)
+			}
+			for _, ls := range tt.args.listenerSets {
+				k8sClient.Create(context.Background(), ls)
 			}
 
 			got, err := GetImpactedGatewaysFromParentRefs(context.Background(), k8sClient, tt.args.parentRefs, tt.args.originalParentRefsFromRouteStatus, tt.args.resourceNS, tt.args.gwController)
