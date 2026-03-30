@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -350,7 +351,7 @@ var _ = Describe("vanilla ingress tests", func() {
 					},
 				},
 			}
-			safeClusterName := strings.ReplaceAll(tf.Options.ClusterName, ".", "-")
+			safeClusterName := strings.ReplaceAll(strings.ToLower(tf.Options.ClusterName), ".", "-")
 			lbName := fmt.Sprintf("%.16s-%.15s", safeClusterName, sandboxNS.Name)
 			annotation := map[string]string{
 				"kubernetes.io/ingress.class":                  "alb",
