@@ -11,25 +11,26 @@ import (
 )
 
 var (
-	headerName    = "testHeader"
-	headerValue   = "testValue"
-	queryName     = "testQuery"
-	queryValue    = "testValue"
-	hostname      = "example.com"
-	service       = "testService"
-	method        = "testMethod"
-	testKey       = "testKey"
-	testValue     = "testValue"
-	testKeyTwo    = "testKeyTwo"
-	testValueTwo  = "testValueTwo"
-	prefixType    = gwv1.PathMatchPathPrefix
-	exactType     = gwv1.PathMatchExact
-	regexType     = gwv1.PathMatchRegularExpression
-	grpcExactType = gwv1.GRPCMethodMatchExact
-	grpcRegexType = gwv1.GRPCMethodMatchRegularExpression
-	sourceIP1     = "10.0.0.0/8"
-	sourceIP2     = "192.168.1.0/24"
-	sourceIP3     = "172.16.0.0/12"
+	headerName      = "testHeader"
+	headerValue     = "testValue"
+	queryName       = "testQuery"
+	queryValue      = "testValue"
+	hostname        = "example.com"
+	service         = "testService"
+	method          = "testMethod"
+	testKey         = "testKey"
+	testValue       = "testValue"
+	testKeyTwo      = "testKeyTwo"
+	testValueTwo    = "testValueTwo"
+	prefixType      = gwv1.PathMatchPathPrefix
+	exactType       = gwv1.PathMatchExact
+	regexType       = gwv1.PathMatchRegularExpression
+	grpcExactType   = gwv1.GRPCMethodMatchExact
+	grpcRegexType   = gwv1.GRPCMethodMatchRegularExpression
+	regexHeaderType = gwv1.HeaderMatchRegularExpression
+	sourceIP1       = "10.0.0.0/8"
+	sourceIP2       = "192.168.1.0/24"
+	sourceIP3       = "172.16.0.0/12"
 )
 
 func Test_BuildHttpRuleConditions(t *testing.T) {
@@ -291,6 +292,55 @@ func Test_buildHttpHeaderCondition(t *testing.T) {
 					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 						HTTPHeaderName: testKeyTwo,
 						Values:         []string{testValueTwo},
+					},
+				},
+			},
+		},
+		{
+			name: "regex header match",
+			headerMatch: []gwv1.HTTPHeaderMatch{
+				{
+					Type:  &regexHeaderType,
+					Name:  gwv1.HTTPHeaderName("User-Agent"),
+					Value: ".+Chrome.+",
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: "User-Agent",
+						RegexValues:    []string{".+Chrome.+"},
+					},
+				},
+			},
+		},
+		{
+			name: "mixed exact and regex header match",
+			headerMatch: []gwv1.HTTPHeaderMatch{
+				{
+					Name:  gwv1.HTTPHeaderName(testKey),
+					Value: testValue,
+				},
+				{
+					Type:  &regexHeaderType,
+					Name:  gwv1.HTTPHeaderName("User-Agent"),
+					Value: ".+Firefox.+",
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: testKey,
+						Values:         []string{testValue},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: "User-Agent",
+						RegexValues:    []string{".+Firefox.+"},
 					},
 				},
 			},
@@ -956,7 +1006,7 @@ func Test_buildHostHeaderCondition(t *testing.T) {
 	tests := []struct {
 		name      string
 		condition elbv2gw.ListenerRuleCondition
-		expected  []elbv2model.RuleCondition
+		expected  *elbv2model.RuleCondition
 	}{
 		{
 			name: "nil hostHeaderConfig returns nil",
@@ -973,12 +1023,10 @@ func Test_buildHostHeaderCondition(t *testing.T) {
 					Values: []string{"*.example.com", "www.test.com"},
 				},
 			},
-			expected: []elbv2model.RuleCondition{
-				{
-					Field: elbv2model.RuleConditionFieldHostHeader,
-					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
-						Values: []string{"*.example.com", "www.test.com"},
-					},
+			expected: &elbv2model.RuleCondition{
+				Field: elbv2model.RuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+					Values: []string{"*.example.com", "www.test.com"},
 				},
 			},
 		},
@@ -990,10 +1038,102 @@ func Test_buildHostHeaderCondition(t *testing.T) {
 					RegexValues: []string{"^(.+)\\.example\\.com$"},
 				},
 			},
+			expected: &elbv2model.RuleCondition{
+				Field: elbv2model.RuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+					RegexValues: []string{"^(.+)\\.example\\.com$"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildHostHeaderCondition(tt.condition)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func Test_mergeHostHeaderCondition(t *testing.T) {
+	tests := []struct {
+		name           string
+		conditionsList []elbv2model.RuleCondition
+		lrcCondition   elbv2gw.ListenerRuleCondition
+		expected       []elbv2model.RuleCondition
+	}{
+		{
+			name:           "nil hostHeaderConfig — no change",
+			conditionsList: []elbv2model.RuleCondition{},
+			lrcCondition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+			},
+			expected: []elbv2model.RuleCondition{},
+		},
+		{
+			name: "merge into existing host-header condition (from route hostnames)",
+			conditionsList: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"www.example.com"},
+					},
+				},
+			},
+			lrcCondition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2gw.HostHeaderConditionConfig{
+					Values: []string{"anno.example.com"},
+				},
+			},
 			expected: []elbv2model.RuleCondition{
 				{
 					Field: elbv2model.RuleConditionFieldHostHeader,
 					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"www.example.com", "anno.example.com"},
+					},
+				},
+			},
+		},
+		{
+			name:           "no existing host-header — appends new condition",
+			conditionsList: []elbv2model.RuleCondition{},
+			lrcCondition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2gw.HostHeaderConditionConfig{
+					Values: []string{"api.example.com"},
+				},
+			},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"api.example.com"},
+					},
+				},
+			},
+		},
+		{
+			name: "merge regexValues into existing host-header with values",
+			conditionsList: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"www.example.com"},
+					},
+				},
+			},
+			lrcCondition: elbv2gw.ListenerRuleCondition{
+				Field: elbv2gw.ListenerRuleConditionFieldHostHeader,
+				HostHeaderConfig: &elbv2gw.HostHeaderConditionConfig{
+					RegexValues: []string{"^(.+)\\.example\\.com$"},
+				},
+			},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values:      []string{"www.example.com"},
 						RegexValues: []string{"^(.+)\\.example\\.com$"},
 					},
 				},
@@ -1003,7 +1143,7 @@ func Test_buildHostHeaderCondition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildHostHeaderCondition(tt.condition)
+			result := mergeHostHeaderCondition(tt.conditionsList, tt.lrcCondition)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

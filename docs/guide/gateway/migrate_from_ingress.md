@@ -93,6 +93,12 @@ Existing `Deployment` and `Service` resources are reused as-is and are not gener
 
 Gateway API has no `defaultBackend` equivalent ([upstream docs](https://gateway-api.sigs.k8s.io/guides/getting-started/migrating-from-ingress/#default-backend)). When an Ingress has both a `defaultBackend` and host-based rules, the tool generates a separate catch-all HTTPRoute with no hostnames or match conditions. This results in one additional ALB listener rule compared to the original Ingress, which is the expected Gateway API behavior. Additionally, the gateway controller scopes target groups per route, so the separate default-backend HTTPRoute creates its own target group even if it points to the same service as other rules. This means the migrated setup may have one extra target group compared to the Ingress setup, where a single target group is shared across all rules for the same service.
 
+### Known Differences from Ingress
+
+The migrated Gateway API manifests may produce more ALB listener rules than the original Ingress. This happens because ALB supports OR within a single condition (e.g., one `http-request-method` condition with values `[GET, HEAD]`), while Gateway API represents OR as separate `HTTPRouteMatch` entries — each becoming its own ALB rule. The routing behavior is functionally equivalent, but the rule count and priority numbers may differ. This affects conditions with multiple values for `path-pattern`, `http-request-method`, and `query-string`.
+
+Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
+
 !!! important "What changes and what stays the same"
     The generated output **replaces only your Ingress resource**. Everything else stays untouched:
 

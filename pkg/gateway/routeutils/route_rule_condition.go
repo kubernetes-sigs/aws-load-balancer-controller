@@ -101,16 +101,27 @@ func buildHttpPathCondition(path *gwv1.HTTPPathMatch) ([]elbv2model.RuleConditio
 func buildHttpHeaderCondition(headers []gwv1.HTTPHeaderMatch) []elbv2model.RuleCondition {
 	var conditions []elbv2model.RuleCondition
 	for _, header := range headers {
-		headerCondition := []elbv2model.RuleCondition{
-			{
+		matchType := gwv1.HeaderMatchExact // default
+		if header.Type != nil {
+			matchType = *header.Type
+		}
+		if matchType == gwv1.HeaderMatchRegularExpression {
+			conditions = append(conditions, elbv2model.RuleCondition{
+				Field: elbv2model.RuleConditionFieldHTTPHeader,
+				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+					HTTPHeaderName: string(header.Name),
+					RegexValues:    []string{header.Value},
+				},
+			})
+		} else {
+			conditions = append(conditions, elbv2model.RuleCondition{
 				Field: elbv2model.RuleConditionFieldHTTPHeader,
 				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 					HTTPHeaderName: string(header.Name),
 					Values:         generateValuesFromMatchHeaderValue(header.Value),
 				},
-			},
+			})
 		}
-		conditions = append(conditions, headerCondition...)
 	}
 	return conditions
 }
@@ -253,38 +264,39 @@ func buildSourceIpCondition(condition elbv2gw.ListenerRuleCondition) []elbv2mode
 }
 
 // BuildConditionsFromListenerRuleConfig takes conditions from ListenerRuleConfiguration CRD and ANDs them into the condition list.
-// Supports source-ip and host-header condition types.
+// For host-header conditions, values are merged into any existing host-header condition (from route hostnames)
 func BuildConditionsFromListenerRuleConfig(ruleWithPrecedence RulePrecedence, conditionsList []elbv2model.RuleCondition) []elbv2model.RuleCondition {
 	rule := ruleWithPrecedence.CommonRulePrecedence.Rule
 	matchIndex := ruleWithPrecedence.CommonRulePrecedence.MatchIndexInRule
 	if rule.GetListenerRuleConfig() != nil {
 		conditionsFromRuleConfig := rule.GetListenerRuleConfig().Spec.Conditions
 		for _, condition := range conditionsFromRuleConfig {
-			var lrcConditions []elbv2model.RuleCondition
-			switch condition.Field {
-			case elbv2gw.ListenerRuleConditionFieldSourceIP:
-				lrcConditions = buildSourceIpCondition(condition)
-			case elbv2gw.ListenerRuleConditionFieldHostHeader:
-				lrcConditions = buildHostHeaderCondition(condition)
-			}
-			if len(lrcConditions) == 0 {
-				continue
-			}
-			if condition.MatchIndexes == nil {
-				conditionsList = append(conditionsList, lrcConditions...)
-			} else {
+			shouldApply := condition.MatchIndexes == nil
+			if !shouldApply {
 				for _, index := range *condition.MatchIndexes {
 					if index == matchIndex {
-						conditionsList = append(conditionsList, lrcConditions...)
+						shouldApply = true
+						break
 					}
 				}
+			}
+			if !shouldApply {
+				continue
+			}
+
+			switch condition.Field {
+			case elbv2gw.ListenerRuleConditionFieldSourceIP:
+				lrcConditions := buildSourceIpCondition(condition)
+				conditionsList = append(conditionsList, lrcConditions...)
+			case elbv2gw.ListenerRuleConditionFieldHostHeader:
+				conditionsList = mergeHostHeaderCondition(conditionsList, condition)
 			}
 		}
 	}
 	return conditionsList
 }
 
-func buildHostHeaderCondition(condition elbv2gw.ListenerRuleCondition) []elbv2model.RuleCondition {
+func buildHostHeaderCondition(condition elbv2gw.ListenerRuleCondition) *elbv2model.RuleCondition {
 	if condition.HostHeaderConfig == nil {
 		return nil
 	}
@@ -295,12 +307,28 @@ func buildHostHeaderCondition(condition elbv2gw.ListenerRuleCondition) []elbv2mo
 	if len(condition.HostHeaderConfig.RegexValues) > 0 {
 		hostHeaderConfig.RegexValues = condition.HostHeaderConfig.RegexValues
 	}
-	return []elbv2model.RuleCondition{
-		{
-			Field:            elbv2model.RuleConditionFieldHostHeader,
-			HostHeaderConfig: hostHeaderConfig,
-		},
+	return &elbv2model.RuleCondition{
+		Field:            elbv2model.RuleConditionFieldHostHeader,
+		HostHeaderConfig: hostHeaderConfig,
 	}
+}
+
+// mergeHostHeaderCondition merges LRC host-header values/regexValues into an existing host-header
+// condition in the list (from route hostnames), or appends a new one if none exists.
+// ALB allows at most one host-header condition per rule, so we must merge rather than append.
+func mergeHostHeaderCondition(conditionsList []elbv2model.RuleCondition, lrcCondition elbv2gw.ListenerRuleCondition) []elbv2model.RuleCondition {
+	newCondition := buildHostHeaderCondition(lrcCondition)
+	if newCondition == nil {
+		return conditionsList
+	}
+	for i := range conditionsList {
+		if conditionsList[i].Field == elbv2model.RuleConditionFieldHostHeader && conditionsList[i].HostHeaderConfig != nil {
+			conditionsList[i].HostHeaderConfig.Values = append(conditionsList[i].HostHeaderConfig.Values, newCondition.HostHeaderConfig.Values...)
+			conditionsList[i].HostHeaderConfig.RegexValues = append(conditionsList[i].HostHeaderConfig.RegexValues, newCondition.HostHeaderConfig.RegexValues...)
+			return conditionsList
+		}
+	}
+	return append(conditionsList, *newCondition)
 }
 
 // generateValuesFromMatchHeaderValue takes in header value from route match

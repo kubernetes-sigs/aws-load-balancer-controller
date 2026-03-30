@@ -169,3 +169,64 @@ spec:
 
 Adds Source IP conditions into the routing rules. For granular control of which rules to apply the LRC to, use the matchIndex field.
 
+### Host Header Condition
+
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: ListenerRuleConfiguration
+metadata:
+  name: custom-rule-config-host-header
+  namespace: example-ns
+spec:
+  conditions:
+    - field: host-header
+      hostHeaderConfig:
+        values:
+          - "*.example.com"
+          - "api.example.com"
+```
+
+Adds host-header conditions into the routing rules. Values use ALB wildcard syntax (`*` matches 0+ characters, `?` matches exactly 1 character). Use `regexValues` instead of `values` for regex matching.
+
+When an HTTPRoute specifies `hostnames`, the controller merges LRC host-header values with the route-level hostnames into a single ALB host-header condition (OR'd). This allows per-rule host matching on top of route-level hostnames.
+
+For example, given this HTTPRoute and ListenerRuleConfiguration:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+spec:
+  hostnames:
+    - www.example.com
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /api
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.k8s.aws
+            kind: ListenerRuleConfiguration
+            name: api-rule-config
+      backendRefs:
+        - name: api-svc
+          port: 80
+---
+apiVersion: gateway.k8s.aws/v1beta1
+kind: ListenerRuleConfiguration
+metadata:
+  name: api-rule-config
+spec:
+  conditions:
+    - field: host-header
+      hostHeaderConfig:
+        values:
+          - api.example.com
+```
+
+The controller merges the route hostname `www.example.com` with the LRC host-header value `api.example.com` into a single ALB rule condition: `host-header values: [www.example.com, api.example.com]`. The rule matches requests to `/api` when the host is either `www.example.com` or `api.example.com`.
+
+!!! note
+    `values` and `regexValues` are mutually exclusive within a single host-header condition. ALB does not support mixing wildcard and regex matching for the same condition type.
+

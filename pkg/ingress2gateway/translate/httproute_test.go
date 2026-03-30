@@ -263,6 +263,55 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				assert.Len(t, routes[0].Spec.Rules, 1)
 			},
 		},
+		{
+			name: "host-header condition adds LRC (no route split)",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "ingress",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/actions.rule-path1":    `{"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"200","messageBody":"host test"}}`,
+						"alb.ingress.kubernetes.io/conditions.rule-path1": `[{"field":"host-header","hostHeaderConfig":{"values":["anno.example.com"]}}]`,
+					},
+				},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						Host: "www.example.com",
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{
+									{
+										Path: "/path1", PathType: &pathExact,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "rule-path1", Port: networking.ServiceBackendPort{Name: "use-annotation"},
+											},
+										},
+									},
+									{
+										Path: "/path2", PathType: &pathExact,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "svc2", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									},
+								},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "my-gw",
+			ports:      []listenPortEntry{{Protocol: "HTTPS", Port: 443}},
+			wantRoutes: 1, // single route, host-header condition goes to LRC
+			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
+				r := routes[0]
+				assert.Equal(t, []gwv1.Hostname{"www.example.com"}, r.Spec.Hostnames)
+				assert.Len(t, r.Spec.Rules, 2)
+				assert.Equal(t, "/path1", *r.Spec.Rules[0].Matches[0].Path.Value)
+				assert.Equal(t, "/path2", *r.Spec.Rules[1].Matches[0].Path.Value)
+			},
+		},
 	}
 
 	for _, tt := range tests {
