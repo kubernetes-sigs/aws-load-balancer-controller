@@ -60,11 +60,12 @@ func buildListenerSetStatus(listenerSetNamespacedName types.NamespacedName, resu
 	programmedReason := string(gwv1.ListenerSetReasonProgrammed)
 	programmedMessage := string(gwv1.ListenerSetReasonProgrammed)
 	if !programmed {
-		programmedReason = string(gwv1.ListenerSetReasonPending)
 		if isGatewayProgrammed {
-			programmedMessage = "Parent gateway not yet programmed"
-		} else {
 			programmedMessage = "No valid listeners to materialize"
+			programmedReason = string(gwv1.ListenerSetReasonListenersNotValid)
+		} else {
+			programmedMessage = "Parent gateway not yet programmed"
+			programmedReason = string(gwv1.ListenerSetReasonPending)
 		}
 	}
 
@@ -120,7 +121,7 @@ func getListenerConditions(generation int64, listenerValidationResult routeutils
 
 	// Build Accepted Conditions
 	switch listenerReason {
-	case gwv1.ListenerReasonPortUnavailable, gwv1.ListenerReasonUnsupportedProtocol:
+	case gwv1.ListenerReasonPortUnavailable, gwv1.ListenerReasonUnsupportedProtocol, gwv1.ListenerReasonHostnameConflict, gwv1.ListenerReasonProtocolConflict:
 		conditions = append(conditions, buildAcceptedCondition(generation, listenerReason, listenerErrMessage))
 	default:
 		conditions = append(conditions, buildAcceptedCondition(generation, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
@@ -135,18 +136,19 @@ func getListenerConditions(generation int64, listenerValidationResult routeutils
 	}
 
 	// Build Programmed Conditions
-	isAccepted := listenerReason == gwv1.ListenerReasonAccepted
-	conditions = append(conditions, buildProgrammedCondition(generation, isProgrammed, isAccepted))
+	conditions = append(conditions, buildProgrammedCondition(generation, isProgrammed, string(listenerReason)))
 
 	return conditions
 }
 
-func buildProgrammedCondition(generation int64, isProgrammed bool, isAccepted bool) metav1.Condition {
+func buildProgrammedCondition(generation int64, isProgrammed bool, acceptedReason string) metav1.Condition {
+	isAccepted := acceptedReason == string(gwv1.ListenerReasonAccepted)
+
 	if !isAccepted {
 		return metav1.Condition{
 			Type:               string(gwv1.ListenerConditionProgrammed),
 			Status:             metav1.ConditionFalse,
-			Reason:             string(gwv1.ListenerReasonInvalid),
+			Reason:             acceptedReason,
 			Message:            gateway_constants.ListenerNotAcceptedMessage,
 			LastTransitionTime: metav1.NewTime(time.Now()),
 			ObservedGeneration: generation,

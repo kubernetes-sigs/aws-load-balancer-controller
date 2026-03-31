@@ -82,9 +82,9 @@ func Test_getListenerConditions(t *testing.T) {
 			isProgrammed:             false,
 			expectedConditionCount:   4,
 			expectedConflictReason:   string(gwv1.ListenerReasonHostnameConflict),
-			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonHostnameConflict),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
-			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			expectedProgrammedReason: string(gwv1.ListenerReasonHostnameConflict),
 			generation:               3,
 		},
 		{
@@ -96,9 +96,9 @@ func Test_getListenerConditions(t *testing.T) {
 			isProgrammed:             false,
 			expectedConditionCount:   4,
 			expectedConflictReason:   string(gwv1.ListenerReasonProtocolConflict),
-			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonProtocolConflict),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
-			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			expectedProgrammedReason: string(gwv1.ListenerReasonProtocolConflict),
 			generation:               4,
 		},
 		{
@@ -112,7 +112,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
 			expectedAcceptedReason:   string(gwv1.ListenerReasonPortUnavailable),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
-			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			expectedProgrammedReason: string(gwv1.ListenerReasonPortUnavailable),
 			generation:               5,
 		},
 		{
@@ -126,7 +126,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
 			expectedAcceptedReason:   string(gwv1.ListenerReasonUnsupportedProtocol),
 			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
-			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			expectedProgrammedReason: string(gwv1.ListenerReasonUnsupportedProtocol),
 			generation:               6,
 		},
 		{
@@ -140,7 +140,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
 			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
 			expectedResolvedReason:   string(gwv1.ListenerReasonInvalidRouteKinds),
-			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalidRouteKinds),
 			generation:               7,
 		},
 		{
@@ -154,7 +154,7 @@ func Test_getListenerConditions(t *testing.T) {
 			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
 			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
 			expectedResolvedReason:   string(gwv1.ListenerReasonRefNotPermitted),
-			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			expectedProgrammedReason: string(gwv1.ListenerReasonRefNotPermitted),
 			generation:               8,
 		},
 	}
@@ -200,23 +200,23 @@ func Test_buildProgrammedCondition(t *testing.T) {
 	tests := []struct {
 		name           string
 		isProgrammed   bool
-		isAccepted     bool
+		listenerReason string
 		expectedStatus metav1.ConditionStatus
 		expectedReason string
 		generation     int64
 	}{
 		{
-			name:           "not accepted - should return false with invalid reason",
+			name:           "not accepted - hostname conflict",
 			isProgrammed:   true,
-			isAccepted:     false,
+			listenerReason: string(gwv1.ListenerReasonHostnameConflict),
 			expectedStatus: metav1.ConditionFalse,
-			expectedReason: string(gwv1.ListenerReasonInvalid),
+			expectedReason: string(gwv1.ListenerReasonHostnameConflict),
 			generation:     5,
 		},
 		{
 			name:           "accepted and programmed - should return true with programmed reason",
 			isProgrammed:   true,
-			isAccepted:     true,
+			listenerReason: string(gwv1.ListenerReasonAccepted),
 			expectedStatus: metav1.ConditionTrue,
 			expectedReason: string(gwv1.ListenerReasonProgrammed),
 			generation:     3,
@@ -224,7 +224,7 @@ func Test_buildProgrammedCondition(t *testing.T) {
 		{
 			name:           "accepted but not programmed - should return false with pending reason",
 			isProgrammed:   false,
-			isAccepted:     true,
+			listenerReason: string(gwv1.ListenerReasonAccepted),
 			expectedStatus: metav1.ConditionFalse,
 			expectedReason: string(gwv1.ListenerReasonPending),
 			generation:     1,
@@ -232,16 +232,16 @@ func Test_buildProgrammedCondition(t *testing.T) {
 		{
 			name:           "not accepted and not programmed - should return false with invalid reason",
 			isProgrammed:   false,
-			isAccepted:     false,
+			listenerReason: string(gwv1.ListenerReasonHostnameConflict),
 			expectedStatus: metav1.ConditionFalse,
-			expectedReason: string(gwv1.ListenerReasonInvalid),
+			expectedReason: string(gwv1.ListenerReasonHostnameConflict),
 			generation:     2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			condition := buildProgrammedCondition(tt.generation, tt.isProgrammed, tt.isAccepted)
+			condition := buildProgrammedCondition(tt.generation, tt.isProgrammed, tt.listenerReason)
 
 			assert.Equal(t, string(gwv1.ListenerConditionProgrammed), condition.Type)
 			assert.Equal(t, tt.expectedStatus, condition.Status)
@@ -912,8 +912,8 @@ func Test_buildListenerSetStatus(t *testing.T) {
 			expectedAcceptedReason:    string(gwv1.ListenerSetReasonListenersNotValid),
 			expectedAcceptedMessage:   "Some listeners are not valid",
 			expectedProgrammed:        false,
-			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
-			expectedProgrammedMessage: "Parent gateway not yet programmed",
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonListenersNotValid),
+			expectedProgrammedMessage: "No valid listeners to materialize",
 			expectedGeneration:        2,
 			expectedListenerCount:     1,
 		},
@@ -941,7 +941,7 @@ func Test_buildListenerSetStatus(t *testing.T) {
 			expectedAcceptedMessage:   string(gwv1.ListenerSetReasonAccepted),
 			expectedProgrammed:        false,
 			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
-			expectedProgrammedMessage: "No valid listeners to materialize",
+			expectedProgrammedMessage: "Parent gateway not yet programmed",
 			expectedGeneration:        4,
 			expectedListenerCount:     1,
 		},
@@ -968,7 +968,7 @@ func Test_buildListenerSetStatus(t *testing.T) {
 			expectedAcceptedMessage:   "Some listeners are not valid",
 			expectedProgrammed:        false,
 			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
-			expectedProgrammedMessage: "No valid listeners to materialize",
+			expectedProgrammedMessage: "Parent gateway not yet programmed",
 			expectedGeneration:        1,
 			expectedListenerCount:     1,
 		},
@@ -988,8 +988,8 @@ func Test_buildListenerSetStatus(t *testing.T) {
 			expectedAcceptedReason:    string(gwv1.ListenerSetReasonAccepted),
 			expectedAcceptedMessage:   string(gwv1.ListenerSetReasonAccepted),
 			expectedProgrammed:        false,
-			expectedProgrammedReason:  string(gwv1.ListenerSetReasonPending),
-			expectedProgrammedMessage: "Parent gateway not yet programmed",
+			expectedProgrammedReason:  string(gwv1.ListenerSetReasonListenersNotValid),
+			expectedProgrammedMessage: "No valid listeners to materialize",
 			expectedGeneration:        7,
 			expectedListenerCount:     0,
 		},

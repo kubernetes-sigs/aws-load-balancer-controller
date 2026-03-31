@@ -279,3 +279,18 @@ func extractListenerFromListenerSource(listenerSources []listenerSetListenerSour
 	}
 	return result
 }
+
+func CalculateAttachedListenerSets(listenerSetValidations map[types.NamespacedName]ListenerValidationResults) int32 {
+	result := int32(0)
+
+	for _, perListenerSetValidation := range listenerSetValidations {
+		for _, validation := range perListenerSetValidation.Results {
+			if validation.IsValid {
+				result = result + 1
+				break
+			}
+		}
+	}
+
+	return result
+}
