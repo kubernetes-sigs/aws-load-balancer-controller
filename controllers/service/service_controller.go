@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
@@ -198,6 +200,8 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "dns_resolve_error", err, r.metricsCollector)
 	}
 
+	normalizedLbDNS := strings.ToLower(lbDNS)
+
 	if !backendSGRequired {
 		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(svc)}); err != nil {
 			return ctrlerrors.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
@@ -205,7 +209,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	}
 
 	updateStatusFn := func() {
-		err = r.updateServiceStatus(ctx, lbDNS, svc)
+		err = r.updateServiceStatus(ctx, normalizedLbDNS, svc)
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "update_status", updateStatusFn)
 	if err != nil {

@@ -3,6 +3,8 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
@@ -166,14 +168,17 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 			if statusErr != nil {
 				return
 			}
+			normalizedLbDNSName := strings.ToLower(lbDNS)
 			var frontendNlbDNS string
+			var normalizedFrontendNlbDNS string
 			if frontendNlb != nil {
 				frontendNlbDNS, statusErr = frontendNlb.DNSName().Resolve(ctx)
 				if statusErr != nil {
 					return
 				}
+				normalizedFrontendNlbDNS = strings.ToLower(frontendNlbDNS)
 			}
-			statusErr = r.updateIngressGroupStatus(ctx, ingGroup, lbDNS, frontendNlbDNS, listenerPorts)
+			statusErr = r.updateIngressGroupStatus(ctx, ingGroup, normalizedLbDNSName, normalizedFrontendNlbDNS, listenerPorts)
 			if statusErr != nil {
 				r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedUpdateStatus,
 					fmt.Sprintf("Failed update status due to %v", statusErr))
