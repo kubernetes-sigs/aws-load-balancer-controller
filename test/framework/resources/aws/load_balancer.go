@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -48,7 +49,8 @@ func (m *defaultLoadBalancerManager) FindLoadBalancerByDNSName(ctx context.Conte
 		return "", err
 	}
 	for _, lb := range lbs {
-		if awssdk.ToString(lb.DNSName) == dnsName {
+		// DNS names are case-insensitive
+		if strings.EqualFold(*lb.DNSName, dnsName) {
 			return awssdk.ToString(lb.LoadBalancerArn), nil
 		}
 	}
