@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/nlb_tests"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
@@ -27,7 +26,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 	)
 
 	BeforeEach(func() {
-		if !gateway.tf.Options.EnableGatewayTests {
+		if !tf.Options.EnableGatewayTests {
 			Skip("Skipping gateway tests")
 		}
 		ctx = context.Background()
@@ -36,8 +35,8 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 	})
 
 	AfterEach(func() {
-		albStack.Cleanup(ctx, gateway.tf)
-		nlbStack.Cleanup(ctx, gateway.tf)
+		albStack.Cleanup(ctx, tf)
+		nlbStack.Cleanup(ctx, tf)
 	})
 
 	Context("with ALB and NLB gateways using IP targets", func() {
@@ -61,8 +60,8 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 			// Configure TLS for both if certificates are available
 			var hasTLS bool
-			if len(gateway.tf.Options.CertificateARNs) > 0 {
-				cert := strings.Split(gateway.tf.Options.CertificateARNs, ",")[0]
+			if len(tf.Options.CertificateARNs) > 0 {
+				cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
 
 				// ALB HTTPS listener
 				albLsConfig := elbv2gw.ListenerConfiguration{
@@ -102,12 +101,12 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying ALB stack", func() {
-				err := albStack.DeployHTTP(ctx, nil, gateway.tf, albGwListeners, []*gwv1.HTTPRoute{httpr}, albLbcSpec, tgSpec, lrcSpec, nil, true)
+				err := albStack.DeployHTTP(ctx, nil, tf, albGwListeners, []*gwv1.HTTPRoute{httpr}, albLbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("deploying NLB stack", func() {
-				err := nlbStack.DeployFrontendNLB(ctx, albStack, gateway.tf, nlbLbcSpec, hasTLS, true)
+				err := nlbStack.DeployFrontendNLB(ctx, albStack, tf, nlbLbcSpec, hasTLS, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking alb gateway status for lb dns name", func() {
@@ -117,7 +116,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				albARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, albDnsName)
+				albARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, albDnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(albARN).ToNot(BeEmpty())
 			})
@@ -127,7 +126,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				nlbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, nlbDnsName)
+				nlbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, nlbDnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(nlbARN).ToNot(BeEmpty())
 			})
@@ -136,15 +135,15 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*albStack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*albStack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
-				listenerPortMap := albStack.albResourceStack.getListenersPortMap()
+				listenerPortMap := albStack.Resources.GetListenersPortMap()
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, albARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, albARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internal",
 					Listeners:    listenerPortMap,
@@ -158,7 +157,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 				listenerPortMap := map[string]string{}
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, nlbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
 					Listeners:    listenerPortMap,
@@ -168,7 +167,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("deploy reference grant that allows nlb <-> alb attachment", func() {
 				var err error
-				refGrant, err = nlbStack.CreateFENLBReferenceGrant(ctx, gateway.tf, albStack.albResourceStack.commonStack.ns)
+				refGrant, err = nlbStack.CreateFENLBReferenceGrant(ctx, tf, albStack.Resources.CommonStack.Ns)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(2 * time.Minute)
 			})
@@ -210,11 +209,9 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					})
 				}
 
-				fmt.Printf("%+v\n", refGrant)
+				listenerPortMap := nlbStack.Resources.GetListenersPortMap()
 
-				listenerPortMap := nlbStack.nlbResourceStack.getListenersPortMap()
-
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, nlbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
 					Listeners:    listenerPortMap,
@@ -224,7 +221,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("verify port 80 works", func() {
 				url := fmt.Sprintf("http://%v/any-path", nlbDnsName)
-				err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			if hasTLS {
@@ -233,12 +230,12 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					urlOptions := http.URLOptions{
 						InsecureSkipVerify: true,
 					}
-					err := gateway.tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
+					err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
 					Expect(err).NotTo(HaveOccurred())
 				})
 			}
 			By("remove reference grant should remove nlb listener but keep alb listener intact", func() {
-				err := gateway.tf.K8sClient.Delete(ctx, refGrant)
+				err := tf.K8sClient.Delete(ctx, refGrant)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(2 * time.Minute)
 			})
@@ -247,15 +244,15 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*albStack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*albStack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
-				listenerPortMap := albStack.albResourceStack.getListenersPortMap()
+				listenerPortMap := albStack.Resources.GetListenersPortMap()
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, albARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, albARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internal",
 					Listeners:    listenerPortMap,
@@ -269,7 +266,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 				listenerPortMap := map[string]string{}
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, nlbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
 					Listeners:    listenerPortMap,

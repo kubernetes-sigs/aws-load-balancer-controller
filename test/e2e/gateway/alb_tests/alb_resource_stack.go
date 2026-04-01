@@ -17,22 +17,22 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func newALBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrc *elbv2gw.ListenerRuleConfiguration, httpr []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, secret *testOIDCSecret, baseName string, namespaceLabels map[string]string) *albResourceStack {
+func newALBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrc *elbv2gw.ListenerRuleConfiguration, httpr []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, secret *testOIDCSecret, baseName string, namespaceLabels map[string]string) *ALBResourceStack {
 
 	commonStack := test_resources.NewCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, []*elbv2gw.ListenerRuleConfiguration{lrc}, baseName, namespaceLabels)
-	return &albResourceStack{
-		httprs:      httpr,
-		grpcrs:      grpcrs,
+	return &ALBResourceStack{
+		Httprs:      httpr,
+		Grpcrs:      grpcrs,
 		OIDCSecret:  secret,
-		commonStack: commonStack,
+		CommonStack: commonStack,
 	}
 }
 
-// resourceStack containing the deployment and service resources
-type albResourceStack struct {
-	commonStack *test_resources.CommonResourceStack
-	httprs      []*gwv1.HTTPRoute
-	grpcrs      []*gwv1.GRPCRoute
+// ALBResourceStack containing the deployment and service resources
+type ALBResourceStack struct {
+	CommonStack *test_resources.CommonResourceStack
+	Httprs      []*gwv1.HTTPRoute
+	Grpcrs      []*gwv1.GRPCRoute
 	OIDCSecret  *testOIDCSecret
 }
 
@@ -43,75 +43,75 @@ type testOIDCSecret struct {
 	clientSecret string
 }
 
-func (s *albResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
-	return s.commonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
-		for i := range s.httprs {
-			s.httprs[i].Namespace = namespace
-			if err := s.createHTTPRoute(ctx, f, s.httprs[i]); err != nil {
+func (s *ALBResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
+	return s.CommonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
+		for i := range s.Httprs {
+			s.Httprs[i].Namespace = namespace
+			if err := s.CreateHTTPRoute(ctx, f, s.Httprs[i]); err != nil {
 				return err
 			}
 		}
 
-		for i := range s.grpcrs {
-			s.grpcrs[i].Namespace = namespace
-			if err := s.createGRPCRoute(ctx, f, s.grpcrs[i]); err != nil {
+		for i := range s.Grpcrs {
+			s.Grpcrs[i].Namespace = namespace
+			if err := s.CreateGRPCRoute(ctx, f, s.Grpcrs[i]); err != nil {
 				return err
 			}
 		}
 		if s.OIDCSecret != nil {
 			s.OIDCSecret.namespace = namespace
-			return s.createOIDCSecretWithRBAC(ctx, f)
+			return s.CreateOIDCSecretWithRBAC(ctx, f)
 		}
 		return nil
 	})
 }
 
-func (s *albResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	if s == nil || s.commonStack == nil {
+func (s *ALBResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if s == nil || s.CommonStack == nil {
 		return nil
 	}
-	if err := s.commonStack.Cleanup(ctx, f); err != nil {
+	if err := s.CommonStack.Cleanup(ctx, f); err != nil {
 		return err
 	}
-	return s.deleteOIDCSecretWithRBAC(ctx, f)
+	return s.DeleteOIDCSecretWithRBAC(ctx, f)
 }
 
-func (s *albResourceStack) GetLoadBalancerIngressHostname() string {
-	return s.commonStack.GetLoadBalancerIngressHostname()
+func (s *ALBResourceStack) GetLoadBalancerIngressHostname() string {
+	return s.CommonStack.GetLoadBalancerIngressHostname()
 }
 
-func (s *albResourceStack) getListenersPortMap() map[string]string {
-	return s.commonStack.GetListenersPortMap()
+func (s *ALBResourceStack) GetListenersPortMap() map[string]string {
+	return s.CommonStack.GetListenersPortMap()
 }
 
-func (s *albResourceStack) GetNamespace() string {
-	return s.commonStack.Ns.Name
+func (s *ALBResourceStack) GetNamespace() string {
+	return s.CommonStack.Ns.Name
 }
 
-func (s *albResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
-	return test_resources.WaitUntilDeploymentReady(ctx, f, s.commonStack.Dps)
+func (s *ALBResourceStack) WaitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
+	return test_resources.WaitUntilDeploymentReady(ctx, f, s.CommonStack.Dps)
 }
 
-func (s *albResourceStack) createHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
+func (s *ALBResourceStack) CreateHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
 	f.Logger.Info("creating http route", "httpr", k8s.NamespacedName(httpr))
 	return f.K8sClient.Create(ctx, httpr)
 }
 
-func (s *albResourceStack) createGRPCRoute(ctx context.Context, f *framework.Framework, grpcr *gwv1.GRPCRoute) error {
+func (s *ALBResourceStack) CreateGRPCRoute(ctx context.Context, f *framework.Framework, grpcr *gwv1.GRPCRoute) error {
 	f.Logger.Info("creating grpc route", "grpc", k8s.NamespacedName(grpcr))
 	return f.K8sClient.Create(ctx, grpcr)
 }
 
-func (s *albResourceStack) updateGRPCRoute(ctx context.Context, f *framework.Framework, grpcr *gwv1.GRPCRoute) error {
+func (s *ALBResourceStack) updateGRPCRoute(ctx context.Context, f *framework.Framework, grpcr *gwv1.GRPCRoute) error {
 	f.Logger.Info("updating grpc route", "grpc", k8s.NamespacedName(grpcr))
 	return f.K8sClient.Update(ctx, grpcr)
 }
 
-func (s *albResourceStack) deleteHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
+func (s *ALBResourceStack) deleteHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
 	return f.K8sClient.Delete(ctx, httpr)
 }
 
-func (s *albResourceStack) createOIDCSecretWithRBAC(ctx context.Context, f *framework.Framework) error {
+func (s *ALBResourceStack) CreateOIDCSecretWithRBAC(ctx context.Context, f *framework.Framework) error {
 	if s.OIDCSecret == nil {
 		return nil
 	}
@@ -175,11 +175,11 @@ func (s *albResourceStack) createOIDCSecretWithRBAC(ctx context.Context, f *fram
 	return f.K8sClient.Create(ctx, secret)
 }
 
-func (s *albResourceStack) deleteOIDCSecretWithRBAC(ctx context.Context, f *framework.Framework) error {
+func (s *ALBResourceStack) DeleteOIDCSecretWithRBAC(ctx context.Context, f *framework.Framework) error {
 	if s.OIDCSecret == nil {
 		return nil
 	}
-	namespace := s.commonStack.Ns
+	namespace := s.CommonStack.Ns
 	roleName := fmt.Sprintf("oidc-secret-reader-%s", s.OIDCSecret.name)
 	roleBindingName := fmt.Sprintf("oidc-secret-reader-binding-%s", s.OIDCSecret.name)
 

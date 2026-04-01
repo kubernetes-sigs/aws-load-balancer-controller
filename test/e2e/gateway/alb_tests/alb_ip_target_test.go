@@ -99,14 +99,14 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
-			targetNumber := int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -114,7 +114,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -141,7 +141,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				validateHTTPRouteStatusNotPermitted(tf, stack)
 			})
 			By("deploying ref grant", func() {
-				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.albResourceStack.commonStack.Ns)
+				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.Resources.CommonStack.Ns)
 				Expect(err).NotTo(HaveOccurred())
 				// Give some time to have the listener get materialized.
 				time.Sleep(2 * time.Minute)
@@ -151,7 +151,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -167,7 +167,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -241,7 +241,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -249,7 +249,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -389,7 +389,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting until DNS name is available", func() {
@@ -570,7 +570,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -578,7 +578,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -699,7 +699,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting until DNS name is available", func() {
@@ -766,7 +766,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -774,7 +774,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -898,13 +898,13 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			// For IP targets, we need to check the number of pod replicas
-			targetNumber := int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
 					Protocol:      "HTTP",
 					Port:          80,
-					NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+					NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					TargetType:    "ip",
 					TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 				},
@@ -914,7 +914,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1010,14 +1010,14 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			// For IP targets, we need to check the number of pod replicas
-			targetNumber := int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -1025,7 +1025,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1166,7 +1166,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -1174,7 +1174,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1376,7 +1376,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -1384,7 +1384,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1541,13 +1541,13 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			// For IP targets, we need to check the number of pod replicas
-			targetNumber := int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
 					Protocol:      "HTTP",
 					Port:          80,
-					NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+					NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					TargetType:    "ip",
 					TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 				},
@@ -1557,7 +1557,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1694,21 +1694,21 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			targetNumber := int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:      "HTTP",
 						Port:          50051,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
 					},
 					{
 						Protocol:      "HTTP",
 						Port:          50051,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[1].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[1].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
 					},
@@ -1716,7 +1716,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1776,10 +1776,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 			By("update grpc route to remove default rule", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1805,7 +1805,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1827,10 +1827,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 			By("update grpc route to route by service / method name. use invalid service", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1853,7 +1853,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1867,10 +1867,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 			By("update grpc route to route by service / method name. filter by service", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1892,7 +1892,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1909,10 +1909,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 			By("update grpc route to route by service / method name. filter by service and method", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1935,7 +1935,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -2000,7 +2000,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
 						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
@@ -2008,7 +2008,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -2096,7 +2096,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -2157,19 +2157,19 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 						Protocol:   "HTTP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 					{
 						Protocol:   "HTTP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -2189,7 +2189,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.Dps[0].Spec.Replicas)*2)
+				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)*2)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2207,7 +2207,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			By("updating default TGC health check path and verifying propagation", func() {
 				tgcKey := types.NamespacedName{
 					Name:      "gw-default-tgc",
-					Namespace: stack.albResourceStack.GetNamespace(),
+					Namespace: stack.Resources.GetNamespace(),
 				}
 				tgc := &elbv2gw.TargetGroupConfiguration{}
 				err := tf.K8sClient.Get(ctx, tgcKey, tgc)

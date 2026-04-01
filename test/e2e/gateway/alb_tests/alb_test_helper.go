@@ -19,7 +19,7 @@ import (
 )
 
 type ALBTestStack struct {
-	albResourceStack *albResourceStack
+	Resources *ALBResourceStack
 }
 
 func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *test_resources.AuxiliaryResourceStack, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
@@ -125,24 +125,24 @@ func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwLis
 
 	namespaceLabels := test_resources.GetNamespaceLabels(readinessGateEnabled)
 
-	s.albResourceStack = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, secret, "alb-gateway-e2e", namespaceLabels)
+	s.Resources = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, secret, "alb-gateway-e2e", namespaceLabels)
 
-	return s.albResourceStack.Deploy(ctx, f)
+	return s.Resources.Deploy(ctx, f)
 }
 
 func (s *ALBTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	if s.albResourceStack == nil {
+	if s.Resources == nil {
 		return nil
 	}
-	return s.albResourceStack.Cleanup(ctx, f)
+	return s.Resources.Cleanup(ctx, f)
 }
 
 func (s *ALBTestStack) GetLoadBalancerIngressHostName() string {
-	return s.albResourceStack.GetLoadBalancerIngressHostname()
+	return s.Resources.GetLoadBalancerIngressHostname()
 }
 
 func (s *ALBTestStack) GetNamespace() string {
-	return s.albResourceStack.GetNamespace()
+	return s.Resources.GetNamespace()
 }
 
 func (s *ALBTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {
@@ -175,8 +175,8 @@ func generateGRPCClient(dnsName string) (echo.EchoServiceClient, error) {
 
 func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestStack) {
 	validationInfo := map[string]test_resources.RouteValidationInfo{
-		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
-			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+		k8s.NamespacedName(stack.Resources.Httprs[0]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
 			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
 					ListenerName:       "test-listener",
@@ -188,8 +188,8 @@ func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestS
 				},
 			},
 		},
-		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
-			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+		k8s.NamespacedName(stack.Resources.Httprs[1]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
 			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
 					ListenerName:       "other-ns",
@@ -202,13 +202,13 @@ func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestS
 			},
 		},
 	}
-	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.Resources.Httprs, httpRouteStatusConverter, validationInfo)
 }
 
 func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStack) {
 	validationInfo := map[string]test_resources.RouteValidationInfo{
-		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
-			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+		k8s.NamespacedName(stack.Resources.Httprs[0]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
 			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
 					ListenerName:       "test-listener",
@@ -220,8 +220,8 @@ func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStac
 				},
 			},
 		},
-		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
-			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+		k8s.NamespacedName(stack.Resources.Httprs[1]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
 			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
 					ListenerName:       "other-ns",
@@ -234,13 +234,13 @@ func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStac
 			},
 		},
 	}
-	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.Resources.Httprs, httpRouteStatusConverter, validationInfo)
 }
 
 func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
 	validationInfo := map[string]test_resources.RouteValidationInfo{
-		k8s.NamespacedName(stack.albResourceStack.grpcrs[0]).String(): {
-			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+		k8s.NamespacedName(stack.Resources.Grpcrs[0]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
 			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
 					ListenerName:       "test-listener",
@@ -253,7 +253,7 @@ func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
 			},
 		},
 	}
-	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.grpcrs, grpcRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.Resources.Grpcrs, grpcRouteStatusConverter, validationInfo)
 }
 
 func httpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
@@ -278,8 +278,8 @@ func grpcRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Rout
 
 func validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf *framework.Framework, stack ALBTestStack) {
 	validationInfo := map[string]test_resources.RouteValidationInfo{
-		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
-			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+		k8s.NamespacedName(stack.Resources.Httprs[0]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
 			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
 					ListenerName:       "listener-no-hostname",
@@ -292,9 +292,9 @@ func validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf *framework.Framew
 			},
 		},
 	}
-	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.Resources.Httprs, httpRouteStatusConverter, validationInfo)
 
-	test_resources.ValidateGatewayStatus(tf, stack.albResourceStack.commonStack.Gw, test_resources.GatewayValidationInfo{
+	test_resources.ValidateGatewayStatus(tf, stack.Resources.CommonStack.Gw, test_resources.GatewayValidationInfo{
 		Conditions: []test_resources.GatewayConditionValidation{
 			{
 				ConditionType:   gwv1.GatewayConditionProgrammed,
