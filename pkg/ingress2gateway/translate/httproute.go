@@ -16,6 +16,15 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// hostScopedRoute holds a rule that was separated into its own HTTPRoute because it has
+// a host-header condition with values that differ from the Ingress spec host.
+// Gateway API hostnames are route-level, so per-rule host overrides require separate routes.
+type hostScopedRoute struct {
+	svcName   string
+	rule      gwv1.HTTPRouteRule
+	hostnames []gwv1.Hostname
+}
+
 // httpRouteTranslator holds shared state accumulated while iterating over Ingress paths.
 type httpRouteTranslator struct {
 	namespace           string
@@ -53,6 +62,7 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 
 	var rules []gwv1.HTTPRouteRule
 	var hostnames []gwv1.Hostname
+	var hostScopedRoutes []hostScopedRoute
 
 	for _, rule := range ing.Spec.Rules {
 		if rule.Host != "" {
@@ -62,11 +72,15 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 			continue
 		}
 		for _, path := range rule.HTTP.Paths {
-			routeRule, err := t.buildRouteRule(rule, path)
+			routeRule, hsr, err := t.buildRouteRule(rule, path)
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			rules = append(rules, routeRule)
+			if hsr != nil {
+				hostScopedRoutes = append(hostScopedRoutes, *hsr)
+			} else {
+				rules = append(rules, routeRule)
+			}
 		}
 	}
 
@@ -78,7 +92,7 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 	}
 	hostnames = deduplicateHostnames(hostnames)
 
-	routes := assembleRoutes(namespace, ing.Name, parentRefs, hostnames, rules,
+	routes := assembleRoutes(namespace, ing.Name, parentRefs, hostnames, rules, hostScopedRoutes,
 		ing.Spec.DefaultBackend, t)
 
 	return routes, t.svcRefs, t.listenerRuleConfigs, nil
@@ -99,25 +113,29 @@ func buildParentRefs(gatewayName string, listenPorts []listenPortEntry) []gwv1.P
 
 // buildRouteRule builds a single HTTPRouteRule from an Ingress path, including backend resolution,
 // action annotation translation, and condition annotation translation.
-func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path networking.HTTPIngressPath) (gwv1.HTTPRouteRule, error) {
+func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path networking.HTTPIngressPath) (gwv1.HTTPRouteRule, *hostScopedRoute, error) {
 	routeRule := gwv1.HTTPRouteRule{}
 
 	match, err := buildPathMatch(path, t.useRegex)
 	if err != nil {
-		return routeRule, fmt.Errorf("ingress %s/%s path %q: %w", t.namespace, t.ingName, path.Path, err)
+		return routeRule, nil, fmt.Errorf("ingress %s/%s path %q: %w", t.namespace, t.ingName, path.Path, err)
 	}
 	routeRule.Matches = []gwv1.HTTPRouteMatch{match}
 
 	if path.Backend.Service != nil {
 		if err := t.buildBackendForRule(&routeRule, path.Backend.Service); err != nil {
-			return routeRule, err
+			return routeRule, nil, err
 		}
-		if err := t.buildConditions(&routeRule, path.Backend.Service.Name); err != nil {
-			return routeRule, err
+		hsr, err := t.buildConditions(&routeRule, rule, path.Backend.Service.Name)
+		if err != nil {
+			return routeRule, nil, err
+		}
+		if hsr != nil {
+			return routeRule, hsr, nil
 		}
 	}
 
-	return routeRule, nil
+	return routeRule, nil, nil
 }
 
 // buildPathMatch builds an HTTPRouteMatch from an Ingress path spec.
@@ -197,18 +215,20 @@ func (t *httpRouteTranslator) buildServiceBackend(routeRule *gwv1.HTTPRouteRule,
 }
 
 // buildConditions parses and applies the conditions.* annotation for a rule.
-func (t *httpRouteTranslator) buildConditions(routeRule *gwv1.HTTPRouteRule, svcName string) error {
+// Returns a hostScopedRoute if the condition has host-header values (requiring a separate HTTPRoute),
+// or nil if the rule stays in the primary route.
+func (t *httpRouteTranslator) buildConditions(routeRule *gwv1.HTTPRouteRule, ingressRule networking.IngressRule, svcName string) (*hostScopedRoute, error) {
 	parsedConditions, err := parseConditionAnnotation(t.ingAnnotations, svcName)
 	if err != nil {
-		return fmt.Errorf("ingress %s/%s failed to parse condition annotation for %q: %w", t.namespace, t.ingName, svcName, err)
+		return nil, fmt.Errorf("ingress %s/%s failed to parse condition annotation for %q: %w", t.namespace, t.ingName, svcName, err)
 	}
 	if len(parsedConditions) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	condResult := translateConditions(parsedConditions, routeRule.Matches)
 	if condResult == nil {
-		return nil
+		return nil, nil
 	}
 
 	routeRule.Matches = condResult.Matches
@@ -221,12 +241,27 @@ func (t *httpRouteTranslator) buildConditions(routeRule *gwv1.HTTPRouteRule, svc
 		}
 	}
 
-	return nil
+	// Host-header values require a separate HTTPRoute because hostnames are route-level.
+	if len(condResult.AdditionalHostnames) > 0 {
+		var ruleHostnames []gwv1.Hostname
+		if ingressRule.Host != "" {
+			ruleHostnames = append(ruleHostnames, gwv1.Hostname(ingressRule.Host))
+		}
+		ruleHostnames = append(ruleHostnames, condResult.AdditionalHostnames...)
+		ruleHostnames = deduplicateHostnames(ruleHostnames)
+		return &hostScopedRoute{
+			svcName:   svcName,
+			rule:      *routeRule,
+			hostnames: ruleHostnames,
+		}, nil
+	}
+
+	return nil, nil
 }
 
 // assembleRoutes builds the final list of HTTPRoutes from the primary rules and default backend.
 func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference, hostnames []gwv1.Hostname,
-	rules []gwv1.HTTPRouteRule,
+	rules []gwv1.HTTPRouteRule, hostScopedRoutes []hostScopedRoute,
 	defaultBackend *networking.IngressBackend, t *httpRouteTranslator) []gwv1.HTTPRoute {
 
 	// Build default backend rule if present
@@ -268,6 +303,15 @@ func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference
 	// Separate catch-all route for defaultBackend when hostnames are present
 	if defaultRule != nil {
 		routes = append(routes, newHTTPRoute(utils.GetDefaultHTTPRouteName(namespace, ingName), namespace, parentRefs, nil, []gwv1.HTTPRouteRule{*defaultRule}))
+	}
+
+	// Separate routes for rules with host-header conditions
+	for _, hsr := range hostScopedRoutes {
+		routes = append(routes, newHTTPRoute(
+			utils.GetHTTPRouteName(namespace, hsr.svcName),
+			namespace, parentRefs, hsr.hostnames,
+			[]gwv1.HTTPRouteRule{hsr.rule},
+		))
 	}
 
 	return routes

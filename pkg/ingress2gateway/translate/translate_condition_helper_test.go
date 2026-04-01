@@ -48,44 +48,16 @@ func TestTranslateConditions(t *testing.T) {
 			wantNil:    true,
 		},
 		{
-			name: "host-header values go to LRC",
+			name: "host-header values passed through to AdditionalHostnames",
 			conditions: []ingress.RuleCondition{{
 				Field:            ingress.RuleConditionFieldHostHeader,
 				HostHeaderConfig: &ingress.HostHeaderConditionConfig{Values: []string{"anno.example.com", "*.example.com"}},
 			}},
 			matches:        emptyMatch,
 			wantMatchCount: 1,
-			wantLRCCount:   1,
+			wantLRCCount:   0,
 			check: func(t *testing.T, result *conditionResult) {
-				assert.Equal(t, gatewayv1beta1.ListenerRuleConditionFieldHostHeader, result.ListenerRuleConditions[0].Field)
-				assert.Equal(t, []string{"anno.example.com", "*.example.com"}, result.ListenerRuleConditions[0].HostHeaderConfig.Values)
-			},
-		},
-		{
-			name: "host-header complex wildcard values go to LRC",
-			conditions: []ingress.RuleCondition{{
-				Field:            ingress.RuleConditionFieldHostHeader,
-				HostHeaderConfig: &ingress.HostHeaderConditionConfig{Values: []string{"www.*.example.com", "host?name.com"}},
-			}},
-			matches:        emptyMatch,
-			wantMatchCount: 1,
-			wantLRCCount:   1,
-			check: func(t *testing.T, result *conditionResult) {
-				assert.Equal(t, gatewayv1beta1.ListenerRuleConditionFieldHostHeader, result.ListenerRuleConditions[0].Field)
-				assert.Equal(t, []string{"www.*.example.com", "host?name.com"}, result.ListenerRuleConditions[0].HostHeaderConfig.Values)
-			},
-		},
-		{
-			name: "host-header regexValues goes to LRC",
-			conditions: []ingress.RuleCondition{{
-				Field:            ingress.RuleConditionFieldHostHeader,
-				HostHeaderConfig: &ingress.HostHeaderConditionConfig{RegexValues: []string{"^(.+)\\.example\\.com$"}},
-			}},
-			matches:        emptyMatch,
-			wantMatchCount: 1,
-			wantLRCCount:   1,
-			check: func(t *testing.T, result *conditionResult) {
-				assert.Equal(t, []string{"^(.+)\\.example\\.com$"}, result.ListenerRuleConditions[0].HostHeaderConfig.RegexValues)
+				assert.Equal(t, []gwv1.Hostname{"anno.example.com", "*.example.com"}, result.AdditionalHostnames)
 			},
 		},
 		{

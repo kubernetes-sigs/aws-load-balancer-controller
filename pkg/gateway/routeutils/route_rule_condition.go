@@ -288,47 +288,10 @@ func BuildConditionsFromListenerRuleConfig(ruleWithPrecedence RulePrecedence, co
 			case elbv2gw.ListenerRuleConditionFieldSourceIP:
 				lrcConditions := buildSourceIpCondition(condition)
 				conditionsList = append(conditionsList, lrcConditions...)
-			case elbv2gw.ListenerRuleConditionFieldHostHeader:
-				conditionsList = mergeHostHeaderCondition(conditionsList, condition)
 			}
 		}
 	}
 	return conditionsList
-}
-
-func buildHostHeaderCondition(condition elbv2gw.ListenerRuleCondition) *elbv2model.RuleCondition {
-	if condition.HostHeaderConfig == nil {
-		return nil
-	}
-	hostHeaderConfig := &elbv2model.HostHeaderConditionConfig{}
-	if len(condition.HostHeaderConfig.Values) > 0 {
-		hostHeaderConfig.Values = condition.HostHeaderConfig.Values
-	}
-	if len(condition.HostHeaderConfig.RegexValues) > 0 {
-		hostHeaderConfig.RegexValues = condition.HostHeaderConfig.RegexValues
-	}
-	return &elbv2model.RuleCondition{
-		Field:            elbv2model.RuleConditionFieldHostHeader,
-		HostHeaderConfig: hostHeaderConfig,
-	}
-}
-
-// mergeHostHeaderCondition merges LRC host-header values/regexValues into an existing host-header
-// condition in the list (from route hostnames), or appends a new one if none exists.
-// ALB allows at most one host-header condition per rule, so we must merge rather than append.
-func mergeHostHeaderCondition(conditionsList []elbv2model.RuleCondition, lrcCondition elbv2gw.ListenerRuleCondition) []elbv2model.RuleCondition {
-	newCondition := buildHostHeaderCondition(lrcCondition)
-	if newCondition == nil {
-		return conditionsList
-	}
-	for i := range conditionsList {
-		if conditionsList[i].Field == elbv2model.RuleConditionFieldHostHeader && conditionsList[i].HostHeaderConfig != nil {
-			conditionsList[i].HostHeaderConfig.Values = append(conditionsList[i].HostHeaderConfig.Values, newCondition.HostHeaderConfig.Values...)
-			conditionsList[i].HostHeaderConfig.RegexValues = append(conditionsList[i].HostHeaderConfig.RegexValues, newCondition.HostHeaderConfig.RegexValues...)
-			return conditionsList
-		}
-	}
-	return append(conditionsList, *newCondition)
 }
 
 // generateValuesFromMatchHeaderValue takes in header value from route match

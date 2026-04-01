@@ -10,10 +10,11 @@ import (
 
 // conditionResult holds the Gateway API resources produced from translating conditions annotations.
 type conditionResult struct {
+	// AdditionalHostnames to add to the HTTPRoute's route-level hostnames (from host-header condition values).
+	AdditionalHostnames []gwv1.Hostname
 	// Matches is the expanded set of HTTPRouteMatch entries after applying conditions.
 	Matches []gwv1.HTTPRouteMatch
 	// ListenerRuleConditions are conditions that must go into a ListenerRuleConfiguration
-	// (host-header, source-ip).
 	ListenerRuleConditions []gatewayv1beta1.ListenerRuleCondition
 }
 
@@ -34,21 +35,15 @@ func translateConditions(conditions []ingress.RuleCondition, matches []gwv1.HTTP
 			if cond.HostHeaderConfig == nil {
 				continue
 			}
-			if len(cond.HostHeaderConfig.Values) > 0 {
-				result.ListenerRuleConditions = append(result.ListenerRuleConditions, gatewayv1beta1.ListenerRuleCondition{
-					Field: gatewayv1beta1.ListenerRuleConditionFieldHostHeader,
-					HostHeaderConfig: &gatewayv1beta1.HostHeaderConditionConfig{
-						Values: cond.HostHeaderConfig.Values,
-					},
-				})
+			// Pass host-header values through to AdditionalHostnames.
+			// These get added to a separate HTTPRoute's hostnames (split route).
+			// Complex wildcards or regex values that Gateway API can't represent will be
+			// rejected by the K8s API server when the manifest is applied.
+			for _, v := range cond.HostHeaderConfig.Values {
+				result.AdditionalHostnames = append(result.AdditionalHostnames, gwv1.Hostname(v))
 			}
-			if len(cond.HostHeaderConfig.RegexValues) > 0 {
-				result.ListenerRuleConditions = append(result.ListenerRuleConditions, gatewayv1beta1.ListenerRuleCondition{
-					Field: gatewayv1beta1.ListenerRuleConditionFieldHostHeader,
-					HostHeaderConfig: &gatewayv1beta1.HostHeaderConditionConfig{
-						RegexValues: cond.HostHeaderConfig.RegexValues,
-					},
-				})
+			for _, v := range cond.HostHeaderConfig.RegexValues {
+				result.AdditionalHostnames = append(result.AdditionalHostnames, gwv1.Hostname(v))
 			}
 
 		case ingress.RuleConditionFieldPathPattern:

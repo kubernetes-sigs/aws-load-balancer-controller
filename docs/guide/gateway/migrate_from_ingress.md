@@ -99,6 +99,10 @@ The migrated Gateway API manifests may produce more ALB listener rules than the 
 
 Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
 
+The following Ingress condition types have limited support in the migration tool and Gatewaty API:
+
+- `host-header` conditions — values are passed through to Gateway API hostnames. Since hostnames are route-level in Gateway API (not per-rule), rules with host-header conditions are split into separate HTTPRoutes with their own hostnames. Complex wildcards (e.g., `www.*.example.com`) or regex values that don't conform to Gateway API hostname format will be rejected by the K8s API server when the manifest is applied.
+
 !!! important "What changes and what stays the same"
     The generated output **replaces only your Ingress resource**. Everything else stays untouched:
 

@@ -378,32 +378,7 @@ spec:
                       description: The field in the HTTP request
                       enum:
                       - source-ip
-                      - host-header
                       type: string
-                    hostHeaderConfig:
-                      description: Information for a host header condition
-                      properties:
-                        regexValues:
-                          description: |-
-                            One or more host header values using regex syntax.
-                            Mutually exclusive with values.
-                          items:
-                            type: string
-                          minItems: 1
-                          type: array
-                        values:
-                          description: |-
-                            One or more host header values using wildcard syntax (* matches 0+ chars, ? matches 1 char).
-                            Mutually exclusive with regexValues.
-                          items:
-                            type: string
-                          minItems: 1
-                          type: array
-                      type: object
-                      x-kubernetes-validations:
-                      - message: exactly one of values or regexValues must be specified
-                        rule: (has(self.values) && !has(self.regexValues)) || (!has(self.values)
-                          && has(self.regexValues))
                     matchIndexes:
                       description: |-
                         Indexes of Match in a rule to apply the condition to.
@@ -430,10 +405,6 @@ spec:
                   - message: sourceIPConfig must be specified only when field is 'source-ip'
                     rule: 'has(self.field) && self.field == ''source-ip'' ? has(self.sourceIPConfig)
                       : !has(self.sourceIPConfig)'
-                  - message: hostHeaderConfig must be specified only when field is
-                      'host-header'
-                    rule: 'has(self.field) && self.field == ''host-header'' ? has(self.hostHeaderConfig)
-                      : !has(self.hostHeaderConfig)'
                 minItems: 1
                 type: array
               tags:
