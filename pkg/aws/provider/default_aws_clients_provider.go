@@ -61,11 +61,15 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 	})
 	wafregionalClient := wafregional.NewFromConfig(cfg, func(o *wafregional.Options) {
 		o.Region = cfg.Region
-		o.BaseEndpoint = wafregionalCustomEndpoint
+		if wafregionalCustomEndpoint != nil {
+			o.BaseEndpoint = wafregionalCustomEndpoint
+		}
 	})
 	shieldClient := shield.NewFromConfig(cfg, func(o *shield.Options) {
 		o.Region = cfg.Region
-		o.BaseEndpoint = shieldCustomEndpoint
+		if shieldCustomEndpoint != nil {
+			o.BaseEndpoint = shieldCustomEndpoint
+		}
 	})
 	rgtClient := resourcegroupstaggingapi.NewFromConfig(cfg, func(o *resourcegroupstaggingapi.Options) {
 		if rgtCustomEndpoint != nil {
