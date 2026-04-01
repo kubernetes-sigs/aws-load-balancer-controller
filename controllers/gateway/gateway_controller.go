@@ -448,7 +448,8 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 		needPatch = true
 	}
 
-	connectedListenerSets := int32(len(loaderResults.ValidationResults.ListenerSetListenerValidation))
+	connectedListenerSets := routeutils.CalculateAttachedListenerSets(loaderResults.ValidationResults.ListenerSetListenerValidation)
+
 	if gw.Status.AttachedListenerSets == nil || *gw.Status.AttachedListenerSets != connectedListenerSets {
 		gw.Status.AttachedListenerSets = &connectedListenerSets
 		needPatch = true
