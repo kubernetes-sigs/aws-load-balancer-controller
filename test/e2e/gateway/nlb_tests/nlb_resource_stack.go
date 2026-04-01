@@ -1,4 +1,4 @@
-package gateway
+package nlb_tests
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -14,7 +15,7 @@ import (
 
 func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *nlbResourceStack {
 
-	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
+	commonStack := gateway.newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
 	return &nlbResourceStack{
 		tcprs:       tcpr,
 		udprs:       udpr,
@@ -25,7 +26,7 @@ func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *
 
 // resourceStack containing the deployment and service resources
 type nlbResourceStack struct {
-	commonStack *commonResourceStack
+	commonStack *gateway.commonResourceStack
 	tcprs       []*gwalpha2.TCPRoute
 	udprs       []*gwalpha2.UDPRoute
 	tlsrs       []*gwv1.TLSRoute
@@ -75,7 +76,7 @@ func (s *nlbResourceStack) getListenersPortMap() map[string]string {
 }
 
 func (s *nlbResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
-	return waitUntilDeploymentReady(ctx, f, s.commonStack.dps)
+	return gateway.waitUntilDeploymentReady(ctx, f, s.commonStack.dps)
 }
 
 func (s *nlbResourceStack) GetNamespace() string {

@@ -1,4 +1,4 @@
-package gateway
+package alb_tests
 
 import (
 	"context"
@@ -12,7 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/grpc/echo"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources/grpc/echo"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -21,7 +22,7 @@ type ALBTestStack struct {
 	albResourceStack *albResourceStack
 }
 
-func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliaryResourceStack, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
+func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *test_resources.AuxiliaryResourceStack, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
 	if auxiliaryStack != nil {
 		gwListeners = append(gwListeners, gwv1.Listener{
 			Name:     "other-ns",
@@ -29,7 +30,7 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliary
 			Protocol: gwv1.HTTPProtocolType,
 		})
 
-		httprs = append(httprs, buildOtherNsRefHttpRoute("other-ns", auxiliaryStack.ns))
+		httprs = append(httprs, test_resources.BuildOtherNsRefHttpRoute("other-ns", auxiliaryStack.Ns))
 	}
 
 	if f.Options.IPFamily == framework.IPv6 {
@@ -37,27 +38,27 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliary
 		lbConfSpec.IpAddressType = &v6
 	}
 
-	svc := buildServiceSpec(map[string]string{})
-	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
-	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
+	svc := test_resources.BuildServiceSpec(map[string]string{})
+	tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svc)
+	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{test_resources.BuildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
 }
 
 func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, grpcrs []*gwv1.GRPCRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, readinessGateEnabled bool) error {
 	labels := map[string]string{
-		"app.kubernetes.io/instance": grpcDefaultName,
+		"app.kubernetes.io/instance": test_resources.GRPCDefaultName,
 	}
 
 	otherLabels := map[string]string{
 		"app.kubernetes.io/instance": "other",
 	}
 
-	svc := buildGRPCServiceSpec(grpcDefaultName, labels)
-	dp := buildGRPCDeploymentSpec(grpcDefaultName, "Hello World", labels)
-	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
+	svc := test_resources.BuildGRPCServiceSpec(test_resources.GRPCDefaultName, labels)
+	dp := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName, "Hello World", labels)
+	tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svc)
 
-	svcOther := buildGRPCServiceSpec(grpcDefaultName+"-other", otherLabels)
-	dpOther := buildGRPCDeploymentSpec(grpcDefaultName+"-other", "Hello World - Other", otherLabels)
-	tgcOther := buildTargetGroupConfig(defaultTgConfigName+"-other", tgConfSpec, svcOther)
+	svcOther := test_resources.BuildGRPCServiceSpec(test_resources.GRPCDefaultName+"-other", otherLabels)
+	dpOther := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName+"-other", "Hello World - Other", otherLabels)
+	tgcOther := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName+"-other", tgConfSpec, svcOther)
 
 	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{}, grpcrs, []*appsv1.Deployment{dp, dpOther}, []*corev1.Service{svc, svcOther}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc, tgcOther}, lrConfSpec, nil, readinessGateEnabled)
 }
@@ -78,13 +79,13 @@ func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framewor
 		},
 	}
 
-	svc1 := buildServiceSpec(map[string]string{})
-	svc2 := buildServiceSpec(map[string]string{})
+	svc1 := test_resources.BuildServiceSpec(map[string]string{})
+	svc2 := test_resources.BuildServiceSpec(map[string]string{})
 	svc2.Name = "echoserver-v2"
-	svcTgc := buildTargetGroupConfig("svc2-tgc", svcTgSpec, svc2)
+	svcTgc := test_resources.BuildTargetGroupConfig("svc2-tgc", svcTgSpec, svc2)
 
 	port := gwv1.PortNumber(80)
-	httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{
+	httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{
 		{
 			BackendRefs: []gwv1.HTTPBackendRef{
 				{
@@ -109,7 +110,7 @@ func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framewor
 	lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
 
 	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{httpr}, []*gwv1.GRPCRoute{},
-		[]*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)},
+		[]*appsv1.Deployment{test_resources.BuildDeploymentSpec(f.Options.TestImageRegistry)},
 		[]*corev1.Service{svc1, svc2},
 		lbConfSpec,
 		[]*elbv2gw.TargetGroupConfiguration{defaultTGC, svcTgc},
@@ -117,12 +118,12 @@ func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framewor
 }
 
 func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
-	gw := buildBasicGatewaySpec(gwc, gwListeners)
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	lrc := buildListenerRuleConfig(defaultLRConfigName, lrConfSpec)
+	gwc := test_resources.BuildGatewayClassSpec("test_resources.k8s.aws/alb")
+	gw := test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
+	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lrc := test_resources.BuildListenerRuleConfig(test_resources.DefaultLRConfigName, lrConfSpec)
 
-	namespaceLabels := getNamespaceLabels(readinessGateEnabled)
+	namespaceLabels := test_resources.GetNamespaceLabels(readinessGateEnabled)
 
 	s.albResourceStack = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, secret, "alb-gateway-e2e", namespaceLabels)
 
@@ -173,86 +174,86 @@ func generateGRPCClient(dnsName string) (echo.EchoServiceClient, error) {
 }
 
 func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestStack) {
-	validationInfo := map[string]routeValidationInfo{
+	validationInfo := map[string]test_resources.RouteValidationInfo{
 		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
-			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
-					listenerName:       "test-listener",
-					parentKind:         "Gateway",
-					resolvedRefReason:  "ResolvedRefs",
-					resolvedRefsStatus: "True",
-					acceptedReason:     "Accepted",
-					acceptedStatus:     "True",
+					ListenerName:       "test-listener",
+					ParentKind:         "Gateway",
+					ResolvedRefReason:  "ResolvedRefs",
+					ResolvedRefsStatus: "True",
+					AcceptedReason:     "Accepted",
+					AcceptedStatus:     "True",
 				},
 			},
 		},
 		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
-			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
-					listenerName:       "other-ns",
-					parentKind:         "Gateway",
-					resolvedRefReason:  "RefNotPermitted",
-					resolvedRefsStatus: "False",
-					acceptedReason:     "Accepted",
-					acceptedStatus:     "True",
+					ListenerName:       "other-ns",
+					ParentKind:         "Gateway",
+					ResolvedRefReason:  "RefNotPermitted",
+					ResolvedRefsStatus: "False",
+					AcceptedReason:     "Accepted",
+					AcceptedStatus:     "True",
 				},
 			},
 		},
 	}
-	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
 }
 
 func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStack) {
-	validationInfo := map[string]routeValidationInfo{
+	validationInfo := map[string]test_resources.RouteValidationInfo{
 		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
-			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
-					listenerName:       "test-listener",
-					parentKind:         "Gateway",
-					resolvedRefReason:  "ResolvedRefs",
-					resolvedRefsStatus: "True",
-					acceptedReason:     "Accepted",
-					acceptedStatus:     "True",
+					ListenerName:       "test-listener",
+					ParentKind:         "Gateway",
+					ResolvedRefReason:  "ResolvedRefs",
+					ResolvedRefsStatus: "True",
+					AcceptedReason:     "Accepted",
+					AcceptedStatus:     "True",
 				},
 			},
 		},
 		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
-			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
-					listenerName:       "other-ns",
-					parentKind:         "Gateway",
-					resolvedRefReason:  "ResolvedRefs",
-					resolvedRefsStatus: "True",
-					acceptedReason:     "Accepted",
-					acceptedStatus:     "True",
+					ListenerName:       "other-ns",
+					ParentKind:         "Gateway",
+					ResolvedRefReason:  "ResolvedRefs",
+					ResolvedRefsStatus: "True",
+					AcceptedReason:     "Accepted",
+					AcceptedStatus:     "True",
 				},
 			},
 		},
 	}
-	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
 }
 
 func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
-	validationInfo := map[string]routeValidationInfo{
+	validationInfo := map[string]test_resources.RouteValidationInfo{
 		k8s.NamespacedName(stack.albResourceStack.grpcrs[0]).String(): {
-			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
-					listenerName:       "test-listener",
-					parentKind:         "Gateway",
-					resolvedRefReason:  "ResolvedRefs",
-					resolvedRefsStatus: "True",
-					acceptedReason:     "Accepted",
-					acceptedStatus:     "True",
+					ListenerName:       "test-listener",
+					ParentKind:         "Gateway",
+					ResolvedRefReason:  "ResolvedRefs",
+					ResolvedRefsStatus: "True",
+					AcceptedReason:     "Accepted",
+					AcceptedStatus:     "True",
 				},
 			},
 		},
 	}
-	validateRouteStatus(tf, stack.albResourceStack.grpcrs, grpcRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.grpcrs, grpcRouteStatusConverter, validationInfo)
 }
 
 func httpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
@@ -276,66 +277,66 @@ func grpcRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Rout
 }
 
 func validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf *framework.Framework, stack ALBTestStack) {
-	validationInfo := map[string]routeValidationInfo{
+	validationInfo := map[string]test_resources.RouteValidationInfo{
 		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
-			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			ParentGatewayName: stack.albResourceStack.commonStack.Gw.Name,
+			ListenerInfo: []test_resources.ListenerValidationInfo{
 				{
-					listenerName:       "listener-no-hostname",
-					parentKind:         "Gateway",
-					resolvedRefReason:  "ResolvedRefs",
-					resolvedRefsStatus: "True",
-					acceptedReason:     "Accepted",
-					acceptedStatus:     "True",
+					ListenerName:       "listener-no-hostname",
+					ParentKind:         "Gateway",
+					ResolvedRefReason:  "ResolvedRefs",
+					ResolvedRefsStatus: "True",
+					AcceptedReason:     "Accepted",
+					AcceptedStatus:     "True",
 				},
 			},
 		},
 	}
-	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+	test_resources.ValidateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
 
-	validateGatewayStatus(tf, stack.albResourceStack.commonStack.gw, gatewayValidationInfo{
-		conditions: []gatewayConditionValidation{
+	test_resources.ValidateGatewayStatus(tf, stack.albResourceStack.commonStack.Gw, test_resources.GatewayValidationInfo{
+		Conditions: []test_resources.GatewayConditionValidation{
 			{
-				conditionType:   gwv1.GatewayConditionProgrammed,
-				conditionStatus: "True",
-				conditionReason: "Programmed",
+				ConditionType:   gwv1.GatewayConditionProgrammed,
+				ConditionStatus: "True",
+				ConditionReason: "Programmed",
 			},
 			{
-				conditionType:   gwv1.GatewayConditionAccepted,
-				conditionStatus: "True",
-				conditionReason: "Accepted",
+				ConditionType:   gwv1.GatewayConditionAccepted,
+				ConditionStatus: "True",
+				ConditionReason: "Accepted",
 			},
 		},
-		listeners: []gatewayListenerValidation{
+		Listeners: []test_resources.GatewayListenerValidation{
 			{
-				listenerName:   "listener-no-hostname",
-				attachedRoutes: 1,
-				conditions: []listenerConditionValidation{
+				ListenerName:   "listener-no-hostname",
+				AttachedRoutes: 1,
+				Conditions: []test_resources.ListenerConditionValidation{
 					{
-						conditionType:   gwv1.ListenerConditionAccepted,
-						conditionStatus: "True",
-						conditionReason: "Accepted",
+						ConditionType:   gwv1.ListenerConditionAccepted,
+						ConditionStatus: "True",
+						ConditionReason: "Accepted",
 					},
 					{
-						conditionType:   gwv1.ListenerConditionProgrammed,
-						conditionStatus: "True",
-						conditionReason: "Programmed",
+						ConditionType:   gwv1.ListenerConditionProgrammed,
+						ConditionStatus: "True",
+						ConditionReason: "Programmed",
 					},
 				},
 			},
 			{
-				listenerName:   "listener-with-hostname",
-				attachedRoutes: 0,
-				conditions: []listenerConditionValidation{
+				ListenerName:   "listener-with-hostname",
+				AttachedRoutes: 0,
+				Conditions: []test_resources.ListenerConditionValidation{
 					{
-						conditionType:   gwv1.ListenerConditionAccepted,
-						conditionStatus: "True",
-						conditionReason: "Accepted",
+						ConditionType:   gwv1.ListenerConditionAccepted,
+						ConditionStatus: "True",
+						ConditionReason: "Accepted",
 					},
 					{
-						conditionType:   gwv1.ListenerConditionProgrammed,
-						conditionStatus: "True",
-						conditionReason: "Programmed",
+						ConditionType:   gwv1.ListenerConditionProgrammed,
+						ConditionStatus: "True",
+						ConditionReason: "Programmed",
 					},
 				},
 			},

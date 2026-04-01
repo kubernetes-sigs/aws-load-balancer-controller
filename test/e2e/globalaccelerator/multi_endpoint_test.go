@@ -2,6 +2,8 @@ package globalaccelerator
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	. "github.com/onsi/ginkgo/v2"
@@ -14,13 +16,13 @@ import (
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/service"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"time"
 )
 
 var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
@@ -164,7 +166,7 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 			gatewayNamespace string
 			ingNamespace     string
 			svcStack         *service.ResourceStack
-			gwStack          *gateway.ALBTestStack
+			gwStack          *alb_tests.ALBTestStack
 			gatewayName      string
 			acceleratorName  string
 			gaName           string
@@ -214,10 +216,10 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 			svcNamespace = svcStack.GetNamespace()
 
 			// Create Gateway in Gateway namespace
-			gwStack = &gateway.ALBTestStack{}
+			gwStack = &alb_tests.ALBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
 			listeners := []gwv1.Listener{{Name: "http", Protocol: gwv1.HTTPProtocolType, Port: gwv1.PortNumber(80)}}
-			httpRoute := gateway.BuildHTTPRoute(nil, nil, nil)
+			httpRoute := test_resources.BuildHTTPRoute(nil, nil, nil)
 			err = gwStack.DeployHTTP(ctx, nil, tf, listeners, []*gwv1.HTTPRoute{httpRoute}, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, elbv2gw.ListenerRuleConfigurationSpec{}, nil, false)
 			Expect(err).NotTo(HaveOccurred())
 			gatewayNamespace = gwStack.GetNamespace()

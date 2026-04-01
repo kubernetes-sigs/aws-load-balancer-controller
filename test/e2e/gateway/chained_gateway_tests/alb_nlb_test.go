@@ -1,4 +1,4 @@
-package gateway
+package chained_gateway_tests
 
 import (
 	"context"
@@ -9,6 +9,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/nlb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -18,22 +22,22 @@ import (
 var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute", func() {
 	var (
 		ctx      context.Context
-		albStack ALBTestStack
-		nlbStack NLBTestStack
+		albStack alb_tests.ALBTestStack
+		nlbStack nlb_tests.NLBTestStack
 	)
 
 	BeforeEach(func() {
-		if !tf.Options.EnableGatewayTests {
+		if !gateway.tf.Options.EnableGatewayTests {
 			Skip("Skipping gateway tests")
 		}
 		ctx = context.Background()
-		albStack = ALBTestStack{}
-		nlbStack = NLBTestStack{}
+		albStack = alb_tests.ALBTestStack{}
+		nlbStack = nlb_tests.NLBTestStack{}
 	})
 
 	AfterEach(func() {
-		albStack.Cleanup(ctx, tf)
-		nlbStack.Cleanup(ctx, tf)
+		albStack.Cleanup(ctx, gateway.tf)
+		nlbStack.Cleanup(ctx, gateway.tf)
 	})
 
 	Context("with ALB and NLB gateways using IP targets", func() {
@@ -57,8 +61,8 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 			// Configure TLS for both if certificates are available
 			var hasTLS bool
-			if len(tf.Options.CertificateARNs) > 0 {
-				cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+			if len(gateway.tf.Options.CertificateARNs) > 0 {
+				cert := strings.Split(gateway.tf.Options.CertificateARNs, ",")[0]
 
 				// ALB HTTPS listener
 				albLsConfig := elbv2gw.ListenerConfiguration{
@@ -95,15 +99,15 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			}
 
 			// HTTPRoute for ALB
-			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying ALB stack", func() {
-				err := albStack.DeployHTTP(ctx, nil, tf, albGwListeners, []*gwv1.HTTPRoute{httpr}, albLbcSpec, tgSpec, lrcSpec, nil, true)
+				err := albStack.DeployHTTP(ctx, nil, gateway.tf, albGwListeners, []*gwv1.HTTPRoute{httpr}, albLbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("deploying NLB stack", func() {
-				err := nlbStack.DeployFrontendNLB(ctx, albStack, tf, nlbLbcSpec, hasTLS, true)
+				err := nlbStack.DeployFrontendNLB(ctx, albStack, gateway.tf, nlbLbcSpec, hasTLS, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking alb gateway status for lb dns name", func() {
@@ -113,7 +117,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				albARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, albDnsName)
+				albARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, albDnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(albARN).ToNot(BeEmpty())
 			})
@@ -123,7 +127,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				nlbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, nlbDnsName)
+				nlbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, nlbDnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(nlbARN).ToNot(BeEmpty())
 			})
@@ -134,13 +138,13 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 						Port:          80,
 						NumTargets:    int(*albStack.albResourceStack.commonStack.dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
 				listenerPortMap := albStack.albResourceStack.getListenersPortMap()
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, albARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, albARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internal",
 					Listeners:    listenerPortMap,
@@ -154,7 +158,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 				listenerPortMap := map[string]string{}
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
 					Listeners:    listenerPortMap,
@@ -164,7 +168,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("deploy reference grant that allows nlb <-> alb attachment", func() {
 				var err error
-				refGrant, err = nlbStack.CreateFENLBReferenceGrant(ctx, tf, albStack.albResourceStack.commonStack.ns)
+				refGrant, err = nlbStack.CreateFENLBReferenceGrant(ctx, gateway.tf, albStack.albResourceStack.commonStack.ns)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(2 * time.Minute)
 			})
@@ -210,7 +214,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 				listenerPortMap := nlbStack.nlbResourceStack.getListenersPortMap()
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
 					Listeners:    listenerPortMap,
@@ -220,7 +224,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("verify port 80 works", func() {
 				url := fmt.Sprintf("http://%v/any-path", nlbDnsName)
-				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			if hasTLS {
@@ -229,12 +233,12 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					urlOptions := http.URLOptions{
 						InsecureSkipVerify: true,
 					}
-					err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
+					err := gateway.tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
 					Expect(err).NotTo(HaveOccurred())
 				})
 			}
 			By("remove reference grant should remove nlb listener but keep alb listener intact", func() {
-				err := tf.K8sClient.Delete(ctx, refGrant)
+				err := gateway.tf.K8sClient.Delete(ctx, refGrant)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(2 * time.Minute)
 			})
@@ -245,13 +249,13 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 						Port:          80,
 						NumTargets:    int(*albStack.albResourceStack.commonStack.dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
 				listenerPortMap := albStack.albResourceStack.getListenersPortMap()
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, albARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, albARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internal",
 					Listeners:    listenerPortMap,
@@ -265,7 +269,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 
 				listenerPortMap := map[string]string{}
 
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
 					Listeners:    listenerPortMap,

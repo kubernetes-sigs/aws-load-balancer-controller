@@ -1,4 +1,4 @@
-package gateway
+package alb_tests
 
 import (
 	"context"
@@ -12,13 +12,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func newALBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrc *elbv2gw.ListenerRuleConfiguration, httpr []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, secret *testOIDCSecret, baseName string, namespaceLabels map[string]string) *albResourceStack {
 
-	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, []*elbv2gw.ListenerRuleConfiguration{lrc}, baseName, namespaceLabels)
+	commonStack := test_resources.NewCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, []*elbv2gw.ListenerRuleConfiguration{lrc}, baseName, namespaceLabels)
 	return &albResourceStack{
 		httprs:      httpr,
 		grpcrs:      grpcrs,
@@ -29,7 +30,7 @@ func newALBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *
 
 // resourceStack containing the deployment and service resources
 type albResourceStack struct {
-	commonStack *commonResourceStack
+	commonStack *test_resources.CommonResourceStack
 	httprs      []*gwv1.HTTPRoute
 	grpcrs      []*gwv1.GRPCRoute
 	OIDCSecret  *testOIDCSecret
@@ -80,15 +81,15 @@ func (s *albResourceStack) GetLoadBalancerIngressHostname() string {
 }
 
 func (s *albResourceStack) getListenersPortMap() map[string]string {
-	return s.commonStack.getListenersPortMap()
+	return s.commonStack.GetListenersPortMap()
 }
 
 func (s *albResourceStack) GetNamespace() string {
-	return s.commonStack.ns.Name
+	return s.commonStack.Ns.Name
 }
 
 func (s *albResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
-	return waitUntilDeploymentReady(ctx, f, s.commonStack.dps)
+	return test_resources.WaitUntilDeploymentReady(ctx, f, s.commonStack.Dps)
 }
 
 func (s *albResourceStack) createHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
@@ -178,7 +179,7 @@ func (s *albResourceStack) deleteOIDCSecretWithRBAC(ctx context.Context, f *fram
 	if s.OIDCSecret == nil {
 		return nil
 	}
-	namespace := s.commonStack.ns
+	namespace := s.commonStack.Ns
 	roleName := fmt.Sprintf("oidc-secret-reader-%s", s.OIDCSecret.name)
 	roleBindingName := fmt.Sprintf("oidc-secret-reader-binding-%s", s.OIDCSecret.name)
 

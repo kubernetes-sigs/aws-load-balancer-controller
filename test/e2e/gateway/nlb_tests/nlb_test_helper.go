@@ -1,4 +1,4 @@
-package gateway
+package nlb_tests
 
 import (
 	"context"
@@ -12,6 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -22,13 +25,13 @@ type NLBTestStack struct {
 	nlbResourceStack *nlbResourceStack
 }
 
-func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxiliaryStack *auxiliaryResourceStack, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, hasTLS bool, tlsMode gwv1.TLSModeType, readinessGateEnabled bool) error {
-	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
-	svcTCP := buildServiceSpec(map[string]string{})
+func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxiliaryStack *gateway.auxiliaryResourceStack, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, hasTLS bool, tlsMode gwv1.TLSModeType, readinessGateEnabled bool) error {
+	dpTCP := gateway.buildDeploymentSpec(f.Options.TestImageRegistry)
+	svcTCP := gateway.buildServiceSpec(map[string]string{})
 
-	dpUDP := buildUDPDeploymentSpec()
-	svcUDP := buildUDPServiceSpec()
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	dpUDP := gateway.buildUDPDeploymentSpec()
+	svcUDP := gateway.buildUDPServiceSpec()
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
 	if f.Options.IPFamily == framework.IPv6 {
 		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
@@ -64,7 +67,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 		})
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute([]gwv1.ParentReference{}, []gwv1.BackendRef{})}
+	tcprs := []*gwalpha2.TCPRoute{gateway.buildTCPRoute([]gwv1.ParentReference{}, []gwv1.BackendRef{})}
 	if auxiliaryStack != nil {
 		listeners = append(listeners, gwv1.Listener{
 			Name:     "other-ns",
@@ -72,29 +75,29 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 			Protocol: gwv1.TCPProtocolType,
 		})
 
-		tcprs = append(tcprs, buildOtherNsRefTcpRoute("other-ns", auxiliaryStack.ns))
+		tcprs = append(tcprs, gateway.buildOtherNsRefTcpRoute("other-ns", auxiliaryStack.ns))
 	}
 
-	gw := buildBasicGatewaySpec(gwc, listeners)
+	gw := gateway.buildBasicGatewaySpec(gwc, listeners)
 
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgcTCP := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svcTCP)
-	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
-	udpr := buildUDPRoute("port8080")
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
+	tgcTCP := gateway.buildTargetGroupConfig(gateway.defaultTgConfigName, tgConfSpec, svcTCP)
+	tgcUDP := gateway.buildTargetGroupConfig(gateway.udpDefaultTgConfigName, tgConfSpec, svcUDP)
+	udpr := gateway.buildUDPRoute("port8080")
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", gateway.getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
 func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	dpTCP1 := buildCustomizableResponseDeploymentSpec("dp1", "yellow", f.Options.TestImageRegistry)
-	dpTCP2 := buildCustomizableResponseDeploymentSpec("dp2", "green", f.Options.TestImageRegistry)
-	svcTCP1 := buildServiceSpec(dpTCP1.Spec.Selector.MatchLabels)
-	svcTCP2 := buildServiceSpec(dpTCP2.Spec.Selector.MatchLabels)
+	dpTCP1 := gateway.buildCustomizableResponseDeploymentSpec("dp1", "yellow", f.Options.TestImageRegistry)
+	dpTCP2 := gateway.buildCustomizableResponseDeploymentSpec("dp2", "green", f.Options.TestImageRegistry)
+	svcTCP1 := gateway.buildServiceSpec(dpTCP1.Spec.Selector.MatchLabels)
+	svcTCP2 := gateway.buildServiceSpec(dpTCP2.Spec.Selector.MatchLabels)
 	svcTCP2.Name = svcTCP2.Name + "-2"
 
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
 	if f.Options.IPFamily == framework.IPv6 {
 		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
@@ -131,9 +134,9 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 		}
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute([]gwv1.ParentReference{
+	tcprs := []*gwalpha2.TCPRoute{gateway.buildTCPRoute([]gwv1.ParentReference{
 		{
-			Name: defaultName,
+			Name: gateway.defaultName,
 		},
 	}, []gwv1.BackendRef{
 		{
@@ -150,21 +153,21 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 		},
 	})}
 
-	gw := buildBasicGatewaySpec(gwc, listeners)
+	gw := gateway.buildBasicGatewaySpec(gwc, listeners)
 
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgcTCP1 := buildTargetGroupConfig(svcTCP1.Name, tgConfSpec, svcTCP1)
-	tgcTCP2 := buildTargetGroupConfig(svcTCP2.Name, tgConfSpec, svcTCP2)
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
+	tgcTCP1 := gateway.buildTargetGroupConfig(svcTCP1.Name, tgConfSpec, svcTCP1)
+	tgcTCP2 := gateway.buildTargetGroupConfig(svcTCP2.Name, tgConfSpec, svcTCP2)
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", gateway.getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
 func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	dpUDP := buildUDPDeploymentSpec()
-	svcUDP := buildUDPServiceSpec()
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	dpUDP := gateway.buildUDPDeploymentSpec()
+	svcUDP := gateway.buildUDPServiceSpec()
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
 	if f.Options.IPFamily == framework.IPv6 {
 		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
@@ -186,31 +189,31 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 
 	tcprs := []*gwalpha2.TCPRoute{}
 
-	gw := buildBasicGatewaySpec(gwc, listeners)
+	gw := gateway.buildBasicGatewaySpec(gwc, listeners)
 
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
-	udpr := buildUDPRoute("port80udp")
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := gateway.buildTargetGroupConfig(gateway.udpDefaultTgConfigName, tgConfSpec, svcUDP)
+	udpr := gateway.buildUDPRoute("port80udp")
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", gateway.getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
 func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, namespaceLabels map[string]string) error {
-	dpUDP := buildUDPDeploymentSpec()
-	svcUDP := buildUDPServiceSpec()
+	dpUDP := gateway.buildUDPDeploymentSpec()
+	svcUDP := gateway.buildUDPServiceSpec()
 
 	dpUDP.Spec.Template.Annotations = make(map[string]string)
 	dpUDP.Spec.Template.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"] = "app"
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
 	if f.Options.IPFamily == framework.IPv6 {
 		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
 		lbConfSpec.IpAddressType = &v6
 	}
 
-	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
+	gw := gateway.buildBasicGatewaySpec(gwc, []gwv1.Listener{
 		{
 			Name:     "udp-listener",
 			Port:     8080,
@@ -218,10 +221,10 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 		},
 	})
 
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgcUDP := buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := gateway.buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
 
-	udpr := buildUDPRoute("udp-listener")
+	udpr := gateway.buildUDPRoute("udp-listener")
 	udpr.Name = "udp-route-quic"
 
 	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-quic-e2e", namespaceLabels)
@@ -230,15 +233,15 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 }
 
 func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, namespaceLabels map[string]string) error {
-	dpUDP := buildUDPDeploymentSpec()
-	svcUDP := buildUDPServiceSpec()
+	dpUDP := gateway.buildUDPDeploymentSpec()
+	svcUDP := gateway.buildUDPServiceSpec()
 
 	dpUDP.Spec.Template.Annotations = make(map[string]string)
 	dpUDP.Spec.Template.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"] = "app"
 
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
-	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
+	gw := gateway.buildBasicGatewaySpec(gwc, []gwv1.Listener{
 		{
 			Name:     "udp-listener",
 			Port:     8080,
@@ -251,10 +254,10 @@ func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framewor
 		},
 	})
 
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgcUDP := buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := gateway.buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
 
-	udpr := buildUDPRoute("udp-listener")
+	udpr := gateway.buildUDPRoute("udp-listener")
 	udpr.Name = "udp-route-quic"
 
 	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-tcp-udp-quic-e2e", namespaceLabels)
@@ -278,14 +281,14 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 		},
 	}
 
-	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
-	svcTCP1 := buildServiceSpec(map[string]string{})
-	svcTCP2 := buildServiceSpec(map[string]string{})
+	dpTCP := gateway.buildDeploymentSpec(f.Options.TestImageRegistry)
+	svcTCP1 := gateway.buildServiceSpec(map[string]string{})
+	svcTCP2 := gateway.buildServiceSpec(map[string]string{})
 	svcTCP2.Name = "echoserver-v2"
-	svcTgc := buildTargetGroupConfig("svc2-tgc", svcTgSpec, svcTCP2)
+	svcTgc := gateway.buildTargetGroupConfig("svc2-tgc", svcTgSpec, svcTCP2)
 
 	port := gwalpha2.PortNumber(80)
-	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute([]gwv1.ParentReference{}, []gwalpha2.BackendRef{
+	tcprs := []*gwalpha2.TCPRoute{gateway.buildTCPRoute([]gwv1.ParentReference{}, []gwalpha2.BackendRef{
 		{
 			BackendObjectReference: gwalpha2.BackendObjectReference{
 				Name: gwalpha2.ObjectName(svcTCP1.Name),
@@ -300,9 +303,9 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 		},
 	})}
 
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
-	gw := buildBasicGatewaySpec(gwc, listeners)
-	lbc := buildLoadBalancerConfig(lbConfSpec)
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	gw := gateway.buildBasicGatewaySpec(gwc, listeners)
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
 
 	s.nlbResourceStack = newNLBResourceStack(
 		[]*appsv1.Deployment{dpTCP},
@@ -310,13 +313,13 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 		gwc, gw, lbc,
 		[]*elbv2gw.TargetGroupConfiguration{defaultTGC, svcTgc},
 		tcprs, []*gwalpha2.UDPRoute{}, nil,
-		"nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled),
+		"nlb-gateway-e2e", gateway.getNamespaceLabels(readinessGateEnabled),
 	)
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
-func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestStack, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, hasTLS bool, readinessGateEnabled bool) error {
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests.ALBTestStack, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, hasTLS bool, readinessGateEnabled bool) error {
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
 	if f.Options.IPFamily == framework.IPv6 {
 		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
@@ -331,7 +334,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestSt
 		},
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{buildFENLBTCPRoute(albStack.albResourceStack.commonStack.gw.Name, albStack.albResourceStack.commonStack.gw.Namespace, gwalpha2.PortNumber(80))}
+	tcprs := []*gwalpha2.TCPRoute{gateway.buildFENLBTCPRoute(albStack.albResourceStack.commonStack.gw.Name, albStack.albResourceStack.commonStack.gw.Namespace, gwalpha2.PortNumber(80))}
 
 	if hasTLS {
 		listeners = append(listeners, gwv1.Listener{
@@ -339,16 +342,16 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestSt
 			Port:     443,
 			Protocol: gwv1.TCPProtocolType,
 		})
-		tcpForHTTPS := buildFENLBTCPRoute(albStack.albResourceStack.commonStack.gw.Name, albStack.albResourceStack.commonStack.gw.Namespace, gwalpha2.PortNumber(443))
+		tcpForHTTPS := gateway.buildFENLBTCPRoute(albStack.albResourceStack.commonStack.gw.Name, albStack.albResourceStack.commonStack.gw.Namespace, gwalpha2.PortNumber(443))
 		tcprs = append(tcprs, tcpForHTTPS)
 
 	}
 
-	gw := buildBasicGatewaySpec(gwc, listeners)
+	gw := gateway.buildBasicGatewaySpec(gwc, listeners)
 
-	lbc := buildLoadBalancerConfig(lbConfSpec)
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", gateway.getNamespaceLabels(readinessGateEnabled))
 
 	err := s.nlbResourceStack.Deploy(ctx, f)
 	if err != nil {
@@ -365,7 +368,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestSt
 	http := elbv2gw.TargetGroupHealthCheckProtocolHTTP
 	https := elbv2gw.TargetGroupHealthCheckProtocolHTTPS
 
-	return createTargetGroupConfigs(ctx, f, []*elbv2gw.TargetGroupConfiguration{
+	return gateway.createTargetGroupConfigs(ctx, f, []*elbv2gw.TargetGroupConfiguration{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("alb-https-hc-config"),
@@ -421,7 +424,7 @@ func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framewo
 		},
 	}
 
-	if err := CreateReferenceGrants(ctx, f, []*gwbeta1.ReferenceGrant{refGrant}); err != nil {
+	if err := test_resources.CreateReferenceGrants(ctx, f, []*gwbeta1.ReferenceGrant{refGrant}); err != nil {
 		return nil, err
 	}
 
@@ -459,7 +462,7 @@ func (s *NLBTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framewor
 }
 
 func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestStack, hasTLS bool) {
-	tcpRouteListenerInfo := []listenerValidationInfo{
+	tcpRouteListenerInfo := []gateway.listenerValidationInfo{
 		{
 			listenerName:       "port80",
 			parentKind:         "Gateway",
@@ -471,7 +474,7 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 	}
 
 	if hasTLS {
-		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, gateway.listenerValidationInfo{
 			listenerName:       "port443",
 			parentKind:         "Gateway",
 			resolvedRefReason:  "ResolvedRefs",
@@ -480,7 +483,7 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 			acceptedStatus:     "True",
 		})
 	} else {
-		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, gateway.listenerValidationInfo{
 			listenerName:       "port443",
 			parentKind:         "Gateway",
 			resolvedRefReason:  "ResolvedRefs",
@@ -490,14 +493,14 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 		})
 	}
 
-	tcpValidationInfo := map[string]routeValidationInfo{
+	tcpValidationInfo := map[string]gateway.routeValidationInfo{
 		k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
 			listenerInfo:      tcpRouteListenerInfo,
 		},
 		k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			listenerInfo: []gateway.listenerValidationInfo{
 				{
 					listenerName:       "other-ns",
 					parentKind:         "Gateway",
@@ -510,10 +513,10 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 		},
 	}
 
-	udpValidationInfo := map[string]routeValidationInfo{
+	udpValidationInfo := map[string]gateway.routeValidationInfo{
 		k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			listenerInfo: []gateway.listenerValidationInfo{
 				{
 					listenerName:       "port8080",
 					parentKind:         "Gateway",
@@ -526,12 +529,12 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 		},
 	}
 
-	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
-	validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+	gateway.validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
+	gateway.validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
 }
 
 func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack, hasTLS bool) {
-	tcpRouteListenerInfo := []listenerValidationInfo{
+	tcpRouteListenerInfo := []gateway.listenerValidationInfo{
 		{
 			listenerName:       "port80",
 			parentKind:         "Gateway",
@@ -543,7 +546,7 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 	}
 
 	if hasTLS {
-		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, gateway.listenerValidationInfo{
 			listenerName:       "port443",
 			parentKind:         "Gateway",
 			resolvedRefReason:  "ResolvedRefs",
@@ -552,7 +555,7 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 			acceptedStatus:     "True",
 		})
 	} else {
-		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, gateway.listenerValidationInfo{
 			listenerName:       "port443",
 			parentKind:         "Gateway",
 			resolvedRefReason:  "ResolvedRefs",
@@ -562,14 +565,14 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 		})
 	}
 
-	tcpValidationInfo := map[string]routeValidationInfo{
+	tcpValidationInfo := map[string]gateway.routeValidationInfo{
 		k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
 			listenerInfo:      tcpRouteListenerInfo,
 		},
 		k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			listenerInfo: []gateway.listenerValidationInfo{
 				{
 					listenerName:       "other-ns",
 					parentKind:         "Gateway",
@@ -582,10 +585,10 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 		},
 	}
 
-	udpValidationInfo := map[string]routeValidationInfo{
+	udpValidationInfo := map[string]gateway.routeValidationInfo{
 		k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			listenerInfo: []gateway.listenerValidationInfo{
 				{
 					listenerName:       "port8080",
 					parentKind:         "Gateway",
@@ -597,8 +600,8 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 			},
 		},
 	}
-	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
-	validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+	gateway.validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
+	gateway.validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
 }
 
 func tcpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
@@ -622,7 +625,7 @@ func udpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Route
 }
 
 func weightedRequestValidation(tf *framework.Framework, url string) {
-	bm := &bodyMatcher{
+	bm := &gateway.bodyMatcher{
 		responseCount: map[string]int{},
 	}
 	for i := 0; i < 100; i++ {
@@ -634,9 +637,9 @@ func weightedRequestValidation(tf *framework.Framework, url string) {
 }
 
 func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
-	svcTCP := buildServiceSpec(map[string]string{})
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	dpTCP := gateway.buildDeploymentSpec(f.Options.TestImageRegistry)
+	svcTCP := gateway.buildServiceSpec(map[string]string{})
+	gwc := gateway.buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
 	if f.Options.IPFamily == framework.IPv6 {
 		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
@@ -656,21 +659,21 @@ func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.
 		},
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{buildTCPRouteWithMismatchedParentRefs()}
-	gw := buildBasicGatewaySpec(gwc, listeners)
-	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgcTCP := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svcTCP)
+	tcprs := []*gwalpha2.TCPRoute{gateway.buildTCPRouteWithMismatchedParentRefs()}
+	gw := gateway.buildBasicGatewaySpec(gwc, listeners)
+	lbc := gateway.buildLoadBalancerConfig(lbConfSpec)
+	tgcTCP := gateway.buildTargetGroupConfig(gateway.defaultTgConfigName, tgConfSpec, svcTCP)
 
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", getNamespaceLabels(readinessGateEnabled))
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", gateway.getNamespaceLabels(readinessGateEnabled))
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
 func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStack) {
-	validationInfo := map[string]routeValidationInfo{
+	validationInfo := map[string]gateway.routeValidationInfo{
 		k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
 			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-			listenerInfo: []listenerValidationInfo{
+			listenerInfo: []gateway.listenerValidationInfo{
 				{
 					listenerName:       "listener-exists",
 					parentKind:         "Gateway",
@@ -690,10 +693,10 @@ func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStac
 			},
 		},
 	}
-	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, validationInfo)
+	gateway.validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, validationInfo)
 
-	validateGatewayStatus(tf, stack.nlbResourceStack.commonStack.gw, gatewayValidationInfo{
-		conditions: []gatewayConditionValidation{
+	gateway.validateGatewayStatus(tf, stack.nlbResourceStack.commonStack.gw, gateway.gatewayValidationInfo{
+		conditions: []gateway.gatewayConditionValidation{
 			{
 				conditionType:   gwv1.GatewayConditionProgrammed,
 				conditionStatus: "True",
@@ -705,11 +708,11 @@ func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStac
 				conditionReason: "Accepted",
 			},
 		},
-		listeners: []gatewayListenerValidation{
+		listeners: []gateway.gatewayListenerValidation{
 			{
 				listenerName:   "listener-exists",
 				attachedRoutes: 1,
-				conditions: []listenerConditionValidation{
+				conditions: []gateway.listenerConditionValidation{
 					{
 						conditionType:   gwv1.ListenerConditionAccepted,
 						conditionStatus: "True",
@@ -725,7 +728,7 @@ func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStac
 			{
 				listenerName:   "listener-other",
 				attachedRoutes: 0,
-				conditions: []listenerConditionValidation{
+				conditions: []gateway.listenerConditionValidation{
 					{
 						conditionType:   gwv1.ListenerConditionAccepted,
 						conditionStatus: "True",
