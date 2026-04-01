@@ -112,6 +112,20 @@ func parseConditionAnnotation(annos map[string]string, svcName string) ([]ingres
 	return conditions, nil
 }
 
+// parseTransformAnnotation parses the alb.ingress.kubernetes.io/transforms.<svcName> JSON annotation.
+func parseTransformAnnotation(annos map[string]string, svcName string) ([]ingress.Transform, error) {
+	var transforms []ingress.Transform
+	annotationSuffix := fmt.Sprintf("transforms.%s", svcName)
+	exists, err := ingressAnnotationParser.ParseJSONAnnotation(annotationSuffix, &transforms, annos)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+	return transforms, nil
+}
+
 // parseActionAnnotation parses the alb.ingress.kubernetes.io/actions.<svcName> JSON annotation.
 func parseActionAnnotation(annos map[string]string, svcName string) (*ingress.Action, error) {
 	var a ingress.Action

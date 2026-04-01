@@ -130,6 +130,9 @@ func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path n
 		if err != nil {
 			return routeRule, nil, err
 		}
+		if err := t.buildTransforms(&routeRule, path.Backend.Service.Name); err != nil {
+			return routeRule, nil, err
+		}
 		if hsr != nil {
 			return routeRule, hsr, nil
 		}
@@ -257,6 +260,23 @@ func (t *httpRouteTranslator) buildConditions(routeRule *gwv1.HTTPRouteRule, ing
 	}
 
 	return nil, nil
+}
+
+// buildTransforms parses and applies the transforms.* annotation for a rule.
+func (t *httpRouteTranslator) buildTransforms(routeRule *gwv1.HTTPRouteRule, svcName string) error {
+	parsedTransforms, err := parseTransformAnnotation(t.ingAnnotations, svcName)
+	if err != nil {
+		return fmt.Errorf("ingress %s/%s failed to parse transform annotation for %q: %w", t.namespace, t.ingName, svcName, err)
+	}
+	if len(parsedTransforms) == 0 {
+		return nil
+	}
+
+	filter := translateTransforms(parsedTransforms)
+	if filter != nil {
+		routeRule.Filters = append(routeRule.Filters, *filter)
+	}
+	return nil
 }
 
 // assembleRoutes builds the final list of HTTPRoutes from the primary rules and default backend.
