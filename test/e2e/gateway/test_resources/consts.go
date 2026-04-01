@@ -95,7 +95,7 @@ var DefaultGrpcRouteRuleBackendRefs = []gwv1.GRPCBackendRef{
 		BackendRef: gwv1.BackendRef{
 			BackendObjectReference: gwv1.BackendObjectReference{
 				Name: GRPCDefaultName,
-				Port: &defaultGrpcPort,
+				Port: &DefaultGrpcPort,
 			},
 		},
 	},
@@ -331,7 +331,7 @@ var HTTPRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchExact}[0],
-					Value: awssdk.String(testExactPath),
+					Value: awssdk.String(TestExactPath),
 				},
 			},
 		},
@@ -342,7 +342,7 @@ var HTTPRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
-					Value: awssdk.String(testPrefixPath),
+					Value: awssdk.String(TestPrefixPath),
 				},
 			},
 		},
@@ -353,7 +353,7 @@ var HTTPRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchRegularExpression}[0],
-					Value: awssdk.String(testRegexPath),
+					Value: awssdk.String(TestRegexPath),
 				},
 			},
 		},

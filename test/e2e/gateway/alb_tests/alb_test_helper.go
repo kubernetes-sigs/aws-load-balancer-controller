@@ -118,7 +118,7 @@ func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framewor
 }
 
 func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
-	gwc := test_resources.BuildGatewayClassSpec("test_resources.k8s.aws/alb")
+	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
 	gw := test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
 	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
 	lrc := test_resources.BuildListenerRuleConfig(test_resources.DefaultLRConfigName, lrConfSpec)

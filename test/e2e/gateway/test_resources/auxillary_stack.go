@@ -115,6 +115,6 @@ func (s *AuxiliaryResourceStack) DeleteReferenceGrants(ctx context.Context, f *f
 
 func (s *AuxiliaryResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
 	if s.Ns != nil {
-		_ = deleteNamespace(ctx, f, s.Ns)
+		_ = DeleteNamespace(ctx, f, s.Ns)
 	}
 }

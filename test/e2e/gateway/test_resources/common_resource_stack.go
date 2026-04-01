@@ -118,7 +118,7 @@ func (s *CommonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 		return err
 	}
 
-	observedGateway, err := waitUntilGatewayReady(ctx, f, s.Gw)
+	observedGateway, err := WaitUntilGatewayReady(ctx, f, s.Gw)
 	if err != nil {
 		return err
 	}
@@ -127,10 +127,10 @@ func (s *CommonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 }
 
 func (s *CommonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	if err := deleteNamespace(ctx, f, s.Ns); err != nil {
+	if err := DeleteNamespace(ctx, f, s.Ns); err != nil {
 		return err
 	}
-	return deleteGatewayClass(ctx, f, s.Gwc)
+	return DeleteGatewayClass(ctx, f, s.Gwc)
 }
 
 func (s *CommonResourceStack) GetLoadBalancerIngressHostname() string {
@@ -268,7 +268,7 @@ func WaitUntilServiceReady(ctx context.Context, f *framework.Framework, svcs []*
 	return nil
 }
 
-func waitUntilGatewayReady(ctx context.Context, f *framework.Framework, gw *gwv1.Gateway) (*gwv1.Gateway, error) {
+func WaitUntilGatewayReady(ctx context.Context, f *framework.Framework, gw *gwv1.Gateway) (*gwv1.Gateway, error) {
 	observedGw := &gwv1.Gateway{}
 
 	err := wait.PollImmediateUntil(utils.PollIntervalShort, func() (bool, error) {
@@ -292,11 +292,11 @@ func waitUntilGatewayReady(ctx context.Context, f *framework.Framework, gw *gwv1
 	return observedGw, nil
 }
 
-func deleteGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
+func DeleteGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
 	return f.K8sClient.Delete(ctx, gwc)
 }
 
-func deleteNamespace(ctx context.Context, tf *framework.Framework, ns *corev1.Namespace) error {
+func DeleteNamespace(ctx context.Context, tf *framework.Framework, ns *corev1.Namespace) error {
 	tf.Logger.Info("deleting namespace", "ns", k8s.NamespacedName(ns))
 	if err := tf.K8sClient.Delete(ctx, ns); err != nil {
 		tf.Logger.Info("failed to delete namespace", "ns", k8s.NamespacedName(ns))
