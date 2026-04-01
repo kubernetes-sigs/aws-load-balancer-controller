@@ -51,8 +51,8 @@ type ListenerRuleCondition struct {
 	// +optional
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
 
-	// Indexes of Match in a rule to apply the condition to.
-	// If MatchIndexes is not provided, the condition will be applied to all matches where ListenerRuleConfiguration is used.
+	// Indexes of Match in a rule to apply source ip to
+	// If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
 	// +optional
 	MatchIndexes *[]int `json:"matchIndexes,omitempty"`
 }
@@ -337,7 +337,7 @@ type ListenerRuleConfigurationSpec struct {
 	// Conditions defines the circumstances under which the rule actions will be performed.
 	// This CRD implementation currently supports only the source-ip condition type
 	//
-	// For other condition types (such as path-pattern, http-header, etc.),
+	// For other condition types (such as path-pattern, host-header, http-header, etc.),
 	// please use the standard Gateway API HTTPRoute or other route resources, which provide
 	// native support for those conditions through the Gateway API specification.
 	// +optional
