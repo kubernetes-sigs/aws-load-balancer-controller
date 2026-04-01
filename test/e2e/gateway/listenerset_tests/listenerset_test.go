@@ -154,7 +154,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 					{
 						Name:        "test-listenerset",
 						Kind:        (*gwv1.Kind)(new("ListenerSet")),
-						Group:       (*gwv1.Group)(new("test_resources.networking.k8s.io")),
+						Group:       (*gwv1.Group)(new("gateway.networking.k8s.io")),
 						SectionName: (*gwv1.SectionName)(new("ls-http")),
 					},
 				}
@@ -361,7 +361,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 					{
 						Name:        "rejected-listenerset",
 						Kind:        (*gwv1.Kind)(new("ListenerSet")),
-						Group:       (*gwv1.Group)(new("test_resources.networking.k8s.io")),
+						Group:       (*gwv1.Group)(new("gateway.networking.k8s.io")),
 						SectionName: (*gwv1.SectionName)(new("ls-http")),
 					},
 				}
@@ -553,7 +553,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 					{
 						Name:        "cross-ns-listenerset",
 						Kind:        (*gwv1.Kind)(new("ListenerSet")),
-						Group:       (*gwv1.Group)(new("test_resources.networking.k8s.io")),
+						Group:       (*gwv1.Group)(new("gateway.networking.k8s.io")),
 						SectionName: (*gwv1.SectionName)(new("ls-http")),
 					},
 				}
@@ -773,7 +773,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 					{
 						Name:        "selector-listenerset",
 						Kind:        (*gwv1.Kind)(new("ListenerSet")),
-						Group:       (*gwv1.Group)(new("test_resources.networking.k8s.io")),
+						Group:       (*gwv1.Group)(new("gateway.networking.k8s.io")),
 						SectionName: (*gwv1.SectionName)(new("ls-http")),
 					},
 				}
