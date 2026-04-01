@@ -49,13 +49,13 @@ func (t *httpRouteTranslator) trackBackend(svcName string, resolvedPort int32) {
 // buildHTTPRoutes builds one or more HTTPRoutes from an Ingress resource and collects
 // unique service references (with resolved ports) encountered during the iteration.
 func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, listenPorts []listenPortEntry, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
-	parentRefs := buildParentRefs(gatewayName, listenPorts)
+	parentRefs := buildParentRefs(gatewayName)
 
 	t := &httpRouteTranslator{
 		namespace:      namespace,
 		ingName:        ing.Name,
 		ingAnnotations: ing.Annotations,
-		useRegex:       getString(ing.Annotations, annotations.IngressSuffixUseRegexPathMatch) == "true",
+		useRegex:       strings.EqualFold(getString(ing.Annotations, annotations.IngressSuffixUseRegexPathMatch), "true"),
 		servicesByKey:  servicesByKey,
 		svcRefSeen:     sets.New[string](),
 	}
@@ -92,23 +92,24 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 	}
 	hostnames = deduplicateHostnames(hostnames)
 
-	routes := assembleRoutes(namespace, ing.Name, parentRefs, hostnames, rules, hostScopedRoutes,
+	routes, err := assembleRoutes(namespace, ing.Name, parentRefs, hostnames, rules, hostScopedRoutes,
 		ing.Spec.DefaultBackend, t)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	return routes, t.svcRefs, t.listenerRuleConfigs, nil
 }
 
-// buildParentRefs creates one ParentReference per listener on the gateway.
-func buildParentRefs(gatewayName string, listenPorts []listenPortEntry) []gwv1.ParentReference {
-	var parentRefs []gwv1.ParentReference
-	for _, lp := range listenPorts {
-		sectionName := gwv1.SectionName(utils.GetSectionName(lp.Protocol, lp.Port))
-		parentRefs = append(parentRefs, gwv1.ParentReference{
-			Name:        gwv1.ObjectName(gatewayName),
-			SectionName: &sectionName,
-		})
+// buildParentRefs creates a single ParentReference to the gateway.
+// No sectionName is needed because Ingress applies all rules to all listen-ports,
+// and a parentRef without sectionName attaches the route to all listeners on the gateway.
+func buildParentRefs(gatewayName string) []gwv1.ParentReference {
+	return []gwv1.ParentReference{
+		{
+			Name: gwv1.ObjectName(gatewayName),
+		},
 	}
-	return parentRefs
 }
 
 // buildRouteRule builds a single HTTPRouteRule from an Ingress path, including backend resolution,
@@ -282,27 +283,28 @@ func (t *httpRouteTranslator) buildTransforms(routeRule *gwv1.HTTPRouteRule, svc
 // assembleRoutes builds the final list of HTTPRoutes from the primary rules and default backend.
 func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference, hostnames []gwv1.Hostname,
 	rules []gwv1.HTTPRouteRule, hostScopedRoutes []hostScopedRoute,
-	defaultBackend *networking.IngressBackend, t *httpRouteTranslator) []gwv1.HTTPRoute {
+	defaultBackend *networking.IngressBackend, t *httpRouteTranslator) ([]gwv1.HTTPRoute, error) {
 
 	// Build default backend rule if present
 	var defaultRule *gwv1.HTTPRouteRule
 	if defaultBackend != nil && defaultBackend.Service != nil {
 		portNum, err := resolveServicePort(defaultBackend.Service.Port, namespace, defaultBackend.Service.Name, t.servicesByKey)
-		if err == nil {
-			t.trackBackend(defaultBackend.Service.Name, portNum)
-			port := gwv1.PortNumber(portNum)
-			defaultRule = &gwv1.HTTPRouteRule{
-				BackendRefs: []gwv1.HTTPBackendRef{
-					{
-						BackendRef: gwv1.BackendRef{
-							BackendObjectReference: gwv1.BackendObjectReference{
-								Name: gwv1.ObjectName(defaultBackend.Service.Name),
-								Port: &port,
-							},
+		if err != nil {
+			return nil, fmt.Errorf("ingress %s/%s defaultBackend: %w", namespace, ingName, err)
+		}
+		t.trackBackend(defaultBackend.Service.Name, portNum)
+		port := gwv1.PortNumber(portNum)
+		defaultRule = &gwv1.HTTPRouteRule{
+			BackendRefs: []gwv1.HTTPBackendRef{
+				{
+					BackendRef: gwv1.BackendRef{
+						BackendObjectReference: gwv1.BackendObjectReference{
+							Name: gwv1.ObjectName(defaultBackend.Service.Name),
+							Port: &port,
 						},
 					},
 				},
-			}
+			},
 		}
 	}
 
@@ -334,7 +336,7 @@ func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference
 		))
 	}
 
-	return routes
+	return routes, nil
 }
 
 // resolveServicePort resolves a ServiceBackendPort to a numeric port.

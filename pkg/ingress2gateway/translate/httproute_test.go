@@ -199,7 +199,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple listeners produce multiple parentRefs",
+			name: "multiple listeners produce single parentRef without sectionName",
 			ing: networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{Name: "multi"},
 				Spec: networking.IngressSpec{
@@ -226,7 +226,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			wantRoutes: 1,
 			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
-				assert.Len(t, routes[0].Spec.ParentRefs, 2)
+				assert.Len(t, routes[0].Spec.ParentRefs, 1)
+				assert.Nil(t, routes[0].Spec.ParentRefs[0].SectionName)
 				assert.Len(t, routes[0].Spec.Hostnames, 0)
 				assert.Len(t, routes[0].Spec.Rules, 1)
 			},

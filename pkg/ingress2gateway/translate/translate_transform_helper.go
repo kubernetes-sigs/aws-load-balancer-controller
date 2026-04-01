@@ -1,6 +1,8 @@
 package translate
 
 import (
+	"fmt"
+	"os"
 	"regexp"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
@@ -38,7 +40,7 @@ func translateTransforms(transforms []ingress.Transform) *gwv1.HTTPRouteFilter {
 			}
 			replace := t.UrlRewriteConfig.Rewrites[0].Replace
 			if hasCaptureGroupRef(replace) {
-				// Capture group references can't be represented in Gateway API — skip.
+				fmt.Fprintf(os.Stderr, "WARNING: url-rewrite transform with capture group reference %q cannot be represented in Gateway API — skipping.\n", replace)
 				continue
 			}
 			rewrite.Path = &gwv1.HTTPPathModifier{
@@ -53,7 +55,7 @@ func translateTransforms(transforms []ingress.Transform) *gwv1.HTTPRouteFilter {
 			}
 			replace := t.HostHeaderRewriteConfig.Rewrites[0].Replace
 			if hasCaptureGroupRef(replace) {
-				// Capture group references can't be represented in Gateway API — skip.
+				fmt.Fprintf(os.Stderr, "WARNING: host-header-rewrite transform with capture group reference %q cannot be represented in Gateway API — skipping.\n", replace)
 				continue
 			}
 			hostname := gwv1.PreciseHostname(replace)

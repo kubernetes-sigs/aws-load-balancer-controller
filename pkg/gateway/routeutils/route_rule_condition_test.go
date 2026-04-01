@@ -828,7 +828,7 @@ func TestGenerateValuesFromMatchHeaderValue(t *testing.T) {
 	}
 }
 
-func Test_BuildLRCConditions(t *testing.T) {
+func Test_BuildSourceIpInCondition(t *testing.T) {
 	matchIndex0 := 0
 	matchIndex1 := 1
 
@@ -996,7 +996,7 @@ func Test_BuildLRCConditions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := BuildConditionsFromListenerRuleConfig(tt.ruleWithPrecedence, tt.conditionsList)
+			result := BuildSourceIpInCondition(tt.ruleWithPrecedence, tt.conditionsList)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

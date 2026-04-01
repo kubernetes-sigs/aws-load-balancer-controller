@@ -263,31 +263,25 @@ func buildSourceIpCondition(condition elbv2gw.ListenerRuleCondition) []elbv2mode
 	}
 }
 
-// BuildConditionsFromListenerRuleConfig takes conditions from ListenerRuleConfiguration CRD and ANDs them into the condition list.
-// For host-header conditions, values are merged into any existing host-header condition (from route hostnames)
-func BuildConditionsFromListenerRuleConfig(ruleWithPrecedence RulePrecedence, conditionsList []elbv2model.RuleCondition) []elbv2model.RuleCondition {
+// BuildSourceIpInCondition : takes source ip configuration from listener rule configuration CRD, then AND it to condition list
+func BuildSourceIpInCondition(ruleWithPrecedence RulePrecedence, conditionsList []elbv2model.RuleCondition) []elbv2model.RuleCondition {
 	rule := ruleWithPrecedence.CommonRulePrecedence.Rule
 	matchIndex := ruleWithPrecedence.CommonRulePrecedence.MatchIndexInRule
 	if rule.GetListenerRuleConfig() != nil {
 		conditionsFromRuleConfig := rule.GetListenerRuleConfig().Spec.Conditions
 		for _, condition := range conditionsFromRuleConfig {
-			shouldApply := condition.MatchIndexes == nil
-			if !shouldApply {
-				for _, index := range *condition.MatchIndexes {
-					if index == matchIndex {
-						shouldApply = true
-						break
-					}
-				}
-			}
-			if !shouldApply {
-				continue
-			}
-
 			switch condition.Field {
 			case elbv2gw.ListenerRuleConditionFieldSourceIP:
-				lrcConditions := buildSourceIpCondition(condition)
-				conditionsList = append(conditionsList, lrcConditions...)
+				sourceIpCondition := buildSourceIpCondition(condition)
+				if condition.MatchIndexes == nil {
+					conditionsList = append(conditionsList, sourceIpCondition...)
+				} else {
+					for _, index := range *condition.MatchIndexes {
+						if index == matchIndex {
+							conditionsList = append(conditionsList, sourceIpCondition...)
+						}
+					}
+				}
 			}
 		}
 	}

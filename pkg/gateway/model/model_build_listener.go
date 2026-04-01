@@ -248,7 +248,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		}
 
 		// Add Rule Conditions based on ListenerRuleConfiguration CRD
-		conditionsList = routeutils.BuildConditionsFromListenerRuleConfig(ruleWithPrecedence, conditionsList)
+		conditionsList = routeutils.BuildSourceIpInCondition(ruleWithPrecedence, conditionsList)
 
 		// set up for building routing actions
 		var actions []elbv2model.Action
