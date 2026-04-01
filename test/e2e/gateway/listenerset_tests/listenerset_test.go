@@ -1,4 +1,4 @@
-package gateway
+package listenerset_tests
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
@@ -35,11 +36,11 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 	AfterEach(func() {
 		if ns != nil {
-			err := deleteNamespace(ctx, tf, ns)
+			err := test_resources.DeleteNamespace(ctx, tf, ns)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		if gwc != nil {
-			err := deleteGatewayClass(ctx, tf, gwc)
+			err := test_resources.DeleteGatewayClass(ctx, tf, gwc)
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})
@@ -69,11 +70,11 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 			By("setting up namespace and base resources", func() {
 				var err error
-				ns, err = allocateNamespace(ctx, tf, "ls-e2e", map[string]string{})
+				ns, err = test_resources.AllocateNamespace(ctx, tf, "ls-e2e", map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 
-				gwc = buildGatewayClassSpec("gateway.k8s.aws/alb")
-				err = createGatewayClass(ctx, tf, gwc)
+				gwc = test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
+				err = test_resources.CreateGatewayClass(ctx, tf, gwc)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -81,36 +82,36 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			var svc *corev1.Service
 
 			By("creating deployment and service", func() {
-				dp = buildDeploymentSpec(tf.Options.TestImageRegistry)
+				dp = test_resources.BuildDeploymentSpec(tf.Options.TestImageRegistry)
 				dp.Namespace = ns.Name
-				svc = buildServiceSpec(map[string]string{})
+				svc = test_resources.BuildServiceSpec(map[string]string{})
 				svc.Namespace = ns.Name
 
-				err := createDeployments(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.CreateDeployments(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
-				err = createServices(ctx, tf, []*corev1.Service{svc})
+				err = test_resources.CreateServices(ctx, tf, []*corev1.Service{svc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating LB config and TG config", func() {
-				lbc := buildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
 				lbc.Namespace = ns.Name
-				err := createLoadBalancerConfig(ctx, tf, lbc)
+				err := test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
 
-				tgc := buildTargetGroupConfig(defaultTgConfigName, tgSpec, svc)
+				tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgSpec, svc)
 				tgc.Namespace = ns.Name
-				err = createTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
+				err = test_resources.CreateTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating gateway with AllowedListeners from same namespace", func() {
-				gw = buildBasicGatewaySpec(gwc, gwListeners)
+				gw = test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
 				gw.Namespace = ns.Name
 				gw.Spec.AllowedListeners = &gwv1.AllowedListeners{
 					Namespaces: &gwv1.ListenerNamespaces{From: &nsSame},
 				}
-				err := createGateway(ctx, tf, gw)
+				err := test_resources.CreateGateway(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -139,7 +140,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating HTTPRoute targeting the gateway listener", func() {
-				httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
+				httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
 				httpr.Namespace = ns.Name
 				tf.Logger.Info("creating http route for gw listener", "httpr", k8s.NamespacedName(httpr))
 				err := tf.K8sClient.Create(ctx, httpr)
@@ -147,7 +148,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating HTTPRoute targeting the ListenerSet listener", func() {
-				httprLS := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
+				httprLS := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
 				httprLS.Namespace = ns.Name
 				httprLS.Spec.ParentRefs = []gwv1.ParentReference{
 					{
@@ -163,13 +164,13 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("waiting for deployment to be ready", func() {
-				err := waitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.WaitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			var dnsName string
 			By("waiting for gateway to be programmed", func() {
-				observedGW, err := waitUntilGatewayReady(ctx, tf, gw)
+				observedGW, err := test_resources.WaitUntilGatewayReady(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(observedGW.Status.Addresses).NotTo(BeEmpty())
 				dnsName = observedGW.Status.Addresses[0].Value
@@ -199,14 +200,14 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 							Port:          80,
 							NumTargets:    int(*dp.Spec.Replicas),
 							TargetType:    "ip",
-							TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+							TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 						},
 						{
 							Protocol:      "HTTP",
 							Port:          80,
 							NumTargets:    int(*dp.Spec.Replicas),
 							TargetType:    "ip",
-							TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+							TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 						},
 					},
 				})
@@ -279,11 +280,11 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 			By("setting up namespace and base resources", func() {
 				var err error
-				ns, err = allocateNamespace(ctx, tf, "ls-reject-e2e", map[string]string{})
+				ns, err = test_resources.AllocateNamespace(ctx, tf, "ls-reject-e2e", map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 
-				gwc = buildGatewayClassSpec("gateway.k8s.aws/alb")
-				err = createGatewayClass(ctx, tf, gwc)
+				gwc = test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
+				err = test_resources.CreateGatewayClass(ctx, tf, gwc)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -291,34 +292,34 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			var svc *corev1.Service
 
 			By("creating deployment and service", func() {
-				dp = buildDeploymentSpec(tf.Options.TestImageRegistry)
+				dp = test_resources.BuildDeploymentSpec(tf.Options.TestImageRegistry)
 				dp.Namespace = ns.Name
-				svc = buildServiceSpec(map[string]string{})
+				svc = test_resources.BuildServiceSpec(map[string]string{})
 				svc.Namespace = ns.Name
 
-				err := createDeployments(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.CreateDeployments(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
-				err = createServices(ctx, tf, []*corev1.Service{svc})
+				err = test_resources.CreateServices(ctx, tf, []*corev1.Service{svc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating LB config and TG config", func() {
-				lbc := buildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
 				lbc.Namespace = ns.Name
-				err := createLoadBalancerConfig(ctx, tf, lbc)
+				err := test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
 
-				tgc := buildTargetGroupConfig(defaultTgConfigName, tgSpec, svc)
+				tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgSpec, svc)
 				tgc.Namespace = ns.Name
-				err = createTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
+				err = test_resources.CreateTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating gateway without AllowedListeners (defaults to None)", func() {
-				gw = buildBasicGatewaySpec(gwc, gwListeners)
+				gw = test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
 				gw.Namespace = ns.Name
 				// No AllowedListeners set — defaults to NamespacesFromNone
-				err := createGateway(ctx, tf, gw)
+				err := test_resources.CreateGateway(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -347,14 +348,14 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating HTTPRoute targeting the gateway listener", func() {
-				httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
+				httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
 				httpr.Namespace = ns.Name
 				err := tf.K8sClient.Create(ctx, httpr)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating HTTPRoute targeting the ListenerSet listener", func() {
-				httprLS := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
+				httprLS := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
 				httprLS.Namespace = ns.Name
 				httprLS.Spec.ParentRefs = []gwv1.ParentReference{
 					{
@@ -370,13 +371,13 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("waiting for deployment to be ready", func() {
-				err := waitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.WaitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			var dnsName string
 			By("waiting for gateway to be programmed", func() {
-				observedGW, err := waitUntilGatewayReady(ctx, tf, gw)
+				observedGW, err := test_resources.WaitUntilGatewayReady(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(observedGW.Status.Addresses).NotTo(BeEmpty())
 				dnsName = observedGW.Status.Addresses[0].Value
@@ -431,7 +432,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 		AfterEach(func() {
 			if lsNs != nil {
-				err := deleteNamespace(ctx, tf, lsNs)
+				err := test_resources.DeleteNamespace(ctx, tf, lsNs)
 				Expect(err).NotTo(HaveOccurred())
 				lsNs = nil
 			}
@@ -461,11 +462,11 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 			By("setting up gateway namespace and base resources", func() {
 				var err error
-				ns, err = allocateNamespace(ctx, tf, "ls-allns-gw", map[string]string{})
+				ns, err = test_resources.AllocateNamespace(ctx, tf, "ls-allns-gw", map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 
-				gwc = buildGatewayClassSpec("gateway.k8s.aws/alb")
-				err = createGatewayClass(ctx, tf, gwc)
+				gwc = test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
+				err = test_resources.CreateGatewayClass(ctx, tf, gwc)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -473,42 +474,42 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			var svc *corev1.Service
 
 			By("creating deployment and service", func() {
-				dp = buildDeploymentSpec(tf.Options.TestImageRegistry)
+				dp = test_resources.BuildDeploymentSpec(tf.Options.TestImageRegistry)
 				dp.Namespace = ns.Name
-				svc = buildServiceSpec(map[string]string{})
+				svc = test_resources.BuildServiceSpec(map[string]string{})
 				svc.Namespace = ns.Name
 
-				err := createDeployments(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.CreateDeployments(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
-				err = createServices(ctx, tf, []*corev1.Service{svc})
+				err = test_resources.CreateServices(ctx, tf, []*corev1.Service{svc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating LB config and TG config", func() {
-				lbc := buildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
 				lbc.Namespace = ns.Name
-				err := createLoadBalancerConfig(ctx, tf, lbc)
+				err := test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
 
-				tgc := buildTargetGroupConfig(defaultTgConfigName, tgSpec, svc)
+				tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgSpec, svc)
 				tgc.Namespace = ns.Name
-				err = createTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
+				err = test_resources.CreateTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating gateway with AllowedListeners from all namespaces", func() {
-				gw = buildBasicGatewaySpec(gwc, gwListeners)
+				gw = test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
 				gw.Namespace = ns.Name
 				gw.Spec.AllowedListeners = &gwv1.AllowedListeners{
 					Namespaces: &gwv1.ListenerNamespaces{From: &nsAll},
 				}
-				err := createGateway(ctx, tf, gw)
+				err := test_resources.CreateGateway(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating a separate namespace for the ListenerSet", func() {
 				var err error
-				lsNs, err = allocateNamespace(ctx, tf, "ls-allns-ls", map[string]string{})
+				lsNs, err = test_resources.AllocateNamespace(ctx, tf, "ls-allns-ls", map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -539,14 +540,14 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating HTTPRoute targeting the gateway listener", func() {
-				httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
+				httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
 				httpr.Namespace = ns.Name
 				err := tf.K8sClient.Create(ctx, httpr)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating HTTPRoute targeting the ListenerSet listener", func() {
-				httprLS := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
+				httprLS := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
 				httprLS.Namespace = lsNs.Name
 				httprLS.Spec.ParentRefs = []gwv1.ParentReference{
 					{
@@ -562,13 +563,13 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("waiting for deployment to be ready", func() {
-				err := waitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.WaitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			var dnsName string
 			By("waiting for gateway to be programmed", func() {
-				observedGW, err := waitUntilGatewayReady(ctx, tf, gw)
+				observedGW, err := test_resources.WaitUntilGatewayReady(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(observedGW.Status.Addresses).NotTo(BeEmpty())
 				dnsName = observedGW.Status.Addresses[0].Value
@@ -624,7 +625,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 		AfterEach(func() {
 			if lsNs != nil {
-				err := deleteNamespace(ctx, tf, lsNs)
+				err := test_resources.DeleteNamespace(ctx, tf, lsNs)
 				Expect(err).NotTo(HaveOccurred())
 				lsNs = nil
 			}
@@ -654,11 +655,11 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 			By("setting up gateway namespace and base resources", func() {
 				var err error
-				ns, err = allocateNamespace(ctx, tf, "ls-sel-gw", map[string]string{})
+				ns, err = test_resources.AllocateNamespace(ctx, tf, "ls-sel-gw", map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 
-				gwc = buildGatewayClassSpec("gateway.k8s.aws/alb")
-				err = createGatewayClass(ctx, tf, gwc)
+				gwc = test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
+				err = test_resources.CreateGatewayClass(ctx, tf, gwc)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -670,53 +671,53 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 			By("creating a labeled namespace for the ListenerSet", func() {
 				var err error
-				lsNs, err = allocateNamespace(ctx, tf, "ls-sel-ls", map[string]string{
+				lsNs, err = test_resources.AllocateNamespace(ctx, tf, "ls-sel-ls", map[string]string{
 					"listenerset-allowed": "true",
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating backend resources in gateway namespace", func() {
-				dp = buildDeploymentSpec(tf.Options.TestImageRegistry)
+				dp = test_resources.BuildDeploymentSpec(tf.Options.TestImageRegistry)
 				dp.Namespace = ns.Name
-				svc = buildServiceSpec(map[string]string{})
+				svc = test_resources.BuildServiceSpec(map[string]string{})
 				svc.Namespace = ns.Name
 
-				err := createDeployments(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.CreateDeployments(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
-				err = createServices(ctx, tf, []*corev1.Service{svc})
+				err = test_resources.CreateServices(ctx, tf, []*corev1.Service{svc})
 				Expect(err).NotTo(HaveOccurred())
 
-				lbc := buildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
 				lbc.Namespace = ns.Name
-				err = createLoadBalancerConfig(ctx, tf, lbc)
+				err = test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
 
-				tgc := buildTargetGroupConfig(defaultTgConfigName, tgSpec, svc)
+				tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgSpec, svc)
 				tgc.Namespace = ns.Name
-				err = createTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
+				err = test_resources.CreateTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{tgc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating backend resources in listenerset namespace", func() {
-				lsdp = buildDeploymentSpec(tf.Options.TestImageRegistry)
+				lsdp = test_resources.BuildDeploymentSpec(tf.Options.TestImageRegistry)
 				lsdp.Namespace = lsNs.Name
-				lssvc = buildServiceSpec(map[string]string{})
+				lssvc = test_resources.BuildServiceSpec(map[string]string{})
 				lssvc.Namespace = lsNs.Name
 
-				err := createDeployments(ctx, tf, []*appsv1.Deployment{lsdp})
+				err := test_resources.CreateDeployments(ctx, tf, []*appsv1.Deployment{lsdp})
 				Expect(err).NotTo(HaveOccurred())
-				err = createServices(ctx, tf, []*corev1.Service{lssvc})
+				err = test_resources.CreateServices(ctx, tf, []*corev1.Service{lssvc})
 				Expect(err).NotTo(HaveOccurred())
 
-				lstgc := buildTargetGroupConfig(defaultTgConfigName, tgSpec, lssvc)
+				lstgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgSpec, lssvc)
 				lstgc.Namespace = lsNs.Name
-				err = createTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{lstgc})
+				err = test_resources.CreateTargetGroupConfigs(ctx, tf, []*elbv2gw.TargetGroupConfiguration{lstgc})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating gateway with AllowedListeners using namespace selector", func() {
-				gw = buildBasicGatewaySpec(gwc, gwListeners)
+				gw = test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
 				gw.Namespace = ns.Name
 				gw.Spec.AllowedListeners = &gwv1.AllowedListeners{
 					Namespaces: &gwv1.ListenerNamespaces{
@@ -728,7 +729,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 						},
 					},
 				}
-				err := createGateway(ctx, tf, gw)
+				err := test_resources.CreateGateway(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -759,14 +760,14 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating HTTPRoute targeting the gateway listener", func() {
-				httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
+				httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("gw-http")))
 				httpr.Namespace = ns.Name
 				err := tf.K8sClient.Create(ctx, httpr)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("creating HTTPRoute targeting the ListenerSet listener", func() {
-				httprLS := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
+				httprLS := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, new(gwv1.SectionName("ls-http")))
 				httprLS.Namespace = lsNs.Name
 				httprLS.Spec.ParentRefs = []gwv1.ParentReference{
 					{
@@ -782,13 +783,13 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("waiting for deployment to be ready", func() {
-				err := waitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
+				err := test_resources.WaitUntilDeploymentReady(ctx, tf, []*appsv1.Deployment{dp})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			var dnsName string
 			By("waiting for gateway to be programmed", func() {
-				observedGW, err := waitUntilGatewayReady(ctx, tf, gw)
+				observedGW, err := test_resources.WaitUntilGatewayReady(ctx, tf, gw)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(observedGW.Status.Addresses).NotTo(BeEmpty())
 				Expect(*observedGW.Status.AttachedListenerSets).To(Equal(int32(1)))

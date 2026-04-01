@@ -1,4 +1,4 @@
-package gateway
+package test_resources
 
 import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -10,33 +10,33 @@ import (
 )
 
 const (
-	appContainerPort        = 80
-	udpContainerPort        = 8080
-	grpcContainerPort       = 50051
-	defaultNumReplicas      = 3
-	defaultName             = "gateway-e2e"
-	udpDefaultName          = defaultName + "-udp"
-	grpcDefaultName         = defaultName + "-grpc"
-	defaultGatewayClassName = "gwclass-e2e"
-	defaultLbConfigName     = "lbconfig-e2e"
-	defaultTgConfigName     = "tgconfig-e2e"
-	defaultLRConfigName     = "lrconfig-e2e"
-	udpDefaultTgConfigName  = defaultTgConfigName + "-udp"
-	testHostname            = "*.elb.us-west-2.amazonaws.com"
+	AppContainerPort        = 80
+	UDPContainerPort        = 8080
+	GRPCContainerPort       = 50051
+	DefaultNumReplicas      = 3
+	DefaultName             = "gateway-e2e"
+	UDPDefaultName          = DefaultName + "-udp"
+	GRPCDefaultName         = DefaultName + "-grpc"
+	DefaultGatewayClassName = "gwclass-e2e"
+	DefaultLbConfigName     = "lbconfig-e2e"
+	DefaultTgConfigName     = "tgconfig-e2e"
+	DefaultLRConfigName     = "lrconfig-e2e"
+	UDPDefaultTgConfigName  = DefaultTgConfigName + "-udp"
+	TestHostname            = "*.elb.us-west-2.amazonaws.com"
 	// constants used in ALB http route matches and filters tests
-	headerModificationServerEnabled = "routing.http.response.server.enabled"
-	headerModificationMaxAge        = "routing.http.response.access_control_max_age.header_value"
-	headerModificationMaxAgeValue   = "30"
-	testPathString                  = "/test-path"
-	testHttpHeaderNameOne           = "X-Test-Header-One"
-	testHttpHeaderValueOne          = "test-header-value-One"
-	testHttpHeaderNameTwo           = "X-Test-Header-Two"
-	testHttpHeaderValueTwo          = "test-header-value-Two"
-	testTargetGroupArn              = "arn:randomArn"
-	testQueryStringKeyOne           = "queryKeyOne"
-	testQueryStringValueOne         = "queryValueOne"
-	testQueryStringKeyTwo           = "queryKeyTwo"
-	testQueryStringValueTwo         = "queryValueTwo"
+	HeaderModificationServerEnabled = "routing.http.response.server.enabled"
+	HeaderModificationMaxAge        = "routing.http.response.access_control_max_age.header_value"
+	HeaderModificationMaxAgeValue   = "30"
+	TestPathString                  = "/test-path"
+	TestHttpHeaderNameOne           = "X-Test-Header-One"
+	TestHttpHeaderValueOne          = "test-header-value-One"
+	TestHttpHeaderNameTwo           = "X-Test-Header-Two"
+	TestHttpHeaderValueTwo          = "test-header-value-Two"
+	TestTargetGroupArn              = "arn:randomArn"
+	TestQueryStringKeyOne           = "queryKeyOne"
+	TestQueryStringValueOne         = "queryValueOne"
+	TestQueryStringKeyTwo           = "queryKeyTwo"
+	TestQueryStringValueTwo         = "queryValueTwo"
 )
 
 // Common settings for ALB target group health checks
@@ -61,17 +61,17 @@ var DEFAULT_ALB_TARGET_GROUP_HC_GRPC = &verifier.TargetGroupHC{
 	UnhealthyThreshold: 3,
 }
 
-var listenerConfigurationForHeaderModification = &[]elbv2gw.ListenerConfiguration{
+var ListenerConfigurationForHeaderModification = &[]elbv2gw.ListenerConfiguration{
 	{
 		ProtocolPort: "HTTP:80",
 		ListenerAttributes: []elbv2gw.ListenerAttribute{
 			{
-				Key:   headerModificationServerEnabled,
+				Key:   HeaderModificationServerEnabled,
 				Value: "true",
 			},
 			{
-				Key:   headerModificationMaxAge,
-				Value: headerModificationMaxAgeValue,
+				Key:   HeaderModificationMaxAge,
+				Value: HeaderModificationMaxAgeValue,
 			},
 		},
 	},
@@ -82,27 +82,27 @@ var DefaultHttpRouteRuleBackendRefs = []gwv1.HTTPBackendRef{
 	{
 		BackendRef: gwv1.BackendRef{
 			BackendObjectReference: gwv1.BackendObjectReference{
-				Name: defaultName,
+				Name: DefaultName,
 				Port: &defaultPort,
 			},
 		},
 	},
 }
 
-var defaultGrpcPort = gwalpha2.PortNumber(50051)
+var DefaultGrpcPort = gwalpha2.PortNumber(50051)
 var DefaultGrpcRouteRuleBackendRefs = []gwv1.GRPCBackendRef{
 	{
 		BackendRef: gwv1.BackendRef{
 			BackendObjectReference: gwv1.BackendObjectReference{
-				Name: grpcDefaultName,
-				Port: &defaultGrpcPort,
+				Name: GRPCDefaultName,
+				Port: &DefaultGrpcPort,
 			},
 		},
 	},
 }
 
 var portNew = gwalpha2.PortNumber(8443)
-var httpRouteRuleWithMatchesAndFilters = []gwv1.HTTPRouteRule{
+var HTTPRouteRuleWithMatchesAndFilters = []gwv1.HTTPRouteRule{
 	{
 		Matches: []gwv1.HTTPRouteMatch{
 			{
@@ -176,14 +176,14 @@ var httpRouteRuleWithMatchesAndFilters = []gwv1.HTTPRouteRule{
 	},
 }
 
-var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
+var HttpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 	// rule 1
 	{
 		Matches: []gwv1.HTTPRouteMatch{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchExact}[0],
-					Value: awssdk.String(testPathString),
+					Value: awssdk.String(TestPathString),
 				},
 			},
 		},
@@ -191,7 +191,7 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 			{
 				BackendRef: gwv1.BackendRef{
 					BackendObjectReference: gwv1.BackendObjectReference{
-						Name: defaultName,
+						Name: DefaultName,
 						Port: &defaultPort,
 					},
 					Weight: awssdk.Int32(50),
@@ -205,16 +205,16 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
-					Value: awssdk.String(testPathString),
+					Value: awssdk.String(TestPathString),
 				},
 				QueryParams: []gwv1.HTTPQueryParamMatch{
 					{
-						Name:  testQueryStringKeyOne,
-						Value: testQueryStringValueOne,
+						Name:  TestQueryStringKeyOne,
+						Value: TestQueryStringValueOne,
 					},
 					{
-						Name:  testQueryStringKeyTwo,
-						Value: testQueryStringValueTwo,
+						Name:  TestQueryStringKeyTwo,
+						Value: TestQueryStringValueTwo,
 					},
 				},
 			},
@@ -223,7 +223,7 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 			{
 				BackendRef: gwv1.BackendRef{
 					BackendObjectReference: gwv1.BackendObjectReference{
-						Name: defaultName,
+						Name: DefaultName,
 						Port: &defaultPort,
 					},
 					Weight: awssdk.Int32(30),
@@ -237,16 +237,16 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
-					Value: awssdk.String(testPathString),
+					Value: awssdk.String(TestPathString),
 				},
 				Headers: []gwv1.HTTPHeaderMatch{
 					{
-						Name:  testHttpHeaderNameOne,
-						Value: testHttpHeaderValueOne,
+						Name:  TestHttpHeaderNameOne,
+						Value: TestHttpHeaderValueOne,
 					},
 					{
-						Name:  testHttpHeaderNameTwo,
-						Value: testHttpHeaderValueTwo,
+						Name:  TestHttpHeaderNameTwo,
+						Value: TestHttpHeaderValueTwo,
 					},
 				},
 				Method: &[]gwv1.HTTPMethod{gwv1.HTTPMethodGet}[0],
@@ -256,7 +256,7 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 			{
 				BackendRef: gwv1.BackendRef{
 					BackendObjectReference: gwv1.BackendObjectReference{
-						Name: defaultName,
+						Name: DefaultName,
 						Port: &defaultPort,
 					},
 					Weight: awssdk.Int32(30),
@@ -266,7 +266,7 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 	},
 }
 
-var httpRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
+var HTTPRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
 	{
 		BackendRefs: DefaultHttpRouteRuleBackendRefs,
 		Matches: []gwv1.HTTPRouteMatch{
@@ -274,14 +274,14 @@ var httpRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchExact}[0],
-					Value: awssdk.String(testPathString),
+					Value: awssdk.String(TestPathString),
 				},
 			},
 			// matchIndex = 1
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
-					Value: awssdk.String(testPathString),
+					Value: awssdk.String(TestPathString),
 				},
 				Method: &[]gwv1.HTTPMethod{gwv1.HTTPMethodGet}[0],
 			},
@@ -289,12 +289,12 @@ var httpRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
-					Value: awssdk.String(testPathString),
+					Value: awssdk.String(TestPathString),
 				},
 				Headers: []gwv1.HTTPHeaderMatch{
 					{
-						Name:  testHttpHeaderNameOne,
-						Value: testHttpHeaderValueOne,
+						Name:  TestHttpHeaderNameOne,
+						Value: TestHttpHeaderValueOne,
 					},
 				},
 			},
@@ -303,7 +303,7 @@ var httpRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
 			{
 				Type: gwv1.HTTPRouteFilterExtensionRef,
 				ExtensionRef: &gwv1.LocalObjectReference{
-					Name:  defaultLRConfigName,
+					Name:  DefaultLRConfigName,
 					Kind:  constants.ListenerRuleConfiguration,
 					Group: constants.ControllerCRDGroupVersion,
 				},
@@ -314,24 +314,24 @@ var httpRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
 
 const (
 	// Mock OIDC provider endpoints for testing
-	testOidcIssuer                = "https://test-oidc-provider.example.com"
-	testOidcAuthorizationEndpoint = "https://test-oidc-provider.example.com/oauth2/authorize"
-	testOidcTokenEndpoint         = "https://test-oidc-provider.example.com/oauth2/token"
-	testOidcUserInfoEndpoint      = "https://test-oidc-provider.example.com/oauth2/userinfo"
+	TestOidcIssuer                = "https://test-oidc-provider.example.com"
+	TestOidcAuthorizationEndpoint = "https://test-oidc-provider.example.com/oauth2/authorize"
+	TestOidcTokenEndpoint         = "https://test-oidc-provider.example.com/oauth2/token"
+	TestOidcUserInfoEndpoint      = "https://test-oidc-provider.example.com/oauth2/userinfo"
 	// constants used in path matcher tests
-	testExactPath  = "/exact-match-path"
-	testPrefixPath = "/prefix-match"
-	testRegexPath  = "/regex/[a-z]+/items"
+	TestExactPath  = "/exact-match-path"
+	TestPrefixPath = "/prefix-match"
+	TestRegexPath  = "/regex/[a-z]+/items"
 )
 
-// httpRouteRulesWithPathMatchers defines HTTPRoute rules exercising Exact, Prefix, and RegularExpression path types.
-var httpRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
+// HTTPRouteRulesWithPathMatchers defines HTTPRoute rules exercising Exact, Prefix, and RegularExpression path types.
+var HTTPRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
 	{
 		Matches: []gwv1.HTTPRouteMatch{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchExact}[0],
-					Value: awssdk.String(testExactPath),
+					Value: awssdk.String(TestExactPath),
 				},
 			},
 		},
@@ -342,7 +342,7 @@ var httpRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
-					Value: awssdk.String(testPrefixPath),
+					Value: awssdk.String(TestPrefixPath),
 				},
 			},
 		},
@@ -353,7 +353,7 @@ var httpRouteRulesWithPathMatchers = []gwv1.HTTPRouteRule{
 			{
 				Path: &gwv1.HTTPPathMatch{
 					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchRegularExpression}[0],
-					Value: awssdk.String(testRegexPath),
+					Value: awssdk.String(TestRegexPath),
 				},
 			},
 		},

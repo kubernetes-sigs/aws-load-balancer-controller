@@ -1,7 +1,8 @@
-package gateway
+package nlb_tests
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 
@@ -75,7 +76,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
@@ -140,7 +141,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{

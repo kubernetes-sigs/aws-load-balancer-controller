@@ -1,4 +1,4 @@
-package gateway
+package chained_gateway_tests
 
 import (
 	"context"
@@ -9,6 +9,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/nlb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -18,8 +21,8 @@ import (
 var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute", func() {
 	var (
 		ctx      context.Context
-		albStack ALBTestStack
-		nlbStack NLBTestStack
+		albStack alb_tests.ALBTestStack
+		nlbStack nlb_tests.NLBTestStack
 	)
 
 	BeforeEach(func() {
@@ -27,8 +30,8 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			Skip("Skipping gateway tests")
 		}
 		ctx = context.Background()
-		albStack = ALBTestStack{}
-		nlbStack = NLBTestStack{}
+		albStack = alb_tests.ALBTestStack{}
+		nlbStack = nlb_tests.NLBTestStack{}
 	})
 
 	AfterEach(func() {
@@ -95,7 +98,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			}
 
 			// HTTPRoute for ALB
-			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying ALB stack", func() {
 				err := albStack.DeployHTTP(ctx, nil, tf, albGwListeners, []*gwv1.HTTPRoute{httpr}, albLbcSpec, tgSpec, lrcSpec, nil, true)
@@ -132,13 +135,13 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*albStack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*albStack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
-				listenerPortMap := albStack.albResourceStack.getListenersPortMap()
+				listenerPortMap := albStack.Resources.GetListenersPortMap()
 
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, albARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
@@ -164,7 +167,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			})
 			By("deploy reference grant that allows nlb <-> alb attachment", func() {
 				var err error
-				refGrant, err = nlbStack.CreateFENLBReferenceGrant(ctx, tf, albStack.albResourceStack.commonStack.ns)
+				refGrant, err = nlbStack.CreateFENLBReferenceGrant(ctx, tf, albStack.Resources.CommonStack.Ns)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(2 * time.Minute)
 			})
@@ -206,9 +209,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					})
 				}
 
-				fmt.Printf("%+v\n", refGrant)
-
-				listenerPortMap := nlbStack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := nlbStack.Resources.GetListenersPortMap()
 
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, nlbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
@@ -243,13 +244,13 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*albStack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*albStack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
-				listenerPortMap := albStack.albResourceStack.getListenersPortMap()
+				listenerPortMap := albStack.Resources.GetListenersPortMap()
 
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, albARN, verifier.LoadBalancerExpectation{
 					Type:         "application",

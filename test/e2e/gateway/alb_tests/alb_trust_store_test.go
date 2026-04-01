@@ -1,4 +1,4 @@
-package gateway
+package alb_tests
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	httputils "sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
@@ -75,7 +76,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 					TLS: &gwv1.ListenerTLSConfig{
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
@@ -85,7 +86,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					},
 				},
 			}
-			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -132,7 +133,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := httputils.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname,
+					HostHeader:         test_resources.TestHostname,
 				}
 				// Either 403 response or connection error indicates mTLS is enforcing
 				_ = tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, httputils.ResponseCodeMatches(403))
@@ -159,7 +160,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					url := fmt.Sprintf("https://%v/any-path", dnsName)
 					req, err := http.NewRequest("GET", url, nil)
 					Expect(err).NotTo(HaveOccurred())
-					req.Host = testHostname
+					req.Host = test_resources.TestHostname
 
 					resp, err := client.Do(req)
 					Expect(err).NotTo(HaveOccurred())
@@ -201,7 +202,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 					TLS: &gwv1.ListenerTLSConfig{
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
@@ -211,7 +212,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					},
 				},
 			}
-			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -257,7 +258,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := httputils.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname,
+					HostHeader:         test_resources.TestHostname,
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, httputils.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
@@ -294,7 +295,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 					TLS: &gwv1.ListenerTLSConfig{
 						CertificateRefs: []gwv1.SecretObjectReference{
 							{
@@ -304,7 +305,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					},
 				},
 			}
-			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -350,7 +351,7 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := httputils.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname,
+					HostHeader:         test_resources.TestHostname,
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, httputils.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())

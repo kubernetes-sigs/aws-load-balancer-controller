@@ -1,4 +1,4 @@
-package gateway
+package nlb_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -23,7 +24,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 	var (
 		ctx            context.Context
 		stack          NLBTestStack
-		auxiliaryStack *auxiliaryResourceStack
+		auxiliaryStack *test_resources.AuxiliaryResourceStack
 		dnsName        string
 		lbARN          string
 	)
@@ -70,7 +71,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				},
 			}
 
-			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, false)
+			auxiliaryStack = test_resources.NewAuxiliaryResourceStack(ctx, tf, tgSpec, false)
 
 			By("deploying stack", func() {
 				err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, false)
@@ -100,7 +101,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:   "TCP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -114,7 +115,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{
 						Protocol:   "UDP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[1].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -128,10 +129,10 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 				}
 
-				listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := stack.Resources.GetListenersPortMap()
 				// This listener _should_ not get materialized yet,
 				// as the reference grant was not created.
-				delete(listenerPortMap, strconv.Itoa(crossNamespacePort))
+				delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
@@ -172,7 +173,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 			})
 			By("deploying ref grant", func() {
-				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.nlbResourceStack.commonStack.ns)
+				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.Resources.CommonStack.Ns)
 				Expect(err).NotTo(HaveOccurred())
 				// Give some time to have the listener get materialized.
 				time.Sleep(2 * time.Minute)
@@ -185,7 +186,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{ // This TG is used by Listeners: TLS:443 (if enabled) and TCP:80 (always enabled)
 						Protocol:   "TCP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -199,7 +200,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{ // This TG is used by Listeners: TCP:5000 (cross namespace route attached)
 						Protocol:   "TCP",
-						Port:       auxiliaryStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       auxiliaryStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -213,7 +214,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{
 						Protocol:   "UDP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[1].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -230,7 +231,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
-					Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -257,7 +258,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{ // This TG is used by Listeners: TLS:443 (if enabled) and TCP:80 (always enabled)
 						Protocol:   "TCP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -271,7 +272,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{
 						Protocol:   "UDP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[1].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -285,9 +286,9 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 				}
 
-				listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := stack.Resources.GetListenersPortMap()
 				// This listener _should_ be gone, as the reference grant is gone.
-				delete(listenerPortMap, strconv.Itoa(crossNamespacePort))
+				delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
@@ -337,7 +338,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				},
 			}
 
-			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, false)
+			auxiliaryStack = test_resources.NewAuxiliaryResourceStack(ctx, tf, tgSpec, false)
 
 			By("deploying stack", func() {
 				err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, false)
@@ -367,7 +368,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:   "TCP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -381,7 +382,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{
 						Protocol:   "UDP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[1].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -395,10 +396,10 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 				}
 
-				listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := stack.Resources.GetListenersPortMap()
 				// This listener _should_ not get materialized yet,
 				// as the reference grant was not created.
-				delete(listenerPortMap, strconv.Itoa(crossNamespacePort))
+				delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
@@ -439,7 +440,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 			})
 			By("deploying ref grant", func() {
-				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.nlbResourceStack.commonStack.ns)
+				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.Resources.CommonStack.Ns)
 				Expect(err).NotTo(HaveOccurred())
 				// Give some time to have the listener get materialized.
 				time.Sleep(2 * time.Minute)
@@ -452,7 +453,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{ // This TG is used by Listeners: TLS:443 (if enabled) and TCP:80 (always enabled)
 						Protocol:   "TCP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -466,7 +467,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{ // This TG is used by Listeners: TCP:5000 (cross namespace route attached)
 						Protocol:   "TCP",
-						Port:       auxiliaryStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       auxiliaryStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -480,7 +481,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{
 						Protocol:   "UDP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[1].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -497,7 +498,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
-					Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -524,7 +525,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{ // This TG is used by Listeners: TLS:443 (if enabled) and TCP:80 (always enabled)
 						Protocol:   "TCP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -538,7 +539,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 					{
 						Protocol:   "UDP",
-						Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[1].NodePort,
+						Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
 						NumTargets: len(nodeList),
 						TargetType: "instance",
 						TargetGroupHC: &verifier.TargetGroupHC{
@@ -552,9 +553,9 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					},
 				}
 
-				listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := stack.Resources.GetListenersPortMap()
 				// This listener _should_ be gone, as the reference grant is gone.
-				delete(listenerPortMap, strconv.Itoa(crossNamespacePort))
+				delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
@@ -610,7 +611,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					expectedTargetGroups := []verifier.ExpectedTargetGroup{
 						{
 							Protocol:   "TCP_UDP",
-							Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+							Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 							NumTargets: len(nodeList),
 							TargetType: "instance",
 							TargetGroupHC: &verifier.TargetGroupHC{
@@ -706,7 +707,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					expectedTargetGroups := []verifier.ExpectedTargetGroup{
 						{
 							Protocol:   "TCP",
-							Port:       stack.nlbResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+							Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
 							NumTargets: len(nodeList),
 							TargetType: "instance",
 							TargetGroupHC: &verifier.TargetGroupHC{
@@ -720,7 +721,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 						},
 						{
 							Protocol:   "TCP",
-							Port:       stack.nlbResourceStack.commonStack.svcs[1].Spec.Ports[0].NodePort,
+							Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[0].NodePort,
 							NumTargets: len(nodeList),
 							TargetType: "instance",
 							TargetGroupHC: &verifier.TargetGroupHC{
@@ -738,7 +739,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 						err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 							Type:         "network",
 							Scheme:       "internet-facing",
-							Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+							Listeners:    stack.Resources.GetListenersPortMap(),
 							TargetGroups: expectedTargetGroups,
 						})
 						Expect(err).NotTo(HaveOccurred())
@@ -805,7 +806,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				},
 			}
 
-			defaultTGC := buildDefaultTargetGroupConfig("gw-default-tgc", elbv2gw.TargetGroupProps{
+			defaultTGC := test_resources.BuildDefaultTargetGroupConfig("gw-default-tgc", elbv2gw.TargetGroupProps{
 				TargetType: &ipTargetType,
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckPath:     &gwHCPath,
@@ -845,19 +846,19 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 						Protocol:   "TCP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 					{
 						Protocol:   "TCP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
-					Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -877,7 +878,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)*2)
+				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)*2)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -895,7 +896,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 			By("updating default TGC health check path and verifying propagation", func() {
 				tgcKey := types.NamespacedName{
 					Name:      "gw-default-tgc",
-					Namespace: stack.nlbResourceStack.commonStack.ns.Name,
+					Namespace: stack.Resources.CommonStack.Ns.Name,
 				}
 				tgc := &elbv2gw.TargetGroupConfiguration{}
 				err := tf.K8sClient.Get(ctx, tgcKey, tgc)

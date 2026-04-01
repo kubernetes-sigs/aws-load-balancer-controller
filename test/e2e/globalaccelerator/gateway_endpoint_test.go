@@ -2,6 +2,8 @@ package globalaccelerator
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,11 +14,12 @@ import (
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/nlb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"time"
 )
 
 var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
@@ -35,16 +38,16 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 
 	Context("Gateway endpoint with ALB", func() {
 		var (
-			gwStack     *gateway.ALBTestStack
+			gwStack     *alb_tests.ALBTestStack
 			gatewayName string
 			namespace   string
 		)
 
 		BeforeEach(func() {
-			gwStack = &gateway.ALBTestStack{}
+			gwStack = &alb_tests.ALBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
 			listeners := []gwv1.Listener{{Name: "http", Protocol: gwv1.HTTPProtocolType, Port: gwv1.PortNumber(80)}}
-			httpRoute := gateway.BuildHTTPRoute(nil, nil, nil)
+			httpRoute := test_resources.BuildHTTPRoute(nil, nil, nil)
 			err := gwStack.DeployHTTP(ctx, nil, tf, listeners, []*gwv1.HTTPRoute{httpRoute}, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, elbv2gw.ListenerRuleConfigurationSpec{}, nil, false)
 			Expect(err).NotTo(HaveOccurred())
 			namespace = gwStack.GetNamespace()
@@ -129,7 +132,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 
 	Context("Gateway endpoint with NLB", func() {
 		var (
-			gwStack     *gateway.NLBTestStack
+			gwStack     *nlb_tests.NLBTestStack
 			gatewayName string
 			namespace   string
 		)
@@ -138,7 +141,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 			if tf.Options.IPFamily == framework.IPv6 {
 				Skip("Skipping test for IPv6")
 			}
-			gwStack = &gateway.NLBTestStack{}
+			gwStack = &nlb_tests.NLBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
 			err := gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false, gwv1.TLSModePassthrough, false)
 			Expect(err).NotTo(HaveOccurred())
@@ -226,7 +229,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 		var (
 			agaNamespace     string
 			gatewayNamespace string
-			gwStack          *gateway.ALBTestStack
+			gwStack          *alb_tests.ALBTestStack
 			gatewayName      string
 			acceleratorName  string
 			gaName           string
@@ -245,10 +248,10 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 			refGrantName = "aga-albgw-refgrant-" + utils.RandomDNS1123Label(6)
 
 			// Create Gateway in Gateway namespace
-			gwStack = &gateway.ALBTestStack{}
+			gwStack = &alb_tests.ALBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
 			listeners := []gwv1.Listener{{Name: "http", Protocol: gwv1.HTTPProtocolType, Port: gwv1.PortNumber(80)}}
-			httpRoute := gateway.BuildHTTPRoute(nil, nil, nil)
+			httpRoute := test_resources.BuildHTTPRoute(nil, nil, nil)
 			err = gwStack.DeployHTTP(ctx, nil, tf, listeners, []*gwv1.HTTPRoute{httpRoute}, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, elbv2gw.ListenerRuleConfigurationSpec{}, nil, false)
 			Expect(err).NotTo(HaveOccurred())
 			gatewayNamespace = gwStack.GetNamespace()
@@ -399,7 +402,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 		var (
 			agaNamespace     string
 			gatewayNamespace string
-			gwStack          *gateway.NLBTestStack
+			gwStack          *nlb_tests.NLBTestStack
 			gatewayName      string
 			acceleratorName  string
 			gaName           string
@@ -422,7 +425,7 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 			refGrantName = "aga-nlbgw-refgrant-" + utils.RandomDNS1123Label(6)
 
 			// Create Gateway in Gateway namespace
-			gwStack = &gateway.NLBTestStack{}
+			gwStack = &nlb_tests.NLBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
 			err = gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false, gwv1.TLSModeTerminate, false)
 			Expect(err).NotTo(HaveOccurred())

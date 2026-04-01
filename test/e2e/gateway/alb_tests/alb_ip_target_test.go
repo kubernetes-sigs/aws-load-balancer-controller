@@ -1,4 +1,4 @@
-package gateway
+package alb_tests
 
 import (
 	"context"
@@ -19,7 +19,8 @@ import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/grpc/echo"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
+	echo2 "sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources/grpc/echo"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
@@ -30,7 +31,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 	var (
 		ctx            context.Context
 		stack          ALBTestStack
-		auxiliaryStack *auxiliaryResourceStack
+		auxiliaryStack *test_resources.AuxiliaryResourceStack
 		dnsName        string
 		lbARN          string
 	)
@@ -55,7 +56,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			interf := elbv2gw.LoadBalancerSchemeInternetFacing
 			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
 				Scheme:                 &interf,
-				ListenerConfigurations: listenerConfigurationForHeaderModification,
+				ListenerConfigurations: test_resources.ListenerConfigurationForHeaderModification,
 			}
 			ipTargetType := elbv2gw.TargetTypeIP
 			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
@@ -71,8 +72,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Protocol: gwv1.HTTPProtocolType,
 				},
 			}
-			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, true)
-			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
+			auxiliaryStack = test_resources.NewAuxiliaryResourceStack(ctx, tf, tgSpec, true)
+			httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, auxiliaryStack, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -93,27 +94,27 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			By("verifying listener attributes header modification is applied", func() {
 				lsARN := verifier.GetLoadBalancerListenerARN(ctx, tf, lbARN, "80")
 				err := verifier.VerifyListenerAttributes(ctx, tf, lsARN, map[string]string{
-					headerModificationServerEnabled: "true",
-					headerModificationMaxAge:        headerModificationMaxAgeValue,
+					test_resources.HeaderModificationServerEnabled: "true",
+					test_resources.HeaderModificationMaxAge:        test_resources.HeaderModificationMaxAgeValue,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
-			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -140,7 +141,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				validateHTTPRouteStatusNotPermitted(tf, stack)
 			})
 			By("deploying ref grant", func() {
-				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.albResourceStack.commonStack.ns)
+				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.Resources.CommonStack.Ns)
 				Expect(err).NotTo(HaveOccurred())
 				// Give some time to have the listener get materialized.
 				time.Sleep(2 * time.Minute)
@@ -150,23 +151,23 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*auxiliaryStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*auxiliaryStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -217,7 +218,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndTargetGroupWeights, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, test_resources.HttpRouteRuleWithMatchesAndTargetGroupWeights, nil)
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -240,35 +241,35 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("verifying HTTP load balancer listener", func() {
-				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, int32(gwListeners[0].Port), &verifier.ListenerExpectation{
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, gwListeners[0].Port, &verifier.ListenerExpectation{
 					ProtocolPort: "HTTP:80",
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("verifying listener rules", func() {
-				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, int32(gwListeners[0].Port), []verifier.ListenerRuleExpectation{
+				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, gwListeners[0].Port, []verifier.ListenerRuleExpectation{
 					{
 						Conditions: []elbv2types.RuleCondition{
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPathString},
+									Values: []string{test_resources.TestPathString},
 								},
 							},
 						},
@@ -278,7 +279,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(50),
 										},
 									},
@@ -292,7 +293,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPathString, fmt.Sprintf("%s/*", testPathString)},
+									Values: []string{test_resources.TestPathString, fmt.Sprintf("%s/*", test_resources.TestPathString)},
 								},
 							},
 							{
@@ -306,18 +307,18 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldHTTPHeader)),
 								HttpHeaderConfig: &elbv2types.HttpHeaderConditionConfig{
-									HttpHeaderName: awssdk.String(testHttpHeaderNameOne),
+									HttpHeaderName: awssdk.String(test_resources.TestHttpHeaderNameOne),
 									Values: []string{
-										testHttpHeaderValueOne,
+										test_resources.TestHttpHeaderValueOne,
 									},
 								},
 							},
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldHTTPHeader)),
 								HttpHeaderConfig: &elbv2types.HttpHeaderConditionConfig{
-									HttpHeaderName: awssdk.String(testHttpHeaderNameTwo),
+									HttpHeaderName: awssdk.String(test_resources.TestHttpHeaderNameTwo),
 									Values: []string{
-										testHttpHeaderValueTwo,
+										test_resources.TestHttpHeaderValueTwo,
 									},
 								},
 							},
@@ -328,7 +329,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(30),
 										},
 									},
@@ -342,7 +343,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPathString, fmt.Sprintf("%s/*", testPathString)},
+									Values: []string{test_resources.TestPathString, fmt.Sprintf("%s/*", test_resources.TestPathString)},
 								},
 							},
 							{
@@ -350,8 +351,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								QueryStringConfig: &elbv2types.QueryStringConditionConfig{
 									Values: []elbv2types.QueryStringKeyValuePair{
 										{
-											Key:   awssdk.String(testQueryStringKeyOne),
-											Value: awssdk.String(testQueryStringValueOne),
+											Key:   awssdk.String(test_resources.TestQueryStringKeyOne),
+											Value: awssdk.String(test_resources.TestQueryStringValueOne),
 										},
 									},
 								},
@@ -361,8 +362,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								QueryStringConfig: &elbv2types.QueryStringConditionConfig{
 									Values: []elbv2types.QueryStringKeyValuePair{
 										{
-											Key:   awssdk.String(testQueryStringKeyTwo),
-											Value: awssdk.String(testQueryStringValueTwo),
+											Key:   awssdk.String(test_resources.TestQueryStringKeyTwo),
+											Value: awssdk.String(test_resources.TestQueryStringValueTwo),
 										},
 									},
 								},
@@ -374,7 +375,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(30),
 										},
 									},
@@ -388,7 +389,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting until DNS name is available", func() {
@@ -396,7 +397,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("sending http request to the lb", func() {
-				url := fmt.Sprintf("http://%v%s", dnsName, testPathString)
+				url := fmt.Sprintf("http://%v%s", dnsName, test_resources.TestPathString)
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -432,7 +433,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{"test.com"}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{"test.com"}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -466,7 +467,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Protocol: gwv1.HTTPProtocolType,
 				},
 			}
-			httpr := BuildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndFilters, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, test_resources.HTTPRouteRuleWithMatchesAndFilters, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -545,7 +546,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{}, httpRouteRuleWithMultiMatchesInSingleRule, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, test_resources.HTTPRouteRuleWithMultiMatchesInSingleRule, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -569,15 +570,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -597,7 +598,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPathString},
+									Values: []string{test_resources.TestPathString},
 								},
 							},
 							{
@@ -613,7 +614,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -627,7 +628,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPathString, fmt.Sprintf("%s/*", testPathString)},
+									Values: []string{test_resources.TestPathString, fmt.Sprintf("%s/*", test_resources.TestPathString)},
 								},
 							},
 							{
@@ -645,7 +646,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -659,15 +660,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPathString, fmt.Sprintf("%s/*", testPathString)},
+									Values: []string{test_resources.TestPathString, fmt.Sprintf("%s/*", test_resources.TestPathString)},
 								},
 							},
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldHTTPHeader)),
 								HttpHeaderConfig: &elbv2types.HttpHeaderConditionConfig{
-									HttpHeaderName: awssdk.String(testHttpHeaderNameOne),
+									HttpHeaderName: awssdk.String(test_resources.TestHttpHeaderNameOne),
 									Values: []string{
-										testHttpHeaderValueOne,
+										test_resources.TestHttpHeaderValueOne,
 									},
 								},
 							},
@@ -684,7 +685,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -698,7 +699,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting until DNS name is available", func() {
@@ -729,7 +730,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			}
 
 			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
-			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
+			httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
 			httpr.Spec.Rules[0].Filters = []gwv1.HTTPRouteFilter{
 				{
 					Type: gwv1.HTTPRouteFilterURLRewrite,
@@ -765,15 +766,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -802,7 +803,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -873,11 +874,11 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -897,15 +898,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			// For IP targets, we need to check the number of pod replicas
-			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
 					Protocol:      "HTTP",
 					Port:          80,
-					NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+					NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					TargetType:    "ip",
-					TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+					TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 				},
 			}
 
@@ -913,7 +914,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -941,7 +942,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := http.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname, // Set Host header
+					HostHeader:         test_resources.TestHostname, // Set Host header
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
@@ -985,11 +986,11 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -1009,22 +1010,22 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			// For IP targets, we need to check the number of pod replicas
-			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1055,7 +1056,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := http.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname, // Set Host header
+					HostHeader:         test_resources.TestHostname, // Set Host header
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
@@ -1102,7 +1103,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 				},
 			}
 			// Create ListenerRuleConfiguration with real Cognito values
@@ -1128,12 +1129,12 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			}
 			httpRouteRules := []gwv1.HTTPRouteRule{
 				{
-					BackendRefs: DefaultHttpRouteRuleBackendRefs,
+					BackendRefs: test_resources.DefaultHttpRouteRuleBackendRefs,
 					Filters: []gwv1.HTTPRouteFilter{
 						{
 							Type: gwv1.HTTPRouteFilterExtensionRef,
 							ExtensionRef: &gwv1.LocalObjectReference{
-								Name:  defaultLRConfigName,
+								Name:  test_resources.DefaultLRConfigName,
 								Kind:  constants.ListenerRuleConfiguration,
 								Group: constants.ControllerCRDGroupVersion,
 							},
@@ -1141,7 +1142,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				},
 			}
-			httpr := BuildHTTPRoute([]string{testHostname}, httpRouteRules, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, httpRouteRules, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, false)
@@ -1165,22 +1166,22 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("verifying AWS load balancer listener", func() {
-				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, int32(gwListeners[0].Port), &verifier.ListenerExpectation{
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, gwListeners[0].Port, &verifier.ListenerExpectation{
 					ProtocolPort:          "HTTPS:443",
 					DefaultCertificateARN: awssdk.ToString(lsConfig.DefaultCertificate),
 				})
@@ -1188,7 +1189,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("verifying listener rules", func() {
-				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, int32(gwListeners[0].Port), []verifier.ListenerRuleExpectation{
+				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, gwListeners[0].Port, []verifier.ListenerRuleExpectation{
 					{
 						Conditions: []elbv2types.RuleCondition{
 							{
@@ -1200,7 +1201,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldHostHeader)),
 								HostHeaderConfig: &elbv2types.HostHeaderConditionConfig{
-									Values: []string{testHostname},
+									Values: []string{test_resources.TestHostname},
 								},
 							},
 						},
@@ -1225,7 +1226,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -1247,7 +1248,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := http.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname,
+					HostHeader:         test_resources.TestHostname,
 					FollowRedirects:    false, // Don't follow redirects automatically
 				}
 
@@ -1270,7 +1271,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			}
 
 			// Generate random OIDC credentials for testing
-			oidcClientID, oidcClientSecret := GenerateOIDCCredentials()
+			oidcClientID, oidcClientSecret := test_resources.GenerateOIDCCredentials()
 
 			// Setup HTTPS listener with certificate
 			interf := elbv2gw.LoadBalancerSchemeInternetFacing
@@ -1295,14 +1296,14 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 				},
 			}
 
 			// Create Kubernetes Secret for OIDC credentials
 			oidcSecretName := "oidc-auth-secret"
 			// Generate random OIDC credentials for testing
-			oidcClientID, oidcClientSecret = GenerateOIDCCredentials()
+			oidcClientID, oidcClientSecret = test_resources.GenerateOIDCCredentials()
 
 			oidcSecret := &testOIDCSecret{
 				name:         oidcSecretName,
@@ -1316,10 +1317,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Type: elbv2gw.ActionTypeAuthenticateOIDC,
 						AuthenticateOIDCConfig: &elbv2gw.AuthenticateOidcActionConfig{
-							Issuer:                testOidcIssuer,
-							AuthorizationEndpoint: testOidcAuthorizationEndpoint,
-							TokenEndpoint:         testOidcTokenEndpoint,
-							UserInfoEndpoint:      testOidcUserInfoEndpoint,
+							Issuer:                test_resources.TestOidcIssuer,
+							AuthorizationEndpoint: test_resources.TestOidcAuthorizationEndpoint,
+							TokenEndpoint:         test_resources.TestOidcTokenEndpoint,
+							UserInfoEndpoint:      test_resources.TestOidcUserInfoEndpoint,
 							Secret: &elbv2gw.Secret{
 								Name: oidcSecretName,
 								// Namespace will default to same as ListenerRuleConfiguration
@@ -1338,12 +1339,12 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			}
 			httpRouteRules := []gwv1.HTTPRouteRule{
 				{
-					BackendRefs: DefaultHttpRouteRuleBackendRefs,
+					BackendRefs: test_resources.DefaultHttpRouteRuleBackendRefs,
 					Filters: []gwv1.HTTPRouteFilter{
 						{
 							Type: gwv1.HTTPRouteFilterExtensionRef,
 							ExtensionRef: &gwv1.LocalObjectReference{
-								Name:  defaultLRConfigName,
+								Name:  test_resources.DefaultLRConfigName,
 								Kind:  constants.ListenerRuleConfiguration,
 								Group: constants.ControllerCRDGroupVersion,
 							},
@@ -1351,7 +1352,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				},
 			}
-			httpr := BuildHTTPRoute([]string{testHostname}, httpRouteRules, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, httpRouteRules, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, oidcSecret, false)
@@ -1375,15 +1376,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1408,7 +1409,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldHostHeader)),
 								HostHeaderConfig: &elbv2types.HostHeaderConditionConfig{
-									Values: []string{testHostname},
+									Values: []string{test_resources.TestHostname},
 								},
 							},
 						},
@@ -1416,10 +1417,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeAuthenticateOIDC),
 								AuthenticateOidcConfig: &elbv2types.AuthenticateOidcActionConfig{
-									Issuer:                awssdk.String(testOidcIssuer),
-									AuthorizationEndpoint: awssdk.String(testOidcAuthorizationEndpoint),
-									TokenEndpoint:         awssdk.String(testOidcTokenEndpoint),
-									UserInfoEndpoint:      awssdk.String(testOidcUserInfoEndpoint),
+									Issuer:                awssdk.String(test_resources.TestOidcIssuer),
+									AuthorizationEndpoint: awssdk.String(test_resources.TestOidcAuthorizationEndpoint),
+									TokenEndpoint:         awssdk.String(test_resources.TestOidcTokenEndpoint),
+									UserInfoEndpoint:      awssdk.String(test_resources.TestOidcUserInfoEndpoint),
 									ClientId:              awssdk.String(oidcClientID),
 									Scope:                 awssdk.String("openid profile email"),
 									AuthenticationRequestExtraParams: map[string]string{
@@ -1436,7 +1437,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -1456,7 +1457,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := http.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname,
+					HostHeader:         test_resources.TestHostname,
 					FollowRedirects:    false, // Don't follow redirects automatically
 				}
 
@@ -1466,7 +1467,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 				// Verify redirect Location header contains Cognito domain
 				err = tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions,
-					http.ResponseHeaderContains("Location", testOidcAuthorizationEndpoint))
+					http.ResponseHeaderContains("Location", test_resources.TestOidcAuthorizationEndpoint))
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -1516,11 +1517,11 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					Name:     "https443",
 					Port:     443,
 					Protocol: gwv1.HTTPSProtocolType,
-					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+					Hostname: (*gwv1.Hostname)(awssdk.String(test_resources.TestHostname)),
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -1540,15 +1541,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			// For IP targets, we need to check the number of pod replicas
-			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
 					Protocol:      "HTTP",
 					Port:          80,
-					NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+					NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					TargetType:    "ip",
-					TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+					TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 				},
 			}
 
@@ -1556,7 +1557,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1594,7 +1595,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("http://%v/any-path", dnsName)
 				urlOptions := http.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname, // Set Host header
+					HostHeader:         test_resources.TestHostname, // Set Host header
 					Method:             "GET",
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
@@ -1605,7 +1606,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("https://%v/any-path", dnsName)
 				urlOptions := http.URLOptions{
 					InsecureSkipVerify: true,
-					HostHeader:         testHostname, // Set Host header
+					HostHeader:         test_resources.TestHostname, // Set Host header
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
@@ -1648,7 +1649,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 			grpcRouteRules := []gwv1.GRPCRouteRule{
 				{
-					BackendRefs: DefaultGrpcRouteRuleBackendRefs,
+					BackendRefs: test_resources.DefaultGrpcRouteRuleBackendRefs,
 				},
 				{
 					Matches: []gwv1.GRPCRouteMatch{
@@ -1666,8 +1667,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 						{
 							BackendRef: gwv1.BackendRef{
 								BackendObjectReference: gwv1.BackendObjectReference{
-									Name: grpcDefaultName + "-other",
-									Port: &defaultGrpcPort,
+									Name: test_resources.GRPCDefaultName + "-other",
+									Port: &test_resources.DefaultGrpcPort,
 								},
 							},
 						},
@@ -1675,7 +1676,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				},
 			}
 
-			grpcr := buildGRPCRoute([]string{}, grpcRouteRules, &gwListeners[0].Name)
+			grpcr := test_resources.BuildGRPCRoute([]string{}, grpcRouteRules, &gwListeners[0].Name)
 			By("deploying stack", func() {
 				err := stack.DeployGRPC(ctx, tf, gwListeners, []*gwv1.GRPCRoute{grpcr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -1693,29 +1694,29 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
 						Protocol:      "HTTP",
 						Port:          50051,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
 					},
 					{
 						Protocol:      "HTTP",
 						Port:          50051,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[1].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[1].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1736,10 +1737,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 				conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 				Expect(err).NotTo(HaveOccurred())
-				c := echo.NewEchoServiceClient(conn)
+				c := echo2.NewEchoServiceClient(conn)
 
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"foo": "cat"}))
-				response, err := c.Echo(mdCtx, &echo.EchoRequest{Message: "Hello from E2E test"})
+				response, err := c.Echo(mdCtx, &echo2.EchoRequest{Message: "Hello from E2E test"})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.Message).To(Equal("Hello from E2E test"))
 			})
@@ -1751,10 +1752,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 				conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 				Expect(err).NotTo(HaveOccurred())
-				c := echo.NewEchoServiceClient(conn)
+				c := echo2.NewEchoServiceClient(conn)
 
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"my-header": "my-header-value"}))
-				response, err := c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				response, err := c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.Message).To(Equal("Hello World - Other"))
 			})
@@ -1766,19 +1767,19 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 				conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 				Expect(err).NotTo(HaveOccurred())
-				c := echo.NewEchoServiceClient(conn)
+				c := echo2.NewEchoServiceClient(conn)
 
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
-				response, err := c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				response, err := c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.Message).To(Equal("Hello World"))
 			})
 			By("update grpc route to remove default rule", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1795,8 +1796,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								BackendRef: gwv1.BackendRef{
 									BackendObjectReference: gwv1.BackendObjectReference{
-										Name: grpcDefaultName + "-other",
-										Port: &defaultGrpcPort,
+										Name: test_resources.GRPCDefaultName + "-other",
+										Port: &test_resources.DefaultGrpcPort,
 									},
 								},
 							},
@@ -1804,7 +1805,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1813,7 +1814,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				c, err := generateGRPCClient(dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"my-header": "my-header-value"}))
-				response, err := c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				response, err := c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(response.Message).To(Equal("Hello World - Other"))
 			})
@@ -1821,15 +1822,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				c, err := generateGRPCClient(dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
-				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				_, err = c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).To(HaveOccurred())
 			})
 			By("update grpc route to route by service / method name. use invalid service", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1843,8 +1844,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								BackendRef: gwv1.BackendRef{
 									BackendObjectReference: gwv1.BackendObjectReference{
-										Name: grpcDefaultName + "-other",
-										Port: &defaultGrpcPort,
+										Name: test_resources.GRPCDefaultName + "-other",
+										Port: &test_resources.DefaultGrpcPort,
 									},
 								},
 							},
@@ -1852,7 +1853,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1861,15 +1862,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				c, err := generateGRPCClient(dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
-				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				_, err = c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).To(HaveOccurred())
 			})
 			By("update grpc route to route by service / method name. filter by service", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1882,8 +1883,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								BackendRef: gwv1.BackendRef{
 									BackendObjectReference: gwv1.BackendObjectReference{
-										Name: grpcDefaultName + "-other",
-										Port: &defaultGrpcPort,
+										Name: test_resources.GRPCDefaultName + "-other",
+										Port: &test_resources.DefaultGrpcPort,
 									},
 								},
 							},
@@ -1891,7 +1892,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1900,18 +1901,18 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				c, err := generateGRPCClient(dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
-				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				_, err = c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = c.Echo(mdCtx, &echo.EchoRequest{Message: "foo"})
+				_, err = c.Echo(mdCtx, &echo2.EchoRequest{Message: "foo"})
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("update grpc route to route by service / method name. filter by service and method", func() {
 
-				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.Resources.Grpcrs[0].Name, Namespace: stack.Resources.Grpcrs[0].Namespace}, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+				stack.Resources.Grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
 					{
 						Matches: []gwv1.GRPCRouteMatch{
 							{
@@ -1925,8 +1926,8 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								BackendRef: gwv1.BackendRef{
 									BackendObjectReference: gwv1.BackendObjectReference{
-										Name: grpcDefaultName + "-other",
-										Port: &defaultGrpcPort,
+										Name: test_resources.GRPCDefaultName + "-other",
+										Port: &test_resources.DefaultGrpcPort,
 									},
 								},
 							},
@@ -1934,7 +1935,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					},
 				}
 
-				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				err = stack.Resources.updateGRPCRoute(ctx, tf, stack.Resources.Grpcrs[0])
 				Expect(err).NotTo(HaveOccurred())
 				// Wait for listener change to propagate.
 				time.Sleep(1 * time.Minute)
@@ -1943,10 +1944,10 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				c, err := generateGRPCClient(dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
-				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				_, err = c.FixedResponse(mdCtx, &echo2.FixedResponseRequest{})
 				Expect(err).To(HaveOccurred())
 
-				_, err = c.Echo(mdCtx, &echo.EchoRequest{Message: "foo"})
+				_, err = c.Echo(mdCtx, &echo2.EchoRequest{Message: "foo"})
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("confirming the route status", func() {
@@ -1976,7 +1977,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				},
 			}
 
-			httpr := BuildHTTPRoute([]string{}, httpRouteRulesWithPathMatchers, nil)
+			httpr := test_resources.BuildHTTPRoute([]string{}, test_resources.HTTPRouteRulesWithPathMatchers, nil)
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -1999,15 +2000,15 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 					{
 						Protocol:      "HTTP",
 						Port:          80,
-						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 						TargetType:    "ip",
-						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -2021,7 +2022,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testExactPath},
+									Values: []string{test_resources.TestExactPath},
 								},
 							},
 						},
@@ -2031,7 +2032,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -2046,7 +2047,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									Values: []string{testPrefixPath, fmt.Sprintf("%s/*", testPrefixPath)},
+									Values: []string{test_resources.TestPrefixPath, fmt.Sprintf("%s/*", test_resources.TestPrefixPath)},
 								},
 							},
 						},
@@ -2056,7 +2057,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -2071,7 +2072,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 							{
 								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
 								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
-									RegexValues: []string{testRegexPath},
+									RegexValues: []string{test_resources.TestRegexPath},
 								},
 							},
 						},
@@ -2081,7 +2082,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 								ForwardConfig: &elbv2types.ForwardActionConfig{
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
-											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											TargetGroupArn: awssdk.String(test_resources.TestTargetGroupArn),
 											Weight:         awssdk.Int32(1),
 										},
 									},
@@ -2095,7 +2096,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -2116,7 +2117,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				},
 			}
 
-			defaultTGC := buildDefaultTargetGroupConfig("gw-default-tgc", elbv2gw.TargetGroupProps{
+			defaultTGC := test_resources.BuildDefaultTargetGroupConfig("gw-default-tgc", elbv2gw.TargetGroupProps{
 				TargetType: &ipTargetType,
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckPath:     &gwHCPath,
@@ -2156,19 +2157,19 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 						Protocol:   "HTTP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 					{
 						Protocol:   "HTTP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 				}
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "application",
 					Scheme:       "internet-facing",
-					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -2188,7 +2189,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)*2)
+				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)*2)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -2206,7 +2207,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			By("updating default TGC health check path and verifying propagation", func() {
 				tgcKey := types.NamespacedName{
 					Name:      "gw-default-tgc",
-					Namespace: stack.albResourceStack.GetNamespace(),
+					Namespace: stack.Resources.GetNamespace(),
 				}
 				tgc := &elbv2gw.TargetGroupConfiguration{}
 				err := tf.K8sClient.Get(ctx, tgcKey, tgc)

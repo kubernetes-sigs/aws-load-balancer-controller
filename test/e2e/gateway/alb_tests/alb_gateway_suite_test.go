@@ -1,4 +1,4 @@
-package gateway
+package alb_tests
 
 import (
 	"testing"
@@ -11,9 +11,9 @@ import (
 
 var tf *framework.Framework
 
-func TestGateway(t *testing.T) {
+func TestALBGateway(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Gateway Suite")
+	RunSpecs(t, "ALB Gateway Suite")
 }
 
 var _ = BeforeSuite(func() {

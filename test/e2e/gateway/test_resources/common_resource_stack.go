@@ -1,7 +1,9 @@
-package gateway
+package test_resources
 
 import (
 	"context"
+	"strconv"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,138 +15,137 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"strconv"
 )
 
 const (
-	crossNamespacePort = 5000
+	CrossNamespacePort = 5000
 )
 
-func newCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrcs []*elbv2gw.ListenerRuleConfiguration, baseName string, namespaceLabels map[string]string) *commonResourceStack {
-	return &commonResourceStack{
-		dps:             dps,
-		svcs:            svcs,
-		gwc:             gwc,
-		gw:              gw,
-		lbc:             lbc,
-		tgcs:            tgcs,
-		lrcs:            lrcs,
-		baseName:        baseName,
-		namespaceLabels: namespaceLabels,
+func NewCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrcs []*elbv2gw.ListenerRuleConfiguration, baseName string, namespaceLabels map[string]string) *CommonResourceStack {
+	return &CommonResourceStack{
+		Dps:             dps,
+		Svcs:            svcs,
+		Gwc:             gwc,
+		Gw:              gw,
+		Lbc:             lbc,
+		Tgcs:            tgcs,
+		Lrcs:            lrcs,
+		BaseName:        baseName,
+		NamespaceLabels: namespaceLabels,
 	}
 }
 
-// commonResourceStack contains resources that are common between nlb / alb gateways
-type commonResourceStack struct {
+// CommonResourceStack contains resources that are common between nlb / alb gateways
+type CommonResourceStack struct {
 	// configurations
-	svcs            []*corev1.Service
-	dps             []*appsv1.Deployment
-	gwc             *gwv1.GatewayClass
-	gw              *gwv1.Gateway
-	lbc             *elbv2gw.LoadBalancerConfiguration
-	tgcs            []*elbv2gw.TargetGroupConfiguration
-	lrcs            []*elbv2gw.ListenerRuleConfiguration
-	ns              *corev1.Namespace
-	baseName        string
-	namespaceLabels map[string]string
+	Svcs            []*corev1.Service
+	Dps             []*appsv1.Deployment
+	Gwc             *gwv1.GatewayClass
+	Gw              *gwv1.Gateway
+	Lbc             *elbv2gw.LoadBalancerConfiguration
+	Tgcs            []*elbv2gw.TargetGroupConfiguration
+	Lrcs            []*elbv2gw.ListenerRuleConfiguration
+	Ns              *corev1.Namespace
+	BaseName        string
+	NamespaceLabels map[string]string
 
 	// runtime variables
-	createdGW *gwv1.Gateway
+	CreatedGW *gwv1.Gateway
 }
 
-func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework, resourceSpecificCreation func(ctx context.Context, f *framework.Framework, namespace string) error) error {
-	ns, err := allocateNamespace(ctx, f, s.baseName, s.namespaceLabels)
+func (s *CommonResourceStack) Deploy(ctx context.Context, f *framework.Framework, resourceSpecificCreation func(ctx context.Context, f *framework.Framework, namespace string) error) error {
+	ns, err := AllocateNamespace(ctx, f, s.BaseName, s.NamespaceLabels)
 	if err != nil {
 		return err
 	}
-	s.ns = ns
+	s.Ns = ns
 
-	for _, v := range s.dps {
-		v.Namespace = s.ns.Name
+	for _, v := range s.Dps {
+		v.Namespace = s.Ns.Name
 	}
 
-	for _, v := range s.svcs {
-		v.Namespace = s.ns.Name
+	for _, v := range s.Svcs {
+		v.Namespace = s.Ns.Name
 	}
 
-	if s.tgcs != nil {
-		for _, v := range s.tgcs {
-			v.Namespace = s.ns.Name
+	if s.Tgcs != nil {
+		for _, v := range s.Tgcs {
+			v.Namespace = s.Ns.Name
 		}
 	}
 
-	if s.lrcs != nil {
-		for _, v := range s.lrcs {
-			v.Namespace = s.ns.Name
+	if s.Lrcs != nil {
+		for _, v := range s.Lrcs {
+			v.Namespace = s.Ns.Name
 		}
 	}
 
-	s.gw.Namespace = s.ns.Name
-	s.lbc.Namespace = s.ns.Name
+	s.Gw.Namespace = s.Ns.Name
+	s.Lbc.Namespace = s.Ns.Name
 
-	if err := createGatewayClass(ctx, f, s.gwc); err != nil {
+	if err := CreateGatewayClass(ctx, f, s.Gwc); err != nil {
 		return err
 	}
-	if err := createLoadBalancerConfig(ctx, f, s.lbc); err != nil {
+	if err := CreateLoadBalancerConfig(ctx, f, s.Lbc); err != nil {
 		return err
 	}
-	if err := createTargetGroupConfigs(ctx, f, s.tgcs); err != nil {
+	if err := CreateTargetGroupConfigs(ctx, f, s.Tgcs); err != nil {
 		return err
 	}
-	if err := createListenerRuleConfigs(ctx, f, s.lrcs); err != nil {
+	if err := CreateListenerRuleConfigs(ctx, f, s.Lrcs); err != nil {
 		return err
 	}
-	if err := createDeployments(ctx, f, s.dps); err != nil {
+	if err := CreateDeployments(ctx, f, s.Dps); err != nil {
 		return err
 	}
-	if err := createServices(ctx, f, s.svcs); err != nil {
-		return err
-	}
-
-	if err := createGateway(ctx, f, s.gw); err != nil {
+	if err := CreateServices(ctx, f, s.Svcs); err != nil {
 		return err
 	}
 
-	if err := resourceSpecificCreation(ctx, f, s.ns.Name); err != nil {
+	if err := CreateGateway(ctx, f, s.Gw); err != nil {
 		return err
 	}
 
-	if err := waitUntilDeploymentReady(ctx, f, s.dps); err != nil {
+	if err := resourceSpecificCreation(ctx, f, s.Ns.Name); err != nil {
 		return err
 	}
 
-	if err := waitUntilServiceReady(ctx, f, s.svcs); err != nil {
+	if err := WaitUntilDeploymentReady(ctx, f, s.Dps); err != nil {
 		return err
 	}
 
-	observedGateway, err := waitUntilGatewayReady(ctx, f, s.gw)
+	if err := WaitUntilServiceReady(ctx, f, s.Svcs); err != nil {
+		return err
+	}
+
+	observedGateway, err := WaitUntilGatewayReady(ctx, f, s.Gw)
 	if err != nil {
 		return err
 	}
-	s.createdGW = observedGateway
+	s.CreatedGW = observedGateway
 	return nil
 }
 
-func (s *commonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	if err := deleteNamespace(ctx, f, s.ns); err != nil {
+func (s *CommonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if err := DeleteNamespace(ctx, f, s.Ns); err != nil {
 		return err
 	}
-	return deleteGatewayClass(ctx, f, s.gwc)
+	return DeleteGatewayClass(ctx, f, s.Gwc)
 }
 
-func (s *commonResourceStack) GetLoadBalancerIngressHostname() string {
-	return s.createdGW.Status.Addresses[0].Value
+func (s *CommonResourceStack) GetLoadBalancerIngressHostname() string {
+	return s.CreatedGW.Status.Addresses[0].Value
 }
 
-func (s *commonResourceStack) getListenersPortMap() map[string]string {
+func (s *CommonResourceStack) GetListenersPortMap() map[string]string {
 	listenersMap := map[string]string{}
-	for _, l := range s.createdGW.Spec.Listeners {
+	for _, l := range s.CreatedGW.Spec.Listeners {
 		listenersMap[strconv.Itoa(int(l.Port))] = string(l.Protocol)
 	}
 	return listenersMap
 }
 
-func createDeployments(ctx context.Context, f *framework.Framework, dps []*appsv1.Deployment) error {
+func CreateDeployments(ctx context.Context, f *framework.Framework, dps []*appsv1.Deployment) error {
 	for _, dp := range dps {
 		f.Logger.Info("creating deployment", "dp", k8s.NamespacedName(dp))
 		if err := f.K8sClient.Create(ctx, dp); err != nil {
@@ -156,7 +157,7 @@ func createDeployments(ctx context.Context, f *framework.Framework, dps []*appsv
 	return nil
 }
 
-func waitUntilDeploymentReady(ctx context.Context, f *framework.Framework, dps []*appsv1.Deployment) error {
+func WaitUntilDeploymentReady(ctx context.Context, f *framework.Framework, dps []*appsv1.Deployment) error {
 	for _, dp := range dps {
 		f.Logger.Info("waiting until deployment becomes ready", "dp", k8s.NamespacedName(dp))
 		_, err := f.DPManager.WaitUntilDeploymentReady(ctx, dp)
@@ -169,7 +170,7 @@ func waitUntilDeploymentReady(ctx context.Context, f *framework.Framework, dps [
 	return nil
 }
 
-func createServices(ctx context.Context, f *framework.Framework, svcs []*corev1.Service) error {
+func CreateServices(ctx context.Context, f *framework.Framework, svcs []*corev1.Service) error {
 	for _, svc := range svcs {
 		f.Logger.Info("creating service", "svc", k8s.NamespacedName(svc))
 		if err := f.K8sClient.Create(ctx, svc); err != nil {
@@ -207,7 +208,7 @@ func deleteReferenceGrants(ctx context.Context, f *framework.Framework, refGrant
 	return nil
 }
 
-func createGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
+func CreateGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
 	f.Logger.Info("creating gateway class", "gwc", k8s.NamespacedName(gwc))
 	err := f.K8sClient.Create(ctx, gwc)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
@@ -219,12 +220,12 @@ func createGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.G
 	return nil
 }
 
-func createLoadBalancerConfig(ctx context.Context, f *framework.Framework, lbc *elbv2gw.LoadBalancerConfiguration) error {
+func CreateLoadBalancerConfig(ctx context.Context, f *framework.Framework, lbc *elbv2gw.LoadBalancerConfiguration) error {
 	f.Logger.Info("creating loadbalancer config", "lbc", k8s.NamespacedName(lbc))
 	return f.K8sClient.Create(ctx, lbc)
 }
 
-func createTargetGroupConfigs(ctx context.Context, f *framework.Framework, tgcs []*elbv2gw.TargetGroupConfiguration) error {
+func CreateTargetGroupConfigs(ctx context.Context, f *framework.Framework, tgcs []*elbv2gw.TargetGroupConfiguration) error {
 	for _, tgc := range tgcs {
 		f.Logger.Info("creating target group config", "tgc", k8s.NamespacedName(tgc))
 		err := f.K8sClient.Create(ctx, tgc)
@@ -237,7 +238,7 @@ func createTargetGroupConfigs(ctx context.Context, f *framework.Framework, tgcs 
 	return nil
 }
 
-func createListenerRuleConfigs(ctx context.Context, f *framework.Framework, lrcs []*elbv2gw.ListenerRuleConfiguration) error {
+func CreateListenerRuleConfigs(ctx context.Context, f *framework.Framework, lrcs []*elbv2gw.ListenerRuleConfiguration) error {
 	for _, lrc := range lrcs {
 		f.Logger.Info("creating listener rule config", "lrc", k8s.NamespacedName(lrc))
 		err := f.K8sClient.Create(ctx, lrc)
@@ -250,12 +251,12 @@ func createListenerRuleConfigs(ctx context.Context, f *framework.Framework, lrcs
 	return nil
 }
 
-func createGateway(ctx context.Context, f *framework.Framework, gw *gwv1.Gateway) error {
+func CreateGateway(ctx context.Context, f *framework.Framework, gw *gwv1.Gateway) error {
 	f.Logger.Info("creating gateway", "gw", k8s.NamespacedName(gw))
 	return f.K8sClient.Create(ctx, gw)
 }
 
-func waitUntilServiceReady(ctx context.Context, f *framework.Framework, svcs []*corev1.Service) error {
+func WaitUntilServiceReady(ctx context.Context, f *framework.Framework, svcs []*corev1.Service) error {
 	for _, svc := range svcs {
 		observedSvc := &corev1.Service{}
 		err := f.K8sClient.Get(ctx, k8s.NamespacedName(svc), observedSvc)
@@ -267,7 +268,7 @@ func waitUntilServiceReady(ctx context.Context, f *framework.Framework, svcs []*
 	return nil
 }
 
-func waitUntilGatewayReady(ctx context.Context, f *framework.Framework, gw *gwv1.Gateway) (*gwv1.Gateway, error) {
+func WaitUntilGatewayReady(ctx context.Context, f *framework.Framework, gw *gwv1.Gateway) (*gwv1.Gateway, error) {
 	observedGw := &gwv1.Gateway{}
 
 	err := wait.PollImmediateUntil(utils.PollIntervalShort, func() (bool, error) {
@@ -291,11 +292,11 @@ func waitUntilGatewayReady(ctx context.Context, f *framework.Framework, gw *gwv1
 	return observedGw, nil
 }
 
-func deleteGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
+func DeleteGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
 	return f.K8sClient.Delete(ctx, gwc)
 }
 
-func deleteNamespace(ctx context.Context, tf *framework.Framework, ns *corev1.Namespace) error {
+func DeleteNamespace(ctx context.Context, tf *framework.Framework, ns *corev1.Namespace) error {
 	tf.Logger.Info("deleting namespace", "ns", k8s.NamespacedName(ns))
 	if err := tf.K8sClient.Delete(ctx, ns); err != nil {
 		tf.Logger.Info("failed to delete namespace", "ns", k8s.NamespacedName(ns))
