@@ -246,11 +246,14 @@ func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn st
 		return nil, err
 	}
 
-	response, err := stsClient.AssumeRole(ctx, &sts.AssumeRoleInput{
+	assumeRoleInput := &sts.AssumeRoleInput{
 		RoleArn:         aws.String(assumeRoleArn),
 		RoleSessionName: aws.String(generateAssumeRoleSessionName(c.clusterName)),
-		ExternalId:      aws.String(externalId),
-	})
+	}
+	if externalId != "" {
+		assumeRoleInput.ExternalId = aws.String(externalId)
+	}
+	response, err := stsClient.AssumeRole(ctx, assumeRoleInput)
 	if err != nil {
 		c.logger.Error(err, "Unable to assume target role", "roleArn", assumeRoleArn)
 		return nil, err
