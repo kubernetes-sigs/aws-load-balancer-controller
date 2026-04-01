@@ -7,84 +7,84 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *nlbResourceStack {
+func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *NLBResourceStack {
 
-	commonStack := gateway.newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
-	return &nlbResourceStack{
-		tcprs:       tcpr,
-		udprs:       udpr,
-		tlsrs:       tlsr,
-		commonStack: commonStack,
+	CommonStack := test_resources.NewCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
+	return &NLBResourceStack{
+		Tcprs:       tcpr,
+		Udprs:       udpr,
+		Tlsrs:       tlsr,
+		CommonStack: CommonStack,
 	}
 }
 
-// resourceStack containing the deployment and service resources
-type nlbResourceStack struct {
-	commonStack *gateway.commonResourceStack
-	tcprs       []*gwalpha2.TCPRoute
-	udprs       []*gwalpha2.UDPRoute
-	tlsrs       []*gwv1.TLSRoute
+// NLBResourceStack containing the deployment and service resources
+type NLBResourceStack struct {
+	CommonStack *test_resources.CommonResourceStack
+	Tcprs       []*gwalpha2.TCPRoute
+	Udprs       []*gwalpha2.UDPRoute
+	Tlsrs       []*gwv1.TLSRoute
 }
 
-func (s *nlbResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
-	return s.commonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
+func (s *NLBResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
+	return s.CommonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
 
-		for _, v := range s.tcprs {
+		for _, v := range s.Tcprs {
 			v.Namespace = namespace
 		}
 
-		for _, v := range s.udprs {
+		for _, v := range s.Udprs {
 			v.Namespace = namespace
 		}
 
-		if s.tlsrs != nil {
-			for _, v := range s.tlsrs {
+		if s.Tlsrs != nil {
+			for _, v := range s.Tlsrs {
 				v.Namespace = namespace
 			}
 		}
-		err := s.createTCPRoutes(ctx, f)
+		err := s.CreateTCPRoutes(ctx, f)
 		if err != nil {
 			return err
 		}
-		err = s.createUDPRoutes(ctx, f)
+		err = s.CreateUDPRoutes(ctx, f)
 		if err != nil {
 			return err
 		}
-		return s.createTLSRoutes(ctx, f)
+		return s.CreateTLSRoutes(ctx, f)
 	})
 }
 
-func (s *nlbResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	if s == nil || s.commonStack == nil {
+func (s *NLBResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if s == nil || s.CommonStack == nil {
 		return nil
 	}
-	return s.commonStack.Cleanup(ctx, f)
+	return s.CommonStack.Cleanup(ctx, f)
 }
 
-func (s *nlbResourceStack) GetLoadBalancerIngressHostname() string {
-	return s.commonStack.GetLoadBalancerIngressHostname()
+func (s *NLBResourceStack) GetLoadBalancerIngressHostname() string {
+	return s.CommonStack.GetLoadBalancerIngressHostname()
 }
 
-func (s *nlbResourceStack) getListenersPortMap() map[string]string {
-	return s.commonStack.getListenersPortMap()
+func (s *NLBResourceStack) GetListenersPortMap() map[string]string {
+	return s.CommonStack.GetListenersPortMap()
 }
 
-func (s *nlbResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
-	return gateway.waitUntilDeploymentReady(ctx, f, s.commonStack.dps)
+func (s *NLBResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
+	return test_resources.WaitUntilDeploymentReady(ctx, f, s.CommonStack.Dps)
 }
 
-func (s *nlbResourceStack) GetNamespace() string {
-	return s.commonStack.ns.Name
+func (s *NLBResourceStack) GetNamespace() string {
+	return s.CommonStack.Ns.Name
 }
 
-func (s *nlbResourceStack) createTCPRoutes(ctx context.Context, f *framework.Framework) error {
-	for _, tcpr := range s.tcprs {
+func (s *NLBResourceStack) CreateTCPRoutes(ctx context.Context, f *framework.Framework) error {
+	for _, tcpr := range s.Tcprs {
 		f.Logger.Info("creating tcp route", "tcpr", k8s.NamespacedName(tcpr))
 		err := f.K8sClient.Create(ctx, tcpr)
 		if err != nil {
@@ -94,8 +94,8 @@ func (s *nlbResourceStack) createTCPRoutes(ctx context.Context, f *framework.Fra
 	return nil
 }
 
-func (s *nlbResourceStack) createUDPRoutes(ctx context.Context, f *framework.Framework) error {
-	for _, udpr := range s.udprs {
+func (s *NLBResourceStack) CreateUDPRoutes(ctx context.Context, f *framework.Framework) error {
+	for _, udpr := range s.Udprs {
 		f.Logger.Info("creating udp route", "udpr", k8s.NamespacedName(udpr))
 		err := f.K8sClient.Create(ctx, udpr)
 		if err != nil {
@@ -105,11 +105,11 @@ func (s *nlbResourceStack) createUDPRoutes(ctx context.Context, f *framework.Fra
 	return nil
 }
 
-func (s *nlbResourceStack) createTLSRoutes(ctx context.Context, f *framework.Framework) error {
-	if s.tlsrs == nil {
+func (s *NLBResourceStack) CreateTLSRoutes(ctx context.Context, f *framework.Framework) error {
+	if s.Tlsrs == nil {
 		return nil
 	}
-	for _, tlsr := range s.tlsrs {
+	for _, tlsr := range s.Tlsrs {
 		f.Logger.Info("creating tls route", "tlsr", k8s.NamespacedName(tlsr))
 		err := f.K8sClient.Create(ctx, tlsr)
 		if err != nil {

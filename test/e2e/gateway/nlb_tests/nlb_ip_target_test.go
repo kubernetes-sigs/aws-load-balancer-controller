@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -24,12 +24,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 	var (
 		ctx            context.Context
 		stack          NLBTestStack
-		auxiliaryStack *gateway.auxiliaryResourceStack
+		auxiliaryStack *test_resources.AuxiliaryResourceStack
 		dnsName        string
 		lbARN          string
 	)
 	BeforeEach(func() {
-		if !gateway.tf.Options.EnableGatewayTests {
+		if !tf.Options.EnableGatewayTests {
 			Skip("Skipping gateway tests")
 		}
 		ctx = context.Background()
@@ -37,9 +37,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 		auxiliaryStack = nil
 	})
 	AfterEach(func() {
-		stack.Cleanup(ctx, gateway.tf)
+		stack.Cleanup(ctx, tf)
 		if auxiliaryStack != nil {
-			auxiliaryStack.Cleanup(ctx, gateway.tf)
+			auxiliaryStack.Cleanup(ctx, tf)
 		}
 	})
 	for _, readinessGateEnabled := range []bool{true} {
@@ -51,8 +51,8 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				var hasTLS bool
-				if len(gateway.tf.Options.CertificateARNs) > 0 {
-					cert := strings.Split(gateway.tf.Options.CertificateARNs, ",")[0]
+				if len(tf.Options.CertificateARNs) > 0 {
+					cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
 
 					lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
 						{
@@ -70,14 +70,14 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					},
 				}
 
-				auxiliaryStack = gateway.newAuxiliaryResourceStack(ctx, gateway.tf, tgSpec, readinessGateEnabled)
+				auxiliaryStack = test_resources.NewAuxiliaryResourceStack(ctx, tf, tgSpec, readinessGateEnabled)
 
 				By("deploying stack", func() {
 
-					err := stack.Deploy(ctx, gateway.tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, readinessGateEnabled)
+					err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, readinessGateEnabled)
 					Expect(err).NotTo(HaveOccurred())
 
-					err = auxiliaryStack.Deploy(ctx, gateway.tf)
+					err = auxiliaryStack.Deploy(ctx, tf)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -88,12 +88,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("querying AWS loadbalancer from the dns name", func() {
 					var err error
-					lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lbARN).ToNot(BeEmpty())
 				})
 
-				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+				targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 				// TODO -- This might be hacky. Currently, the TCP svc always is 0, while UDP is 1.
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
@@ -127,13 +127,13 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					},
 				}
 
-				listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := stack.Resources.GetListenersPortMap()
 				// This listener _should_ not get materialized yet,
 				// as the reference grant was not created.
-				delete(listenerPortMap, strconv.Itoa(gateway.crossNamespacePort))
+				delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
 				By("verifying AWS loadbalancer resources", func() {
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
 						Listeners:    listenerPortMap,
@@ -142,7 +142,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting for target group targets to be healthy", func() {
-					err := verifier.WaitUntilTargetsAreHealthy(ctx, gateway.tf, lbARN, targetNumber)
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting until DNS name is available", func() {
@@ -151,26 +151,26 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				})
 				By("sending http request to the lb", func() {
 					url := fmt.Sprintf("http://%v/any-path", dnsName)
-					err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("sending https request to the lb", func() {
 					if hasTLS {
 						url := fmt.Sprintf("https://%v/any-path", dnsName)
-						err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+						err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 						Expect(err).NotTo(HaveOccurred())
 					}
 				})
 				By("sending udp request to the lb", func() {
 					endpoint := fmt.Sprintf("%v:8080", dnsName)
-					err := gateway.tf.UDPVerifier.VerifyUDP(endpoint)
+					err := tf.UDPVerifier.VerifyUDP(endpoint)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					validateL4RouteStatusNotPermitted(gateway.tf, stack, hasTLS)
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 				By("deploying ref grant", func() {
-					err := auxiliaryStack.CreateReferenceGrants(ctx, gateway.tf, stack.nlbResourceStack.commonStack.ns)
+					err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.Resources.CommonStack.Ns)
 					Expect(err).NotTo(HaveOccurred())
 					// Give some time to have the listener get materialized.
 					time.Sleep(2 * time.Minute)
@@ -222,19 +222,19 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						},
 					}
 
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
-						Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+						Listeners:    stack.Resources.GetListenersPortMap(),
 						TargetGroups: expectedTargetGroups,
 					})
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					validateL4RouteStatusPermitted(gateway.tf, stack, hasTLS)
+					validateL4RouteStatusPermitted(tf, stack, hasTLS)
 				})
 				By("removing ref grant", func() {
-					err := auxiliaryStack.DeleteReferenceGrants(ctx, gateway.tf)
+					err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
 					Expect(err).NotTo(HaveOccurred())
 					// Give some time to have the reference grant to be deleted
 					time.Sleep(2 * time.Minute)
@@ -272,12 +272,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						},
 					}
 
-					listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+					listenerPortMap := stack.Resources.GetListenersPortMap()
 					// This listener _should_ not get materialized yet,
 					// as the reference grant was not created.
-					delete(listenerPortMap, strconv.Itoa(gateway.crossNamespacePort))
+					delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
 						Listeners:    listenerPortMap,
@@ -286,7 +286,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					validateL4RouteStatusNotPermitted(gateway.tf, stack, hasTLS)
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 			})
 		})
@@ -299,8 +299,8 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				var hasTLS bool
-				if len(gateway.tf.Options.CertificateARNs) > 0 {
-					cert := strings.Split(gateway.tf.Options.CertificateARNs, ",")[0]
+				if len(tf.Options.CertificateARNs) > 0 {
+					cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
 
 					lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
 						{
@@ -318,14 +318,14 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					},
 				}
 
-				auxiliaryStack = gateway.newAuxiliaryResourceStack(ctx, gateway.tf, tgSpec, readinessGateEnabled)
+				auxiliaryStack = test_resources.NewAuxiliaryResourceStack(ctx, tf, tgSpec, readinessGateEnabled)
 
 				By("deploying stack", func() {
 
-					err := stack.Deploy(ctx, gateway.tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, readinessGateEnabled)
+					err := stack.Deploy(ctx, tf, auxiliaryStack, lbcSpec, tgSpec, hasTLS, gwv1.TLSModeTerminate, readinessGateEnabled)
 					Expect(err).NotTo(HaveOccurred())
 
-					err = auxiliaryStack.Deploy(ctx, gateway.tf)
+					err = auxiliaryStack.Deploy(ctx, tf)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -336,12 +336,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("querying AWS loadbalancer from the dns name", func() {
 					var err error
-					lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lbARN).ToNot(BeEmpty())
 				})
 
-				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+				targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 				// TODO -- This might be hacky. Currently, the TCP svc always is 0, while UDP is 1.
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
@@ -375,13 +375,13 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					},
 				}
 
-				listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+				listenerPortMap := stack.Resources.GetListenersPortMap()
 				// This listener _should_ not get materialized yet,
 				// as the reference grant was not created.
-				delete(listenerPortMap, strconv.Itoa(gateway.crossNamespacePort))
+				delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
 				By("verifying AWS loadbalancer resources", func() {
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
 						Listeners:    listenerPortMap,
@@ -390,7 +390,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting for target group targets to be healthy", func() {
-					err := verifier.WaitUntilTargetsAreHealthy(ctx, gateway.tf, lbARN, targetNumber)
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting until DNS name is available", func() {
@@ -399,26 +399,26 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				})
 				By("sending http request to the lb", func() {
 					url := fmt.Sprintf("http://%v/any-path", dnsName)
-					err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("sending https request to the lb", func() {
 					if hasTLS {
 						url := fmt.Sprintf("https://%v/any-path", dnsName)
-						err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+						err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 						Expect(err).NotTo(HaveOccurred())
 					}
 				})
 				By("sending udp request to the lb", func() {
 					endpoint := fmt.Sprintf("%v:8080", dnsName)
-					err := gateway.tf.UDPVerifier.VerifyUDP(endpoint)
+					err := tf.UDPVerifier.VerifyUDP(endpoint)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					validateL4RouteStatusNotPermitted(gateway.tf, stack, hasTLS)
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 				By("deploying ref grant", func() {
-					err := auxiliaryStack.CreateReferenceGrants(ctx, gateway.tf, stack.nlbResourceStack.commonStack.ns)
+					err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.Resources.CommonStack.Ns)
 					Expect(err).NotTo(HaveOccurred())
 					// Give some time to have the listener get materialized.
 					time.Sleep(2 * time.Minute)
@@ -470,19 +470,19 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						},
 					}
 
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
-						Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+						Listeners:    stack.Resources.GetListenersPortMap(),
 						TargetGroups: expectedTargetGroups,
 					})
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					validateL4RouteStatusPermitted(gateway.tf, stack, hasTLS)
+					validateL4RouteStatusPermitted(tf, stack, hasTLS)
 				})
 				By("removing ref grant", func() {
-					err := auxiliaryStack.DeleteReferenceGrants(ctx, gateway.tf)
+					err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
 					Expect(err).NotTo(HaveOccurred())
 					// Give some time to have the reference grant to be deleted
 					time.Sleep(2 * time.Minute)
@@ -520,12 +520,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						},
 					}
 
-					listenerPortMap := stack.nlbResourceStack.getListenersPortMap()
+					listenerPortMap := stack.Resources.GetListenersPortMap()
 					// This listener _should_ not get materialized yet,
 					// as the reference grant was not created.
-					delete(listenerPortMap, strconv.Itoa(gateway.crossNamespacePort))
+					delete(listenerPortMap, strconv.Itoa(test_resources.CrossNamespacePort))
 
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
 						Listeners:    listenerPortMap,
@@ -534,7 +534,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					validateL4RouteStatusNotPermitted(gateway.tf, stack, hasTLS)
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 			})
 		})
@@ -554,7 +554,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				By("deploying stack", func() {
-					err := stack.DeployTCP_UDP(ctx, gateway.tf, lbcSpec, tgSpec, false)
+					err := stack.DeployTCP_UDP(ctx, tf, lbcSpec, tgSpec, false)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -565,12 +565,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("querying AWS loadbalancer from the dns name", func() {
 					var err error
-					lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lbARN).ToNot(BeEmpty())
 				})
 
-				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+				targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
@@ -594,7 +594,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				By("verifying AWS loadbalancer resources", func() {
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
 						Listeners:    listenerPortMap,
@@ -603,7 +603,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting for target group targets to be healthy", func() {
-					err := verifier.WaitUntilTargetsAreHealthy(ctx, gateway.tf, lbARN, targetNumber)
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting until DNS name is available", func() {
@@ -612,12 +612,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				})
 				By("sending http request to the lb", func() {
 					url := fmt.Sprintf("http://%v/any-path", dnsName)
-					err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("sending udp request to the lb", func() {
 					endpoint := fmt.Sprintf("%v:80", dnsName)
-					err := gateway.tf.UDPVerifier.VerifyUDP(endpoint)
+					err := tf.UDPVerifier.VerifyUDP(endpoint)
 					Expect(err).NotTo(HaveOccurred())
 				})
 			})
@@ -631,8 +631,8 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				var hasTLS bool
-				if len(gateway.tf.Options.CertificateARNs) > 0 {
-					cert := strings.Split(gateway.tf.Options.CertificateARNs, ",")[0]
+				if len(tf.Options.CertificateARNs) > 0 {
+					cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
 
 					lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
 						{
@@ -651,7 +651,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				By("deploying stack", func() {
-					err := stack.DeployTCPWeightedStack(ctx, gateway.tf, lbcSpec, tgSpec, readinessGateEnabled)
+					err := stack.DeployTCPWeightedStack(ctx, tf, lbcSpec, tgSpec, readinessGateEnabled)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -662,12 +662,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("querying AWS loadbalancer from the dns name", func() {
 					var err error
-					lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lbARN).ToNot(BeEmpty())
 				})
 
-				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+				targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 				// TODO -- This might be hacky. Currently, the TCP svc always is 0, while UDP is 1.
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
@@ -702,16 +702,16 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				By("verifying AWS loadbalancer resources", func() {
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
-						Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+						Listeners:    stack.Resources.GetListenersPortMap(),
 						TargetGroups: expectedTargetGroups,
 					})
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting for target group targets to be healthy", func() {
-					err := verifier.WaitUntilTargetsAreHealthy(ctx, gateway.tf, lbARN, targetNumber)
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting until DNS name is available", func() {
@@ -719,12 +719,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("sending http request to the lb", func() {
-					weightedRequestValidation(gateway.tf, fmt.Sprintf("http://%v/any-path", dnsName))
+					weightedRequestValidation(tf, fmt.Sprintf("http://%v/any-path", dnsName))
 				})
 
 				By("sending https request to the lb", func() {
 					if hasTLS {
-						weightedRequestValidation(gateway.tf, fmt.Sprintf("https://%v/any-path", dnsName))
+						weightedRequestValidation(tf, fmt.Sprintf("https://%v/any-path", dnsName))
 					}
 				})
 			})
@@ -738,7 +738,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				var hasTLS bool
-				if len(gateway.tf.Options.CertificateARNs) > 0 {
+				if len(tf.Options.CertificateARNs) > 0 {
 					hasTLS = true
 				}
 
@@ -750,7 +750,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				}
 
 				By("deploying stack", func() {
-					err := stack.Deploy(ctx, gateway.tf, nil, lbcSpec, tgSpec, hasTLS, gwv1.TLSModePassthrough, true)
+					err := stack.Deploy(ctx, tf, nil, lbcSpec, tgSpec, hasTLS, gwv1.TLSModePassthrough, true)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
@@ -761,12 +761,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 				By("querying AWS loadbalancer from the dns name", func() {
 					var err error
-					lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lbARN).ToNot(BeEmpty())
 				})
 
-				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+				targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{ // This TG is used by Listeners: TCP:443 (if enabled) and TCP:80 (always enabled)
@@ -799,14 +799,14 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					},
 				}
 
-				expectedListeners := stack.nlbResourceStack.getListenersPortMap()
+				expectedListeners := stack.Resources.GetListenersPortMap()
 				if hasTLS {
 					// Pass through mode means that the NLB should treat the traffic as TCP, not TLS.
 					expectedListeners["443"] = "TCP"
 				}
 
 				By("verifying AWS loadbalancer resources", func() {
-					err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 						Type:         "network",
 						Scheme:       "internet-facing",
 						Listeners:    expectedListeners,
@@ -815,7 +815,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting for target group targets to be healthy", func() {
-					err := verifier.WaitUntilTargetsAreHealthy(ctx, gateway.tf, lbARN, targetNumber)
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("waiting until DNS name is available", func() {
@@ -824,13 +824,13 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				})
 				By("sending http request to the lb", func() {
 					url := fmt.Sprintf("http://%v/any-path", dnsName)
-					err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 					Expect(err).NotTo(HaveOccurred())
 				})
 				if hasTLS {
 					By("sending tcp traffic to the passthrough listener", func() {
 						url := fmt.Sprintf("http://%v:443/any-path", dnsName)
-						err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+						err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 						Expect(err).NotTo(HaveOccurred())
 					})
 				}
@@ -853,12 +853,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			}
 
 			By("deploying stack", func() {
-				err := stack.DeployListenerMismatch(ctx, gateway.tf, lbcSpec, tgSpec, false)
+				err := stack.DeployListenerMismatch(ctx, tf, lbcSpec, tgSpec, false)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("validating TCPRoute and Gateway status", func() {
-				validateTCPRouteListenerMismatch(gateway.tf, stack)
+				validateTCPRouteListenerMismatch(tf, stack)
 			})
 		})
 	})
@@ -878,7 +878,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				},
 			}
 
-			defaultTGC := gateway.buildDefaultTargetGroupConfig("gw-default-tgc", elbv2gw.TargetGroupProps{
+			defaultTGC := test_resources.BuildDefaultTargetGroupConfig("gw-default-tgc", elbv2gw.TargetGroupProps{
 				TargetType: &ipTargetType,
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckPath:     &gwHCPath,
@@ -896,7 +896,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			}
 
 			By("deploying stack", func() {
-				err := stack.DeployWithDefaultTGC(ctx, gateway.tf, lbcSpec, defaultTGC, svcTgSpec, true)
+				err := stack.DeployWithDefaultTGC(ctx, tf, lbcSpec, defaultTGC, svcTgSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -907,7 +907,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lbARN).ToNot(BeEmpty())
 			})
@@ -918,26 +918,26 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						Protocol:   "TCP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 					{
 						Protocol:   "TCP",
 						Port:       80,
 						TargetType: "ip",
-						NumTargets: int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas),
+						NumTargets: int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
 					},
 				}
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
 					Scheme:       "internet-facing",
-					Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+					Listeners:    stack.Resources.GetListenersPortMap(),
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("verifying svc1 inherits gateway TGC and svc2 uses service-level TGC health check path", func() {
-				targetGroups, err := gateway.tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(len(targetGroups)).To(Equal(2))
 
@@ -950,7 +950,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			})
 
 			By("waiting for target group targets to be healthy", func() {
-				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, gateway.tf, lbARN, int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)*2)
+				err := verifier.WaitUntilAllTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)*2)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -961,28 +961,28 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 
 			By("sending http request to the lb", func() {
 				url := fmt.Sprintf("http://%v/any-path", dnsName)
-				err := gateway.tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("updating default TGC health check path and verifying propagation", func() {
 				tgcKey := types.NamespacedName{
 					Name:      "gw-default-tgc",
-					Namespace: stack.nlbResourceStack.commonStack.ns.Name,
+					Namespace: stack.Resources.CommonStack.Ns.Name,
 				}
 				tgc := &elbv2gw.TargetGroupConfiguration{}
-				err := gateway.tf.K8sClient.Get(ctx, tgcKey, tgc)
+				err := tf.K8sClient.Get(ctx, tgcKey, tgc)
 				Expect(err).NotTo(HaveOccurred())
 
 				updatedHCPath := "/updated-default-health"
 				tgc.Spec.DefaultConfiguration.HealthCheckConfig.HealthCheckPath = &updatedHCPath
-				err = gateway.tf.K8sClient.Update(ctx, tgc)
+				err = tf.K8sClient.Update(ctx, tgc)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("verifying AWS target group health check path updated after TGC change", func() {
 				Eventually(func() bool {
-					targetGroups, err := gateway.tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+					targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 					if err != nil || len(targetGroups) == 0 {
 						return false
 					}

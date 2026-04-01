@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	crossNamespacePort = 5000
+	CrossNamespacePort = 5000
 )
 
 func NewCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrcs []*elbv2gw.ListenerRuleConfiguration, baseName string, namespaceLabels map[string]string) *CommonResourceStack {

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,11 +21,11 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 	)
 
 	BeforeEach(func() {
-		if !gateway.tf.Options.EnableGatewayTests {
+		if !tf.Options.EnableGatewayTests {
 			Skip("Skipping gateway tests")
 		}
 
-		if gateway.tf.Options.IPFamily == framework.IPv6 {
+		if tf.Options.IPFamily == framework.IPv6 {
 			Skip("QUIC does not support IPv6")
 		}
 		ctx = context.Background()
@@ -34,7 +33,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 	})
 
 	AfterEach(func() {
-		stack.Cleanup(ctx, gateway.tf)
+		stack.Cleanup(ctx, tf)
 	})
 
 	Context("with QUIC protocol enabled", func() {
@@ -59,7 +58,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 				},
 			}
 			By("deploying stack with QUIC enabled", func() {
-				err := stack.DeployQUIC(ctx, gateway.tf, lbcSpec, tgSpec, map[string]string{
+				err := stack.DeployQUIC(ctx, tf, lbcSpec, tgSpec, map[string]string{
 					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -72,12 +71,12 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
@@ -89,7 +88,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			}
 
 			By("verifying target groups have QUIC protocol", func() {
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:   "network",
 					Scheme: "internet-facing",
 					Listeners: map[string]string{
@@ -123,7 +122,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			}
 
 			By("deploying stack with QUIC enabled for TCP_UDP", func() {
-				err := stack.DeployTCP_QUIC(ctx, gateway.tf, lbcSpec, tgSpec, map[string]string{
+				err := stack.DeployTCP_QUIC(ctx, tf, lbcSpec, tgSpec, map[string]string{
 					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -137,12 +136,12 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 
 			By("querying AWS loadbalancer from the dns name", func() {
 				var err error
-				lbARN, err = gateway.tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+			targetNumber := int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas)
 
 			expectedTargetGroups := []verifier.ExpectedTargetGroup{
 				{
@@ -154,7 +153,7 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			}
 
 			By("verifying target groups have TCP_QUIC protocol", func() {
-				err := verifier.VerifyAWSLoadBalancerResources(ctx, gateway.tf, lbARN, verifier.LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:   "network",
 					Scheme: "internet-facing",
 					Listeners: map[string]string{

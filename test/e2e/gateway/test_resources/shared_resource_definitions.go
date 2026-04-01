@@ -609,7 +609,7 @@ func AllocateNamespace(ctx context.Context, f *framework.Framework, baseName str
 }
 
 type BodyMatcher struct {
-	responseCount map[string]int
+	ResponseCount map[string]int
 }
 
 func (b *BodyMatcher) Matches(resp http.Response) error {
@@ -617,11 +617,11 @@ func (b *BodyMatcher) Matches(resp http.Response) error {
 		return nil
 	}
 	bodyString := string(resp.Body)
-	_, ok := b.responseCount[bodyString]
+	_, ok := b.ResponseCount[bodyString]
 	if !ok {
-		b.responseCount[bodyString] = 0
+		b.ResponseCount[bodyString] = 0
 	}
-	b.responseCount[bodyString]++
+	b.ResponseCount[bodyString]++
 	return nil
 }
 
