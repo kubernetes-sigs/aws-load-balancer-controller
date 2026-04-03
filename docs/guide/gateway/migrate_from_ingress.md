@@ -8,7 +8,8 @@
 
 ## Prerequisites
 
-Before applying the generated manifests, ensure the Gateway API CRDs are installed in your cluster at a compatible version. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
+- The Gateway API CRDs must be installed in your cluster at a compatible version before applying the generated manifests. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
+- The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations or enforce the same constraints as the ingress controller (e.g., ALB rule limits, mutually exclusive annotation combinations). If an Ingress has invalid or conflicting annotations, the output may be incorrect or incomplete without warning.
 
 ## Installation
 
@@ -91,6 +92,17 @@ Existing `Deployment` and `Service` resources are reused as-is and are not gener
 ### Default Backend Handling
 
 Gateway API has no `defaultBackend` equivalent ([upstream docs](https://gateway-api.sigs.k8s.io/guides/getting-started/migrating-from-ingress/#default-backend)). When an Ingress has both a `defaultBackend` and host-based rules, the tool generates a separate catch-all HTTPRoute with no hostnames or match conditions. This results in one additional ALB listener rule compared to the original Ingress, which is the expected Gateway API behavior. Additionally, the gateway controller scopes target groups per route, so the separate default-backend HTTPRoute creates its own target group even if it points to the same service as other rules. This means the migrated setup may have one extra target group compared to the Ingress setup, where a single target group is shared across all rules for the same service.
+
+### Known Differences from Ingress
+
+The migrated Gateway API manifests may produce more ALB listener rules than the original Ingress. This happens because ALB supports OR within a single condition (e.g., one `http-request-method` condition with values `[GET, HEAD]`), while Gateway API represents OR as separate `HTTPRouteMatch` entries — each becoming its own ALB rule. The routing behavior is functionally equivalent, but the rule count and priority numbers may differ. This affects conditions with multiple values for `path-pattern`, `http-request-method`, and `query-string`.
+
+Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
+
+The following Ingress annotation types have limited support in the migration tool and Gatewaty API:
+
+- `host-header` conditions — values are passed through to Gateway API hostnames. Since hostnames are route-level in Gateway API (not per-rule), rules with host-header conditions are split into separate HTTPRoutes with their own hostnames. Complex wildcards (e.g., `www.*.example.com`) or regex values that don't conform to Gateway API hostname format will be rejected by the K8s API server when the manifest is applied.
+- `url-rewrite` and `host-header-rewrite` transforms with regex capture group references (e.g., `replace: "/$1"` or `replace: "$1.example.org"`) — Gateway API's `URLRewrite` filter only supports static replacements (`ReplaceFullPath` for paths, `PreciseHostname` for hostnames). Transforms with static replacements (no `$N` references) are translated; transforms with capture group references are skipped. Additionally, the original Ingress transform regex is discarded during migration — the gateway controller generates its own fixed regex from the Gateway API filter type (`^([^?]*)` for path rewrites, `.*` for hostname rewrites). This means the ALB transform will always match all paths or all hostnames for the rule, regardless of what the original Ingress regex was. This is functionally equivalent because the ALB rule's conditions (from the HTTPRoute match) already narrow the traffic before the transform is applied. Verify the generated output if your Ingress uses transforms.
 
 !!! important "What changes and what stays the same"
     The generated output **replaces only your Ingress resource**. Everything else stays untouched:

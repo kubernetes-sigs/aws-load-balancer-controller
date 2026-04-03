@@ -16,44 +16,53 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// hostScopedRoute holds a rule that was separated into its own HTTPRoute because it has
+// a host-header condition with values that differ from the Ingress spec host.
+// Gateway API hostnames are route-level, so per-rule host overrides require separate routes.
+type hostScopedRoute struct {
+	svcName   string
+	rule      gwv1.HTTPRouteRule
+	hostnames []gwv1.Hostname
+}
+
+// httpRouteTranslator holds shared state accumulated while iterating over Ingress paths.
+type httpRouteTranslator struct {
+	namespace           string
+	ingName             string
+	ingAnnotations      map[string]string
+	useRegex            bool
+	servicesByKey       map[string]corev1.Service
+	svcRefSeen          sets.Set[string]
+	svcRefs             []serviceRef
+	listenerRuleConfigs []gatewayv1beta1.ListenerRuleConfiguration
+}
+
+// trackBackend records a unique service reference for TGC generation.
+func (t *httpRouteTranslator) trackBackend(svcName string, resolvedPort int32) {
+	ref := serviceRef{namespace: t.namespace, name: svcName, port: resolvedPort}
+	if !t.svcRefSeen.Has(ref.getServiceRefKey()) {
+		t.svcRefSeen.Insert(ref.getServiceRefKey())
+		t.svcRefs = append(t.svcRefs, ref)
+	}
+}
+
 // buildHTTPRoutes builds one or more HTTPRoutes from an Ingress resource and collects
 // unique service references (with resolved ports) encountered during the iteration.
-// When an Ingress has both a defaultBackend and host-based rules, the default backend
-// is emitted as a separate HTTPRoute without hostnames so it becomes a true catch-all,
-// matching the Ingress behavior where the default backend handles any request regardless
-// of hostname.
-// It also handles "use-annotation" backends by parsing the corresponding actions.* annotation
-// and translating it into the appropriate Gateway API constructs (backendRefs, filters, ListenerRuleConfigs).
 func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, listenPorts []listenPortEntry, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
-	useRegex := getString(ing.Annotations, annotations.IngressSuffixUseRegexPathMatch) == "true"
-	// Build parentRefs — one per listener on the gateway
-	var parentRefs []gwv1.ParentReference
+	parentRefs := buildParentRefs(gatewayName)
 
-	for _, lp := range listenPorts {
-		sectionName := gwv1.SectionName(utils.GetSectionName(lp.Protocol, lp.Port))
-		parentRefs = append(parentRefs, gwv1.ParentReference{
-			Name:        gwv1.ObjectName(gatewayName),
-			SectionName: &sectionName,
-		})
+	t := &httpRouteTranslator{
+		namespace:      namespace,
+		ingName:        ing.Name,
+		ingAnnotations: ing.Annotations,
+		useRegex:       strings.EqualFold(getString(ing.Annotations, annotations.IngressSuffixUseRegexPathMatch), "true"),
+		servicesByKey:  servicesByKey,
+		svcRefSeen:     sets.New[string](),
 	}
 
-	// Collect unique service refs during iteration
-	svcRefSeen := sets.New[string]()
-	var svcRefs []serviceRef
-	trackBackend := func(svcName string, resolvedPort int32) {
-		ref := serviceRef{namespace: namespace, name: svcName, port: resolvedPort}
-		if !svcRefSeen.Has(ref.getServiceRefKey()) {
-			svcRefSeen.Insert(ref.getServiceRefKey())
-			svcRefs = append(svcRefs, ref)
-		}
-	}
-
-	// Build rules from Ingress spec.rules
 	var rules []gwv1.HTTPRouteRule
 	var hostnames []gwv1.Hostname
-
-	// Collect LRCs produced by use-annotation backends
-	var listenerRuleConfigs []gatewayv1beta1.ListenerRuleConfiguration
+	var hostScopedRoutes []hostScopedRoute
 
 	for _, rule := range ing.Spec.Rules {
 		if rule.Host != "" {
@@ -63,80 +72,19 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 			continue
 		}
 		for _, path := range rule.HTTP.Paths {
-			routeRule := gwv1.HTTPRouteRule{}
-
-			// Build match
-			match := gwv1.HTTPRouteMatch{}
-			if path.Path != "" {
-				pathType, err := toGatewayPathType(path.PathType, useRegex)
-				if err != nil {
-					return nil, nil, nil, fmt.Errorf("ingress %s/%s path %q: %w", namespace, ing.Name, path.Path, err)
-				}
-				pathValue := path.Path
-				// When using regex path match with ImplementationSpecific, the Ingress controller
-				// strips the leading "/" from the path (it's a K8s API requirement, not part of the regex).
-				// Gateway API takes the regex as-is, so we strip it here to preserve the same behavior.
-				if useRegex && path.PathType != nil && *path.PathType == networking.PathTypeImplementationSpecific && len(pathValue) > 1 && pathValue[0] == '/' {
-					pathValue = pathValue[1:]
-				}
-				match.Path = &gwv1.HTTPPathMatch{
-					Type:  &pathType,
-					Value: &pathValue,
-				}
+			routeRule, hsr, err := t.buildRouteRule(rule, path)
+			if err != nil {
+				return nil, nil, nil, err
 			}
-			routeRule.Matches = []gwv1.HTTPRouteMatch{match}
-
-			// Build backendRef or translate use-annotation action
-			if path.Backend.Service != nil {
-				if isUseAnnotation(path.Backend.Service.Port.Name) {
-					// "use-annotation" backend: parse the actions.* annotation and translate it.
-					svcName := path.Backend.Service.Name
-					parsedAction, err := parseActionAnnotation(ing.Annotations, svcName)
-					if err != nil {
-						return nil, nil, nil, fmt.Errorf("ingress %s/%s failed in parse action annotation: %w", namespace, ing.Name, err)
-					}
-					actionResult, err := translateAction(parsedAction, namespace, svcName, servicesByKey)
-					if err != nil {
-						return nil, nil, nil, fmt.Errorf("ingress %s/%s failed in translate action %q: %w", namespace, ing.Name, svcName, err)
-					}
-					if len(actionResult.BackendRefs) > 0 {
-						routeRule.BackendRefs = actionResult.BackendRefs
-					}
-					if len(actionResult.Filters) > 0 {
-						routeRule.Filters = actionResult.Filters
-					}
-					if actionResult.ListenerRuleConfiguration != nil {
-						listenerRuleConfigs = append(listenerRuleConfigs, *actionResult.ListenerRuleConfiguration)
-					}
-					// Track K8s service backends from forward actions for TGC generation
-					for _, ref := range actionResult.ServiceRefs {
-						trackBackend(ref.name, ref.port)
-					}
-				} else {
-					portNum, err := resolveServicePort(path.Backend.Service.Port, namespace, path.Backend.Service.Name, servicesByKey)
-					if err != nil {
-						return nil, nil, nil, err
-					}
-					trackBackend(path.Backend.Service.Name, portNum)
-					port := gwv1.PortNumber(portNum)
-					routeRule.BackendRefs = []gwv1.HTTPBackendRef{
-						{
-							BackendRef: gwv1.BackendRef{
-								BackendObjectReference: gwv1.BackendObjectReference{
-									Name: gwv1.ObjectName(path.Backend.Service.Name),
-									Port: &port,
-								},
-							},
-						},
-					}
-				}
+			if hsr != nil {
+				hostScopedRoutes = append(hostScopedRoutes, *hsr)
+			} else {
+				rules = append(rules, routeRule)
 			}
-
-			rules = append(rules, routeRule)
 		}
 	}
 
-	// get hostnames from spec.rules and spec.tls
+	// Collect hostnames from spec.tls
 	for _, tls := range ing.Spec.TLS {
 		for _, h := range tls.Hosts {
 			hostnames = append(hostnames, gwv1.Hostname(h))
@@ -144,21 +92,214 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 	}
 	hostnames = deduplicateHostnames(hostnames)
 
+	routes, err := assembleRoutes(namespace, ing.Name, parentRefs, hostnames, rules, hostScopedRoutes,
+		ing.Spec.DefaultBackend, t)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return routes, t.svcRefs, t.listenerRuleConfigs, nil
+}
+
+// buildParentRefs creates a single ParentReference to the gateway.
+// No sectionName is needed because Ingress applies all rules to all listen-ports,
+// and a parentRef without sectionName attaches the route to all listeners on the gateway.
+func buildParentRefs(gatewayName string) []gwv1.ParentReference {
+	return []gwv1.ParentReference{
+		{
+			Name: gwv1.ObjectName(gatewayName),
+		},
+	}
+}
+
+// buildRouteRule builds a single HTTPRouteRule from an Ingress path, including backend resolution,
+// action annotation translation, and condition annotation translation.
+func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path networking.HTTPIngressPath) (gwv1.HTTPRouteRule, *hostScopedRoute, error) {
+	routeRule := gwv1.HTTPRouteRule{}
+
+	match, err := buildPathMatch(path, t.useRegex)
+	if err != nil {
+		return routeRule, nil, fmt.Errorf("ingress %s/%s path %q: %w", t.namespace, t.ingName, path.Path, err)
+	}
+	routeRule.Matches = []gwv1.HTTPRouteMatch{match}
+
+	if path.Backend.Service != nil {
+		if err := t.buildBackendForRule(&routeRule, path.Backend.Service); err != nil {
+			return routeRule, nil, err
+		}
+		hsr, err := t.buildConditions(&routeRule, rule, path.Backend.Service.Name)
+		if err != nil {
+			return routeRule, nil, err
+		}
+		if err := t.buildTransforms(&routeRule, path.Backend.Service.Name); err != nil {
+			return routeRule, nil, err
+		}
+		if hsr != nil {
+			return routeRule, hsr, nil
+		}
+	}
+
+	return routeRule, nil, nil
+}
+
+// buildPathMatch builds an HTTPRouteMatch from an Ingress path spec.
+func buildPathMatch(path networking.HTTPIngressPath, useRegex bool) (gwv1.HTTPRouteMatch, error) {
+	match := gwv1.HTTPRouteMatch{}
+	if path.Path != "" {
+		pathType, err := toGatewayPathType(path.PathType, useRegex)
+		if err != nil {
+			return match, err
+		}
+		pathValue := path.Path
+		// When using regex path match with ImplementationSpecific, the Ingress controller
+		// strips the leading "/" from the path (it's a K8s API requirement, not part of the regex).
+		// Gateway API takes the regex as-is, so we strip it here to preserve the same behavior.
+		if useRegex && path.PathType != nil && *path.PathType == networking.PathTypeImplementationSpecific && len(pathValue) > 1 && pathValue[0] == '/' {
+			pathValue = pathValue[1:]
+		}
+		match.Path = &gwv1.HTTPPathMatch{
+			Type:  &pathType,
+			Value: &pathValue,
+		}
+	}
+	return match, nil
+}
+
+// buildBackendForRule resolves the backend for a route rule — either a use-annotation action
+// or a real K8s service reference.
+func (t *httpRouteTranslator) buildBackendForRule(routeRule *gwv1.HTTPRouteRule, svcBackend *networking.IngressServiceBackend) error {
+	if isUseAnnotation(svcBackend.Port.Name) {
+		return t.buildUseAnnotationBackend(routeRule, svcBackend.Name)
+	}
+	return t.buildServiceBackend(routeRule, svcBackend)
+}
+
+func (t *httpRouteTranslator) buildUseAnnotationBackend(routeRule *gwv1.HTTPRouteRule, svcName string) error {
+	parsedAction, err := parseActionAnnotation(t.ingAnnotations, svcName)
+	if err != nil {
+		return fmt.Errorf("ingress %s/%s failed in parse action annotation: %w", t.namespace, t.ingName, err)
+	}
+	actionResult, err := translateAction(parsedAction, t.namespace, svcName, t.servicesByKey)
+	if err != nil {
+		return fmt.Errorf("ingress %s/%s failed in translate action %q: %w", t.namespace, t.ingName, svcName, err)
+	}
+	if len(actionResult.BackendRefs) > 0 {
+		routeRule.BackendRefs = actionResult.BackendRefs
+	}
+	if len(actionResult.Filters) > 0 {
+		routeRule.Filters = actionResult.Filters
+	}
+	if actionResult.ListenerRuleConfiguration != nil {
+		t.listenerRuleConfigs = append(t.listenerRuleConfigs, *actionResult.ListenerRuleConfiguration)
+	}
+	for _, ref := range actionResult.ServiceRefs {
+		t.trackBackend(ref.name, ref.port)
+	}
+	return nil
+}
+
+func (t *httpRouteTranslator) buildServiceBackend(routeRule *gwv1.HTTPRouteRule, svcBackend *networking.IngressServiceBackend) error {
+	portNum, err := resolveServicePort(svcBackend.Port, t.namespace, svcBackend.Name, t.servicesByKey)
+	if err != nil {
+		return err
+	}
+	t.trackBackend(svcBackend.Name, portNum)
+	port := gwv1.PortNumber(portNum)
+	routeRule.BackendRefs = []gwv1.HTTPBackendRef{
+		{
+			BackendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Name: gwv1.ObjectName(svcBackend.Name),
+					Port: &port,
+				},
+			},
+		},
+	}
+	return nil
+}
+
+// buildConditions parses and applies the conditions.* annotation for a rule.
+// Returns a hostScopedRoute if the condition has host-header values (requiring a separate HTTPRoute),
+// or nil if the rule stays in the primary route.
+func (t *httpRouteTranslator) buildConditions(routeRule *gwv1.HTTPRouteRule, ingressRule networking.IngressRule, svcName string) (*hostScopedRoute, error) {
+	parsedConditions, err := parseConditionAnnotation(t.ingAnnotations, svcName)
+	if err != nil {
+		return nil, fmt.Errorf("ingress %s/%s failed to parse condition annotation for %q: %w", t.namespace, t.ingName, svcName, err)
+	}
+	if len(parsedConditions) == 0 {
+		return nil, nil
+	}
+
+	condResult := translateConditions(parsedConditions, routeRule.Matches)
+	if condResult == nil {
+		return nil, nil
+	}
+
+	routeRule.Matches = condResult.Matches
+
+	if len(condResult.ListenerRuleConditions) > 0 {
+		lrc := findOrCreateLRC(&t.listenerRuleConfigs, t.namespace, svcName)
+		lrc.Spec.Conditions = append(lrc.Spec.Conditions, condResult.ListenerRuleConditions...)
+		if !routeRuleHasExtensionRef(*routeRule, lrc.Name) {
+			routeRule.Filters = append(routeRule.Filters, extensionRefFilter(lrc.Name))
+		}
+	}
+
+	// Host-header values require a separate HTTPRoute because hostnames are route-level.
+	if len(condResult.AdditionalHostnames) > 0 {
+		var ruleHostnames []gwv1.Hostname
+		if ingressRule.Host != "" {
+			ruleHostnames = append(ruleHostnames, gwv1.Hostname(ingressRule.Host))
+		}
+		ruleHostnames = append(ruleHostnames, condResult.AdditionalHostnames...)
+		ruleHostnames = deduplicateHostnames(ruleHostnames)
+		return &hostScopedRoute{
+			svcName:   svcName,
+			rule:      *routeRule,
+			hostnames: ruleHostnames,
+		}, nil
+	}
+
+	return nil, nil
+}
+
+// buildTransforms parses and applies the transforms.* annotation for a rule.
+func (t *httpRouteTranslator) buildTransforms(routeRule *gwv1.HTTPRouteRule, svcName string) error {
+	parsedTransforms, err := parseTransformAnnotation(t.ingAnnotations, svcName)
+	if err != nil {
+		return fmt.Errorf("ingress %s/%s failed to parse transform annotation for %q: %w", t.namespace, t.ingName, svcName, err)
+	}
+	if len(parsedTransforms) == 0 {
+		return nil
+	}
+
+	filter := translateTransforms(parsedTransforms)
+	if filter != nil {
+		routeRule.Filters = append(routeRule.Filters, *filter)
+	}
+	return nil
+}
+
+// assembleRoutes builds the final list of HTTPRoutes from the primary rules and default backend.
+func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference, hostnames []gwv1.Hostname,
+	rules []gwv1.HTTPRouteRule, hostScopedRoutes []hostScopedRoute,
+	defaultBackend *networking.IngressBackend, t *httpRouteTranslator) ([]gwv1.HTTPRoute, error) {
+
 	// Build default backend rule if present
 	var defaultRule *gwv1.HTTPRouteRule
-	if ing.Spec.DefaultBackend != nil && ing.Spec.DefaultBackend.Service != nil {
-		portNum, err := resolveServicePort(ing.Spec.DefaultBackend.Service.Port, namespace, ing.Spec.DefaultBackend.Service.Name, servicesByKey)
+	if defaultBackend != nil && defaultBackend.Service != nil {
+		portNum, err := resolveServicePort(defaultBackend.Service.Port, namespace, defaultBackend.Service.Name, t.servicesByKey)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, fmt.Errorf("ingress %s/%s defaultBackend: %w", namespace, ingName, err)
 		}
-		trackBackend(ing.Spec.DefaultBackend.Service.Name, portNum)
+		t.trackBackend(defaultBackend.Service.Name, portNum)
 		port := gwv1.PortNumber(portNum)
 		defaultRule = &gwv1.HTTPRouteRule{
 			BackendRefs: []gwv1.HTTPBackendRef{
 				{
 					BackendRef: gwv1.BackendRef{
 						BackendObjectReference: gwv1.BackendObjectReference{
-							Name: gwv1.ObjectName(ing.Spec.DefaultBackend.Service.Name),
+							Name: gwv1.ObjectName(defaultBackend.Service.Name),
 							Port: &port,
 						},
 					},
@@ -169,27 +310,36 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 
 	// When no hostnames, the default backend can live in the same route.
 	// When hostnames are present, it needs a separate route to be a true catch-all.
-	hasHostnames := len(hostnames) > 0
-	if defaultRule != nil && !hasHostnames {
+	if defaultRule != nil && len(hostnames) == 0 {
 		rules = append(rules, *defaultRule)
 		defaultRule = nil
 	}
 
 	var routes []gwv1.HTTPRoute
-	// Primary route (path rules + possibly the default rule when no hostnames)
-	routes = append(routes, newHTTPRoute(utils.GetHTTPRouteName(namespace, ing.Name), namespace, parentRefs, hostnames, rules))
+
+	// Primary route
+	if len(rules) > 0 || defaultRule == nil {
+		routes = append(routes, newHTTPRoute(utils.GetHTTPRouteName(namespace, ingName), namespace, parentRefs, hostnames, rules))
+	}
 
 	// Separate catch-all route for defaultBackend when hostnames are present
 	if defaultRule != nil {
-		routes = append(routes, newHTTPRoute(utils.GetDefaultHTTPRouteName(namespace, ing.Name), namespace, parentRefs, nil, []gwv1.HTTPRouteRule{*defaultRule}))
+		routes = append(routes, newHTTPRoute(utils.GetDefaultHTTPRouteName(namespace, ingName), namespace, parentRefs, nil, []gwv1.HTTPRouteRule{*defaultRule}))
 	}
 
-	return routes, svcRefs, listenerRuleConfigs, nil
+	// Separate routes for rules with host-header conditions
+	for _, hsr := range hostScopedRoutes {
+		routes = append(routes, newHTTPRoute(
+			utils.GetHTTPRouteName(namespace, hsr.svcName),
+			namespace, parentRefs, hsr.hostnames,
+			[]gwv1.HTTPRouteRule{hsr.rule},
+		))
+	}
+
+	return routes, nil
 }
 
 // resolveServicePort resolves a ServiceBackendPort to a numeric port.
-// If the port is specified by number, it's returned directly.
-// If specified by name, the Service is looked up to find the matching port number.
 func resolveServicePort(sbp networking.ServiceBackendPort, namespace, svcName string, servicesByKey map[string]corev1.Service) (int32, error) {
 	if sbp.Number != 0 {
 		return sbp.Number, nil
@@ -237,7 +387,6 @@ func newHTTPRoute(name, namespace string, parentRefs []gwv1.ParentReference, hos
 }
 
 // toGatewayPathType converts Ingress pathType to Gateway API path match type.
-// When useRegex is true and pathType is ImplementationSpecific, it maps to RegularExpression.
 func toGatewayPathType(pt *networking.PathType, useRegex bool) (gwv1.PathMatchType, error) {
 	if pt == nil {
 		return gwv1.PathMatchPathPrefix, nil

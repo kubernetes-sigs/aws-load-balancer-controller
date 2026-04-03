@@ -69,11 +69,10 @@ func buildHttpPathCondition(path *gwv1.HTTPPathMatch) ([]elbv2model.RuleConditio
 
 	}
 
-	// exact path shouldn't contain any wildcards.
+	// For exact path type, pass the value through as-is to ALB.
+	// ALB natively handles wildcard characters (* and ?) in values,
+	// so we don't reject them here.
 	if pathType == gwv1.PathMatchExact {
-		if strings.ContainsAny(pathValue, "*?") {
-			return nil, errors.Errorf("exact path shouldn't contain wildcards: %v", path)
-		}
 		pathValues = append(pathValues, pathValue)
 	}
 
@@ -102,16 +101,27 @@ func buildHttpPathCondition(path *gwv1.HTTPPathMatch) ([]elbv2model.RuleConditio
 func buildHttpHeaderCondition(headers []gwv1.HTTPHeaderMatch) []elbv2model.RuleCondition {
 	var conditions []elbv2model.RuleCondition
 	for _, header := range headers {
-		headerCondition := []elbv2model.RuleCondition{
-			{
+		matchType := gwv1.HeaderMatchExact // default
+		if header.Type != nil {
+			matchType = *header.Type
+		}
+		if matchType == gwv1.HeaderMatchRegularExpression {
+			conditions = append(conditions, elbv2model.RuleCondition{
+				Field: elbv2model.RuleConditionFieldHTTPHeader,
+				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+					HTTPHeaderName: string(header.Name),
+					RegexValues:    []string{header.Value},
+				},
+			})
+		} else {
+			conditions = append(conditions, elbv2model.RuleCondition{
 				Field: elbv2model.RuleConditionFieldHTTPHeader,
 				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 					HTTPHeaderName: string(header.Name),
 					Values:         generateValuesFromMatchHeaderValue(header.Value),
 				},
-			},
+			})
 		}
-		conditions = append(conditions, headerCondition...)
 	}
 	return conditions
 }

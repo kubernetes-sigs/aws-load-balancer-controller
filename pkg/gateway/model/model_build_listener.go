@@ -247,7 +247,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 			return nil, err
 		}
 
-		// Add Rule Source-IP Conditions based on ListenerRuleConfiguration CRD
+		// Add Rule Conditions based on ListenerRuleConfiguration CRD
 		conditionsList = routeutils.BuildSourceIpInCondition(ruleWithPrecedence, conditionsList)
 
 		// set up for building routing actions

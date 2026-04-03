@@ -11,25 +11,26 @@ import (
 )
 
 var (
-	headerName    = "testHeader"
-	headerValue   = "testValue"
-	queryName     = "testQuery"
-	queryValue    = "testValue"
-	hostname      = "example.com"
-	service       = "testService"
-	method        = "testMethod"
-	testKey       = "testKey"
-	testValue     = "testValue"
-	testKeyTwo    = "testKeyTwo"
-	testValueTwo  = "testValueTwo"
-	prefixType    = gwv1.PathMatchPathPrefix
-	exactType     = gwv1.PathMatchExact
-	regexType     = gwv1.PathMatchRegularExpression
-	grpcExactType = gwv1.GRPCMethodMatchExact
-	grpcRegexType = gwv1.GRPCMethodMatchRegularExpression
-	sourceIP1     = "10.0.0.0/8"
-	sourceIP2     = "192.168.1.0/24"
-	sourceIP3     = "172.16.0.0/12"
+	headerName      = "testHeader"
+	headerValue     = "testValue"
+	queryName       = "testQuery"
+	queryValue      = "testValue"
+	hostname        = "example.com"
+	service         = "testService"
+	method          = "testMethod"
+	testKey         = "testKey"
+	testValue       = "testValue"
+	testKeyTwo      = "testKeyTwo"
+	testValueTwo    = "testValueTwo"
+	prefixType      = gwv1.PathMatchPathPrefix
+	exactType       = gwv1.PathMatchExact
+	regexType       = gwv1.PathMatchRegularExpression
+	grpcExactType   = gwv1.GRPCMethodMatchExact
+	grpcRegexType   = gwv1.GRPCMethodMatchRegularExpression
+	regexHeaderType = gwv1.HeaderMatchRegularExpression
+	sourceIP1       = "10.0.0.0/8"
+	sourceIP2       = "192.168.1.0/24"
+	sourceIP3       = "172.16.0.0/12"
 )
 
 func Test_BuildHttpRuleConditions(t *testing.T) {
@@ -201,7 +202,15 @@ func Test_buildHttpPathCondition(t *testing.T) {
 				Type:  &exactType,
 				Value: &pathValueWithWildcard,
 			},
-			wantErr: true,
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{"/prefix*"},
+					},
+				},
+			},
+			wantErr: false,
 		},
 		{
 			name: "regular expression path type",
@@ -283,6 +292,55 @@ func Test_buildHttpHeaderCondition(t *testing.T) {
 					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 						HTTPHeaderName: testKeyTwo,
 						Values:         []string{testValueTwo},
+					},
+				},
+			},
+		},
+		{
+			name: "regex header match",
+			headerMatch: []gwv1.HTTPHeaderMatch{
+				{
+					Type:  &regexHeaderType,
+					Name:  gwv1.HTTPHeaderName("User-Agent"),
+					Value: ".+Chrome.+",
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: "User-Agent",
+						RegexValues:    []string{".+Chrome.+"},
+					},
+				},
+			},
+		},
+		{
+			name: "mixed exact and regex header match",
+			headerMatch: []gwv1.HTTPHeaderMatch{
+				{
+					Name:  gwv1.HTTPHeaderName(testKey),
+					Value: testValue,
+				},
+				{
+					Type:  &regexHeaderType,
+					Name:  gwv1.HTTPHeaderName("User-Agent"),
+					Value: ".+Firefox.+",
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: testKey,
+						Values:         []string{testValue},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: "User-Agent",
+						RegexValues:    []string{".+Firefox.+"},
 					},
 				},
 			},

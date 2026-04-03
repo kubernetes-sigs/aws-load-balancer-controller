@@ -35,3 +35,25 @@ func extensionRefFilter(lrcName string) gwv1.HTTPRouteFilter {
 		},
 	}
 }
+
+// findOrCreateLRC finds an existing LRC for the given svcName in the list, or creates a new one and appends it.
+func findOrCreateLRC(lrcs *[]gatewayv1beta1.ListenerRuleConfiguration, namespace, svcName string) *gatewayv1beta1.ListenerRuleConfiguration {
+	expectedName := utils.GetLRConfigName(namespace, svcName)
+	for i := range *lrcs {
+		if (*lrcs)[i].Name == expectedName {
+			return &(*lrcs)[i]
+		}
+	}
+	*lrcs = append(*lrcs, *buildListenerRuleConfiguration(namespace, svcName))
+	return &(*lrcs)[len(*lrcs)-1]
+}
+
+// routeRuleHasExtensionRef checks if a route rule already has an ExtensionRef filter pointing to the given LRC name.
+func routeRuleHasExtensionRef(rule gwv1.HTTPRouteRule, lrcName string) bool {
+	for _, f := range rule.Filters {
+		if f.Type == gwv1.HTTPRouteFilterExtensionRef && f.ExtensionRef != nil && string(f.ExtensionRef.Name) == lrcName {
+			return true
+		}
+	}
+	return false
+}

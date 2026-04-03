@@ -176,3 +176,84 @@ func TestParseListenPorts(t *testing.T) {
 		})
 	}
 }
+
+func TestParseConditionAnnotation(t *testing.T) {
+	tests := []struct {
+		name    string
+		annos   map[string]string
+		svcName string
+		wantNil bool
+		wantErr bool
+		check   func(t *testing.T, conditions []ingress.RuleCondition)
+	}{
+		{
+			name:    "not present returns nil",
+			annos:   map[string]string{},
+			svcName: "my-svc",
+			wantNil: true,
+		},
+		{
+			name: "single host-header condition with values",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/conditions.my-svc": `[{"field":"host-header","hostHeaderConfig":{"values":["anno.example.com"]}}]`,
+			},
+			svcName: "my-svc",
+			check: func(t *testing.T, conditions []ingress.RuleCondition) {
+				require.Len(t, conditions, 1)
+				assert.Equal(t, ingress.RuleConditionFieldHostHeader, conditions[0].Field)
+				require.NotNil(t, conditions[0].HostHeaderConfig)
+				assert.Equal(t, []string{"anno.example.com"}, conditions[0].HostHeaderConfig.Values)
+			},
+		},
+		{
+			name: "multiple conditions (http-header + query-string + query-string)",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/conditions.rule-path7": `[{"field":"http-header","httpHeaderConfig":{"httpHeaderName":"HeaderName","values":["HeaderValue"]}},{"field":"query-string","queryStringConfig":{"values":[{"key":"paramA","value":"valueA"}]}},{"field":"query-string","queryStringConfig":{"values":[{"key":"paramB","value":"valueB"}]}}]`,
+			},
+			svcName: "rule-path7",
+			check: func(t *testing.T, conditions []ingress.RuleCondition) {
+				require.Len(t, conditions, 3)
+				assert.Equal(t, ingress.RuleConditionFieldHTTPHeader, conditions[0].Field)
+				assert.Equal(t, ingress.RuleConditionFieldQueryString, conditions[1].Field)
+				assert.Equal(t, ingress.RuleConditionFieldQueryString, conditions[2].Field)
+			},
+		},
+		{
+			name: "source-ip condition",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/conditions.my-svc": `[{"field":"source-ip","sourceIpConfig":{"values":["192.168.0.0/16","172.16.0.0/16"]}}]`,
+			},
+			svcName: "my-svc",
+			check: func(t *testing.T, conditions []ingress.RuleCondition) {
+				require.Len(t, conditions, 1)
+				assert.Equal(t, ingress.RuleConditionFieldSourceIP, conditions[0].Field)
+				require.NotNil(t, conditions[0].SourceIPConfig)
+				assert.Equal(t, []string{"192.168.0.0/16", "172.16.0.0/16"}, conditions[0].SourceIPConfig.Values)
+			},
+		},
+		{
+			name: "invalid JSON",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/conditions.bad": `{invalid`,
+			},
+			svcName: "bad",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conditions, err := parseConditionAnnotation(tt.annos, tt.svcName)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantNil {
+				assert.Nil(t, conditions)
+				return
+			}
+			tt.check(t, conditions)
+		})
+	}
+}

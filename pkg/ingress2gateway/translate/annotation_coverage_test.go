@@ -93,7 +93,9 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			// transform annotations (alb.ingress.kubernetes.io/transforms.{name}) are dynamically
 			// named and cannot be tracked as static suffixes here.
 			// actions.* translation is implemented in translate_action_helper.go (forward, redirect, fixed-response).
-			// conditions.*, transforms.*, and ssl-redirect are planned for subsequent PRs.
+			// conditions.* translation is implemented in translate_condition_helper.go.
+			// transforms.* translation is implemented in translate_transform_helper.go.
+			// ssl-redirect is planned for a subsequent PR.
 		},
 		Authentication: {
 			annotations.IngressSuffixAuthType,
