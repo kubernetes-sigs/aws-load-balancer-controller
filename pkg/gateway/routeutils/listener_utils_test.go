@@ -602,3 +602,133 @@ func TestValidateListeners_ListenerSets(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateAttachedListenerSets(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[types.NamespacedName]ListenerValidationResults
+		expected int32
+	}{
+		{
+			name:     "nil map returns zero",
+			input:    nil,
+			expected: 0,
+		},
+		{
+			name:     "empty map returns zero",
+			input:    map[types.NamespacedName]ListenerValidationResults{},
+			expected: 0,
+		},
+		{
+			name: "single listener set with one valid listener",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-1": {ListenerName: "listener-1", IsValid: true},
+					},
+				},
+			},
+			expected: 1,
+		},
+		{
+			name: "single listener set with one invalid listener",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-1": {ListenerName: "listener-1", IsValid: false},
+					},
+				},
+			},
+			expected: 0,
+		},
+		{
+			name: "single listener set with mixed valid and invalid listeners counts as one",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-1": {ListenerName: "listener-1", IsValid: false},
+						"listener-2": {ListenerName: "listener-2", IsValid: true},
+						"listener-3": {ListenerName: "listener-3", IsValid: false},
+					},
+				},
+			},
+			expected: 1,
+		},
+		{
+			name: "multiple listener sets all valid",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-1": {ListenerName: "listener-1", IsValid: true},
+					},
+				},
+				{Namespace: "ns1", Name: "ls2"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-2": {ListenerName: "listener-2", IsValid: true},
+					},
+				},
+				{Namespace: "ns2", Name: "ls3"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-3": {ListenerName: "listener-3", IsValid: true},
+					},
+				},
+			},
+			expected: 3,
+		},
+		{
+			name: "multiple listener sets some with no valid listeners",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-1": {ListenerName: "listener-1", IsValid: true},
+					},
+				},
+				{Namespace: "ns1", Name: "ls2"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-2": {ListenerName: "listener-2", IsValid: false},
+						"listener-3": {ListenerName: "listener-3", IsValid: false},
+					},
+				},
+				{Namespace: "ns2", Name: "ls3"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-4": {ListenerName: "listener-4", IsValid: true},
+						"listener-5": {ListenerName: "listener-5", IsValid: false},
+					},
+				},
+			},
+			expected: 2,
+		},
+		{
+			name: "listener set with empty results map",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{},
+				},
+			},
+			expected: 0,
+		},
+		{
+			name: "all listener sets have only invalid listeners",
+			input: map[types.NamespacedName]ListenerValidationResults{
+				{Namespace: "ns1", Name: "ls1"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-1": {ListenerName: "listener-1", IsValid: false},
+					},
+				},
+				{Namespace: "ns2", Name: "ls2"}: {
+					Results: map[gwv1.SectionName]ListenerValidationResult{
+						"listener-2": {ListenerName: "listener-2", IsValid: false},
+					},
+				},
+			},
+			expected: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CalculateAttachedListenerSets(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
