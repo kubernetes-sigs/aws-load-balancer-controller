@@ -92,7 +92,8 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 		out.Gateways = append(out.Gateways, gw)
 
 		// Build HTTPRoute(s), collect unique service refs, and collect ListenerRuleConfigurations
-		routes, svcRefs, lrcs, err := buildHTTPRoutes(ing, namespace, gatewayName, listenPorts, servicesByKey)
+		sslRedirectPort := resolveSSLRedirectPort(ing.Annotations, icp)
+		routes, svcRefs, lrcs, err := buildHTTPRoutes(ing, namespace, gatewayName, listenPorts, servicesByKey, sslRedirectPort)
 		if err != nil {
 			return nil, err
 		}

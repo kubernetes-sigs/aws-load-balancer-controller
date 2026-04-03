@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
@@ -54,7 +55,7 @@ func TestAllIngressClassParamsFieldsHandled(t *testing.T) {
 		"NamespaceSelector": "cluster policy, not a LB/TG setting",
 		// TODO
 		"Group":           "handled at Ingress grouping level later",
-		"SSLRedirectPort": "handled at routing level later",
+		"SSLRedirectPort": "handled in buildHTTPRoutes via resolveSSLRedirectPort",
 	}
 
 	// Apply overrides
@@ -139,4 +140,55 @@ func TestAllIngressClassParamsFieldsHandled(t *testing.T) {
 	assert.Empty(t, unhandled,
 		"IngressClassParamsSpec has fields that are not handled by applyIngressClassParamsToLBConfig/applyIngressClassParamsToTGProps. "+
 			"Either add handling in icp_overrides.go or add to intentionallySkipped with justification.")
+}
+
+func TestResolveSSLRedirectPort(t *testing.T) {
+	tests := []struct {
+		name     string
+		annos    map[string]string
+		icp      *elbv2api.IngressClassParams
+		wantNil  bool
+		wantPort int32
+	}{
+		{
+			name:    "no annotation, no ICP",
+			annos:   map[string]string{},
+			icp:     nil,
+			wantNil: true,
+		},
+		{
+			name:     "annotation only",
+			annos:    map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"},
+			icp:      nil,
+			wantPort: 443,
+		},
+		{
+			name:  "ICP only",
+			annos: map[string]string{},
+			icp: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{SSLRedirectPort: "8443"},
+			},
+			wantPort: 8443,
+		},
+		{
+			name:  "ICP overrides annotation",
+			annos: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"},
+			icp: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{SSLRedirectPort: "8443"},
+			},
+			wantPort: 8443,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resolveSSLRedirectPort(tt.annos, tt.icp)
+			if tt.wantNil {
+				assert.Nil(t, result)
+			} else {
+				require.NotNil(t, result)
+				assert.Equal(t, tt.wantPort, *result)
+			}
+		})
+	}
 }

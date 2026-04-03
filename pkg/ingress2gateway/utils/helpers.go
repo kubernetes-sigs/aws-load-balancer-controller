@@ -12,9 +12,9 @@ func JoinStrings(ss []string) string {
 	return strings.Join(ss, ",")
 }
 
-// GetSectionName generates a valid Gateway API SectionName string from protocol and port.
+// GenerateSectionName generates a valid Gateway API SectionName string from protocol and port.
 // The result is lowercase to satisfy the SectionName regex: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-func GetSectionName(protocol string, port int32) string {
+func GenerateSectionName(protocol string, port int32) string {
 	return fmt.Sprintf("%s-%d", strings.ToLower(protocol), port)
 }
 
@@ -72,4 +72,9 @@ func GetTGConfigName(namespace, serviceName string) string {
 // GetLRConfigName returns the ListenerRuleConfiguration resource name.
 func GetLRConfigName(namespace, actionName string) string {
 	return resourceName(namespace, actionName, "lr-config")
+}
+
+// GetRedirectHTTPRouteName returns the HTTPRoute name for the SSL redirect route.
+func GetRedirectHTTPRouteName(namespace, ingressName string) string {
+	return resourceName(namespace, ingressName, "redirect")
 }

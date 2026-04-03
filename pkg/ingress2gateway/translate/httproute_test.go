@@ -16,13 +16,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	pathExact := networking.PathTypeExact
 
 	tests := []struct {
-		name       string
-		ing        networking.Ingress
-		namespace  string
-		gwName     string
-		ports      []listenPortEntry
-		wantRoutes int
-		check      func(t *testing.T, routes []gwv1.HTTPRoute)
+		name            string
+		ing             networking.Ingress
+		namespace       string
+		gwName          string
+		ports           []listenPortEntry
+		sslRedirectPort *int32
+		wantRoutes      int
+		check           func(t *testing.T, routes []gwv1.HTTPRoute)
 	}{
 		{
 			name: "single rule with host and prefix path",
@@ -439,11 +440,65 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				assert.Equal(t, "/src", *r.Spec.Rules[0].Matches[0].Path.Value)
 			},
 		},
+		{
+			name: "ssl-redirect produces redirect route on HTTP and rules route on HTTPS",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "ssl",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/ssl-redirect": "443",
+					},
+				},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						Host: "app.example.com",
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{{
+									Path: "/api", PathType: &pathPrefix,
+									Backend: networking.IngressBackend{
+										Service: &networking.IngressServiceBackend{
+											Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+										},
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "gw",
+			ports: []listenPortEntry{
+				{Protocol: "HTTP", Port: 80},
+				{Protocol: "HTTPS", Port: 443},
+			},
+			sslRedirectPort: int32Ptr(443),
+			wantRoutes:      2, // rules route + redirect route
+			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
+				// First route: rules, attached to HTTPS listener only
+				rulesRoute := routes[0]
+				require.NotNil(t, rulesRoute.Spec.ParentRefs[0].SectionName)
+				assert.Equal(t, gwv1.SectionName("https-443"), *rulesRoute.Spec.ParentRefs[0].SectionName)
+				assert.Len(t, rulesRoute.Spec.Rules, 1)
+				assert.Equal(t, "/api", *rulesRoute.Spec.Rules[0].Matches[0].Path.Value)
+
+				// Second route: redirect, attached to HTTP listener only
+				redirectRoute := routes[1]
+				require.NotNil(t, redirectRoute.Spec.ParentRefs[0].SectionName)
+				assert.Equal(t, gwv1.SectionName("http-80"), *redirectRoute.Spec.ParentRefs[0].SectionName)
+				require.Len(t, redirectRoute.Spec.Rules, 1)
+				require.Len(t, redirectRoute.Spec.Rules[0].Filters, 1)
+				assert.Equal(t, gwv1.HTTPRouteFilterRequestRedirect, redirectRoute.Spec.Rules[0].Filters[0].Type)
+				assert.Equal(t, "https", *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.Scheme)
+				assert.Equal(t, gwv1.PortNumber(443), *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.Port)
+				assert.Equal(t, 301, *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.StatusCode)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routes, _, _, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil)
+			routes, _, _, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil, tt.sslRedirectPort)
 			require.NoError(t, err)
 			require.Len(t, routes, tt.wantRoutes)
 			if tt.check != nil {
@@ -524,4 +579,40 @@ func TestResolveServicePort(t *testing.T) {
 	// No port number or name
 	_, err = resolveServicePort(networking.ServiceBackendPort{}, "default", "my-svc", svcMap)
 	assert.Error(t, err)
+}
+
+func int32Ptr(v int32) *int32 { return &v }
+
+func TestBuildHTTPRoutes_DefaultBackendError(t *testing.T) {
+	pathPrefix := networking.PathTypePrefix
+	ing := networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: "app"},
+		Spec: networking.IngressSpec{
+			DefaultBackend: &networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "missing-svc",
+					Port: networking.ServiceBackendPort{Name: "http"},
+				},
+			},
+			Rules: []networking.IngressRule{{
+				IngressRuleValue: networking.IngressRuleValue{
+					HTTP: &networking.HTTPIngressRuleValue{
+						Paths: []networking.HTTPIngressPath{{
+							Path: "/", PathType: &pathPrefix,
+							Backend: networking.IngressBackend{
+								Service: &networking.IngressServiceBackend{
+									Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+								},
+							},
+						}},
+					},
+				},
+			}},
+		},
+	}
+	// No services provided — named port resolution for defaultBackend will fail
+	_, _, _, err := buildHTTPRoutes(ing, "default", "gw",
+		[]listenPortEntry{{Protocol: "HTTP", Port: 80}}, nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "defaultBackend")
 }
