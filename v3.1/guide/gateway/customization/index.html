@@ -159,6 +159,46 @@
   
       <!-- Button to open search modal -->
       
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
   
       <!-- Repository information -->
       
@@ -1227,6 +1267,24 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#gatewayclass-and-gateway-level-default-target-group-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      GatewayClass and Gateway Level Default Target Group Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#service-level-target-group-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service-Level Target Group Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#how-default-and-route-specific-configurations-merge" class="md-nav__link">
     <span class="md-ellipsis">
       How Default and Route-Specific Configurations Merge
@@ -1246,6 +1304,15 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attaching-additional-listeners-using-listenersets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attaching additional listeners using ListenerSets
+    </span>
+  </a>
   
 </li>
         
@@ -1338,6 +1405,27 @@
   
   <span class="md-ellipsis">
     Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listenersets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerSets
   </span>
   
 
@@ -2176,6 +2264,24 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#gatewayclass-and-gateway-level-default-target-group-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      GatewayClass and Gateway Level Default Target Group Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#service-level-target-group-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service-Level Target Group Configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#how-default-and-route-specific-configurations-merge" class="md-nav__link">
     <span class="md-ellipsis">
       How Default and Route-Specific Configurations Merge
@@ -2195,6 +2301,15 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#attaching-additional-listeners-using-listenersets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Attaching additional listeners using ListenerSets
+    </span>
+  </a>
   
 </li>
         
@@ -2243,8 +2358,8 @@
 When attached directly to a <code>Gateway</code> resource, the specified configuration applies specifically to the Load Balancer provisioned for that individual Gateway.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Make sure that the <code>LoadBalancerConfiguration</code> is located in the same namespace as the <code>Gateway</code>.</p>
 </div>
+<p>Make sure that the <code>LoadBalancerConfiguration</code> is located in the same namespace as the <code>Gateway</code>.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -2285,7 +2400,22 @@ When attached to a <code>GatewayClass</code> resource, the configuration becomes
 <hr />
 <h3 id="customizing-services-target-groups-using-targetgroupconfiguration-crd">Customizing Services (Target Groups) using <code>TargetGroupConfiguration</code> CRD<a class="headerlink" href="#customizing-services-target-groups-using-targetgroupconfiguration-crd" title="Permanent link">&para;</a></h3>
 <p>The <code>TargetGroupConfiguration</code> CRD enables granular customization of the AWS Target Groups created for Kubernetes Services.</p>
-<p>For a comprehensive overview of configurable parameters, please refer to the  <a href="../targetgroupconfig/">TargetGroupConfiguration CRD documentation</a>.</p>
+<p>For a comprehensive overview of configurable parameters, please refer to the <a href="../targetgroupconfig/">TargetGroupConfiguration CRD documentation</a>.</p>
+<p><code>TargetGroupConfiguration</code> can be applied at three levels, listed from broadest to most specific:</p>
+<ol>
+<li><strong>GatewayClass-level defaults</strong> — Defaults that apply to all Gateways that belong to a GatewayClass.</li>
+<li><strong>Gateway-level defaults</strong> — Per-Gateway defaults applied to all Service backends behind that Gateway.</li>
+<li><strong>Service-level</strong> — Configuration targeting a specific Service, with optional route-specific overrides.</li>
+</ol>
+<p>The controller resolves configuration using the <a href="../targetgroupconfig/#configuration-resolution-order">Configuration Resolution Order</a>. When configurations exist at multiple levels, they are merged field-by-field — see <a href="../targetgroupconfig/#gatewayclass--gateway-default-tgc-merging">GatewayClass + Gateway Default TGC Merging</a> for details on how conflicts between levels are resolved.</p>
+<h4 id="gatewayclass-and-gateway-level-default-target-group-configuration">GatewayClass and Gateway Level Default Target Group Configuration<a class="headerlink" href="#gatewayclass-and-gateway-level-default-target-group-configuration" title="Permanent link">&para;</a></h4>
+<p>In addition to per-Service configuration, you can set default target group properties at the Gateway or GatewayClass level. This is done by creating a <code>TargetGroupConfiguration</code> without a <code>targetReference</code> and referencing it via the <a href="../loadbalancerconfig/#defaulttargetgroupconfiguration"><code>defaultTargetGroupConfiguration</code></a> field on a <code>LoadBalancerConfiguration</code>.</p>
+<ul>
+<li><strong>GatewayClass-level</strong>: Attach the <code>LoadBalancerConfiguration</code> to a <code>GatewayClass</code> to set org-wide defaults for all Gateways in that class. See the <a href="../targetgroupconfig/#example-gatewayclass-level-defaults">GatewayClass-Level Defaults example</a>.</li>
+<li><strong>Gateway-level</strong>: Attach the <code>LoadBalancerConfiguration</code> to a <code>Gateway</code> via <code>infrastructure.parametersRef</code> to set defaults for all Service backends behind that specific Gateway. See the <a href="../targetgroupconfig/#example-gateway-level-defaults-via-loadbalancerconfiguration">Gateway-Level Defaults example</a>.</li>
+</ul>
+<p>Service-level TGCs only need to specify the fields they want to override — all other fields are inherited from the Gateway/GatewayClass-level default TGC automatically.</p>
+<h4 id="service-level-target-group-configuration">Service-Level Target Group Configuration<a class="headerlink" href="#service-level-target-group-configuration" title="Permanent link">&para;</a></h4>
 <p><strong>Example: Default Target Group Configuration for a Service</strong></p>
 <p>To configure the target groups for a specific service (e.g., <code>my-service</code>) to use <code>IP</code> mode and custom health checks across all routes referencing it, employ the following configuration:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
@@ -2352,6 +2482,10 @@ that are not represented in the standard Gateway API spec.</p>
 <li><a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_SourceIpConditionConfig.html#API_SourceIpConditionConfig_Contents">Source IP Conditions</a></li>
 </ul>
 <p>For a comprehensive overview of the CRD, please refer to the <a href="../listenerruleconfig/">ListenerRuleConfiguration CRD documentation</a>.</p>
+<hr />
+<h3 id="attaching-additional-listeners-using-listenersets">Attaching additional listeners using ListenerSets<a class="headerlink" href="#attaching-additional-listeners-using-listenersets" title="Permanent link">&para;</a></h3>
+<p>ListenerSets allow you to attach additional listeners to an existing Gateway without modifying the Gateway resource itself. Both ALB and NLB Gateway controllers support ListenerSets.</p>
+<p>For a comprehensive overview, please refer to the <a href="../listenersets/">ListenerSet documentation</a>.</p>
 <p><strong>Example: Adding source IP routing conditions</strong></p>
 <p>This example adds upon the example found <a href="../l7gateway/#step-by-step-l7-gateway-api-resource-implementation-with-an-example">here</a>. It adds
 a routing rule that only allows requests originating from the range 10.0.0.0/5 to be routed to the backend.</p>
@@ -2508,7 +2642,7 @@ spec:
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "search.suggest", "search.highlight"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
     

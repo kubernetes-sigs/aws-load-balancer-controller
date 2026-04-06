@@ -159,6 +159,46 @@
   
       <!-- Button to open search modal -->
       
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
   
       <!-- Repository information -->
       
@@ -1014,9 +1054,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-yamls" class="md-nav__link">
+  <a href="#sample-yaml" class="md-nav__link">
     <span class="md-ellipsis">
-      Sample YAMLs
+      Sample YAML
     </span>
   </a>
   
@@ -1032,9 +1072,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-yaml" class="md-nav__link">
+  <a href="#sample-yaml-with-vpcid" class="md-nav__link">
     <span class="md-ellipsis">
-      Sample YAML
+      Sample YAML with VpcID
     </span>
   </a>
   
@@ -1068,10 +1108,34 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#assumerole" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assumerole-cross-account-targetgroups" class="md-nav__link">
     <span class="md-ellipsis">
-      AssumeRole
+      AssumeRole (Cross-Account TargetGroups)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="AssumeRole (Cross-Account TargetGroups)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sample-yaml_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sample YAML
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup-instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setup Instructions
     </span>
   </a>
   
@@ -1083,27 +1147,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-yaml_1" class="md-nav__link">
+  <a href="#multicluster-targetgroup" class="md-nav__link">
     <span class="md-ellipsis">
-      Sample YAML
+      MultiCluster TargetGroup
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#multicluster-target-group" class="md-nav__link">
+  <a href="#sample-yaml-with-multicluster" class="md-nav__link">
     <span class="md-ellipsis">
-      MultiCluster Target Group
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sample-yaml_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sample YAML
+      Sample YAML with MultiCluster
     </span>
   </a>
   
@@ -1391,6 +1446,27 @@
   
   <span class="md-ellipsis">
     Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/listenersets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerSets
   </span>
   
 
@@ -2205,9 +2281,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-yamls" class="md-nav__link">
+  <a href="#sample-yaml" class="md-nav__link">
     <span class="md-ellipsis">
-      Sample YAMLs
+      Sample YAML
     </span>
   </a>
   
@@ -2223,9 +2299,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-yaml" class="md-nav__link">
+  <a href="#sample-yaml-with-vpcid" class="md-nav__link">
     <span class="md-ellipsis">
-      Sample YAML
+      Sample YAML with VpcID
     </span>
   </a>
   
@@ -2259,10 +2335,34 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#assumerole" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#assumerole-cross-account-targetgroups" class="md-nav__link">
     <span class="md-ellipsis">
-      AssumeRole
+      AssumeRole (Cross-Account TargetGroups)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="AssumeRole (Cross-Account TargetGroups)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sample-yaml_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sample YAML
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup-instructions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Setup Instructions
     </span>
   </a>
   
@@ -2274,27 +2374,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#sample-yaml_1" class="md-nav__link">
+  <a href="#multicluster-targetgroup" class="md-nav__link">
     <span class="md-ellipsis">
-      Sample YAML
+      MultiCluster TargetGroup
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#multicluster-target-group" class="md-nav__link">
+  <a href="#sample-yaml-with-multicluster" class="md-nav__link">
     <span class="md-ellipsis">
-      MultiCluster Target Group
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sample-yaml_2" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sample YAML
+      Sample YAML with MultiCluster
     </span>
   </a>
   
@@ -2329,28 +2420,35 @@
 
 <h1 id="targetgroupbinding">TargetGroupBinding<a class="headerlink" href="#targetgroupbinding" title="Permanent link">&para;</a></h1>
 <p>TargetGroupBinding is a <a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/">custom resource (CR)</a> that can expose your pods using an existing <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html">ALB TargetGroup</a> or <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html">NLB TargetGroup</a>.</p>
-<p>This will allow you to provision the load balancer infrastructure completely outside of Kubernetes but still manage the targets with Kubernetes Service.</p>
+<p>This allows you to provision the load balancer infrastructure completely outside of Kubernetes but still manage the targets with Kubernetes Service.</p>
+<div class="admonition warning">
+<p class="admonition-title">Usage in multi-tenant clusters</p>
+</div>
+<p>TargetGroupBinding allows users to reference any TargetGroup in the AWS account where the EKS cluster resides. In multi-tenant environments, this means tenants can potentially import arbitrary TargetGroups from the account into their namespace, subject to the controller's IAM permissions.</p>
+<p><strong>Security risk</strong>: Tenants could route traffic to TargetGroups belonging to other workloads or services causing unintended traffic routing.</p>
+<p><strong>Recommendation</strong>: Cluster administrators should restrict TargetGroupBinding creation using Kubernetes RBAC: Use Kubernetes RBAC to deny <code>create</code> and <code>update</code> permissions on TargetGroupBinding resources for untrusted users.</p>
 <div class="admonition tip">
 <p class="admonition-title">usage to support Ingress and Service</p>
-<p>The AWS LoadBalancer controller internally used TargetGroupBinding to support the functionality for Ingress and Service resource as well.
-It automatically creates TargetGroupBinding in the same namespace of the Service used.</p>
-<p>You can view all TargetGroupBindings in a namespace by <code>kubectl get targetgroupbindings -n &lt;your-namespace&gt; -o wide</code></p>
 </div>
+<p>The AWS LoadBalancer controller internally uses TargetGroupBinding to support the functionality for Ingress, Service, and Gateway resources as well.
+It automatically creates TargetGroupBinding in the same namespace of the Service used.</p>
+<div class="codehilite"><pre><span></span><code>You can view all TargetGroupBindings in a namespace by `kubectl get targetgroupbindings -n &lt;your-namespace&gt; -o wide`
+</code></pre></div>
+
 <div class="admonition question">
 <p class="admonition-title">EKS Auto Mode users</p>
+</div>
 <p>If you are using EKS Auto Mode, please see the
 <a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html#_considerations">EKS Auto Mode documentation</a>
 for key differences between the load balancing capability of EKS Auto Mode and the open source load balancer controller.</p>
-</div>
 <h2 id="targettype">TargetType<a class="headerlink" href="#targettype" title="Permanent link">&para;</a></h2>
 <p>TargetGroupBinding CR supports TargetGroups of either <code>instance</code> or <code>ip</code> TargetType.</p>
-<div class="admonition tip">
-<p>If TargetType is not explicitly specified, a mutating webhook will automatically call AWS API to find the TargetType for your TargetGroup and set it to correct value.</p>
-</div>
+<div class="admonition tip"></div>
+<p>If TargetType is not explicitly specified, a mutating webhook will automatically call AWS API to find the TargetType for your TargetGroup and set it to the correct value.</p>
 <h2 id="choosing-the-target-group">Choosing the Target Group<a class="headerlink" href="#choosing-the-target-group" title="Permanent link">&para;</a></h2>
-<p>One can either use <code>targetGroupARN</code> of <code>targetGroupName</code> to identify a Target Group. Although both are unique and immutable in an AWS region, one only has control of the <code>targetGroupName</code>, for <code>targetGroupARN</code> is generated by AWS and contain random characters.</p>
-<p>If you provide both <code>targetGroupARN</code> and <code>targetGroupName</code>, beware that <code>targetGroupARN</code> prevails.</p>
-<h2 id="sample-yamls">Sample YAMLs<a class="headerlink" href="#sample-yamls" title="Permanent link">&para;</a></h2>
+<p>You can use either <code>targetGroupARN</code> or <code>targetGroupName</code> to identify a TargetGroup. Although both are unique and immutable in an AWS region, you only have control of the <code>targetGroupName</code>, as <code>targetGroupARN</code> is generated by AWS and contains random characters.</p>
+<p>If you provide both <code>targetGroupARN</code> and <code>targetGroupName</code>, the <code>targetGroupARN</code> takes precedence.</p>
+<h2 id="sample-yaml">Sample YAML<a class="headerlink" href="#sample-yaml" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -2373,10 +2471,9 @@ for key differences between the load balancing capability of EKS Auto Mode and t
 </code></pre></div>
 <h2 id="vpcid">VpcID<a class="headerlink" href="#vpcid" title="Permanent link">&para;</a></h2>
 <p>TargetGroupBinding CR supports the explicit definition of the Virtual Private Cloud (VPC) of your TargetGroup.</p>
-<div class="admonition tip">
-<p>If the VpcID is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcID for your TargetGroup and set it to correct value.</p>
-</div>
-<h2 id="sample-yaml">Sample YAML<a class="headerlink" href="#sample-yaml" title="Permanent link">&para;</a></h2>
+<div class="admonition tip"></div>
+<p>If the VpcID is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcID for your TargetGroup and set it to the correct value.</p>
+<h2 id="sample-yaml-with-vpcid">Sample YAML with VpcID<a class="headerlink" href="#sample-yaml-with-vpcid" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -2391,7 +2488,7 @@ for key differences between the load balancing capability of EKS Auto Mode and t
 <h2 id="nodeselector">NodeSelector<a class="headerlink" href="#nodeselector" title="Permanent link">&para;</a></h2>
 <h3 id="default-node-selector">Default Node Selector<a class="headerlink" href="#default-node-selector" title="Permanent link">&para;</a></h3>
 <p>For <code>TargetType: instance</code>, all nodes of a cluster that match the following
-selector are added to the target group by default:</p>
+selector are added to the TargetGroup by default:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">matchExpressions</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node-role.kubernetes.io/master</span>
 <span class="w">    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
@@ -2405,8 +2502,8 @@ selector are added to the target group by default:</p>
 </code></pre></div>
 <h3 id="custom-node-selector">Custom Node Selector<a class="headerlink" href="#custom-node-selector" title="Permanent link">&para;</a></h3>
 <p>TargetGroupBinding CR supports <code>NodeSelector</code> which is a
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#labelselector-v1-meta">LabelSelector</a>. This will select nodes to attach to the
-<code>instance</code> TargetType target group and <strong>is merged with the default node
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#labelselector-v1-meta">LabelSelector</a>. This will select nodes to attach to the
+<code>instance</code> TargetType TargetGroup and <strong>is merged with the default node
 selector above</strong>.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
@@ -2418,13 +2515,15 @@ selector above</strong>.</p>
 <span class="w">      </span><span class="nt">foo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bar</span>
 <span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
-<h3 id="assumerole">AssumeRole<a class="headerlink" href="#assumerole" title="Permanent link">&para;</a></h3>
-<p>Sometimes the AWS LoadBalancer controller needs to manipulate target groups from different AWS accounts.
-The way to do that is assuming a role from such an account. The following spec fields help you with that.</p>
-<ul>
-<li><code>iamRoleArnToAssume</code>: the ARN that you need to assume</li>
-<li><code>assumeRoleExternalId</code>: the external ID for the assume role operation. Optional, but recommended. It helps you to prevent the confused deputy problem ( https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html )</li>
-</ul>
+<h2 id="assumerole-cross-account-targetgroups">AssumeRole (Cross-Account TargetGroups)<a class="headerlink" href="#assumerole-cross-account-targetgroups" title="Permanent link">&para;</a></h2>
+<p>Use this feature when you need to manage TargetGroups in a different AWS account than where your EKS cluster runs. This is common in multi-account architectures where load balancers are centrally managed.</p>
+<p><strong>Terminology:</strong>
+- <strong>Cluster Owner (CO)</strong>: The AWS account where your EKS cluster and AWS Load Balancer Controller run
+- <strong>TargetGroup Owner (TGO)</strong>: The AWS account where the TargetGroup exists</p>
+<p><strong>Spec fields:</strong>
+* <code>iamRoleArnToAssume</code>: The ARN of the role in the TGO account that the controller will assume
+* <code>assumeRoleExternalId</code>: External ID for the assume role operation (optional but recommended to prevent the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html">confused deputy problem</a>)</p>
+<h3 id="sample-yaml_1">Sample YAML<a class="headerlink" href="#sample-yaml_1" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -2446,9 +2545,10 @@ The way to do that is assuming a role from such an account. The following spec f
 <span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
 <span class="w">  </span><span class="nt">targetGroupARN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:elasticloadbalancing:us-west-2:155642222660:targetgroup/peered-tg/6a4ecf7bfae473c1</span>
 </code></pre></div>
-<p>In the following examples, we will refer to Cluster Owner (CO) and Target Group Owner (TGO) accounts.</p>
-<p>First, in the TGO account creates a role that will allow the AWS LBC in the CO account to assume it.
-For improved security, we only allow the AWS LBC role in CO account to assume the role.</p>
+<h3 id="setup-instructions">Setup Instructions<a class="headerlink" href="#setup-instructions" title="Permanent link">&para;</a></h3>
+<p><strong>Step 1: Create IAM role in the TargetGroup Owner (TGO) account</strong></p>
+<p>Create a role that allows the AWS Load Balancer Controller role from the Cluster Owner (CO) account to assume it.</p>
+<p>Trust policy:
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;Version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2012-10-17&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;Statement&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2467,8 +2567,9 @@ For improved security, we only allow the AWS LBC role in CO account to assume th
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">]</span>
 <span class="p">}</span>
-</code></pre></div>
-<p>Next, still in the TGO account we need to add the following permissions to the Role created in the first step.</p>
+</code></pre></div></p>
+<p><strong>Step 2: Add permissions to the role in the TGO account</strong></p>
+<p>Attach the following policy to the role created in Step 1:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="w">  </span><span class="nt">&quot;Version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2012-10-17&quot;</span><span class="p">,</span>
 <span class="w">  </span><span class="nt">&quot;Statement&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
@@ -2482,7 +2583,6 @@ For improved security, we only allow the AWS LBC role in CO account to assume th
 <span class="w">      </span><span class="nt">&quot;Resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="s2">&quot;arn:aws:elasticloadbalancing:us-west-2:155642222660:targetgroup/tg1/*&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="s2">&quot;arn:aws:elasticloadbalancing:us-west-2:155642222660:targetgroup/tg2/*&quot;</span>
-<span class="w">        </span><span class="c1">// add more here //</span>
 <span class="w">      </span><span class="p">]</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
@@ -2497,43 +2597,30 @@ For improved security, we only allow the AWS LBC role in CO account to assume th
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
 </code></pre></div>
-<p>Next, in the CO account, we need to allow the AWS LBC to perform the AssumeRole call.
-By default, this permission is not a part of the standard IAM policy that is vended with the LBC installation scripts.
-For improved security, it is possible to scope the AssumeRole permissions down to only roles that you know ahead of time the
-LBC will need to Assume.</p>
-<div class="highlight"><pre><span></span><code><span class="w">        </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;Effect&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Allow&quot;</span><span class="p">,</span>
-<span class="w">            </span><span class="nt">&quot;Action&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                </span><span class="s2">&quot;sts:AssumeRole&quot;</span>
-<span class="w">            </span><span class="p">],</span>
-<span class="w">            </span><span class="nt">&quot;Resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
-<span class="w">        </span><span class="p">}</span>
+<p><strong>Step 3: Add AssumeRole permission in the Cluster Owner (CO) account</strong></p>
+<p>Add the following permission to the AWS Load Balancer Controller's IAM role. This is not included in the standard IAM policy. For improved security, scope the permission to specific role ARNs:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;Effect&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Allow&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;Action&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="s2">&quot;sts:AssumeRole&quot;</span>
+<span class="w">    </span><span class="p">],</span>
+<span class="w">    </span><span class="nt">&quot;Resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
+<span class="p">}</span>
 </code></pre></div>
-<h2 id="sample-yaml_1">Sample YAML<a class="headerlink" href="#sample-yaml_1" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
-<span class="nt">spec</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">iamRoleArnToAssume</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:iam::999999999999:role/alb-controller-policy-to-assume&quot;</span>
-<span class="w">  </span><span class="nt">assumeRoleExternalId</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;some-magic-string&quot;</span>
-<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
-</code></pre></div>
-<h2 id="multicluster-target-group">MultiCluster Target Group<a class="headerlink" href="#multicluster-target-group" title="Permanent link">&para;</a></h2>
-<p>TargetGroupBinding CRD supports sharing the same target group ARN among multiple clusters. Setting this flag will ensure the controller only operates on targets within the cluster.</p>
-<div class="admonition tip">
-<p>The default value is false, meaning that the controller assumes full control over the target group ARN and will deregister any targets that are not found within the cluster.
+<h2 id="multicluster-targetgroup">MultiCluster TargetGroup<a class="headerlink" href="#multicluster-targetgroup" title="Permanent link">&para;</a></h2>
+<p>TargetGroupBinding CR supports sharing the same TargetGroup ARN among multiple TargetGroupBindings. Setting this flag allows
+TargetGroup ARNs among multiple clusters or services within the same cluster.</p>
+<div class="admonition tip"></div>
+<p>The default value is false, meaning that the controller assumes full control over the TargetGroup ARN and will deregister any targets that are not found within the cluster.
 To set this flag for TGBs managed by the controller use either:
 ALB: alb.ingress.kubernetes.io/multi-cluster-target-group: "true"
-NLB: service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"</p>
-</div>
-<div class="admonition warning">
+NLB: service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"
+Gateway: Set <code>enableMultiCluster</code> in the TargetGroupConfiguration attached to your service.</p>
+<div class="admonition warning"></div>
 <p>It is not recommended to change this value after TGB creation. Changing between shared / not shared might lead to leaked targets.</p>
-</div>
-<div class="admonition warning">
-<p>Only use this flag if you intend to share the target group ARN in multiple clusters. This flag will slow down reconciles and put a small additonal load on the kubernetes control plane.</p>
-</div>
-<h2 id="sample-yaml_2">Sample YAML<a class="headerlink" href="#sample-yaml_2" title="Permanent link">&para;</a></h2>
+<div class="admonition warning"></div>
+<p>Only use this flag if you intend to share the TargetGroup ARN in multiple clusters. This flag will slow down reconciles and put a small additional load on the Kubernetes control plane.</p>
+<h2 id="sample-yaml-with-multicluster">Sample YAML with MultiCluster<a class="headerlink" href="#sample-yaml-with-multicluster" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
@@ -2593,7 +2680,7 @@ NLB: service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "t
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "search.suggest", "search.highlight"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
     

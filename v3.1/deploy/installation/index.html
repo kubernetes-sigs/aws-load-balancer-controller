@@ -159,6 +159,46 @@
   
       <!-- Button to open search modal -->
       
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
   
       <!-- Repository information -->
       
@@ -687,6 +727,15 @@
   <a href="#create-update-strategy" class="md-nav__link">
     <span class="md-ellipsis">
       Create Update Strategy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#argocd-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      ArgoCD users
     </span>
   </a>
   
@@ -1459,6 +1508,27 @@
   
   <span class="md-ellipsis">
     Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/gateway/listenersets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerSets
   </span>
   
 
@@ -2449,6 +2519,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#argocd-users" class="md-nav__link">
+    <span class="md-ellipsis">
+      ArgoCD users
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2503,7 +2582,7 @@ When installing the AWS LBC in isolated clusters, you need to disable shield, wa
 <p>You can set the IMDSv2 as follows:
 <div class="highlight"><pre><span></span><code>aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --http-tokens required --region &lt;region&gt; --instance-id &lt;instance-id&gt;
 </code></pre></div></p>
-<p>Instead of depending on IMDSv2, you can specify the AWS Region via the controller flag <code>--aws-region</code>, and the AWS VPC via controller flag <code>--aws-vpc-id</code> or by specifying vpc tags via the flag <code>--aws-vpc-tags</code> and an optional flag <code>--aws-vpc-tag-key</code> if you have a different key for the tag other than "Name". When both flags <code>--aws-vpc-id</code> and <code>--aws-vpc-tags</code> are specified, the controller prioritizes <code>--aws-vpc-id</code>and ignores the other flag.</p>
+<p>Instead of depending on IMDSv2, you can specify the AWS Region via the controller flag <code>--aws-region</code>, and the AWS VPC via controller flag <code>--aws-vpc-id</code> or by specifying vpc tags via the flag <code>--aws-vpc-tags</code>. All specified tags are used as AND filters for VPC lookup. When both flags <code>--aws-vpc-id</code> and <code>--aws-vpc-tags</code> are specified, the controller prioritizes <code>--aws-vpc-id</code>and ignores the other flag.</p>
 <h2 id="configure-iam">Configure IAM<a class="headerlink" href="#configure-iam" title="Permanent link">&para;</a></h2>
 <p>The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs with IAM permissions.</p>
 <p>The IAM permissions can either be setup using <a href="https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html">IAM roles for service accounts (IRSA)</a>, <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html">Pod Identity</a>, or can be attached directly to the worker node IAM roles. The best practice is using IRSA if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.</p>
@@ -2545,13 +2624,13 @@ When installing the AWS LBC in isolated clusters, you need to disable shield, wa
 <li>
 <p>Download an IAM policy for the LBC using one of the following commands:<p>
     If your cluster is in a US Gov Cloud region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy_us-gov.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.2.0/docs/install/iam_policy_us-gov.json
 </code></pre></div>
     If your cluster is in a China region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy_cn.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.2.0/docs/install/iam_policy_cn.json
 </code></pre></div>
     If your cluster is in any other region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.2.0/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -2579,7 +2658,7 @@ When installing the AWS LBC in isolated clusters, you need to disable shield, wa
 <p>Follow the Pod Identity set-up guide <a href="https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html">here</a>.</p>
 <h3 id="option-c-attach-iam-policies-to-nodes">Option C: Attach IAM policies to nodes<a class="headerlink" href="#option-c-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
 <p>If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.1.0/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v3.2.0/docs/install/iam_policy.json
 </code></pre></div></p>
 <p>When using this option, IMDS <em>must</em> be enabled. The controller retrieves the instance credentials using IMDS. Use IRSA to avoid usage of IMDS.</p>
 <h2 id="special-iam-cases">Special IAM cases<a class="headerlink" href="#special-iam-cases" title="Permanent link">&para;</a></h2>
@@ -2692,7 +2771,7 @@ kubectl apply -f crds.yaml
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Download the spec for the LBC.
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.1.0/v3_1_0_full.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.2.0/v3_2_0_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller <code>--cluster-name</code> arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
@@ -2713,13 +2792,13 @@ spec:
 kind: ServiceAccount
 </code></pre></div></li>
 <li>Apply the yaml file
-<div class="highlight"><pre><span></span><code>kubectl apply -f v3_1_0_full.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v3_2_0_full.yaml
 </code></pre></div></li>
 <li>Optionally download the default ingressclass and ingressclass params
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.1.0/v3_1_0_ingclass.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v3.2.0/v3_2_0_ingclass.yaml
 </code></pre></div></li>
 <li>Apply the ingressclass and params
-<div class="highlight"><pre><span></span><code>kubectl apply -f v3_1_0_ingclass.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v3_2_0_ingclass.yaml
 </code></pre></div></li>
 </ol>
 </div>
@@ -2728,6 +2807,39 @@ kind: ServiceAccount
 <h2 id="create-update-strategy">Create Update Strategy<a class="headerlink" href="#create-update-strategy" title="Permanent link">&para;</a></h2>
 <p>The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.</p>
 <p>You can upgrade using <a href="https://helm.sh/docs/helm/helm_upgrade/"><code>helm upgrade</code></a> or another strategy to manage the controller deployment.</p>
+<h2 id="argocd-users">ArgoCD users<a class="headerlink" href="#argocd-users" title="Permanent link">&para;</a></h2>
+<p><a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/4605">Reference Issue</a></p>
+<p>Users utilizing ArgoCD or similar GitOps tools may encounter webhook certificate issues during deployments.
+When ArgoCD syncs resources, it regenerates the TLS secret used by the AWS Load Balancer Controller webhook.
+This causes the webhook to stop responding because the certificate in the secret no longer matches the
+certificate mounted in the controller pod, breaking the webhook's TLS handshake.</p>
+<p><strong>Recommended solution:</strong> Use <a href="https://cert-manager.io/">Cert Manager</a> to manage webhook certificates,
+which handles certificate rotation properly.</p>
+<p><strong>Alternative solution:</strong> If Cert Manager cannot be used, configure ArgoCD to ignore the webhook TLS
+resources and let the AWS Load Balancer Controller Helm installation manage them.</p>
+<p>Add the following to your ArgoCD Application's <code>ignoreDifferences</code> section:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">argoproj.io/v1alpha1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Application</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-load-balancer-controller</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ignoreDifferences</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-load-balancer-tls</span>
+<span class="w">      </span><span class="nt">jqPathExpressions</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.data</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admissionregistration.k8s.io</span>
+<span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MutatingWebhookConfiguration</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-load-balancer-webhook</span>
+<span class="w">      </span><span class="nt">jqPathExpressions</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.webhooks[].clientConfig.caBundle</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admissionregistration.k8s.io</span>
+<span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ValidatingWebhookConfiguration</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">aws-load-balancer-webhook</span>
+<span class="w">      </span><span class="nt">jqPathExpressions</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.webhooks[].clientConfig.caBundle</span>
+</code></pre></div>
+<p>This prevents ArgoCD from overwriting the certificate data and CA bundles that the controller manages.</p>
 
 
 
@@ -2774,7 +2886,7 @@ kind: ServiceAccount
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
     

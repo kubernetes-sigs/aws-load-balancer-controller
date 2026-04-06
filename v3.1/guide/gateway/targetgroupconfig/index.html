@@ -159,6 +159,46 @@
   
       <!-- Button to open search modal -->
       
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
   
       <!-- Repository information -->
       
@@ -1238,6 +1278,42 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#configuration-resolution-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration Resolution Order
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gatewayclass-gateway-default-tgc-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      GatewayClass + Gateway Default TGC Merging
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-gateway-level-defaults-via-loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Gateway-Level Defaults via LoadBalancerConfiguration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-gatewayclass-level-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: GatewayClass-Level Defaults
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#defaultconfiguration" class="md-nav__link">
     <span class="md-ellipsis">
       DefaultConfiguration
@@ -1380,6 +1456,15 @@
   <a href="#protocolversion" class="md-nav__link">
     <span class="md-ellipsis">
       ProtocolVersion
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetcontrolport" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetControlPort
     </span>
   </a>
   
@@ -1570,6 +1655,27 @@
   
   <span class="md-ellipsis">
     Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listenersets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerSets
   </span>
   
 
@@ -2375,6 +2481,42 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#configuration-resolution-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration Resolution Order
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gatewayclass-gateway-default-tgc-merging" class="md-nav__link">
+    <span class="md-ellipsis">
+      GatewayClass + Gateway Default TGC Merging
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-gateway-level-defaults-via-loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: Gateway-Level Defaults via LoadBalancerConfiguration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-gatewayclass-level-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example: GatewayClass-Level Defaults
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#defaultconfiguration" class="md-nav__link">
     <span class="md-ellipsis">
       DefaultConfiguration
@@ -2517,6 +2659,15 @@
   <a href="#protocolversion" class="md-nav__link">
     <span class="md-ellipsis">
       ProtocolVersion
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#targetcontrolport" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetControlPort
     </span>
   </a>
   
@@ -2698,10 +2849,138 @@
 <p>Defines the Kubernetes object to attach the Target Group settings to.</p>
 <ul>
 <li><strong>group</strong>: The group of the referent. For example, "gateway.networking.k8s.io". When unspecified or empty string, core API group is inferred.</li>
-<li><strong>kind</strong>: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified.</li>
+<li><strong>kind</strong>: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified. Supported values: <code>Service</code>, <code>Gateway</code> (for Gateway-as-backend use case only).</li>
 <li><strong>name</strong>: The name of the referent.</li>
 </ul>
-<p><strong>Default</strong> No default, required field</p>
+<p><strong>Default</strong> Optional. When omitted, this TGC can only be used as a default target group configuration via LoadBalancerConfiguration's <code>defaultTargetGroupConfiguration</code> reference. A TGC with <code>targetReference</code> set cannot be used as a <code>defaultTargetGroupConfiguration</code> — the controller will error the Gateway reconciliation if an LBC references a TGC that has <code>targetReference</code>.</p>
+<h3 id="configuration-resolution-order">Configuration Resolution Order<a class="headerlink" href="#configuration-resolution-order" title="Permanent link">&para;</a></h3>
+<p>When the controller builds a target group for a Service backend, it resolves configuration in this order:</p>
+<ol>
+<li><strong>Service-level TargetGroupConfiguration</strong> — A TGC in the Service's namespace with <code>targetReference.kind: Service</code> (or unset) and <code>targetReference.name</code> matching the Service name.</li>
+<li><strong>Gateway-level default TargetGroupConfiguration</strong> — Resolved from the <code>defaultTargetGroupConfiguration</code> references on both the Gateway LBC and GatewayClass LBC, then merged (see below).</li>
+<li><strong>Controller defaults</strong> — Hardcoded defaults (e.g., <code>targetType: instance</code>) and the <code>--default-target-type</code> controller flag.</li>
+</ol>
+<p>When both a Service-level TGC and a Gateway-level default TGC exist, the controller performs a <strong>field-level merge</strong>. For each top-level field in <code>TargetGroupProps</code>, the Service TGC value is used if set; otherwise the Gateway-level default TGC value is used as a fallback.</p>
+<p>This means a Service-level TGC only needs to specify the fields it wants to override — all other fields are inherited from the Gateway-level default TGC automatically.</p>
+<blockquote>
+<p><strong>Note:</strong></p>
+<ul>
+<li>The default TGC provides fallback values, not enforced policies. A Service-level TGC can always override any field set by the default TGC. The <code>mergingMode</code> on the GatewayClass LBC only controls precedence between the GatewayClass and Gateway default TGCs — it does not prevent Service-level overrides.</li>
+<li>The merge is shallow at the <code>TargetGroupProps</code> field level. For example, if a Service TGC sets <code>healthCheckConfig</code>, the entire health check block comes from the Service TGC — individual sub-fields like <code>healthCheckInterval</code> are not merged from the default TGC. <code>tags</code> and <code>targetGroupAttributes</code> are the exception: these are merged at the key level across both TGCs.</li>
+</ul>
+</blockquote>
+<h3 id="gatewayclass-gateway-default-tgc-merging">GatewayClass + Gateway Default TGC Merging<a class="headerlink" href="#gatewayclass-gateway-default-tgc-merging" title="Permanent link">&para;</a></h3>
+<p>When both the GatewayClass LBC and the Gateway LBC define a <code>defaultTargetGroupConfiguration</code>, the controller resolves both TGCs and merges their <code>defaultConfiguration</code> props field-by-field. The <code>mergingMode</code> on the GatewayClass LBC controls which one wins on overlapping fields:</p>
+<ul>
+<li><code>prefer-gateway-class</code> (default): GatewayClass TGC fields win on overlap. Gateway TGC fills in unset fields.</li>
+<li><code>prefer-gateway</code>: Gateway TGC fields win on overlap. GatewayClass TGC fills in unset fields.</li>
+</ul>
+<p>Non-overlapping fields from both TGCs are always preserved regardless of <code>mergingMode</code>.</p>
+<blockquote>
+<p><strong>Note:</strong> Only <code>defaultConfiguration</code> props are merged field-by-field across the two default TGCs. <code>routeConfigurations</code> are <strong>not</strong> merged — the high-priority TGC's <code>routeConfigurations</code> are used entirely, and the low-priority TGC's route configs are discarded. If you need route-specific overrides from both levels, define them in the winning TGC.</p>
+</blockquote>
+<p>The Gateway LBC's default TGC must be in the same namespace as the Gateway. If it is in a different namespace, it is ignored and the GatewayClass default TGC is used alone.</p>
+<h3 id="example-gateway-level-defaults-via-loadbalancerconfiguration">Example: Gateway-Level Defaults via LoadBalancerConfiguration<a class="headerlink" href="#example-gateway-level-defaults-via-loadbalancerconfiguration" title="Permanent link">&para;</a></h3>
+<p>Default TGC (platform team baseline):
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-defaults</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-system</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="c1"># No targetReference — this TGC is only used as a default via LBC</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">    </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/healthz</span>
+<span class="w">      </span><span class="nt">healthCheckInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">15</span>
+<span class="w">    </span><span class="nt">targetGroupAttributes</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deregistration_delay.timeout_seconds</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;30&quot;</span>
+</code></pre></div></p>
+<p>LoadBalancerConfiguration referencing the default TGC:
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-lb-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-system</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span>
+<span class="w">  </span><span class="nt">defaultTargetGroupConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-defaults</span>
+</code></pre></div></p>
+<p>Gateway referencing the LBC via <code>infrastructure.parametersRef</code>:
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-gateway</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway-system</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">gatewayClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/alb</span>
+<span class="w">  </span><span class="nt">infrastructure</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">parametersRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws</span>
+<span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-lb-config</span>
+<span class="w">  </span><span class="nt">listeners</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+<span class="w">      </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">      </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
+</code></pre></div></p>
+<p>Service-level TGC (app team override — only sets what differs):
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service-a-tgc</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">app-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetReference</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service-a</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/service-a/health</span>
+</code></pre></div></p>
+<p>Effective configuration for <code>service-a</code>:
+- <code>targetType: ip</code> — inherited from Gateway default TGC
+- <code>healthCheckConfig: { healthCheckPath: /service-a/health }</code> — from Service TGC (replaces entire health check block)
+- <code>targetGroupAttributes: [deregistration_delay: 30]</code> — inherited from Gateway default TGC</p>
+<h3 id="example-gatewayclass-level-defaults">Example: GatewayClass-Level Defaults<a class="headerlink" href="#example-gatewayclass-level-defaults" title="Permanent link">&para;</a></h3>
+<p>Cluster admins can set org-wide defaults by attaching a default TGC to the GatewayClass LBC:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Admin&#39;s default TGC</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-defaults</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kube-system</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="nn">---</span>
+<span class="c1"># GatewayClass LBC references it</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-lb-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kube-system</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mergingMode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prefer-gateway</span><span class="w">  </span><span class="c1"># let teams override</span>
+<span class="w">  </span><span class="nt">defaultTargetGroupConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-defaults</span>
+<span class="nn">---</span>
+<span class="c1"># GatewayClass points to the LBC</span>
+<span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GatewayClass</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/alb</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">controllerName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/alb</span>
+<span class="w">  </span><span class="nt">parametersRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws</span>
+<span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">org-lb-config</span>
+<span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kube-system</span>
+</code></pre></div>
+<p>All Gateways in this class inherit <code>targetType: ip</code> unless they override via their own Gateway-level LBC with its own <code>defaultTargetGroupConfiguration</code>.</p>
 <h3 id="defaultconfiguration">DefaultConfiguration<a class="headerlink" href="#defaultconfiguration" title="Permanent link">&para;</a></h3>
 <p><code>defaultConfiguration</code></p>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
@@ -2859,6 +3138,12 @@
 - HTTP2
 - GRPC</p>
 <p><strong>Default</strong> No default</p>
+<h3 id="targetcontrolport">TargetControlPort<a class="headerlink" href="#targetcontrolport" title="Permanent link">&para;</a></h3>
+<p><code>targetControlPort</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">targetControlPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100</span>
+</code></pre></div>
+<p>[Application Load Balancer] The port on which the target communicates its capacity. This value can't be modified after target group creation.</p>
+<p>For more information, check out the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-register-targets.html#register-targets-target-optimizer">Target Optimizer Guide</a></p>
 <h3 id="enablemulticluster">EnableMultiCluster<a class="headerlink" href="#enablemulticluster" title="Permanent link">&para;</a></h3>
 <p><code>enableMultiCluster</code></p>
 <div class="highlight"><pre><span></span><code><span class="nt">enableMultiCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
@@ -2990,7 +3275,7 @@
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "search.suggest", "search.highlight"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
     

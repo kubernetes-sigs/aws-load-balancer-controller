@@ -159,6 +159,46 @@
   
       <!-- Button to open search modal -->
       
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
   
       <!-- Repository information -->
       
@@ -1102,6 +1142,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#upgrading-gateway-api-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      Upgrading Gateway API CRDs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Configuration
@@ -1379,6 +1428,27 @@
   
   <span class="md-ellipsis">
     Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listenersets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerSets
   </span>
   
 
@@ -2193,6 +2263,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#upgrading-gateway-api-crds" class="md-nav__link">
+    <span class="md-ellipsis">
+      Upgrading Gateway API CRDs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Configuration
@@ -2313,7 +2392,7 @@ Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not 
 <li>L4 (NLBGatewayAPI): UDPRoute, TCPRoute, TLSRoute &gt;=v2.13.3</li>
 <li>L7 (ALBGatewayAPI): HTTPRoute, GRPCRoute &gt;= 2.14.0</li>
 </ul>
-<p>The LBC is built for Gateway API version v1.3.0.</p>
+<p>The LBC is built for Gateway API version v1.5.0.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>LBC &gt;= v2.13.0</li>
@@ -2322,20 +2401,28 @@ Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not 
 </ul>
 </li>
 <li>Installation of Gateway API CRDs<ul>
-<li>Standard Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/standard-install.yaml</code> [REQUIRED]</li>
-<li>Experimental Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.3.0/experimental-install.yaml</code> [OPTIONAL: Used for L4 Routes]</li>
+<li>Standard Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml</code> [REQUIRED]</li>
+<li>Experimental Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/experimental-install.yaml</code> [OPTIONAL: Used for L4 Routes]</li>
 </ul>
 </li>
 <li>Installation of LBC Gateway API specific CRDs: <code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml</code></li>
 </ul>
-<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-<p>By default, the LBC will <em>not</em> listen to Gateway API CRDs. To enable support, specify the following feature flag(s) in the LBC deployment:</p>
+<h2 id="upgrading-gateway-api-crds">Upgrading Gateway API CRDs<a class="headerlink" href="#upgrading-gateway-api-crds" title="Permanent link">&para;</a></h2>
+<p>Most releases of the Gateway API are backwards compatible, meaning you can apply new CRDs without updating the Load Balancer Controller.
+There a few backwards incompatible release.</p>
 <ul>
-<li><code>NLBGatewayAPI</code>: For enabling L4 Routing</li>
-<li><code>ALBGatewayAPI</code>: For enabling L7 Routing</li>
+<li>Going from a version less than v1.5</li>
+<li>v1.5 brings TLSRoute out of alpha and into the v1 API version. Once this happens, old versions of the controller will not work with TLSRoutes.</li>
 </ul>
-<div class="highlight"><pre><span></span><code>- --feature-gates=NLBGatewayAPI=true,ALBGatewayAPI=true
-</code></pre></div>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>The Load Balancer Controller (LBC) will attempt to detect Gateway CRDs. 
+If they are present, the respective controller will be enabled. 
+To explicitly disable these controllers, use the following feature gates:</p>
+<p><code>--feature-gates=NLBGatewayAPI=false,ALBGatewayAPI=false</code></p>
+<p>For the NLB Gateway controller (Layer 4) to be enabled, ensure the following CRDs are installed:
+<code>Gateway</code>, <code>GatewayClass</code>, <code>TCPRoute</code>, <code>UDPRoute</code>, and <code>TLSRoute</code></p>
+<p>For the ALB Gateway controller (Layer 7) to be enabled, ensure the following CRDs are installed:
+<code>Gateway</code>, <code>GatewayClass</code>, <code>HTTPRoute</code>, and <code>GRPCRoute</code></p>
 <h2 id="subnet-tagging-requirements">Subnet tagging requirements<a class="headerlink" href="#subnet-tagging-requirements" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for details on configuring Elastic Load Balancing for public or private placement.</p>
 <h2 id="security-group">Security group<a class="headerlink" href="#security-group" title="Permanent link">&para;</a></h2>
@@ -2496,7 +2583,7 @@ registered with an AWS Target Group outside the controller's lifecycle.</p>
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "search.suggest", "search.highlight"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
     
