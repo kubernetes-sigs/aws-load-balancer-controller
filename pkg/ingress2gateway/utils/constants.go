@@ -16,8 +16,16 @@ const (
 	// MigrationTagKey is the AWS tag key used to track migration source.
 	MigrationTagKey = "gateway.k8s.aws/migrated-from"
 
+	// ProtocolHTTP is the HTTP protocol string used in listen-ports and ProtocolPort.
+	ProtocolHTTP = "HTTP"
+
 	// ProtocolHTTPS is the HTTPS protocol string used in listen-ports and ProtocolPort.
 	ProtocolHTTPS = "HTTPS"
+
+	// PlaceholderTLSSecretName is a placeholder Secret name used in Gateway HTTPS listener TLS config.
+	// Gateway API requires certificateRefs for HTTPS listeners, but the ALB controller reads
+	// the actual certificate from LoadBalancerConfiguration. This placeholder satisfies the webhook.
+	PlaceholderTLSSecretName = "tls-secret"
 
 	// LBCGatewayAPIGroup is the API group for LBC's Gateway API CRDs (LoadBalancerConfiguration, etc).
 	LBCGatewayAPIGroup = "gateway.k8s.aws"

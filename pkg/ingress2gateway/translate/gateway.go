@@ -1,6 +1,8 @@
 package translate
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
@@ -30,11 +32,22 @@ func buildGatewayClass() gwv1.GatewayClass {
 func buildGateway(name, namespace string, lbConfig *gatewayv1beta1.LoadBalancerConfiguration, listenPorts []listenPortEntry) gwv1.Gateway {
 	var listeners []gwv1.Listener
 	for _, lp := range listenPorts {
-		listeners = append(listeners, gwv1.Listener{
-			Name:     gwv1.SectionName(utils.GetSectionName(lp.Protocol, lp.Port)),
+		listener := gwv1.Listener{
+			Name:     gwv1.SectionName(utils.GenerateSectionName(lp.Protocol, lp.Port)),
 			Port:     gwv1.PortNumber(lp.Port),
 			Protocol: toALBProtocol(lp.Protocol),
-		})
+		}
+		// Gateway API requires a tls section for HTTPS listeners.
+		// The actual certificate is configured via LoadBalancerConfiguration,
+		// but the webhook rejects HTTPS listeners without tls set.
+		if strings.EqualFold(lp.Protocol, utils.ProtocolHTTPS) {
+			listener.TLS = &gwv1.ListenerTLSConfig{
+				CertificateRefs: []gwv1.SecretObjectReference{
+					{Name: utils.PlaceholderTLSSecretName},
+				},
+			}
+		}
+		listeners = append(listeners, listener)
 	}
 
 	gw := gwv1.Gateway{

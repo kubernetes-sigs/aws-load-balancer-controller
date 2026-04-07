@@ -77,6 +77,7 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 		},
 		HTTPRouteConfig: {
 			annotations.IngressSuffixUseRegexPathMatch,
+			annotations.IngressSuffixSSLRedirect,
 		},
 	}
 
@@ -87,7 +88,6 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			annotations.IngressSuffixGroupOrder,
 		},
 		Routing: {
-			annotations.IngressSuffixSSLRedirect,
 			// NOTE: "use-annotation" action backends (alb.ingress.kubernetes.io/actions.{name}),
 			// condition annotations (alb.ingress.kubernetes.io/conditions.{name}), and
 			// transform annotations (alb.ingress.kubernetes.io/transforms.{name}) are dynamically
@@ -95,7 +95,6 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			// actions.* translation is implemented in translate_action_helper.go (forward, redirect, fixed-response).
 			// conditions.* translation is implemented in translate_condition_helper.go.
 			// transforms.* translation is implemented in translate_transform_helper.go.
-			// ssl-redirect is planned for a subsequent PR.
 		},
 		Authentication: {
 			annotations.IngressSuffixAuthType,

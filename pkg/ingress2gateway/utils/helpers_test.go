@@ -40,3 +40,11 @@ func TestResourceNameNoCollisionAcrossTypes(t *testing.T) {
 	defaultRouteForFoo := GetDefaultHTTPRouteName("ns", "foo")
 	assert.NotEqual(t, routeForFooDefault, defaultRouteForFoo)
 }
+
+func TestGetRedirectHTTPRouteNameUnique(t *testing.T) {
+	redirect := GetRedirectHTTPRouteName("ns", "app")
+	route := GetHTTPRouteName("ns", "app")
+	defaultRoute := GetDefaultHTTPRouteName("ns", "app")
+	assert.NotEqual(t, redirect, route, "redirect route name must differ from primary route")
+	assert.NotEqual(t, redirect, defaultRoute, "redirect route name must differ from default route")
+}

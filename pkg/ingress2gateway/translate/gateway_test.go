@@ -62,8 +62,8 @@ func TestBuildGateway(t *testing.T) {
 }
 
 func TestListenerName(t *testing.T) {
-	assert.Equal(t, "http-80", utils.GetSectionName("HTTP", 80))
-	assert.Equal(t, "https-443", utils.GetSectionName("HTTPS", 443))
+	assert.Equal(t, "http-80", utils.GenerateSectionName("HTTP", 80))
+	assert.Equal(t, "https-443", utils.GenerateSectionName("HTTPS", 443))
 }
 
 func TestToALBProtocol(t *testing.T) {

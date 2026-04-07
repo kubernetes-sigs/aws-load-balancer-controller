@@ -2,10 +2,12 @@ package translate
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 )
 
@@ -14,9 +16,8 @@ import (
 // Fields intentionally not mapped to LB config:
 // - NamespaceSelector: cluster policy, not a LB setting
 // - TargetType: TG-level, handled in applyIngressClassParamsToTGProps
-// TO-DO
-// - Group: handled at Ingress grouping level task
-// - SSLRedirectPort: handled at routing level task
+// - Group: handled at Ingress grouping level task (TO-DO)
+// - SSLRedirectPort: handled in buildHTTPRoutes via resolveSSLRedirectPort
 func applyIngressClassParamsToLBConfig(spec *gatewayv1beta1.LoadBalancerConfigurationSpec, icp *elbv2api.IngressClassParams) {
 	if icp == nil {
 		return
@@ -166,4 +167,17 @@ func applyIngressClassParamsToTGProps(props *gatewayv1beta1.TargetGroupProps, ic
 		tt := gatewayv1beta1.TargetType(icp.Spec.TargetType)
 		props.TargetType = &tt
 	}
+}
+
+// resolveSSLRedirectPort returns the SSL redirect port if configured.
+// IngressClassParams.SSLRedirectPort takes priority over the Ingress annotation.
+func resolveSSLRedirectPort(ingAnnotations map[string]string, icp *elbv2api.IngressClassParams) *int32 {
+	if icp != nil && icp.Spec.SSLRedirectPort != "" {
+		port, err := strconv.ParseInt(icp.Spec.SSLRedirectPort, 10, 32)
+		if err == nil {
+			p := int32(port)
+			return &p
+		}
+	}
+	return getInt32(ingAnnotations, annotations.IngressSuffixSSLRedirect)
 }
