@@ -2401,8 +2401,8 @@ Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not 
 </ul>
 </li>
 <li>Installation of Gateway API CRDs<ul>
-<li>Standard Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml</code> [REQUIRED]</li>
-<li>Experimental Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/experimental-install.yaml</code> [OPTIONAL: Used for L4 Routes]</li>
+<li>Standard Gateway API CRDs: <code>kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml</code> [REQUIRED]</li>
+<li>Experimental Gateway API CRDs: <code>kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/experimental-install.yaml</code> [OPTIONAL: Used for L4 Routes]</li>
 </ul>
 </li>
 <li>Installation of LBC Gateway API specific CRDs: <code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml</code></li>
