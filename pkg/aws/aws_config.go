@@ -2,6 +2,9 @@ package aws
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
@@ -16,7 +19,14 @@ import (
 
 const (
 	userAgent = "elbv2.k8s.aws"
+	// defaultAWSSDKClientTimeout is the timeout for individual HTTP requests made by AWS SDK clients.
+	defaultAWSSDKClientTimeout = 10 * time.Second
 )
+
+// newDefaultHTTPClient returns an http.Client with the standard AWS SDK timeout.
+func newDefaultHTTPClient() *http.Client {
+	return &http.Client{Timeout: defaultAWSSDKClientTimeout}
+}
 
 func NewAWSConfigGenerator(cfg CloudConfig, ec2IMDSEndpointMode imds.EndpointModeState, metricsCollector *awsmetrics.Collector) AWSConfigGenerator {
 	return &awsConfigGeneratorImpl{
@@ -42,6 +52,7 @@ func (gen *awsConfigGeneratorImpl) GenerateAWSConfig(optFns ...func(*config.Load
 
 	defaultOpts := []func(*config.LoadOptions) error{
 		config.WithRegion(gen.cfg.Region),
+		config.WithHTTPClient(newDefaultHTTPClient()),
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(func(o *retry.StandardOptions) {
 				o.RateLimiter = ratelimit.None
