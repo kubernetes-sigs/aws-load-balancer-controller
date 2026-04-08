@@ -254,6 +254,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		r.logger.WithName("eventHandlers").WithName("service"))
 	nodeEventsHandler := eventhandlers.NewEnqueueRequestsForNodeEvent(r.k8sClient,
 		r.logger.WithName("eventHandlers").WithName("node"))
+	podEventHandler := eventhandlers.NewEnqueueRequestsForPodEvent(r.logger.WithName("eventHandlers").WithName("pod"))
 
 	var eventHandler handler.EventHandler
 	var clientObj client.Object
@@ -274,6 +275,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		Watches(&corev1.Service{}, svcEventHandler).
 		Watches(clientObj, eventHandler).
 		Watches(&corev1.Node{}, nodeEventsHandler).
+		Watches(&corev1.Pod{}, podEventHandler).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.maxConcurrentReconciles,
 			RateLimiter:             workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](5*time.Millisecond, r.maxExponentialBackoffDelay)}).
