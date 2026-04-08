@@ -18,17 +18,11 @@ import (
 
 var ErrNotFound = errors.New("backend not found")
 
-// TODO: for pod endpoints, we currently rely on endpoints events, we might change to use pod events directly in the future.
-// under current implementation with pod readinessGate enabled, an unready endpoint but not match our inclusionCriteria won't be registered,
-// and it won't turn ready due to blocked by readinessGate, and no future endpoint events will trigger.
-// We solve this by requeue the TGB if unready endpoints have the potential to be ready if reconcile in later time.
-
 // EndpointResolver resolves the endpoints for specific service & service Port.
 type EndpointResolver interface {
-	// ResolvePodEndpoints will resolve endpoints backed by pods directly.
-	// returns resolved podEndpoints and whether there are unready endpoints that can potentially turn ready in future reconciles.
-	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
-		opts ...EndpointResolveOption) ([]PodEndpoint, bool, error)
+	// ResolvePodEndpoints will resolve endpoints backed by pods directly,
+	// returns resolved podEndpoints.
+	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) ([]PodEndpoint, error)
 
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
 	ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
@@ -60,19 +54,16 @@ type defaultEndpointResolver struct {
 	logger               logr.Logger
 }
 
-func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...EndpointResolveOption) ([]PodEndpoint, bool, error) {
-	resolveOpts := defaultEndpointResolveOptions()
-	resolveOpts.ApplyOptions(opts)
-
+func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) ([]PodEndpoint, error) {
 	_, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return r.resolvePodEndpointsWithEndpointsData(ctx, svcKey, svcPort, endpointsDataList, resolveOpts.PodReadinessGates)
+	return r.resolvePodEndpointsWithEndpointsData(ctx, svcKey, svcPort, endpointsDataList)
 }
 
 func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...EndpointResolveOption) ([]NodePortEndpoint, error) {
@@ -140,10 +131,9 @@ func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Contex
 	return endpointsDataList, nil
 }
 
-func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx context.Context, svcKey types.NamespacedName, svcPort corev1.ServicePort, endpointsDataList []EndpointsData, podReadinessGates []corev1.PodConditionType) ([]PodEndpoint, bool, error) {
+func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx context.Context, svcKey types.NamespacedName, svcPort corev1.ServicePort, endpointsDataList []EndpointsData) ([]PodEndpoint, error) {
 	var readyPodEndpoints []PodEndpoint
 	var unknownPodEndpoints []PodEndpoint
-	containsPotentialReadyEndpoints := false
 
 	for _, epsData := range endpointsDataList {
 		for _, port := range epsData.Ports {
@@ -167,11 +157,10 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				podKey := types.NamespacedName{Namespace: podNamespace, Name: ep.TargetRef.Name}
 				pod, exists, err := r.podInfoRepo.Get(ctx, podKey)
 				if err != nil {
-					return nil, false, err
+					return nil, err
 				}
 				if !exists {
-					r.logger.Info("the pod in endpoint is not found in pod cache yet, will keep retrying", "podKey", podKey.String())
-					containsPotentialReadyEndpoints = true
+					r.logger.Info("the pod in endpoint is not found in pod cache yet", "podKey", podKey.String())
 					continue
 				}
 
@@ -183,9 +172,6 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				}
 
 				if !pod.IsContainersReady() {
-					if pod.HasAnyOfReadinessGates(podReadinessGates) {
-						containsPotentialReadyEndpoints = true
-					}
 					continue
 				}
 
@@ -216,7 +202,7 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 	if r.failOpenEnabled && len(podEndpoints) == 0 {
 		podEndpoints = unknownPodEndpoints
 	}
-	return podEndpoints, containsPotentialReadyEndpoints, nil
+	return podEndpoints, nil
 }
 
 func (r *defaultEndpointResolver) findServiceAndServicePort(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) (*corev1.Service, corev1.ServicePort, error) {
