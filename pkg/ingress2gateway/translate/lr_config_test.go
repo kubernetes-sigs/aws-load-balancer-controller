@@ -11,12 +11,12 @@ import (
 )
 
 func TestBuildListenerRuleConfiguration(t *testing.T) {
-	lrc := buildListenerRuleConfiguration("my-ns", "my-action")
+	lrc := buildListenerRuleConfiguration("my-ns", "my-ing", "my-action")
 
 	assert.Equal(t, utils.LBConfigAPIVersion, lrc.APIVersion)
 	assert.Equal(t, gwconstants.ListenerRuleConfiguration, lrc.Kind)
 	assert.Equal(t, "my-ns", lrc.Namespace)
-	assert.Equal(t, utils.GetLRConfigName("my-ns", "my-action"), lrc.Name)
+	assert.Equal(t, utils.GetLRConfigName("my-ns", "my-ing", "my-action"), lrc.Name)
 	assert.Nil(t, lrc.Spec.Tags)
 }
 
