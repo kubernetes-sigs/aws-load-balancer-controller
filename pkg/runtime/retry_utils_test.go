@@ -69,7 +69,7 @@ func Test_RetryImmediateOnError(t *testing.T) {
 			// may race with the next tick, so count can be 3 or 4.
 			wantMinCount: 3,
 			wantMaxCount: 4,
-			wantErr:      errors.New("timed out waiting for the condition"),
+			wantErr:      errors.New("timed out waiting for the condition: retryable"),
 		},
 		{
 			name: "retry 4 times before success",
@@ -95,7 +95,7 @@ func Test_RetryImmediateOnError(t *testing.T) {
 			// may race with the next tick, so count can be 3 or 4.
 			wantMinCount: 3,
 			wantMaxCount: 4,
-			wantErr:      errors.New("timed out waiting for the condition"),
+			wantErr:      errors.New("timed out waiting for the condition: retryable"),
 		},
 	}
 	for _, tt := range tests {
