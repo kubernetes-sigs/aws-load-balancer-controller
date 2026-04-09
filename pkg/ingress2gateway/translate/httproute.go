@@ -150,7 +150,7 @@ func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path n
 
 	if path.Backend.Service != nil {
 		// pre-routing actions
-		if err := t.buildAuthConfig(&routeRule, path.Backend.Service.Name); err != nil {
+		if err := t.buildPreRoutingActions(&routeRule, path.Backend.Service.Name); err != nil {
 			return routeRule, nil, err
 		}
 		// routing actions
@@ -310,19 +310,38 @@ func (t *httpRouteTranslator) buildTransforms(routeRule *gwv1.HTTPRouteRule, svc
 	return nil
 }
 
-// buildAuthConfig parses auth-type and related annotations and attaches an
-// authenticate action to the ListenerRuleConfiguration for this rule.
-func (t *httpRouteTranslator) buildAuthConfig(routeRule *gwv1.HTTPRouteRule, svcName string) error {
+// buildPreRoutingActions parses auth cognito/oidc and jwt-validation annotations
+// and attaches pre-routing actions to the ListenerRuleConfiguration for this rule.
+// Auth and JWT validation are mutually exclusive pre-routing actions.
+func (t *httpRouteTranslator) buildPreRoutingActions(routeRule *gwv1.HTTPRouteRule, svcName string) error {
 	authAction, err := buildAuthAction(t.ingAnnotations)
 	if err != nil {
 		return fmt.Errorf("ingress %s/%s failed to build auth config: %w", t.namespace, t.ingName, err)
 	}
-	if authAction == nil {
+
+	jwtAction, err := buildJwtValidationAction(t.ingAnnotations)
+	if err != nil {
+		return fmt.Errorf("ingress %s/%s failed to build jwt-validation config: %w", t.namespace, t.ingName, err)
+	}
+
+	if authAction != nil && jwtAction != nil {
+		return fmt.Errorf("ingress %s/%s has both auth-type and jwt-validation annotations; only one pre-routing action is allowed", t.namespace, t.ingName)
+	}
+
+	action := authAction
+	if action == nil {
+		action = jwtAction
+	}
+	if action == nil {
 		return nil
 	}
 
 	lrc := findOrCreateLRC(&t.listenerRuleConfigs, t.namespace, t.ingName, svcName)
-	lrc.Spec.Actions = append(lrc.Spec.Actions, *authAction)
+	// Pre-routing actions are per-Ingress (not per-rule), so skip if the LRC
+	// already has one from a previous rule sharing the same LRC.
+	if !lrcHasPreRoutingAction(lrc) {
+		lrc.Spec.Actions = append(lrc.Spec.Actions, *action)
+	}
 	if !routeRuleHasExtensionRef(*routeRule, lrc.Name) {
 		routeRule.Filters = append(routeRule.Filters, extensionRefFilter(lrc.Name))
 	}

@@ -138,6 +138,41 @@ func buildOIDCAction(annos map[string]string) (*gatewayv1beta1.Action, error) {
 	}, nil
 }
 
+// buildJwtValidationAction reads the jwt-validation annotation and returns a
+// ListenerRuleConfiguration Action for jwt-validation.
+// Returns (nil, nil) when the annotation is absent.
+func buildJwtValidationAction(annos map[string]string) (*gatewayv1beta1.Action, error) {
+	cfg, err := parseJwtValidationAnnotation(annos)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s annotation: %w", annotations.IngressSuffixJwtValidation, err)
+	}
+	if cfg == nil {
+		return nil, nil
+	}
+
+	jwtCfg := &gatewayv1beta1.JwtValidationActionConfig{
+		Issuer:       cfg.Issuer,
+		JwksEndpoint: cfg.JwksEndpoint,
+	}
+
+	if len(cfg.AdditionalClaims) > 0 {
+		claims := make([]gatewayv1beta1.JwtValidationActionAdditionalClaim, 0, len(cfg.AdditionalClaims))
+		for _, c := range cfg.AdditionalClaims {
+			claims = append(claims, gatewayv1beta1.JwtValidationActionAdditionalClaim{
+				Format: gatewayv1beta1.JwtAdditionalClaimFormat(c.Format),
+				Name:   c.Name,
+				Values: c.Values,
+			})
+		}
+		jwtCfg.AdditionalClaims = claims
+	}
+
+	return &gatewayv1beta1.Action{
+		Type:                gatewayv1beta1.ActionTypeJwtValidation,
+		JwtValidationConfig: jwtCfg,
+	}, nil
+}
+
 // getOptionalAuthScope returns the auth-scope annotation value, or nil if not set.
 // The CRD has kubebuilder:default="openid" so omitting it lets the webhook fill the default.
 func getOptionalAuthScope(annos map[string]string) *string {

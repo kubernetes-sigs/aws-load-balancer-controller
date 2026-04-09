@@ -169,3 +169,60 @@ func TestBuildAuthAction_OIDCSecretNamePreserved(t *testing.T) {
 	require.NotNil(t, action.AuthenticateOIDCConfig.Secret)
 	assert.Equal(t, "my-special-secret", action.AuthenticateOIDCConfig.Secret.Name)
 }
+
+func TestBuildJwtValidationAction_NoAnnotation(t *testing.T) {
+	action, err := buildJwtValidationAction(map[string]string{})
+	require.NoError(t, err)
+	assert.Nil(t, action)
+}
+
+func TestBuildJwtValidationAction_Basic(t *testing.T) {
+	annos := map[string]string{
+		"alb.ingress.kubernetes.io/jwt-validation": `{"jwksEndpoint":"https://example.com/.well-known/jwks.json","issuer":"https://example.com"}`,
+	}
+	action, err := buildJwtValidationAction(annos)
+	require.NoError(t, err)
+	require.NotNil(t, action)
+
+	assert.Equal(t, gatewayv1beta1.ActionTypeJwtValidation, action.Type)
+	require.NotNil(t, action.JwtValidationConfig)
+
+	cfg := action.JwtValidationConfig
+	assert.Equal(t, "https://example.com/.well-known/jwks.json", cfg.JwksEndpoint)
+	assert.Equal(t, "https://example.com", cfg.Issuer)
+	assert.Empty(t, cfg.AdditionalClaims)
+}
+
+func TestBuildJwtValidationAction_WithAdditionalClaims(t *testing.T) {
+	annos := map[string]string{
+		"alb.ingress.kubernetes.io/jwt-validation": `{"jwksEndpoint":"https://example-endpoint.com","issuer":"https://example-issuer.com","additionalClaims":[{"name":"admin","format":"single-string","values":["true"]},{"name":"ver","format":"string-array","values":["6","19"]},{"name":"scope","format":"space-separated-values","values":["read:api","write","email"]}]}`,
+	}
+	action, err := buildJwtValidationAction(annos)
+	require.NoError(t, err)
+	require.NotNil(t, action)
+
+	cfg := action.JwtValidationConfig
+	assert.Equal(t, "https://example-endpoint.com", cfg.JwksEndpoint)
+	assert.Equal(t, "https://example-issuer.com", cfg.Issuer)
+	require.Len(t, cfg.AdditionalClaims, 3)
+
+	assert.Equal(t, "admin", cfg.AdditionalClaims[0].Name)
+	assert.Equal(t, gatewayv1beta1.FormatSingleString, cfg.AdditionalClaims[0].Format)
+	assert.Equal(t, []string{"true"}, cfg.AdditionalClaims[0].Values)
+
+	assert.Equal(t, "ver", cfg.AdditionalClaims[1].Name)
+	assert.Equal(t, gatewayv1beta1.FormatStringArray, cfg.AdditionalClaims[1].Format)
+	assert.Equal(t, []string{"6", "19"}, cfg.AdditionalClaims[1].Values)
+
+	assert.Equal(t, "scope", cfg.AdditionalClaims[2].Name)
+	assert.Equal(t, gatewayv1beta1.FormatSpaceSeparatedValues, cfg.AdditionalClaims[2].Format)
+	assert.Equal(t, []string{"read:api", "write", "email"}, cfg.AdditionalClaims[2].Values)
+}
+
+func TestBuildJwtValidationAction_InvalidJSON(t *testing.T) {
+	annos := map[string]string{
+		"alb.ingress.kubernetes.io/jwt-validation": `{invalid json}`,
+	}
+	_, err := buildJwtValidationAction(annos)
+	require.Error(t, err)
+}

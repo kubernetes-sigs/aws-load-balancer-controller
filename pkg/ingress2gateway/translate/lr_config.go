@@ -57,3 +57,17 @@ func routeRuleHasExtensionRef(rule gwv1.HTTPRouteRule, lrcName string) bool {
 	}
 	return false
 }
+
+// lrcHasPreRoutingAction checks if an LRC already contains a pre-routing action
+// (authenticate-cognito, authenticate-oidc, or jwt-validation).
+func lrcHasPreRoutingAction(lrc *gatewayv1beta1.ListenerRuleConfiguration) bool {
+	for _, a := range lrc.Spec.Actions {
+		switch a.Type {
+		case gatewayv1beta1.ActionTypeAuthenticateCognito,
+			gatewayv1beta1.ActionTypeAuthenticateOIDC,
+			gatewayv1beta1.ActionTypeJwtValidation:
+			return true
+		}
+	}
+	return false
+}
