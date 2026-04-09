@@ -21,7 +21,7 @@ func TestTranslateAction_FixedResponse(t *testing.T) {
 			MessageBody: strPtr("503 error text"),
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result.ListenerRuleConfiguration)
 	require.Len(t, result.ListenerRuleConfiguration.Spec.Actions, 1)
@@ -43,7 +43,7 @@ func TestTranslateAction_Redirect(t *testing.T) {
 			StatusCode: "HTTP_302",
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.Len(t, result.Filters, 1)
 	assert.Equal(t, gwv1.HTTPRouteFilterRequestRedirect, result.Filters[0].Type)
@@ -66,7 +66,7 @@ func TestTranslateAction_RedirectWithQuery(t *testing.T) {
 			StatusCode: "HTTP_301",
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.Len(t, result.Filters, 2)
 	assert.Equal(t, gwv1.HTTPRouteFilterRequestRedirect, result.Filters[0].Type)
@@ -89,7 +89,7 @@ func TestTranslateAction_ForwardSingleService(t *testing.T) {
 			},
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.Len(t, result.BackendRefs, 1)
 	assert.Equal(t, gwv1.ObjectName("my-service"), result.BackendRefs[0].Name)
@@ -107,7 +107,7 @@ func TestTranslateAction_ForwardTargetGroupName(t *testing.T) {
 			},
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.Len(t, result.BackendRefs, 1)
 	assert.Equal(t, gwv1.ObjectName("my-external-tg"), result.BackendRefs[0].Name)
@@ -125,7 +125,7 @@ func TestTranslateAction_ForwardTargetGroupARN(t *testing.T) {
 			},
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.Len(t, result.BackendRefs, 1)
 	assert.Equal(t, gwv1.ObjectName("my-tg"), result.BackendRefs[0].Name)
@@ -154,7 +154,7 @@ func TestTranslateAction_ForwardWithStickiness(t *testing.T) {
 			},
 		},
 	}
-	result, err := translateAction(a, "default", "test-action", nil)
+	result, err := translateAction(a, "default", "test-ing", "test-action", nil)
 	require.NoError(t, err)
 	require.Len(t, result.BackendRefs, 2)
 	assert.Equal(t, int32(20), *result.BackendRefs[0].Weight)

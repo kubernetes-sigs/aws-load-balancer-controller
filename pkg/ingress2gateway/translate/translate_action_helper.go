@@ -29,20 +29,20 @@ type actionResult struct {
 	ServiceRefs []serviceRef
 }
 
-func translateAction(action *ingress.Action, namespace, svcName string, servicesByKey map[string]corev1.Service) (*actionResult, error) {
+func translateAction(action *ingress.Action, namespace, ingName, svcName string, servicesByKey map[string]corev1.Service) (*actionResult, error) {
 	switch action.Type {
 	case ingress.ActionTypeForward:
-		return translateForwardAction(action, namespace, svcName, servicesByKey)
+		return translateForwardAction(action, namespace, ingName, svcName, servicesByKey)
 	case ingress.ActionTypeRedirect:
-		return translateRedirectAction(action, namespace, svcName)
+		return translateRedirectAction(action, namespace, ingName, svcName)
 	case ingress.ActionTypeFixedResponse:
-		return translateFixedResponseAction(action, namespace, svcName)
+		return translateFixedResponseAction(action, namespace, ingName, svcName)
 	default:
 		return nil, fmt.Errorf("unsupported action type %q", action.Type)
 	}
 }
 
-func translateForwardAction(action *ingress.Action, namespace, svcName string, servicesByKey map[string]corev1.Service) (*actionResult, error) {
+func translateForwardAction(action *ingress.Action, namespace, ingName, svcName string, servicesByKey map[string]corev1.Service) (*actionResult, error) {
 	if action.ForwardConfig == nil {
 		return nil, fmt.Errorf("forward action %q missing forwardConfig", svcName)
 	}
@@ -64,7 +64,7 @@ func translateForwardAction(action *ingress.Action, namespace, svcName string, s
 
 	// If stickiness is configured, emit a ListenerRuleConfiguration with forwardConfig.
 	if sc := action.ForwardConfig.TargetGroupStickinessConfig; sc != nil {
-		lrc := buildListenerRuleConfiguration(namespace, svcName)
+		lrc := buildListenerRuleConfiguration(namespace, ingName, svcName)
 		lrc.Spec.Actions = []gatewayv1beta1.Action{
 			{
 				Type: gatewayv1beta1.ActionTypeForward,
@@ -82,7 +82,7 @@ func translateForwardAction(action *ingress.Action, namespace, svcName string, s
 	return result, nil
 }
 
-func translateRedirectAction(a *ingress.Action, namespace, svcName string) (*actionResult, error) {
+func translateRedirectAction(a *ingress.Action, namespace, ingName, svcName string) (*actionResult, error) {
 	if a.RedirectConfig == nil {
 		return nil, fmt.Errorf("redirect action %q missing redirectConfig", svcName)
 	}
@@ -126,7 +126,7 @@ func translateRedirectAction(a *ingress.Action, namespace, svcName string) (*act
 
 	// If query is set and not the default passthrough, emit LRC with redirectConfig.query.
 	if rc.Query != nil && *rc.Query != "#{query}" {
-		lrc := buildListenerRuleConfiguration(namespace, svcName)
+		lrc := buildListenerRuleConfiguration(namespace, ingName, svcName)
 		lrc.Spec.Actions = []gatewayv1beta1.Action{
 			{
 				Type: gatewayv1beta1.ActionTypeRedirect,
@@ -141,7 +141,7 @@ func translateRedirectAction(a *ingress.Action, namespace, svcName string) (*act
 	return result, nil
 }
 
-func translateFixedResponseAction(a *ingress.Action, namespace, svcName string) (*actionResult, error) {
+func translateFixedResponseAction(a *ingress.Action, namespace, ingName, svcName string) (*actionResult, error) {
 	if a.FixedResponseConfig == nil {
 		return nil, fmt.Errorf("fixed-response action %q missing fixedResponseConfig", svcName)
 	}
@@ -151,7 +151,7 @@ func translateFixedResponseAction(a *ingress.Action, namespace, svcName string) 
 		return nil, fmt.Errorf("fixed-response action %q: invalid statusCode %q: %w", svcName, frc.StatusCode, err)
 	}
 
-	lrc := buildListenerRuleConfiguration(namespace, svcName)
+	lrc := buildListenerRuleConfiguration(namespace, ingName, svcName)
 	lrc.Spec.Actions = []gatewayv1beta1.Action{
 		{
 			Type: gatewayv1beta1.ActionTypeFixedResponse,

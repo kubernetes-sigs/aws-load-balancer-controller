@@ -149,6 +149,11 @@ func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path n
 	routeRule.Matches = []gwv1.HTTPRouteMatch{match}
 
 	if path.Backend.Service != nil {
+		// pre-routing actions
+		if err := t.buildAuthConfig(&routeRule, path.Backend.Service.Name); err != nil {
+			return routeRule, nil, err
+		}
+		// routing actions
 		if err := t.buildBackendForRule(&routeRule, path.Backend.Service); err != nil {
 			return routeRule, nil, err
 		}
@@ -204,7 +209,7 @@ func (t *httpRouteTranslator) buildUseAnnotationBackend(routeRule *gwv1.HTTPRout
 	if err != nil {
 		return fmt.Errorf("ingress %s/%s failed in parse action annotation: %w", t.namespace, t.ingName, err)
 	}
-	actionResult, err := translateAction(parsedAction, t.namespace, svcName, t.servicesByKey)
+	actionResult, err := translateAction(parsedAction, t.namespace, t.ingName, svcName, t.servicesByKey)
 	if err != nil {
 		return fmt.Errorf("ingress %s/%s failed in translate action %q: %w", t.namespace, t.ingName, svcName, err)
 	}
@@ -263,7 +268,7 @@ func (t *httpRouteTranslator) buildConditions(routeRule *gwv1.HTTPRouteRule, ing
 	routeRule.Matches = condResult.Matches
 
 	if len(condResult.ListenerRuleConditions) > 0 {
-		lrc := findOrCreateLRC(&t.listenerRuleConfigs, t.namespace, svcName)
+		lrc := findOrCreateLRC(&t.listenerRuleConfigs, t.namespace, t.ingName, svcName)
 		lrc.Spec.Conditions = append(lrc.Spec.Conditions, condResult.ListenerRuleConditions...)
 		if !routeRuleHasExtensionRef(*routeRule, lrc.Name) {
 			routeRule.Filters = append(routeRule.Filters, extensionRefFilter(lrc.Name))
@@ -301,6 +306,25 @@ func (t *httpRouteTranslator) buildTransforms(routeRule *gwv1.HTTPRouteRule, svc
 	filter := translateTransforms(parsedTransforms)
 	if filter != nil {
 		routeRule.Filters = append(routeRule.Filters, *filter)
+	}
+	return nil
+}
+
+// buildAuthConfig parses auth-type and related annotations and attaches an
+// authenticate action to the ListenerRuleConfiguration for this rule.
+func (t *httpRouteTranslator) buildAuthConfig(routeRule *gwv1.HTTPRouteRule, svcName string) error {
+	authAction, err := buildAuthAction(t.ingAnnotations)
+	if err != nil {
+		return fmt.Errorf("ingress %s/%s failed to build auth config: %w", t.namespace, t.ingName, err)
+	}
+	if authAction == nil {
+		return nil
+	}
+
+	lrc := findOrCreateLRC(&t.listenerRuleConfigs, t.namespace, t.ingName, svcName)
+	lrc.Spec.Actions = append(lrc.Spec.Actions, *authAction)
+	if !routeRuleHasExtensionRef(*routeRule, lrc.Name) {
+		routeRule.Filters = append(routeRule.Filters, extensionRefFilter(lrc.Name))
 	}
 	return nil
 }

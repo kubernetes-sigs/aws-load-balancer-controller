@@ -9,14 +9,14 @@ import (
 )
 
 // buildListenerRuleConfiguration creates a skeleton ListenerRuleConfiguration with metadata.
-func buildListenerRuleConfiguration(namespace, svcName string) *gatewayv1beta1.ListenerRuleConfiguration {
+func buildListenerRuleConfiguration(namespace, ingName, svcName string) *gatewayv1beta1.ListenerRuleConfiguration {
 	return &gatewayv1beta1.ListenerRuleConfiguration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: utils.LBConfigAPIVersion,
 			Kind:       gwconstants.ListenerRuleConfiguration,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.GetLRConfigName(namespace, svcName),
+			Name:      utils.GetLRConfigName(namespace, ingName, svcName),
 			Namespace: namespace,
 		},
 	}
@@ -36,15 +36,15 @@ func extensionRefFilter(lrcName string) gwv1.HTTPRouteFilter {
 	}
 }
 
-// findOrCreateLRC finds an existing LRC for the given svcName in the list, or creates a new one and appends it.
-func findOrCreateLRC(lrcs *[]gatewayv1beta1.ListenerRuleConfiguration, namespace, svcName string) *gatewayv1beta1.ListenerRuleConfiguration {
-	expectedName := utils.GetLRConfigName(namespace, svcName)
+// findOrCreateLRC finds an existing LRC for the given ingName+svcName in the list, or creates a new one and appends it.
+func findOrCreateLRC(lrcs *[]gatewayv1beta1.ListenerRuleConfiguration, namespace, ingName, svcName string) *gatewayv1beta1.ListenerRuleConfiguration {
+	expectedName := utils.GetLRConfigName(namespace, ingName, svcName)
 	for i := range *lrcs {
 		if (*lrcs)[i].Name == expectedName {
 			return &(*lrcs)[i]
 		}
 	}
-	*lrcs = append(*lrcs, *buildListenerRuleConfiguration(namespace, svcName))
+	*lrcs = append(*lrcs, *buildListenerRuleConfiguration(namespace, ingName, svcName))
 	return &(*lrcs)[len(*lrcs)-1]
 }
 

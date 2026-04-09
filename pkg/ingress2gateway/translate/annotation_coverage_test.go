@@ -79,6 +79,15 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			annotations.IngressSuffixUseRegexPathMatch,
 			annotations.IngressSuffixSSLRedirect,
 		},
+		Authentication: {
+			annotations.IngressSuffixAuthType,
+			annotations.IngressSuffixAuthIDPCognito,
+			annotations.IngressSuffixAuthIDPOIDC,
+			annotations.IngressSuffixAuthOnUnauthenticatedRequest,
+			annotations.IngressSuffixAuthScope,
+			annotations.IngressSuffixAuthSessionCookie,
+			annotations.IngressSuffixAuthSessionTimeout,
+		},
 	}
 
 	// Planned: annotations not yet implemented.
@@ -97,13 +106,6 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			// transforms.* translation is implemented in translate_transform_helper.go.
 		},
 		Authentication: {
-			annotations.IngressSuffixAuthType,
-			annotations.IngressSuffixAuthIDPCognito,
-			annotations.IngressSuffixAuthIDPOIDC,
-			annotations.IngressSuffixAuthOnUnauthenticatedRequest,
-			annotations.IngressSuffixAuthScope,
-			annotations.IngressSuffixAuthSessionCookie,
-			annotations.IngressSuffixAuthSessionTimeout,
 			annotations.IngressSuffixJwtValidation,
 		},
 		FrontendNLB: {

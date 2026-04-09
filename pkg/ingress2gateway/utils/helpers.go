@@ -70,8 +70,10 @@ func GetTGConfigName(namespace, serviceName string) string {
 }
 
 // GetLRConfigName returns the ListenerRuleConfiguration resource name.
-func GetLRConfigName(namespace, actionName string) string {
-	return resourceName(namespace, actionName, "lr-config")
+// The name is scoped per Ingress+service to avoid collisions when multiple
+// Ingresses reference the same service with different configurations (e.g. auth).
+func GetLRConfigName(namespace, ingressName, actionName string) string {
+	return resourceName(namespace, ingressName+"/"+actionName, "lr-config")
 }
 
 // GetRedirectHTTPRouteName returns the HTTPRoute name for the SSL redirect route.

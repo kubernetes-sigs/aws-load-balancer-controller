@@ -269,6 +269,153 @@ func TestTranslate(t *testing.T) {
 				assert.Empty(t, out.HTTPRoutes[1].Spec.Rules[0].Matches)
 			},
 		},
+		{
+			name: "cognito auth annotations produce LRC with authenticate-cognito action",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "auth-app", Namespace: "prod",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/auth-type":                       "cognito",
+							"alb.ingress.kubernetes.io/auth-idp-cognito":                `{"userPoolARN":"arn:aws:cognito-idp:us-west-2:123456789:userpool/pool-id","userPoolClientID":"client-id","userPoolDomain":"my-domain"}`,
+							"alb.ingress.kubernetes.io/auth-scope":                      "email openid",
+							"alb.ingress.kubernetes.io/auth-on-unauthenticated-request": "deny",
+							"alb.ingress.kubernetes.io/auth-session-cookie":             "my-cookie",
+							"alb.ingress.kubernetes.io/auth-session-timeout":            "3600",
+							"alb.ingress.kubernetes.io/certificate-arn":                 "arn:aws:acm:us-west-2:123456789:certificate/cert-id",
+						},
+					},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{{
+							Host: "app.example.com",
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{{
+										Path: "/", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "web-svc", Port: networking.ServiceBackendPort{Number: 443},
+											},
+										},
+									}},
+								},
+							},
+						}},
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 1, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				// Should produce exactly one LRC
+				require.Len(t, out.ListenerRuleConfigurations, 1)
+				lrc := out.ListenerRuleConfigurations[0]
+				require.Len(t, lrc.Spec.Actions, 1)
+
+				action := lrc.Spec.Actions[0]
+				assert.Equal(t, gatewayv1beta1.ActionTypeAuthenticateCognito, action.Type)
+				require.NotNil(t, action.AuthenticateCognitoConfig)
+
+				cfg := action.AuthenticateCognitoConfig
+				assert.Equal(t, "arn:aws:cognito-idp:us-west-2:123456789:userpool/pool-id", cfg.UserPoolArn)
+				assert.Equal(t, "client-id", cfg.UserPoolClientID)
+				assert.Equal(t, "my-domain", cfg.UserPoolDomain)
+				require.NotNil(t, cfg.Scope)
+				assert.Equal(t, "email openid", *cfg.Scope)
+				require.NotNil(t, cfg.OnUnauthenticatedRequest)
+				assert.Equal(t, gatewayv1beta1.AuthenticateCognitoActionConditionalBehaviorEnumDeny, *cfg.OnUnauthenticatedRequest)
+				require.NotNil(t, cfg.SessionCookieName)
+				assert.Equal(t, "my-cookie", *cfg.SessionCookieName)
+				require.NotNil(t, cfg.SessionTimeout)
+				assert.Equal(t, int64(3600), *cfg.SessionTimeout)
+
+				// HTTPRoute rule should have ExtensionRef filter pointing to the LRC
+				require.Len(t, out.HTTPRoutes[0].Spec.Rules, 1)
+				rule := out.HTTPRoutes[0].Spec.Rules[0]
+				found := false
+				for _, f := range rule.Filters {
+					if f.Type == gwv1.HTTPRouteFilterExtensionRef && f.ExtensionRef != nil && string(f.ExtensionRef.Name) == lrc.Name {
+						found = true
+					}
+				}
+				assert.True(t, found, "HTTPRoute rule should have ExtensionRef filter for LRC %s", lrc.Name)
+			},
+		},
+		{
+			name: "oidc auth annotations produce LRC with authenticate-oidc action and secret preserved",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "oidc-app", Namespace: "prod",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/auth-type":                       "oidc",
+							"alb.ingress.kubernetes.io/auth-idp-oidc":                   `{"issuer":"https://example.com","authorizationEndpoint":"https://auth.example.com","tokenEndpoint":"https://token.example.com","userInfoEndpoint":"https://userinfo.example.com","secretName":"my-oidc-secret"}`,
+							"alb.ingress.kubernetes.io/auth-scope":                      "email openid",
+							"alb.ingress.kubernetes.io/auth-on-unauthenticated-request": "allow",
+							"alb.ingress.kubernetes.io/auth-session-cookie":             "oidc-cookie",
+							"alb.ingress.kubernetes.io/auth-session-timeout":            "1800",
+							"alb.ingress.kubernetes.io/certificate-arn":                 "arn:aws:acm:us-west-2:123456789:certificate/cert-id",
+						},
+					},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{{
+							Host: "oidc.example.com",
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{{
+										Path: "/", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "oidc-svc", Port: networking.ServiceBackendPort{Number: 443},
+											},
+										},
+									}},
+								},
+							},
+						}},
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 1, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				require.Len(t, out.ListenerRuleConfigurations, 1)
+				lrc := out.ListenerRuleConfigurations[0]
+				require.Len(t, lrc.Spec.Actions, 1)
+
+				action := lrc.Spec.Actions[0]
+				assert.Equal(t, gatewayv1beta1.ActionTypeAuthenticateOIDC, action.Type)
+				require.NotNil(t, action.AuthenticateOIDCConfig)
+
+				cfg := action.AuthenticateOIDCConfig
+				assert.Equal(t, "https://example.com", cfg.Issuer)
+				assert.Equal(t, "https://auth.example.com", cfg.AuthorizationEndpoint)
+				assert.Equal(t, "https://token.example.com", cfg.TokenEndpoint)
+				assert.Equal(t, "https://userinfo.example.com", cfg.UserInfoEndpoint)
+
+				// Secret reference preserved
+				require.NotNil(t, cfg.Secret)
+				assert.Equal(t, "my-oidc-secret", cfg.Secret.Name)
+
+				require.NotNil(t, cfg.Scope)
+				assert.Equal(t, "email openid", *cfg.Scope)
+				require.NotNil(t, cfg.OnUnauthenticatedRequest)
+				assert.Equal(t, gatewayv1beta1.AuthenticateOidcActionConditionalBehaviorEnumAllow, *cfg.OnUnauthenticatedRequest)
+				require.NotNil(t, cfg.SessionCookieName)
+				assert.Equal(t, "oidc-cookie", *cfg.SessionCookieName)
+				require.NotNil(t, cfg.SessionTimeout)
+				assert.Equal(t, int64(1800), *cfg.SessionTimeout)
+
+				// HTTPRoute rule should have ExtensionRef filter
+				require.Len(t, out.HTTPRoutes[0].Spec.Rules, 1)
+				rule := out.HTTPRoutes[0].Spec.Rules[0]
+				found := false
+				for _, f := range rule.Filters {
+					if f.Type == gwv1.HTTPRouteFilterExtensionRef && f.ExtensionRef != nil && string(f.ExtensionRef.Name) == lrc.Name {
+						found = true
+					}
+				}
+				assert.True(t, found, "HTTPRoute rule should have ExtensionRef filter for LRC %s", lrc.Name)
+			},
+		},
 	}
 
 	for _, tt := range tests {
