@@ -81,6 +81,7 @@ deploy: manifests
 manifests: controller-gen kustomize
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=controller-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	yq eval '.metadata.name = "webhook"' -i config/webhook/manifests.yaml
+	hack/sync-rbac-to-helm.sh
 
 crds: manifests
 	$(MOVE_GATEWAY_CRDS)
@@ -204,7 +205,7 @@ lint:
 	echo "TODO"
 
 .PHONY: quick-ci
-quick-ci: verify-versions verify-generate verify-crds
+quick-ci: verify-versions verify-generate verify-crds verify-rbac-sync
 	echo "Done!"
 
 .PHONY: verify-generate
@@ -214,6 +215,10 @@ verify-generate:
 .PHONY: verify-crds
 verify-crds:
 	hack/verify-crds.sh
+
+.PHONY: verify-rbac-sync
+verify-rbac-sync:
+	hack/verify-rbac-sync.sh
 
 .PHONY: verify-versions
 verify-versions:
