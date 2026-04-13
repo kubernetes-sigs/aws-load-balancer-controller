@@ -8,6 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -23,7 +24,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		ports           []listenPortEntry
 		sslRedirectPort *int32
 		wantRoutes      int
+		wantErr         string
 		check           func(t *testing.T, routes []gwv1.HTTPRoute)
+		checkLRCs       func(t *testing.T, lrcs []gatewayv1beta1.ListenerRuleConfiguration)
 	}{
 		{
 			name: "single rule with host and prefix path",
@@ -494,15 +497,160 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				assert.Equal(t, 301, *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.StatusCode)
 			},
 		},
+		{
+			name: "jwt-validation annotation produces LRC with jwt-validation action",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "jwt",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/jwt-validation": `{"jwksEndpoint":"https://example.com/.well-known/jwks.json","issuer":"https://example.com","additionalClaims":[{"name":"scope","format":"space-separated-values","values":["read","write"]}]}`,
+					},
+				},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						Host: "api.example.com",
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{{
+									Path: "/api", PathType: &pathPrefix,
+									Backend: networking.IngressBackend{
+										Service: &networking.IngressServiceBackend{
+											Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+										},
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "gw",
+			ports:      []listenPortEntry{{Protocol: "HTTPS", Port: 443}},
+			wantRoutes: 1,
+			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
+				r := routes[0]
+				require.Len(t, r.Spec.Rules, 1)
+				// Rule should have an ExtensionRef filter pointing to the LRC
+				require.Len(t, r.Spec.Rules[0].Filters, 1)
+				assert.Equal(t, gwv1.HTTPRouteFilterExtensionRef, r.Spec.Rules[0].Filters[0].Type)
+			},
+			checkLRCs: func(t *testing.T, lrcs []gatewayv1beta1.ListenerRuleConfiguration) {
+				require.Len(t, lrcs, 1)
+				require.Len(t, lrcs[0].Spec.Actions, 1)
+				action := lrcs[0].Spec.Actions[0]
+				assert.Equal(t, gatewayv1beta1.ActionTypeJwtValidation, action.Type)
+				require.NotNil(t, action.JwtValidationConfig)
+				assert.Equal(t, "https://example.com/.well-known/jwks.json", action.JwtValidationConfig.JwksEndpoint)
+				assert.Equal(t, "https://example.com", action.JwtValidationConfig.Issuer)
+				require.Len(t, action.JwtValidationConfig.AdditionalClaims, 1)
+				assert.Equal(t, "scope", action.JwtValidationConfig.AdditionalClaims[0].Name)
+			},
+		},
+		{
+			name: "auth-type and jwt-validation both set — mutual exclusivity error",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "conflict",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/auth-type":        "cognito",
+						"alb.ingress.kubernetes.io/auth-idp-cognito": `{"userPoolARN":"arn:pool","userPoolClientID":"cid","userPoolDomain":"dom"}`,
+						"alb.ingress.kubernetes.io/jwt-validation":   `{"jwksEndpoint":"https://example.com/jwks","issuer":"https://example.com"}`,
+					},
+				},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{{
+									Path: "/api", PathType: &pathPrefix,
+									Backend: networking.IngressBackend{
+										Service: &networking.IngressServiceBackend{
+											Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+										},
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "gw",
+			ports:   []listenPortEntry{{Protocol: "HTTPS", Port: 443}},
+			wantErr: "only one pre-routing action is allowed",
+		},
+		{
+			name: "jwt-validation with multiple paths — single LRC action, not duplicated",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "jwt-multi",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/jwt-validation": `{"jwksEndpoint":"https://example.com/jwks","issuer":"https://example.com"}`,
+					},
+				},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						Host: "api.example.com",
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{
+									{
+										Path: "/api", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									},
+									{
+										Path: "/health", PathType: &pathExact,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									},
+								},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "gw",
+			ports:      []listenPortEntry{{Protocol: "HTTPS", Port: 443}},
+			wantRoutes: 1,
+			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
+				r := routes[0]
+				require.Len(t, r.Spec.Rules, 2)
+				// Both rules should have an ExtensionRef filter
+				for _, rule := range r.Spec.Rules {
+					require.Len(t, rule.Filters, 1)
+					assert.Equal(t, gwv1.HTTPRouteFilterExtensionRef, rule.Filters[0].Type)
+				}
+			},
+			checkLRCs: func(t *testing.T, lrcs []gatewayv1beta1.ListenerRuleConfiguration) {
+				require.Len(t, lrcs, 1)
+				// Only one jwt-validation action despite two paths sharing the LRC
+				require.Len(t, lrcs[0].Spec.Actions, 1)
+				assert.Equal(t, gatewayv1beta1.ActionTypeJwtValidation, lrcs[0].Spec.Actions[0].Type)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routes, _, _, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil, tt.sslRedirectPort)
+			routes, _, lrcs, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil, tt.sslRedirectPort)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
 			require.NoError(t, err)
 			require.Len(t, routes, tt.wantRoutes)
 			if tt.check != nil {
 				tt.check(t, routes)
+			}
+			if tt.checkLRCs != nil {
+				tt.checkLRCs(t, lrcs)
 			}
 		})
 	}

@@ -126,6 +126,19 @@ func parseTransformAnnotation(annos map[string]string, svcName string) ([]ingres
 	return transforms, nil
 }
 
+// parseJwtValidationAnnotation parses the alb.ingress.kubernetes.io/jwt-validation JSON annotation.
+func parseJwtValidationAnnotation(annos map[string]string) (*ingress.JwtValidationConfig, error) {
+	var cfg ingress.JwtValidationConfig
+	exists, err := ingressAnnotationParser.ParseJSONAnnotation(annotations.IngressSuffixJwtValidation, &cfg, annos)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+	return &cfg, nil
+}
+
 // parseActionAnnotation parses the alb.ingress.kubernetes.io/actions.<svcName> JSON annotation.
 func parseActionAnnotation(annos map[string]string, svcName string) (*ingress.Action, error) {
 	var a ingress.Action

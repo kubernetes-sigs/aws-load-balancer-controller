@@ -87,6 +87,7 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			annotations.IngressSuffixAuthScope,
 			annotations.IngressSuffixAuthSessionCookie,
 			annotations.IngressSuffixAuthSessionTimeout,
+			annotations.IngressSuffixJwtValidation,
 		},
 	}
 
@@ -105,9 +106,7 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 			// conditions.* translation is implemented in translate_condition_helper.go.
 			// transforms.* translation is implemented in translate_transform_helper.go.
 		},
-		Authentication: {
-			annotations.IngressSuffixJwtValidation,
-		},
+		Authentication: {},
 		FrontendNLB: {
 			annotations.IngressSuffixEnableFrontendNlb,
 			annotations.IngressSuffixFrontendNlbScheme,
