@@ -38,11 +38,12 @@ type ExpectedTargetGroup struct {
 }
 
 type LoadBalancerExpectation struct {
-	Name         string
-	Type         string
-	Scheme       string
-	Listeners    map[string]string // listener port, protocol
-	TargetGroups []ExpectedTargetGroup
+	Name              string
+	Type              string
+	Scheme            string
+	NumSecurityGroups int
+	Listeners         map[string]string // listener port, protocol
+	TargetGroups      []ExpectedTargetGroup
 }
 
 // ListenerExpectation contains the expected configuration for an ALB/NLB listener
@@ -79,6 +80,8 @@ func VerifyAWSLoadBalancerResources(ctx context.Context, f *framework.Framework,
 	Expect(err).NotTo(HaveOccurred())
 	err = VerifyLoadBalancerType(ctx, f, lb, expected.Type, expected.Scheme)
 	Expect(err).NotTo(HaveOccurred())
+	err = VerifyLoadBalancerSecurityGroups(lb, expected.NumSecurityGroups)
+	Expect(err).NotTo(HaveOccurred())
 	err = VerifyLoadBalancerListeners(ctx, f, lbARN, expected.Listeners)
 	Expect(err).NotTo(HaveOccurred())
 	err = VerifyLoadBalancerTargetGroups(ctx, f, lbARN, expected)
@@ -96,6 +99,13 @@ func VerifyLoadBalancerName(_ context.Context, f *framework.Framework, lb *elbv2
 func VerifyLoadBalancerType(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbType, lbScheme string) error {
 	Expect(string(lb.Type)).To(Equal(lbType))
 	Expect(string(lb.Scheme)).To(Equal(lbScheme))
+	return nil
+}
+
+func VerifyLoadBalancerSecurityGroups(lb *elbv2types.LoadBalancer, numExpectedSgs int) error {
+	if numExpectedSgs > 0 {
+		Expect(lb.SecurityGroups).To(HaveLen(numExpectedSgs))
+	}
 	return nil
 }
 
