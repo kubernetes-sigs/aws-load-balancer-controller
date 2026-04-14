@@ -513,3 +513,8 @@ loadBalancerClass:
 
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
+
+# Whether or not to install the standard kubernetes gateway api crds
+
+gatewayCRDsAPI:
+  enabled: true
