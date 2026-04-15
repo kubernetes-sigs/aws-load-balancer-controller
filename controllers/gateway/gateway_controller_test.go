@@ -156,10 +156,11 @@ func Test_updateGatewayStatusSuccess_normalizesDNSNameToLowercase(t *testing.T) 
 	assert.NoError(t, err)
 
 	reconciler := &gatewayReconciler{
-		k8sClient:               k8sClient,
-		logger:                  logr.Discard(),
-		eventRecorder:           record.NewFakeRecorder(10),
-		gatewayConditionUpdater: prepareGatewayConditionUpdate,
+		k8sClient:                  k8sClient,
+		logger:                     logr.Discard(),
+		eventRecorder:              record.NewFakeRecorder(10),
+		gatewayConditionUpdater:    prepareGatewayConditionUpdate,
+		listenerSetStatusSubmitter: &NoopListenerSetStatusSubmitter{},
 	}
 
 	lbStatus := &elbv2model.LoadBalancerStatus{

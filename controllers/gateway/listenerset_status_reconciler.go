@@ -24,6 +24,14 @@ type ListenerSetStatusSubmitter interface {
 	Enqueue(status routeutils.ListenerSetStatusData, listenerStatuses []gwv1.ListenerEntryStatus)
 }
 
+// NoopListenerSetStatusSubmitter is used when the GatewayListenerSet feature gate is disabled.
+type NoopListenerSetStatusSubmitter struct{}
+
+func (n *NoopListenerSetStatusSubmitter) Enqueue(_ routeutils.ListenerSetStatusData, _ []gwv1.ListenerEntryStatus) {
+}
+
+var _ ListenerSetStatusSubmitter = &NoopListenerSetStatusSubmitter{}
+
 type listenerSetStatusReconcilerImpl struct {
 	queue                         workqueue.TypedDelayingInterface[routeutils.ListenerSetStatusData]
 	listenerSetListenerCache      map[types.NamespacedName]routeutils.ListenerSetListenerInfo

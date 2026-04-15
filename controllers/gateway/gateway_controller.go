@@ -110,6 +110,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 		gatewayConditionUpdater:    prepareGatewayConditionUpdate,
 		targetGroupNameToArnMapper: targetGroupNameToArnMapper,
 		listenerSetStatusSubmitter: listenerSetStatusSubmitter,
+		listenerSetEnabled:         controllerConfig.FeatureGates.Enabled(config.GatewayListenerSet),
 	}
 }
 
@@ -139,6 +140,7 @@ type gatewayReconciler struct {
 	cfgResolver                gatewayConfigResolver
 	lbcEventChan               chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]
 	listenerSetStatusSubmitter ListenerSetStatusSubmitter
+	listenerSetEnabled         bool
 }
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=referencegrants,verbs=get;list;watch;patch
@@ -448,11 +450,13 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 		needPatch = true
 	}
 
-	connectedListenerSets := routeutils.CalculateAttachedListenerSets(loaderResults.ValidationResults.ListenerSetListenerValidation)
+	if r.listenerSetEnabled {
+		connectedListenerSets := routeutils.CalculateAttachedListenerSets(loaderResults.ValidationResults.ListenerSetListenerValidation)
 
-	if gw.Status.AttachedListenerSets == nil || *gw.Status.AttachedListenerSets != connectedListenerSets {
-		gw.Status.AttachedListenerSets = &connectedListenerSets
-		needPatch = true
+		if gw.Status.AttachedListenerSets == nil || *gw.Status.AttachedListenerSets != connectedListenerSets {
+			gw.Status.AttachedListenerSets = &connectedListenerSets
+			needPatch = true
+		}
 	}
 
 	// update listeners status
@@ -462,12 +466,14 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 		needPatch = true
 	}
 
-	for nsn, listenerValidationResults := range loaderResults.ValidationResults.ListenerSetListenerValidation {
-		r.listenerSetStatusSubmitter.Enqueue(buildListenerSetStatus(nsn, listenerValidationResults, isProgrammed))
-	}
+	if r.listenerSetEnabled {
+		for nsn, listenerValidationResults := range loaderResults.ValidationResults.ListenerSetListenerValidation {
+			r.listenerSetStatusSubmitter.Enqueue(buildListenerSetStatus(nsn, listenerValidationResults, isProgrammed))
+		}
 
-	for _, rejectedListenerSet := range loaderResults.RejectedListenerSets {
-		r.listenerSetStatusSubmitter.Enqueue(buildRejectedListenerSetStatus(rejectedListenerSet))
+		for _, rejectedListenerSet := range loaderResults.RejectedListenerSets {
+			r.listenerSetStatusSubmitter.Enqueue(buildRejectedListenerSetStatus(rejectedListenerSet))
+		}
 	}
 
 	if needPatch {
@@ -596,10 +602,6 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("ReferenceGrant"))
 	secretEventHandler := eventhandlers.NewEnqueueRequestsForSecretEvent(listenerRuleConfigEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("secret"))
-	listenerSetEventHandler := eventhandlers.NewEnqueueRequestsForListenerSetEvent(
-		r.k8sClient, r.eventRecorder, r.controllerName,
-		loggerPrefix.WithName("ListenerSet"),
-	)
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -637,8 +639,14 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ListenerSet{}, listenerSetEventHandler)); err != nil {
-		return err
+	if r.listenerSetEnabled {
+		listenerSetEventHandler := eventhandlers.NewEnqueueRequestsForListenerSetEvent(
+			r.k8sClient, r.eventRecorder, r.controllerName,
+			loggerPrefix.WithName("ListenerSet"),
+		)
+		if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ListenerSet{}, listenerSetEventHandler)); err != nil {
+			return err
+		}
 	}
 
 	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
@@ -664,10 +672,6 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("Service"), constants.NLBGatewayController)
 	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("ReferenceGrant"))
-	listenerSetEventHandler := eventhandlers.NewEnqueueRequestsForListenerSetEvent(
-		r.k8sClient, r.eventRecorder, r.controllerName,
-		loggerPrefix.WithName("ListenerSet"),
-	)
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -701,8 +705,14 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TLSRoute{}, tlsRouteEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ListenerSet{}, listenerSetEventHandler)); err != nil {
-		return err
+	if r.listenerSetEnabled {
+		listenerSetEventHandler := eventhandlers.NewEnqueueRequestsForListenerSetEvent(
+			r.k8sClient, r.eventRecorder, r.controllerName,
+			loggerPrefix.WithName("ListenerSet"),
+		)
+		if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ListenerSet{}, listenerSetEventHandler)); err != nil {
+			return err
+		}
 	}
 	return nil
 
