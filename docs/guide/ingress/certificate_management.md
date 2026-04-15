@@ -50,3 +50,7 @@ The ARN of the PCA can be configured on two different levels:
 ### CA Rotation
 
 For platform operators who want to rotate PCAs without interaction from ingress users, it's suggested to prevent use of the [acm-pca-arn annotation](annotations.md#acm-pca-arn) using a policy-engine. This ensures a smooth and controlled PCA rotation, as adjusting the PCA ARN on the controller's flag will cause the controller to reissue all certificates for all enabled ingress objects, effectively rotating to a new pre-provisioned PCA.
+
+## Limitations
+
+By using this feature the number of hostnames (Subject Alternative Names) you can specify in `spec.tls[].hosts` on a single ingress resource is limited by your AWS account's ACM SAN quota. The [default limit](https://docs.aws.amazon.com/acm/latest/userguide/acm-limits.html#general-limits) is 10 SANs per certificate. If you need more, request a quota increase via the AWS Service Quotas console.

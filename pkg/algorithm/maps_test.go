@@ -360,7 +360,6 @@ func TestStringSetToCSV(t *testing.T) {
 	}
 }
 
-<<<<<<< HEAD
 func TestRemoveKeysByPrefix(t *testing.T) {
 	tests := []struct {
 		name   string

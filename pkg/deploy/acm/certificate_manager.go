@@ -138,7 +138,11 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 				},
 			}
 			_, err = c.route53Client.ChangeRecordsWithContext(ctx, input)
-			if err != nil && !strings.Contains(err.Error(), "exist") { // ignore other cert having the same validation records
+			if err != nil && strings.Contains(err.Error(), "exist") { // ignore other cert having the same validation records
+				c.logger.Info("validation record already exists, skipping creation",
+					"certificateARN", resp.CertificateArn,
+					"record", opts.ResourceRecord.Name)
+			} else if err != nil {
 				return nil, err
 			}
 			c.logger.Info("created validation record", "certificateARN", resp.CertificateArn, "record", opts.ResourceRecord)
@@ -174,6 +178,10 @@ func (c *defaultCertificateManager) create(ctx context.Context, certModel *acmMo
 	c.logger.Info("requesting certificate", "resourceID", certModel.ID())
 	resp, err := c.acmClient.RequestCertificateWithContext(ctx, req)
 	if err != nil {
+		var limitErr *acmtypes.LimitExceededException
+		if errors.As(err, &limitErr) {
+			return nil, fmt.Errorf("ACM certificate request failed: too many Subject Alternative Names (SANs): %w", err)
+		}
 		return nil, err
 	}
 
