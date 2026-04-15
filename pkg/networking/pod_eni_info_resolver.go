@@ -171,8 +171,19 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 		if err != nil {
 			return nil, err
 		}
-		if len(eniInfoByPodKeySageMakerHyperPod) > 0 {
-			for podKey, eniInfo := range eniInfoByPodKeySageMakerHyperPod {
+		for podKey, eniInfo := range eniInfoByPodKeySageMakerHyperPod {
+			eniInfoByPodKey[podKey] = eniInfo
+		}
+		// For HyperPod pods unresolved by direct IP lookup, try prefix-based resolution.
+		// This handles VPC CNI prefix delegation where pod IPs are allocated from /28 prefixes
+		// rather than appearing as secondary private IPs on the ENI.
+		unresolvedHyperPods := computePodsWithoutENIInfo(podsByComputeType.sageMakerHyperPodPods, eniInfoByPodKeySageMakerHyperPod)
+		if len(unresolvedHyperPods) > 0 && len(podsByComputeType.nodeIPByNodeName) > 0 {
+			resolved, err := r.resolveViaVPCENIsByNodeIPAndPrefix(ctx, unresolvedHyperPods, podsByComputeType.nodeIPByNodeName)
+			if err != nil {
+				return nil, err
+			}
+			for podKey, eniInfo := range resolved {
 				eniInfoByPodKey[podKey] = eniInfo
 			}
 		}
@@ -360,6 +371,72 @@ func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods 
 	return eniInfoByPodKey, nil
 }
 
+// resolveViaVPCENIsByNodeIPAndPrefix resolves pod ENI by looking up ENIs via the node's primary IP,
+// then matching pod IPs against the ENI's assigned IPv4/IPv6 prefixes.
+func (r *defaultPodENIInfoResolver) resolveViaVPCENIsByNodeIPAndPrefix(ctx context.Context, pods []k8s.PodInfo, nodeIPByNodeName map[string]string) (map[types.NamespacedName]ENIInfo, error) {
+	podsByNodeIP := make(map[string][]k8s.PodInfo)
+	for _, pod := range pods {
+		if nodeIP, exists := nodeIPByNodeName[pod.NodeName]; exists && nodeIP != "" {
+			podsByNodeIP[nodeIP] = append(podsByNodeIP[nodeIP], pod)
+		}
+	}
+	if len(podsByNodeIP) == 0 {
+		return nil, nil
+	}
+
+	var nodeIPs []string
+	for nodeIP := range podsByNodeIP {
+		nodeIPs = append(nodeIPs, nodeIP)
+	}
+	eniByID, err := r.getENIMappingViaDescribe(ctx, nodeIPs, "addresses.private-ip-address")
+	if err != nil {
+		return nil, err
+	}
+
+	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
+	for _, eni := range eniByID {
+		eniInfo := buildENIInfoViaENI(eni)
+		for nodeIP, nodePods := range podsByNodeIP {
+			if !eniHasPrivateIP(eni, nodeIP) {
+				continue
+			}
+			for _, pod := range nodePods {
+				if isPodIPInENIPrefixes(pod.PodIP, eni) {
+					eniInfoByPodKey[pod.Key] = eniInfo
+				}
+			}
+		}
+	}
+	return eniInfoByPodKey, nil
+}
+
+func eniHasPrivateIP(eni ec2types.NetworkInterface, ip string) bool {
+	for _, addr := range eni.PrivateIpAddresses {
+		if awssdk.ToString(addr.PrivateIpAddress) == ip {
+			return true
+		}
+	}
+	return false
+}
+
+func isPodIPInENIPrefixes(podIP string, eni ec2types.NetworkInterface) bool {
+	parsedPodIP := net.ParseIP(podIP)
+	if parsedPodIP == nil {
+		return false
+	}
+	for _, prefix := range eni.Ipv4Prefixes {
+		if _, cidr, err := net.ParseCIDR(awssdk.ToString(prefix.Ipv4Prefix)); err == nil && cidr.Contains(parsedPodIP) {
+			return true
+		}
+	}
+	for _, prefix := range eni.Ipv6Prefixes {
+		if _, cidr, err := net.ParseCIDR(awssdk.ToString(prefix.Ipv6Prefix)); err == nil && cidr.Contains(parsedPodIP) {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *defaultPodENIInfoResolver) getENIMappingViaDescribe(ctx context.Context, podIPs []string, ipAddressFilterKey string) (map[string]ec2types.NetworkInterface, error) {
 	podIPChunks := algorithm.ChunkStrings(podIPs, r.describeNetworkInterfacesIPChunkSize)
 	eniByID := make(map[string]ec2types.NetworkInterface)
@@ -420,6 +497,7 @@ type PodsByComputeType struct {
 	fargatePods           []k8s.PodInfo
 	sageMakerHyperPodPods []k8s.PodInfo
 	hybridPods            []k8s.PodInfo
+	nodeIPByNodeName      map[string]string
 }
 
 // classifyPodsByComputeType classifies in to ec2, fargate, sagemaker-hyperpod and hybrid groups
@@ -451,6 +529,15 @@ func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Contex
 		} else if node.Labels[labelSageMakerComputeType] == "hyperpod" {
 			podsByComputeType.sageMakerHyperPodPods = append(podsByComputeType.sageMakerHyperPodPods, pod)
 			nodeNameByComputeType[pod.NodeName] = "sagemaker-hyperpod"
+			for _, addr := range node.Status.Addresses {
+				if addr.Type == corev1.NodeInternalIP {
+					if podsByComputeType.nodeIPByNodeName == nil {
+						podsByComputeType.nodeIPByNodeName = make(map[string]string)
+					}
+					podsByComputeType.nodeIPByNodeName[pod.NodeName] = addr.Address
+					break
+				}
+			}
 		} else if node.Labels[labelEKSComputeType] == "hybrid" {
 			podsByComputeType.hybridPods = append(podsByComputeType.hybridPods, pod)
 			nodeNameByComputeType[pod.NodeName] = "hybrid"
