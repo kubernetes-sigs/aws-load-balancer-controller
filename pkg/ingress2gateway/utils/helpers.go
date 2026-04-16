@@ -80,3 +80,15 @@ func GetLRConfigName(namespace, ingressName, actionName string) string {
 func GetRedirectHTTPRouteName(namespace, ingressName string) string {
 	return resourceName(namespace, ingressName, "redirect")
 }
+
+// GetGroupGatewayName returns the Gateway resource name for an explicit IngressGroup.
+// Uses a distinct suffix ("grp-gw") to avoid hash collision with per-Ingress names.
+// Namespace is empty for explicit groups (group identity is just the group name).
+func GetGroupGatewayName(groupName string) string {
+	return resourceName("", groupName, "grp-gw")
+}
+
+// GetGroupLBConfigName returns the LoadBalancerConfiguration resource name for an explicit IngressGroup.
+func GetGroupLBConfigName(groupName string) string {
+	return resourceName("", groupName, "grp-lb")
+}

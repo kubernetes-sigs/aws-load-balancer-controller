@@ -47,18 +47,10 @@ func (t *httpRouteTranslator) trackBackend(svcName string, resolvedPort int32) {
 }
 
 // buildHTTPRoutes builds one or more HTTPRoutes from an Ingress resource and collects
-func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, listenPorts []listenPortEntry, servicesByKey map[string]corev1.Service, sslRedirectPort *int32) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
-	// Determine parentRefs based on ssl-redirect.
-	// When ssl-redirect is set, the rules route attaches only to the HTTPS listener.
-	// When not set, the route attaches to all listeners (no sectionName).
-	var parentRefs []gwv1.ParentReference
-	if sslRedirectPort != nil {
-		sectionName := utils.GenerateSectionName(utils.ProtocolHTTPS, *sslRedirectPort)
-		parentRefs = buildParentRefs(gatewayName, &sectionName)
-	} else {
-		parentRefs = buildParentRefs(gatewayName, nil)
-	}
-
+// service refs and ListenerRuleConfigurations. The caller provides parentRefs to control
+// which Gateway listeners the routes attach to (sectionName scoping for groups).
+// SSL redirect routes are NOT generated here — the caller handles them at group level.
+func buildHTTPRoutes(ing networking.Ingress, namespace string, parentRefs []gwv1.ParentReference, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
 	t := &httpRouteTranslator{
 		namespace:      namespace,
 		ingName:        ing.Name,
@@ -104,20 +96,6 @@ func buildHTTPRoutes(ing networking.Ingress, namespace, gatewayName string, list
 		ing.Spec.DefaultBackend, t)
 	if err != nil {
 		return nil, nil, nil, err
-	}
-
-	// When ssl-redirect is set, generate a redirect route for each HTTP listener.
-	if sslRedirectPort != nil {
-		for _, lp := range listenPorts {
-			if strings.EqualFold(lp.Protocol, utils.ProtocolHTTP) {
-				redirectRoute := buildSSLRedirectRoute(
-					namespace, ing.Name, gatewayName,
-					utils.GenerateSectionName(lp.Protocol, lp.Port),
-					*sslRedirectPort,
-				)
-				routes = append(routes, redirectRoute)
-			}
-		}
 	}
 
 	return routes, t.svcRefs, t.listenerRuleConfigs, nil
@@ -409,13 +387,13 @@ func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference
 
 // buildSSLRedirectRoute creates an HTTPRoute that redirects all HTTP traffic to HTTPS.
 // It attaches only to the specified HTTP listener via sectionName.
-func buildSSLRedirectRoute(namespace, ingName, gatewayName, httpSectionName string, sslPort int32) gwv1.HTTPRoute {
+func buildSSLRedirectRoute(namespace, name, gatewayName, httpSectionName string, sslPort int32) gwv1.HTTPRoute {
 	parentRefs := buildParentRefs(gatewayName, &httpSectionName)
 	httpsScheme := "https"
 	port := gwv1.PortNumber(sslPort)
 	statusCode := 301
 	return newHTTPRoute(
-		utils.GetRedirectHTTPRouteName(namespace, ingName),
+		utils.GetRedirectHTTPRouteName(namespace, name),
 		namespace, parentRefs, nil,
 		[]gwv1.HTTPRouteRule{{
 			Filters: []gwv1.HTTPRouteFilter{{

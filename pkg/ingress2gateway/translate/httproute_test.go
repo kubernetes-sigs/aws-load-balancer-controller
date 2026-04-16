@@ -9,6 +9,7 @@ import (
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -476,25 +477,14 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				{Protocol: "HTTPS", Port: 443},
 			},
 			sslRedirectPort: int32Ptr(443),
-			wantRoutes:      2, // rules route + redirect route
+			wantRoutes:      1, // rules route only; redirect route is now generated at group level
 			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
-				// First route: rules, attached to HTTPS listener only
+				// Rules route: attached to HTTPS listener only
 				rulesRoute := routes[0]
 				require.NotNil(t, rulesRoute.Spec.ParentRefs[0].SectionName)
 				assert.Equal(t, gwv1.SectionName("https-443"), *rulesRoute.Spec.ParentRefs[0].SectionName)
 				assert.Len(t, rulesRoute.Spec.Rules, 1)
 				assert.Equal(t, "/api", *rulesRoute.Spec.Rules[0].Matches[0].Path.Value)
-
-				// Second route: redirect, attached to HTTP listener only
-				redirectRoute := routes[1]
-				require.NotNil(t, redirectRoute.Spec.ParentRefs[0].SectionName)
-				assert.Equal(t, gwv1.SectionName("http-80"), *redirectRoute.Spec.ParentRefs[0].SectionName)
-				require.Len(t, redirectRoute.Spec.Rules, 1)
-				require.Len(t, redirectRoute.Spec.Rules[0].Filters, 1)
-				assert.Equal(t, gwv1.HTTPRouteFilterRequestRedirect, redirectRoute.Spec.Rules[0].Filters[0].Type)
-				assert.Equal(t, "https", *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.Scheme)
-				assert.Equal(t, gwv1.PortNumber(443), *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.Port)
-				assert.Equal(t, 301, *redirectRoute.Spec.Rules[0].Filters[0].RequestRedirect.StatusCode)
 			},
 		},
 		{
@@ -638,7 +628,15 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			routes, _, lrcs, err := buildHTTPRoutes(tt.ing, tt.namespace, tt.gwName, tt.ports, nil, tt.sslRedirectPort)
+			// Compute parentRefs from test parameters (matching old buildHTTPRoutes behavior)
+			var parentRefs []gwv1.ParentReference
+			if tt.sslRedirectPort != nil {
+				sectionName := utils.GenerateSectionName(utils.ProtocolHTTPS, *tt.sslRedirectPort)
+				parentRefs = buildParentRefs(tt.gwName, &sectionName)
+			} else {
+				parentRefs = buildParentRefs(tt.gwName, nil)
+			}
+			routes, _, lrcs, err := buildHTTPRoutes(tt.ing, tt.namespace, parentRefs, nil)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -759,8 +757,8 @@ func TestBuildHTTPRoutes_DefaultBackendError(t *testing.T) {
 		},
 	}
 	// No services provided — named port resolution for defaultBackend will fail
-	_, _, _, err := buildHTTPRoutes(ing, "default", "gw",
-		[]listenPortEntry{{Protocol: "HTTP", Port: 80}}, nil, nil)
+	parentRefs := buildParentRefs("gw", nil)
+	_, _, _, err := buildHTTPRoutes(ing, "default", parentRefs, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "defaultBackend")
 }

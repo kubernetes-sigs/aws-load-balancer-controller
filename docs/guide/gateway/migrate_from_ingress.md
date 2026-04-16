@@ -93,12 +93,40 @@ Existing `Deployment` and `Service` resources are reused as-is and are not gener
 
 Gateway API has no `defaultBackend` equivalent ([upstream docs](https://gateway-api.sigs.k8s.io/guides/getting-started/migrating-from-ingress/#default-backend)). When an Ingress has both a `defaultBackend` and host-based rules, the tool generates a separate catch-all HTTPRoute with no hostnames or match conditions. This results in one additional ALB listener rule compared to the original Ingress, which is the expected Gateway API behavior. Additionally, the gateway controller scopes target groups per route, so the separate default-backend HTTPRoute creates its own target group even if it points to the same service as other rules. This means the migrated setup may have one extra target group compared to the Ingress setup, where a single target group is shared across all rules for the same service.
 
+### IngressGroup Support
+
+The migration tool detects `alb.ingress.kubernetes.io/group.name` and produces one shared Gateway + LoadBalancerConfiguration per group, with separate HTTPRoutes per member Ingress (preserving team ownership).
+
+LB-level annotations (scheme, subnets, security groups, tags, etc.) must be consistent across all Ingresses in a group — the tool errors if conflicting values are detected. TLS certificates (`certificate-arn`) are unioned across members. Tags and load-balancer-attributes are unioned with per-key conflict detection.
+
+Each member's `listen-ports` are unioned to build the shared Gateway's listeners. Each member's HTTPRoutes are scoped to only the listeners that member declared via `sectionName` in `parentRefs`. When `ssl-redirect` is set on any member, it applies group-wide: all members' routes attach to the HTTPS listener only, and a single redirect HTTPRoute is generated for HTTP listeners.
+
+Cross-namespace groups (Ingresses in different namespaces with the same `group.name`) are supported. When detected, the migration tool generates the Gateway in the first member's namespace (based on input file order) and sets `allowedRoutes.namespaces.from: Selector` on each listener, using a label selector matching `lbc-migrate/ingress-group: <groupName>`. You can move the Gateway to a different namespace after generation if needed. You must label the member namespaces accordingly before applying the generated manifests:
+
+```bash
+kubectl label namespace team-a lbc-migrate/ingress-group=shared-alb
+kubectl label namespace team-b lbc-migrate/ingress-group=shared-alb
+```
+
+If you later add a new namespace to the group, you must label it as well. The selector only matches namespaces with the label at the time of route attachment. See the [Gateway API cross-namespace routing guide](https://gateway-api.sigs.k8s.io/guides/multiple-ns/) for details.
+
 ### Known Differences from Ingress
+
+#### Rule Priority and `group.order`
+
+The `alb.ingress.kubernetes.io/group.order` annotation has no equivalent in Gateway API. In the Ingress model, `group.order` gives explicit control over ALB listener rule priority — rules from a lower-order Ingress always get lower priority numbers (higher precedence). In Gateway API, rule precedence is determined by the [Gateway API specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule): hostname specificity, path match type, path length, header/query param count, route creation timestamp, and route name (alphabetical) etc. There is no annotation or field to override this ordering.
+
+For most configurations — where grouped Ingresses have non-overlapping hosts or paths — this produces equivalent behavior. If your Ingresses rely on `group.order` to resolve overlapping rules (same host + same path across different Ingresses), the migrated Gateway API rules may be evaluated in a different order. Review the generated HTTPRoutes and verify with the dry-run feature before switching traffic.
+
+The migration tool emits a warning when `group.order` is detected.
+
+#### ALB Listener Rule Count and Priority Order
 
 The migrated Gateway API manifests may produce more ALB listener rules than the original Ingress. This happens because ALB supports OR within a single condition (e.g., one `http-request-method` condition with values `[GET, HEAD]`), while Gateway API represents OR as separate `HTTPRouteMatch` entries — each becoming its own ALB rule. The routing behavior is functionally equivalent, but the rule count and priority numbers may differ. This affects conditions with multiple values for `path-pattern`, `http-request-method`, and `query-string`.
 
 Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
 
+#### Limited Support for Certain Ingress Annotations
 The following Ingress annotation types have limited support in the migration tool and Gatewaty API:
 
 - `host-header` conditions — values are passed through to Gateway API hostnames. Since hostnames are route-level in Gateway API (not per-rule), rules with host-header conditions are split into separate HTTPRoutes with their own hostnames. Complex wildcards (e.g., `www.*.example.com`) or regex values that don't conform to Gateway API hostname format will be rejected by the K8s API server when the manifest is applied.
