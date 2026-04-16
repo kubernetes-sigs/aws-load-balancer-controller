@@ -3,13 +3,16 @@ package aws
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -135,4 +138,16 @@ func Test_getVpcID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_buildEC2MetadataConfig_SetsHTTPClientTimeout(t *testing.T) {
+	t.Setenv("AWS_REGION", "us-west-2")
+	t.Setenv("AWS_DEFAULT_REGION", "us-west-2")
+	cfg, err := buildEC2MetadataConfig(3, imds.EndpointModeStateIPv4)
+	assert.NoError(t, err)
+	assert.NotNil(t, cfg.HTTPClient)
+
+	httpClient, ok := cfg.HTTPClient.(*http.Client)
+	require.True(t, ok, "HTTPClient should be *http.Client")
+	assert.Equal(t, defaultAWSSDKClientTimeout, httpClient.Timeout)
 }

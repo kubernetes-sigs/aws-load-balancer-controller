@@ -53,10 +53,10 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 		ec2IMDSEndpointMode = imds.EndpointModeStateIPv4
 	}
 	endpointsResolver := epresolver.NewResolver(cfg.AWSEndpoints)
-	ec2MetadataCfg, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRetryMaxAttempts(cfg.MaxRetries),
-		config.WithEC2IMDSEndpointMode(ec2IMDSEndpointMode),
-	)
+	ec2MetadataCfg, err := buildEC2MetadataConfig(cfg.MaxRetries, ec2IMDSEndpointMode)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build EC2 metadata config")
+	}
 	ec2Metadata := services.NewEC2Metadata(ec2MetadataCfg, endpointsResolver)
 
 	if len(cfg.Region) == 0 {
@@ -313,4 +313,12 @@ func (c *defaultCloud) Region() string {
 
 func (c *defaultCloud) VpcID() string {
 	return c.cfg.VpcID
+}
+
+func buildEC2MetadataConfig(maxRetries int, ec2IMDSEndpointMode imds.EndpointModeState) (aws.Config, error) {
+	return config.LoadDefaultConfig(context.TODO(),
+		config.WithHTTPClient(newDefaultHTTPClient()),
+		config.WithRetryMaxAttempts(maxRetries),
+		config.WithEC2IMDSEndpointMode(ec2IMDSEndpointMode),
+	)
 }
