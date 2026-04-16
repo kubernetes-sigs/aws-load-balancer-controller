@@ -1,12 +1,13 @@
 package elbv2
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_isSDKListenerSettingsDrifted(t *testing.T) {
@@ -1150,6 +1151,61 @@ func Test_isRemoveALPN(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := isRemoveALPN(tc.sdkLS, tc.listenerSpec)
 			assert.Equal(t, tc.expected, res)
+		})
+	}
+}
+
+func Test_areListenerAttributesSupported(t *testing.T) {
+	testCases := []struct {
+		name     string
+		protocol elbv2model.Protocol
+		result   bool
+	}{
+		{
+			name:     "protocol HTTP",
+			protocol: elbv2model.ProtocolHTTP,
+			result:   true,
+		},
+		{
+			name:     "protocol HTTPS",
+			protocol: elbv2model.ProtocolHTTPS,
+			result:   true,
+		},
+		{
+			name:     "protocol TCP",
+			protocol: elbv2model.ProtocolTCP,
+			result:   true,
+		},
+		{
+			name:     "protocol UDP",
+			protocol: elbv2model.ProtocolUDP,
+			result:   true,
+		},
+		{
+			name:     "protocol TCP_UDP",
+			protocol: elbv2model.ProtocolTCP_UDP,
+			result:   true,
+		},
+		{
+			name:     "protocol QUIC",
+			protocol: elbv2model.ProtocolQUIC,
+			result:   true,
+		},
+		{
+			name:     "protocol TCP_QUIC",
+			protocol: elbv2model.ProtocolTCP_QUIC,
+			result:   true,
+		},
+		{
+			name:     "protocol TLS",
+			protocol: elbv2model.ProtocolTLS,
+			result:   false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := areListenerAttributesSupported(tc.protocol)
+			assert.Equal(t, tc.result, res)
 		})
 	}
 }

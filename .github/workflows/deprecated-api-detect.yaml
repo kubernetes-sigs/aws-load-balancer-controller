@@ -9,7 +9,7 @@ jobs:
     name: Detect deprecated apiGroups
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - run: |
           version=$(curl -sL https://api.github.com/repos/FairwindsOps/pluto/releases/latest | jq -r ".tag_name")
           number=${version:1}

@@ -10,12 +10,12 @@ jobs:
     - name: Setup Go Version
       run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
     - name: Set up Go 1.x
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
       with:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
     - name: Run unit tests
       run: |
@@ -23,14 +23,14 @@ jobs:
         make test
 
     - name: Codecov
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
       with:
         file: ./cover.out # optional
 
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: make quick-ci
         run: |
