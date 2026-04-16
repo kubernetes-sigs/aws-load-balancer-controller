@@ -42,7 +42,7 @@ jobs:
       - name: Setup Go Version
         run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
       - id: govulncheck
-        uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee
+        uses: golang/govulncheck-action@31f7c5463448f83528bd771c2d978d940080c9fd
         with:
           go-version-input: ${{ env.GO_VERSION }}
           go-version-file: go.mod
