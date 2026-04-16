@@ -2,7 +2,6 @@ package elbv2
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -29,14 +28,7 @@ var alpnNone = []string{
 	string(elbv2model.ALPNPolicyNone),
 }
 
-var PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES = map[elbv2model.Protocol]bool{
-	elbv2model.ProtocolHTTP:    true,
-	elbv2model.ProtocolHTTPS:   true,
-	elbv2model.ProtocolTCP:     true,
-	elbv2model.ProtocolUDP:     false,
-	elbv2model.ProtocolTLS:     false,
-	elbv2model.ProtocolTCP_UDP: true,
-}
+var blockedProtocolsForAttributes = sets.New[elbv2model.Protocol](elbv2model.ProtocolTLS)
 
 // ListenerManager is responsible for create/update/delete Listener resources.
 type ListenerManager interface {
@@ -112,8 +104,7 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	}); err != nil {
 		return elbv2model.ListenerStatus{}, errors.Wrap(err, "failed to update extra certificates on listener")
 	}
-	listenerARN := awssdk.ToString(sdkLS.Listener.ListenerArn)
-	if !isIsolatedRegion(getRegionFromARN(listenerARN)) && areListenerAttributesSupported(resLS.Spec.Protocol) {
+	if areListenerAttributesSupported(resLS.Spec.Protocol) {
 		if err := m.attributesReconciler.Reconcile(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}
@@ -133,8 +124,7 @@ func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.L
 	if err := m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, false); err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	listenerARN := awssdk.ToString(sdkLS.Listener.ListenerArn)
-	if !isIsolatedRegion(getRegionFromARN(listenerARN)) && areListenerAttributesSupported(resLS.Spec.Protocol) {
+	if areListenerAttributesSupported(resLS.Spec.Protocol) {
 		if err := m.attributesReconciler.Reconcile(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}
@@ -477,18 +467,7 @@ func buildResListenerStatus(sdkLS ListenerWithTags) elbv2model.ListenerStatus {
 }
 
 func areListenerAttributesSupported(protocol elbv2model.Protocol) bool {
-	supported, exists := PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES[protocol]
-	return exists && supported
-}
-
-func getRegionFromARN(arn string) string {
-	if strings.HasPrefix(arn, "arn:") {
-		arnElements := strings.Split(arn, ":")
-		if len(arnElements) > 3 {
-			return arnElements[3]
-		}
-	}
-	return ""
+	return !blockedProtocolsForAttributes.Has(protocol)
 }
 
 // isRemoveMTLS -- should we inject the 'off' button for mutual auth?
@@ -521,10 +500,6 @@ func isRemoveALPN(sdkLS ListenerWithTags, lsSpec elbv2model.ListenerSpec) bool {
 
 	// Getting here indicates that the desired state is nil AND the SDK has ALPN data which needs to be removed.
 	return true
-}
-
-func isIsolatedRegion(region string) bool {
-	return strings.Contains(strings.ToLower(region), "-iso-")
 }
 
 func translateAdvertiseCAToEnum(s *string) elbv2types.AdvertiseTrustStoreCaNamesEnum {
