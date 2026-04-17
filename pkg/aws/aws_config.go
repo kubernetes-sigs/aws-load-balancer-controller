@@ -2,13 +2,14 @@ package aws
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
@@ -50,7 +51,7 @@ func (gen *awsConfigGeneratorImpl) GenerateAWSConfig(optFns ...func(*config.Load
 		}),
 		config.WithEC2IMDSEndpointMode(gen.ec2IMDSEndpointMode),
 		config.WithAPIOptions([]func(stack *smithymiddleware.Stack) error{
-			awsmiddleware.AddUserAgentKeyValue(userAgent, version.GitVersion),
+			overrideUserAgentMiddleware(userAgent + "/" + version.GitVersion),
 		}),
 	}
 
@@ -79,3 +80,17 @@ func (gen *awsConfigGeneratorImpl) GenerateAWSConfig(optFns ...func(*config.Load
 }
 
 var _ AWSConfigGenerator = &awsConfigGeneratorImpl{}
+
+// overrideUserAgentMiddleware returns a middleware that replaces the User-Agent
+// header with the given value, stripping all SDK-generated metadata.
+func overrideUserAgentMiddleware(ua string) func(stack *smithymiddleware.Stack) error {
+	return func(stack *smithymiddleware.Stack) error {
+		return stack.Build.Add(smithymiddleware.BuildMiddlewareFunc("OverrideUserAgent",
+			func(ctx context.Context, in smithymiddleware.BuildInput, next smithymiddleware.BuildHandler) (smithymiddleware.BuildOutput, smithymiddleware.Metadata, error) {
+				if req, ok := in.Request.(*smithyhttp.Request); ok {
+					req.Header.Set("User-Agent", ua)
+				}
+				return next.HandleBuild(ctx, in)
+			}), smithymiddleware.After)
+	}
+}
