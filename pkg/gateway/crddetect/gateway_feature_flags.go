@@ -15,8 +15,9 @@ const (
 )
 
 var (
-	albKinds = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}}
-	nlbKinds = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, GatewayV1Alpha2GroupVersion: {"TCPRoute", "UDPRoute"}}
+	albKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}}
+	nlbKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, GatewayV1Alpha2GroupVersion: {"TCPRoute", "UDPRoute"}}
+	listenerSetKinds = map[string][]string{GatewayV1GroupVersion: {"ListenerSet"}}
 )
 
 // ApplyGatewayCRDDetection checks for the presence of Gateway API CRDs and
@@ -25,8 +26,12 @@ var (
 // controller reads the feature flags.
 func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.FeatureGates, logger logr.Logger) error {
 
-	if !featureGates.GetFeatureStatus(config.ALBGatewayAPI).IsDefaulted && !featureGates.GetFeatureStatus(config.NLBGatewayAPI).IsDefaulted {
-		// User set this flags directly, do nothing.
+	allDefaulted := featureGates.GetFeatureStatus(config.ALBGatewayAPI).IsDefaulted ||
+		featureGates.GetFeatureStatus(config.NLBGatewayAPI).IsDefaulted ||
+		featureGates.GetFeatureStatus(config.GatewayListenerSet).IsDefaulted
+
+	if !allDefaulted {
+		// User set all flags directly, do nothing.
 		return nil
 	}
 
@@ -53,6 +58,12 @@ func applyGatewayFeatureFlags(availableResources map[string]sets.Set[string], fe
 		logger.Info("Disabling NLBGatewayAPI: missing required Gateway API CRDs",
 			"missing", nlbMissingKinds)
 		featureGates.Disable(config.NLBGatewayAPI)
+	}
+
+	listenerSetMissing := missingKinds(listenerSetKinds, availableResources)
+	if len(listenerSetMissing) > 0 && featureGates.GetFeatureStatus(config.GatewayListenerSet).IsDefaulted {
+		logger.Info("Disabling ListenerSet: missing required Gateway API CRDs", "missing", listenerSetMissing)
+		featureGates.Disable(config.GatewayListenerSet)
 	}
 }
 

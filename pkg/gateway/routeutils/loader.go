@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -71,10 +72,17 @@ type loaderImpl struct {
 	allRouteLoaders map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error)
 }
 
-func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter, logger logr.Logger) Loader {
+func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter, featureGates config.FeatureGates, logger logr.Logger) Loader {
+	var lsLoader listenerSetLoader
+	if featureGates.Enabled(config.GatewayListenerSet) {
+		lsLoader = newListenerSetLoader(k8sClient, logger.WithName("listener-set-loader"))
+	} else {
+		lsLoader = &noopListenerSetLoader{}
+		logger.Info("ListenerSet feature is disabled, skipping ListenerSet loading")
+	}
 	return &loaderImpl{
 		mapper:          newListenerToRouteMapper(k8sClient, logger.WithName("route-mapper")),
-		lsLoader:        newListenerSetLoader(k8sClient, logger.WithName("listener-set-loader")),
+		lsLoader:        lsLoader,
 		routeSubmitter:  routeSubmitter,
 		k8sClient:       k8sClient,
 		allRouteLoaders: allRoutes,

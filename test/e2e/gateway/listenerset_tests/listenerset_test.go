@@ -579,7 +579,6 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 
 			var lbARN string
 			By("querying AWS loadbalancer from the dns name", func() {
-				time.Sleep(10 * time.Minute)
 				var err error
 				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
 				Expect(err).NotTo(HaveOccurred())
@@ -795,7 +794,6 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 				Expect(*observedGW.Status.AttachedListenerSets).To(Equal(int32(1)))
 				dnsName = observedGW.Status.Addresses[0].Value
 				Expect(dnsName).NotTo(BeEmpty())
-				time.Sleep(10 * time.Minute)
 			})
 
 			var lbARN string

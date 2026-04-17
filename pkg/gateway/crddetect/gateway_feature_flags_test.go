@@ -11,32 +11,36 @@ import (
 
 func TestApplyGatewayFeatureFlags(t *testing.T) {
 	testCases := []struct {
-		name         string
-		presentKinds map[string]sets.Set[string]
-		albEnabled   bool
-		nlbEnabled   bool
+		name               string
+		presentKinds       map[string]sets.Set[string]
+		albEnabled         bool
+		nlbEnabled         bool
+		listenerSetEnabled bool
 	}{
 		{
-			name:         "no kinds present",
-			presentKinds: map[string]sets.Set[string]{},
-			albEnabled:   false,
-			nlbEnabled:   false,
+			name:               "no kinds present",
+			presentKinds:       map[string]sets.Set[string]{},
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "v1 present",
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion: sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 			},
-			albEnabled: true,
-			nlbEnabled: false,
+			albEnabled:         true,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "alpha2 present",
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: false,
-			nlbEnabled: false,
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "all present",
@@ -44,8 +48,19 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: true,
-			nlbEnabled: true,
+			albEnabled:         true,
+			nlbEnabled:         true,
+			listenerSetEnabled: false,
+		},
+		{
+			name: "all present including ListenerSet",
+			presentKinds: map[string]sets.Set[string]{
+				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute", "ListenerSet"),
+				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+			},
+			albEnabled:         true,
+			nlbEnabled:         true,
+			listenerSetEnabled: true,
 		},
 		{
 			name: "gateway missing",
@@ -53,8 +68,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: false,
-			nlbEnabled: false,
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "gateway class missing",
@@ -62,8 +78,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: false,
-			nlbEnabled: false,
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "httproute missing",
@@ -71,8 +88,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: false,
-			nlbEnabled: true,
+			albEnabled:         false,
+			nlbEnabled:         true,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "grpcroute missing",
@@ -80,8 +98,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: false,
-			nlbEnabled: true,
+			albEnabled:         false,
+			nlbEnabled:         true,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "tlsroute missing",
@@ -89,8 +108,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
 			},
-			albEnabled: true,
-			nlbEnabled: false,
+			albEnabled:         true,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "tcproute missing",
@@ -98,8 +118,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("UDPRoute"),
 			},
-			albEnabled: true,
-			nlbEnabled: false,
+			albEnabled:         true,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 		{
 			name: "udproute missing",
@@ -107,8 +128,18 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute"),
 			},
-			albEnabled: true,
-			nlbEnabled: false,
+			albEnabled:         true,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
+		},
+		{
+			name: "ListenerSet present without full gateway CRDs",
+			presentKinds: map[string]sets.Set[string]{
+				GatewayV1GroupVersion: sets.New[string]("ListenerSet"),
+			},
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: true,
 		},
 	}
 
@@ -119,6 +150,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 
 			assert.Equal(t, tc.albEnabled, cfg.Enabled(config.ALBGatewayAPI))
 			assert.Equal(t, tc.nlbEnabled, cfg.Enabled(config.NLBGatewayAPI))
+			assert.Equal(t, tc.listenerSetEnabled, cfg.Enabled(config.GatewayListenerSet))
 		})
 	}
 }

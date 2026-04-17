@@ -26,6 +26,18 @@ type listenerSetLoader interface {
 	retrieveListenersFromListenerSets(ctx context.Context, gateway gwv1.Gateway) (listenerSetLoadResult, []gwv1.ListenerSet, error)
 }
 
+// noopListenerSetLoader is used when the GatewayListenerSet feature gate is disabled.
+type noopListenerSetLoader struct{}
+
+func (n *noopListenerSetLoader) retrieveListenersFromListenerSets(_ context.Context, _ gwv1.Gateway) (listenerSetLoadResult, []gwv1.ListenerSet, error) {
+	return listenerSetLoadResult{
+		listenersPerListenerSet: make(map[types.NamespacedName][]listenerSetListenerSource),
+		acceptedListenerSets:    make(map[types.NamespacedName]gwv1.ListenerSet),
+	}, nil, nil
+}
+
+var _ listenerSetLoader = &noopListenerSetLoader{}
+
 type listenerSetLoaderImpl struct {
 	k8sClient         client.Client
 	namespaceSelector namespaceSelector

@@ -271,12 +271,22 @@ func main() {
 			Name: "gateway-route-status-update-reconciler",
 		})
 
-		listenerSetReconcilerQueue := workqueue.NewTypedDelayingQueueWithConfig[routeutils.ListenerSetStatusData](workqueue.TypedDelayingQueueConfig[routeutils.ListenerSetStatusData]{
-			Name: "gateway-listenerset-status-update-reconciler",
-		})
+		listenerSetEnabled := controllerCFG.FeatureGates.Enabled(config.GatewayListenerSet)
+
+		var listenerSetStatusUpdater gateway.ListenerSetStatusSubmitter
+		var listenerSetReconciler gateway.ListenerSetStatusReconciler
+		if listenerSetEnabled {
+			listenerSetReconcilerQueue := workqueue.NewTypedDelayingQueueWithConfig[routeutils.ListenerSetStatusData](workqueue.TypedDelayingQueueConfig[routeutils.ListenerSetStatusData]{
+				Name: "gateway-listenerset-status-update-reconciler",
+			})
+			listenerSetReconciler = gateway.NewListenerSetStatusReconciler(listenerSetReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("listenerSetReconciler"))
+			listenerSetStatusUpdater = listenerSetReconciler
+		} else {
+			setupLog.Info("ListenerSet feature is disabled, using no-op status submitter")
+			listenerSetStatusUpdater = &gateway.NoopListenerSetStatusSubmitter{}
+		}
 
 		routeReconciler := gateway.NewRouteReconciler(routeReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
-		listenerSetReconciler := gateway.NewListenerSetStatusReconciler(listenerSetReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("listenerSetReconciler"))
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
 		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, ctrl.Log.WithName("gateway-cert-discovery"))
 
@@ -299,13 +309,13 @@ func main() {
 			targetGroupCollector:     targetGroupCollector,
 			targetGroupARNMapper:     tgArnMapper,
 			certDiscovery:            certDiscovery,
-			listenerSetStatusUpdater: listenerSetReconciler,
+			listenerSetStatusUpdater: listenerSetStatusUpdater,
 		}
 
 		enabledControllers := sets.Set[string]{}
 
 		routeLoaderCreator := sync.OnceValue(func() routeutils.Loader {
-			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, mgr.GetLogger().WithName("gateway-route-loader"))
+			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, controllerCFG.FeatureGates, mgr.GetLogger().WithName("gateway-route-loader"))
 		})
 
 		// Setup NLB Gateway controller if enabled
@@ -419,7 +429,9 @@ func main() {
 
 		go func() {
 			setupLog.Info("starting listener set reconciler")
-			listenerSetReconciler.Run()
+			if listenerSetReconciler != nil {
+				listenerSetReconciler.Run()
+			}
 		}()
 	}
 	// Add liveness probe

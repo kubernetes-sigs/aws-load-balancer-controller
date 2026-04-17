@@ -38,6 +38,7 @@ const (
 	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
 	ALBTargetControlAgent         Feature = "ALBTargetControlAgent"
+	GatewayListenerSet            Feature = "GatewayListenerSet"
 )
 
 type FeatureGates interface {
@@ -88,6 +89,7 @@ func NewFeatureGates() FeatureGates {
 			EnhancedDefaultBehavior:       generateDefaultFeatureStatus(false),
 			EnableDefaultTagsLowPriority:  generateDefaultFeatureStatus(false),
 			ALBTargetControlAgent:         generateDefaultFeatureStatus(false),
+			GatewayListenerSet:            generateDefaultFeatureStatus(true),
 		},
 	}
 }
