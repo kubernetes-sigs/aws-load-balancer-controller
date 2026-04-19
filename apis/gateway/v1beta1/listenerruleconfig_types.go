@@ -12,6 +12,52 @@ const (
 	ListenerRuleConditionFieldSourceIP ListenerRuleConditionField = "source-ip"
 )
 
+// ListenerRuleTransformType defines the type of transform for the listener rule
+// +kubebuilder:validation:Enum=host-header-rewrite
+type ListenerRuleTransformType string
+
+const (
+	ListenerRuleTransformTypeHostHeaderRewrite ListenerRuleTransformType = "host-header-rewrite"
+)
+
+// ListenerRuleRewriteConfig defines a regex-based rewrite rule
+type ListenerRuleRewriteConfig struct {
+	// Regex expression to match against the header value
+	// +kubebuilder:validation:MinLength=1
+	Regex string `json:"regex"`
+	// Replacement expression to use when the regex matches.
+	// When SourceHeader is specified, this field supports referencing the matched value
+	// from the source header using regex capture groups (e.g., "$1").
+	Replace string `json:"replace"`
+}
+
+// ListenerRuleHostHeaderRewriteConfig defines configuration for rewriting the Host header
+type ListenerRuleHostHeaderRewriteConfig struct {
+	// Rewrites defines the regex-based rewrite rules for the Host header.
+	// +kubebuilder:validation:MinItems=1
+	Rewrites []ListenerRuleRewriteConfig `json:"rewrites"`
+
+	// SourceHeader specifies the name of the incoming request header whose value
+	// should be used to rewrite the Host header. When specified, the Host header
+	// will be set based on the value of this source header, processed through
+	// the regex/replace rules defined in Rewrites.
+	// For example, setting SourceHeader to "X-School-Domain" will use the value
+	// of the X-School-Domain header as input for the rewrite rules.
+	// +optional
+	SourceHeader *string `json:"sourceHeader,omitempty"`
+}
+
+// ListenerRuleTransform defines a transform to apply to the request
+// +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'host-header-rewrite' ? has(self.hostHeaderRewriteConfig) : !has(self.hostHeaderRewriteConfig)",message="hostHeaderRewriteConfig must be specified only when type is 'host-header-rewrite'"
+type ListenerRuleTransform struct {
+	// The type of transform
+	Type ListenerRuleTransformType `json:"type"`
+
+	// Information for a host header rewrite transform.
+	// +optional
+	HostHeaderRewriteConfig *ListenerRuleHostHeaderRewriteConfig `json:"hostHeaderRewriteConfig,omitempty"`
+}
+
 // AuthenticateCognitoActionConditionalBehaviorEnum defines the behavior when a user is not authenticated
 // +kubebuilder:validation:Enum=deny;allow;authenticate
 type AuthenticateCognitoActionConditionalBehaviorEnum string
@@ -343,6 +389,13 @@ type ListenerRuleConfigurationSpec struct {
 	// +optional
 	// +kubebuilder:validation:MinItems=1
 	Conditions []ListenerRuleCondition `json:"conditions,omitempty"`
+
+	// Transforms defines the set of transforms to apply to the request before forwarding.
+	// Transforms allow modifying request attributes such as the Host header
+	// using regex-based rewrite rules.
+	// +optional
+	// +kubebuilder:validation:MaxItems=1
+	Transforms []ListenerRuleTransform `json:"transforms,omitempty"`
 
 	// Tags are the AWS resource tags to be applied to all AWS resources created for this rule.
 	// +optional

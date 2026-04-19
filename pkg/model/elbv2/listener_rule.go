@@ -154,6 +154,11 @@ type RewriteConfig struct {
 type RewriteConfigObject struct {
 	// Rewrites for the transform
 	Rewrites []RewriteConfig `json:"rewrites"`
+	// SourceHeader specifies a request header whose value is used as input
+	// for the host header rewrite. When set, the ALB will use this header's
+	// value (instead of the current Host header) as the source for regex matching.
+	// +optional
+	SourceHeader *string `json:"sourceHeader,omitempty"`
 }
 
 type Transform struct {

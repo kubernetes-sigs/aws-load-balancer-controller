@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -121,4 +122,50 @@ func generatePrefixReplacementRegex(httpMatch *gwv1.HTTPRouteMatch, replacement 
 	}
 
 	return fmt.Sprintf("(^%s(/)?)", match), replacement
+}
+
+// BuildListenerRuleConfigTransforms converts transforms from the ListenerRuleConfiguration CRD
+// into internal model transforms. These are merged with any transforms generated from
+// Gateway API HTTPRoute filters (e.g., URLRewrite).
+func BuildListenerRuleConfigTransforms(ruleWithPrecedence RulePrecedence) []elbv2model.Transform {
+	rule := ruleWithPrecedence.CommonRulePrecedence.Rule
+	if rule.GetListenerRuleConfig() == nil {
+		return nil
+	}
+	crdTransforms := rule.GetListenerRuleConfig().Spec.Transforms
+	if len(crdTransforms) == 0 {
+		return nil
+	}
+	var transforms []elbv2model.Transform
+	for _, crdTransform := range crdTransforms {
+		transforms = append(transforms, convertCRDTransform(crdTransform))
+	}
+	return transforms
+}
+
+func convertCRDTransform(crdTransform elbv2gw.ListenerRuleTransform) elbv2model.Transform {
+	switch crdTransform.Type {
+	case elbv2gw.ListenerRuleTransformTypeHostHeaderRewrite:
+		return convertCRDHostHeaderRewriteTransform(crdTransform)
+	default:
+		return elbv2model.Transform{}
+	}
+}
+
+func convertCRDHostHeaderRewriteTransform(crdTransform elbv2gw.ListenerRuleTransform) elbv2model.Transform {
+	rewrites := make([]elbv2model.RewriteConfig, 0, len(crdTransform.HostHeaderRewriteConfig.Rewrites))
+	for _, r := range crdTransform.HostHeaderRewriteConfig.Rewrites {
+		rewrites = append(rewrites, elbv2model.RewriteConfig{
+			Regex:   r.Regex,
+			Replace: r.Replace,
+		})
+	}
+	rewriteObj := &elbv2model.RewriteConfigObject{
+		Rewrites:     rewrites,
+		SourceHeader: crdTransform.HostHeaderRewriteConfig.SourceHeader,
+	}
+	return elbv2model.Transform{
+		Type:                    elbv2model.TransformTypeHostHeaderRewrite,
+		HostHeaderRewriteConfig: rewriteObj,
+	}
 }

@@ -312,8 +312,11 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		albRules = append(albRules, elbv2model.Rule{
 			Conditions: conditionsList,
 			Actions:    actions,
-			Transforms: routeutils.BuildRoutingRuleTransforms(route, ruleWithPrecedence),
-			Tags:       tags,
+			Transforms: mergeTransforms(
+				routeutils.BuildRoutingRuleTransforms(route, ruleWithPrecedence),
+				routeutils.BuildListenerRuleConfigTransforms(ruleWithPrecedence),
+			),
+			Tags: tags,
 		})
 
 	}
@@ -332,6 +335,35 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		priority += 1
 	}
 	return secrets, nil
+}
+
+// mergeTransforms combines transforms from Gateway API HTTPRoute filters and
+// ListenerRuleConfiguration CRD. CRD transforms take precedence: if the CRD
+// specifies a transform of the same type as one from the HTTPRoute, the CRD
+// version replaces it.
+func mergeTransforms(routeTransforms, crdTransforms []elbv2model.Transform) []elbv2model.Transform {
+	if len(crdTransforms) == 0 {
+		return routeTransforms
+	}
+	if len(routeTransforms) == 0 {
+		return crdTransforms
+	}
+
+	// Build a set of transform types from CRD transforms
+	crdTypes := make(map[elbv2model.TransformType]bool, len(crdTransforms))
+	for _, t := range crdTransforms {
+		crdTypes[t.Type] = true
+	}
+
+	// Keep route transforms that are not overridden by CRD
+	merged := make([]elbv2model.Transform, 0, len(routeTransforms)+len(crdTransforms))
+	for _, t := range routeTransforms {
+		if !crdTypes[t.Type] {
+			merged = append(merged, t)
+		}
+	}
+	merged = append(merged, crdTransforms...)
+	return merged
 }
 
 func (l listenerBuilderImpl) buildListenerTags(lbCfg elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {

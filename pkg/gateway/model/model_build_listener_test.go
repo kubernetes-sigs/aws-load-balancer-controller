@@ -2461,3 +2461,148 @@ func TestMergeProtocols_WithQuic(t *testing.T) {
 		})
 	}
 }
+
+func Test_mergeTransforms(t *testing.T) {
+	testCases := []struct {
+		name            string
+		routeTransforms []elbv2model.Transform
+		crdTransforms   []elbv2model.Transform
+		expected        []elbv2model.Transform
+	}{
+		{
+			name:            "both nil",
+			routeTransforms: nil,
+			crdTransforms:   nil,
+			expected:        nil,
+		},
+		{
+			name: "crd transforms nil, route transforms returned",
+			routeTransforms: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "route.example.com"},
+						},
+					},
+				},
+			},
+			crdTransforms: nil,
+			expected: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "route.example.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:            "route transforms nil, crd transforms returned",
+			routeTransforms: nil,
+			crdTransforms: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "crd.example.com"},
+						},
+					},
+				},
+			},
+			expected: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "crd.example.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "crd overrides route transform of same type",
+			routeTransforms: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "route.example.com"},
+						},
+					},
+				},
+			},
+			crdTransforms: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "crd.example.com"},
+						},
+					},
+				},
+			},
+			expected: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "crd.example.com"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "different types are merged together",
+			routeTransforms: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeUrlRewrite,
+					UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: "^/old/(.*)", Replace: "/new/$1"},
+						},
+					},
+				},
+			},
+			crdTransforms: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "crd.example.com"},
+						},
+					},
+				},
+			},
+			expected: []elbv2model.Transform{
+				{
+					Type: elbv2model.TransformTypeUrlRewrite,
+					UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: "^/old/(.*)", Replace: "/new/$1"},
+						},
+					},
+				},
+				{
+					Type: elbv2model.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2model.RewriteConfigObject{
+						Rewrites: []elbv2model.RewriteConfig{
+							{Regex: ".*", Replace: "crd.example.com"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := mergeTransforms(tc.routeTransforms, tc.crdTransforms)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
