@@ -792,6 +792,11 @@ func (t *defaultModelBuildTask) buildFrontendNlbTargetGroupSpec(ctx context.Cont
 
 	tgName := t.buildFrontendNlbTargetGroupName(ctx, port, elbv2model.TargetTypeALB, tgProtocol, healthCheckConfig)
 
+	tags, err := t.buildFrontendNlbTags(ctx, nil)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+
 	return elbv2model.TargetGroupSpec{
 		Name:              tgName,
 		TargetType:        elbv2model.TargetTypeALB,
@@ -799,6 +804,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbTargetGroupSpec(ctx context.Cont
 		Protocol:          tgProtocol,
 		IPAddressType:     elbv2model.TargetGroupIPAddressTypeIPv4,
 		HealthCheckConfig: healthCheckConfig,
+		Tags:              tags,
 	}, nil
 }
 

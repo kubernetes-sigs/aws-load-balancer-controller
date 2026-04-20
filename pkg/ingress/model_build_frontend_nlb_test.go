@@ -1010,6 +1010,82 @@ func Test_buildFrontendNlbTags(t *testing.T) {
 	}
 }
 
+func Test_buildFrontendNlbTargetGroupSpecTags(t *testing.T) {
+	healthCheckPort := intstr.FromString("traffic-port")
+	healthCheckConfig := &elbv2model.TargetGroupHealthCheckConfig{
+		Port:     &healthCheckPort,
+		Protocol: elbv2model.ProtocolHTTP,
+	}
+
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		defaultTags map[string]string
+		wantTags    map[string]string
+	}{
+		{
+			name:        "default tags are applied",
+			annotations: map[string]string{},
+			defaultTags: map[string]string{
+				"KubernetesCluster": "test-cluster",
+				"group":             "sig-cluster-lifecycle",
+				"subproject":        "kops",
+			},
+			wantTags: map[string]string{
+				"KubernetesCluster": "test-cluster",
+				"group":             "sig-cluster-lifecycle",
+				"subproject":        "kops",
+			},
+		},
+		{
+			name: "frontend-nlb-tags are applied instead of ALB tags",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/frontend-nlb-tags": "frontend=nlb",
+				"alb.ingress.kubernetes.io/tags":              "alb=tag",
+			},
+			defaultTags: map[string]string{
+				"default": "tag",
+			},
+			wantTags: map[string]string{
+				"frontend": "nlb",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				clusterName: "test-cluster",
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "ing",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "ing",
+									Annotations: tt.annotations,
+								},
+							},
+						},
+					},
+				},
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				defaultTags:      tt.defaultTags,
+				featureGates:     config.NewFeatureGates(),
+			}
+
+			got, err := task.buildFrontendNlbTargetGroupSpec(context.Background(), elbv2model.ProtocolTCP, 80, healthCheckConfig)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantTags, got.Tags)
+		})
+	}
+}
+
 func Test_mergeFrontendNlbListenPortConfigs(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -1332,6 +1408,7 @@ func Test_defaultModelBuildTask_buildFrontendNlbListeners(t *testing.T) {
 				frontendNlb:          mockLoadBalancer,
 				stack:                stack,
 				localFrontendNlbData: make(map[string]*elbv2model.FrontendNlbTargetGroupState),
+				featureGates:         config.NewFeatureGates(),
 			}
 
 			err := task.buildFrontendNlbListeners(context.Background(), tt.listenerPortConfigByIngress)
