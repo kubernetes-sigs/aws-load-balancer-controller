@@ -607,6 +607,11 @@ func (t *defaultModelBuildTask) buildFrontendNlbListenerSpec(ctx context.Context
 
 	defaultActions := t.buildFrontendNlbListenerDefaultActions(ctx, targetGroup)
 
+	tags, err := t.buildFrontendNlbTags(ctx, nil)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
+	}
+
 	t.localFrontendNlbData[targetGroup.Spec.Name] = &elbv2model.FrontendNlbTargetGroupState{
 		Name:       targetGroup.Spec.Name,
 		ARN:        targetGroup.TargetGroupARN(),
@@ -620,6 +625,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbListenerSpec(ctx context.Context
 		Port:            port,
 		Protocol:        listenerProtocol,
 		DefaultActions:  defaultActions,
+		Tags:            tags,
 	}, nil
 }
 

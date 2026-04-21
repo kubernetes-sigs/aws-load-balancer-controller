@@ -1086,6 +1086,68 @@ func Test_buildFrontendNlbTargetGroupSpecTags(t *testing.T) {
 	}
 }
 
+func Test_buildFrontendNlbListenerSpecTags(t *testing.T) {
+	// Regression guard: the NLB listener spec must carry tags so that
+	// kops's IAM policy (which requires aws:RequestTag/KubernetesCluster on
+	// CreateListener) accepts the call. Tag-resolution rules are covered by
+	// Test_buildFrontendNlbTags; this just verifies the listener spec pipes
+	// tags through.
+	stack := core.NewDefaultStack(core.StackID{Name: "awesome-stack"})
+	mockFrontendNlb := elbv2model.NewLoadBalancer(stack, "FrontendNlb", elbv2model.LoadBalancerSpec{
+		IPAddressType: elbv2model.IPAddressTypeIPV4,
+	})
+	mockLoadBalancer := elbv2model.NewLoadBalancer(stack, "LoadBalancer", elbv2model.LoadBalancerSpec{
+		IPAddressType: elbv2model.IPAddressTypeIPV4,
+	})
+
+	task := &defaultModelBuildTask{
+		clusterName: "test-cluster",
+		ingGroup: Group{
+			ID: GroupID{
+				Namespace: "awesome-ns",
+				Name:      "ing",
+			},
+			Members: []ClassifiedIngress{
+				{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing",
+						},
+					},
+				},
+			},
+		},
+		annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+		defaultTags: map[string]string{
+			"KubernetesCluster": "test-cluster",
+			"group":             "sig-cluster-lifecycle",
+			"subproject":        "kops",
+		},
+		featureGates:         config.NewFeatureGates(),
+		stack:                stack,
+		frontendNlb:          mockFrontendNlb,
+		loadBalancer:         mockLoadBalancer,
+		localFrontendNlbData: make(map[string]*elbv2model.FrontendNlbTargetGroupState),
+	}
+
+	got, err := task.buildFrontendNlbListenerSpec(context.Background(), 80, FrontendNlbListenerConfig{
+		Port:       80,
+		Protocol:   "TCP",
+		TargetPort: 80,
+		HealthCheckConfig: elbv2model.TargetGroupHealthCheckConfig{
+			Protocol: elbv2model.ProtocolHTTP,
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]string{
+		"KubernetesCluster": "test-cluster",
+		"group":             "sig-cluster-lifecycle",
+		"subproject":        "kops",
+	}, got.Tags)
+}
+
 func Test_mergeFrontendNlbListenPortConfigs(t *testing.T) {
 	tests := []struct {
 		name           string
