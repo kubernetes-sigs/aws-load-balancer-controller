@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	networking "k8s.io/api/networking/v1"
@@ -84,9 +85,8 @@ func isCrossNamespace(ingresses []networking.Ingress) bool {
 	return false
 }
 
-// lbLevelAnnotationSuffixes are the annotation suffixes that apply at the
-// LoadBalancer / listener level. These must be consistent across all Ingresses
-// in a group (LBC errors on conflict at runtime).
+// lbLevelAnnotationSuffixes are the annotation suffixes that must be consistent
+// across all Ingresses in a group. LBC errors on conflict at runtime for these.
 var lbLevelAnnotationSuffixes = []string{
 	annotations.IngressSuffixScheme,
 	annotations.IngressSuffixLoadBalancerName,
@@ -218,7 +218,7 @@ func mergeStringMapAnnotation(members []networking.Ingress, merged map[string]st
 
 // mergeGroupListenPorts unions listen-port entries across group members.
 // Returns allPorts (the union for the shared Gateway) and perIngressPorts
-func mergeGroupListenPorts(members []networking.Ingress, mergedAnnotations map[string]string) ([]listenPortEntry, map[string][]listenPortEntry, error) {
+func mergeGroupListenPorts(members []networking.Ingress) ([]listenPortEntry, map[string][]listenPortEntry, error) {
 	seen := make(map[listenPortEntry]struct{})
 	var allPorts []listenPortEntry
 	perIngressPorts := make(map[string][]listenPortEntry)
@@ -229,7 +229,7 @@ func mergeGroupListenPorts(members []networking.Ingress, mergedAnnotations map[s
 			return nil, nil, fmt.Errorf("failed to parse listen-ports for %s: %w", k8s.NamespacedName(&ing).String(), err)
 		}
 		if len(ports) == 0 {
-			ports = defaultListenPorts(ing.Annotations, mergedAnnotations)
+			ports = defaultListenPorts(ing.Annotations)
 		}
 		perIngressPorts[k8s.NamespacedName(&ing).String()] = ports
 		for _, p := range ports {
@@ -252,19 +252,21 @@ func mergeGroupListenPorts(members []networking.Ingress, mergedAnnotations map[s
 }
 
 // defaultListenPorts returns the default listen-port when no listen-ports annotation is set.
-// HTTPS:443 if certificate-arn is present, otherwise HTTP:80.
-func defaultListenPorts(memberAnnotations, mergedAnnotations map[string]string) []listenPortEntry {
-	if getString(memberAnnotations, annotations.IngressSuffixCertificateARN) != "" ||
-		getString(mergedAnnotations, annotations.IngressSuffixCertificateARN) != "" {
+// HTTPS:443 if certificate-arn is present on the member itself, otherwise HTTP:80.
+func defaultListenPorts(ingressAnnotation map[string]string) []listenPortEntry {
+	if getString(ingressAnnotation, annotations.IngressSuffixCertificateARN) != "" {
 		return []listenPortEntry{{Protocol: utils.ProtocolHTTPS, Port: 443}}
 	}
 	return []listenPortEntry{{Protocol: utils.ProtocolHTTP, Port: 80}}
 }
 
-// resolveGroupICP finds the IngressClassParams for a group.
-// If multiple members reference different ICPs, returns an error.
-func resolveGroupICP(members []networking.Ingress, icpByClass map[string]*elbv2api.IngressClassParams) (*elbv2api.IngressClassParams, error) {
-	var groupICP *elbv2api.IngressClassParams
+// resolveGroupICPs collects all unique IngressClassParams referenced by group members.
+// In LBC, each member's ICP values are collected into per-field sets and conflict-checked
+// at the value level. We return all unique ICPs so the caller can apply them all and
+// let the per-field conflict detection in applyIngressClassParamsToLBConfig catch issues.
+func resolveGroupICPs(members []networking.Ingress, icpByClass map[string]*elbv2api.IngressClassParams) []*elbv2api.IngressClassParams {
+	seen := make(map[string]struct{})
+	var icps []*elbv2api.IngressClassParams
 	for _, ing := range members {
 		if ing.Spec.IngressClassName == nil {
 			continue
@@ -273,22 +275,41 @@ func resolveGroupICP(members []networking.Ingress, icpByClass map[string]*elbv2a
 		if !exist {
 			continue
 		}
-		if groupICP == nil {
-			groupICP = icp
-		} else if groupICP.Name != icp.Name {
-			return nil, fmt.Errorf("conflicting IngressClassParams in group: %q vs %q",
-				groupICP.Name, icp.Name)
+		if _, exists := seen[icp.Name]; !exists {
+			seen[icp.Name] = struct{}{}
+			icps = append(icps, icp)
 		}
 	}
-	return groupICP, nil
+	return icps
 }
 
-// resolveGroupSSLRedirect collects ssl-redirect across all members and ICP.
+// resolveGroupSSLRedirect collects ssl-redirect across all members and ICPs.
 // Returns nil if not set. Errors if >1 distinct value.
-func resolveGroupSSLRedirect(members []networking.Ingress, icp *elbv2api.IngressClassParams) (*int32, error) {
+func resolveGroupSSLRedirect(members []networking.Ingress, icpByClass map[string]*elbv2api.IngressClassParams) (*int32, error) {
+	// Per-member resolution: ICP wins over annotation for each member.
+	// Then group-wide conflict detection across all resolved values.
+	// This matches LBC's buildSSLRedirectConfig behavior.
 	var result *int32
 	for _, ing := range members {
-		p := resolveSSLRedirectPort(ing.Annotations, icp)
+		var p *int32
+
+		// Check if this member's ICP sets ssl-redirect
+		if ing.Spec.IngressClassName != nil {
+			if icp, exist := icpByClass[*ing.Spec.IngressClassName]; exist && icp.Spec.SSLRedirectPort != "" {
+				port, err := strconv.ParseInt(icp.Spec.SSLRedirectPort, 10, 32)
+				if err != nil {
+					return nil, fmt.Errorf("invalid ICP ssl-redirect port %q: %w", icp.Spec.SSLRedirectPort, err)
+				}
+				v := int32(port)
+				p = &v
+			}
+		}
+
+		// If ICP didn't set it for this member, check annotation
+		if p == nil {
+			p = getInt32(ing.Annotations, annotations.IngressSuffixSSLRedirect)
+		}
+
 		if p == nil {
 			continue
 		}

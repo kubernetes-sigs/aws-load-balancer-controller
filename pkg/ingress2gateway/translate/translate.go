@@ -58,24 +58,23 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 			return nil, fmt.Errorf("error in mergeGroupLBAnnotations for group %q: %w", group.name, err)
 		}
 
-		allPorts, perMemberPorts, err := mergeGroupListenPorts(group.members, mergedAnnotations)
+		allPorts, perMemberPorts, err := mergeGroupListenPorts(group.members)
 		if err != nil {
 			return nil, fmt.Errorf("error in mergeGroupListenPorts for group %q: %w", group.name, err)
 		}
 
-		icp, err := resolveGroupICP(group.members, ingressClassParamsByClass)
-		if err != nil {
-			return nil, fmt.Errorf("error in resolveGroupICP for group %q: %w", group.name, err)
-		}
+		icps := resolveGroupICPs(group.members, ingressClassParamsByClass)
 
-		sslRedirectPort, err := resolveGroupSSLRedirect(group.members, icp)
+		sslRedirectPort, err := resolveGroupSSLRedirect(group.members, ingressClassParamsByClass)
 		if err != nil {
 			return nil, fmt.Errorf("error in resolveGroupSSLRedirect for group %q: %w", group.name, err)
 		}
 
 		// --- Build LoadBalancerConfiguration ---
 		lbConfig := buildLoadBalancerConfigResource(lbConfigName, group.namespace, mergedAnnotations, allPorts, lbMigrationTag)
-		if icp != nil {
+
+		// Apply ICP overrides: merge all ICPs with conflict detection, then override annotation-derived values
+		if len(icps) > 0 {
 			if lbConfig == nil {
 				lbConfig = &gatewayv1beta1.LoadBalancerConfiguration{
 					TypeMeta: metav1.TypeMeta{
@@ -88,7 +87,15 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 					},
 				}
 			}
-			applyIngressClassParamsToLBConfig(&lbConfig.Spec, icp)
+			// Step 1: Merge all ICPs into a fresh spec with conflict detection (ICP-vs-ICP)
+			var mergedICPSpec gatewayv1beta1.LoadBalancerConfigurationSpec
+			for _, icp := range icps {
+				if err := applyIngressClassParamsToLBConfig(&mergedICPSpec, icp); err != nil {
+					return nil, fmt.Errorf("group %q: %w", group.name, err)
+				}
+			}
+			// Step 2: Apply merged ICP spec on top of annotation-derived LBConfig (ICP wins over annotations)
+			applyICPSpecOverride(&lbConfig.Spec, &mergedICPSpec)
 		}
 		if lbConfig != nil {
 			out.LoadBalancerConfigurations = append(out.LoadBalancerConfigurations, *lbConfig)
@@ -149,7 +156,7 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 				tgAnnotations := mergeTGAnnotations(effectiveAnnotations, servicesByKey, svcRef.namespace, svcRef.name)
 				tgc := buildTargetGroupConfig(svcRef, tgAnnotations, memberMigrationTag)
 				if tgc != nil {
-					if icp != nil {
+					for _, icp := range icps {
 						applyIngressClassParamsToTGProps(&tgc.Spec.DefaultConfiguration, icp)
 					}
 					out.TargetGroupConfigurations = append(out.TargetGroupConfigurations, *tgc)

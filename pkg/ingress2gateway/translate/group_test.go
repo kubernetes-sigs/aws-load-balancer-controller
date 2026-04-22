@@ -182,7 +182,6 @@ func TestMergeGroupListenPorts(t *testing.T) {
 	tests := []struct {
 		name           string
 		members        []networking.Ingress
-		mergedAnnos    map[string]string
 		wantAllPorts   int
 		wantMemberKeys []string
 	}{
@@ -196,7 +195,6 @@ func TestMergeGroupListenPorts(t *testing.T) {
 					"alb.ingress.kubernetes.io/listen-ports": `[{"HTTPS":443}]`,
 				}}},
 			},
-			mergedAnnos:    map[string]string{},
 			wantAllPorts:   2,
 			wantMemberKeys: []string{"ns/a", "ns/b"},
 		},
@@ -210,7 +208,6 @@ func TestMergeGroupListenPorts(t *testing.T) {
 					"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP":80}]`,
 				}}},
 			},
-			mergedAnnos:  map[string]string{},
 			wantAllPorts: 1,
 		},
 		{
@@ -218,21 +215,21 @@ func TestMergeGroupListenPorts(t *testing.T) {
 			members: []networking.Ingress{
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}},
 			},
-			mergedAnnos:  map[string]string{},
 			wantAllPorts: 1, // HTTP:80 default
 		},
 		{
-			name: "default HTTPS when cert-arn in merged",
+			name: "default HTTPS when member has cert-arn",
 			members: []networking.Ingress{
-				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/certificate-arn": "arn:cert",
+				}}},
 			},
-			mergedAnnos:  map[string]string{"alb.ingress.kubernetes.io/certificate-arn": "arn:cert"},
 			wantAllPorts: 1, // HTTPS:443 default
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			allPorts, perMember, err := mergeGroupListenPorts(tt.members, tt.mergedAnnos)
+			allPorts, perMember, err := mergeGroupListenPorts(tt.members)
 			require.NoError(t, err)
 			assert.Len(t, allPorts, tt.wantAllPorts)
 			if tt.wantMemberKeys != nil {
@@ -244,26 +241,24 @@ func TestMergeGroupListenPorts(t *testing.T) {
 	}
 }
 
-func TestResolveGroupICP(t *testing.T) {
+func TestResolveGroupICPs(t *testing.T) {
 	icpA := &elbv2api.IngressClassParams{ObjectMeta: metav1.ObjectMeta{Name: "params-a"}}
-	icpB := &elbv2api.IngressClassParams{ObjectMeta: metav1.ObjectMeta{Name: "params-b"}}
 	icpByClass := map[string]*elbv2api.IngressClassParams{
-		"alb":        icpA,
-		"alb-public": icpB,
+		"alb": icpA,
 	}
 
 	tests := []struct {
-		name    string
-		members []networking.Ingress
-		wantICP string // expected ICP name, or "" for nil
-		wantErr string
+		name     string
+		members  []networking.Ingress
+		wantLen  int
+		wantName string // first ICP name if wantLen > 0
 	}{
 		{
 			name: "no ICP",
 			members: []networking.Ingress{
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}},
 			},
-			wantICP: "",
+			wantLen: 0,
 		},
 		{
 			name: "one member with ICP",
@@ -271,87 +266,123 @@ func TestResolveGroupICP(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}, Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns"}},
 			},
-			wantICP: "params-a",
+			wantLen:  1,
+			wantName: "params-a",
 		},
 		{
-			name: "same ICP no conflict",
+			name: "same ICP deduped",
 			members: []networking.Ingress{
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}, Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns"}, Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
 			},
-			wantICP: "params-a",
-		},
-		{
-			name: "different ICPs conflict",
-			members: []networking.Ingress{
-				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}, Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns"}, Spec: networking.IngressSpec{IngressClassName: ptr.To("alb-public")}},
-			},
-			wantErr: "conflicting IngressClassParams",
+			wantLen:  1,
+			wantName: "params-a",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			icp, err := resolveGroupICP(tt.members, icpByClass)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			if tt.wantICP == "" {
-				assert.Nil(t, icp)
-			} else {
-				require.NotNil(t, icp)
-				assert.Equal(t, tt.wantICP, icp.Name)
+			icps := resolveGroupICPs(tt.members, icpByClass)
+			assert.Len(t, icps, tt.wantLen)
+			if tt.wantLen > 0 {
+				assert.Equal(t, tt.wantName, icps[0].Name)
 			}
 		})
 	}
 }
 
 func TestResolveGroupSSLRedirect(t *testing.T) {
+	icpWithRedirect := &elbv2api.IngressClassParams{
+		ObjectMeta: metav1.ObjectMeta{Name: "params-redirect"},
+		Spec:       elbv2api.IngressClassParamsSpec{SSLRedirectPort: "443"},
+	}
+	icpWithDifferentRedirect := &elbv2api.IngressClassParams{
+		ObjectMeta: metav1.ObjectMeta{Name: "params-redirect-8443"},
+		Spec:       elbv2api.IngressClassParamsSpec{SSLRedirectPort: "8443"},
+	}
+	icpNoRedirect := &elbv2api.IngressClassParams{
+		ObjectMeta: metav1.ObjectMeta{Name: "params-no-redirect"},
+	}
+
 	tests := []struct {
-		name    string
-		members []networking.Ingress
-		wantNil bool
-		wantVal int32
-		wantErr string
+		name       string
+		members    []networking.Ingress
+		icpByClass map[string]*elbv2api.IngressClassParams
+		wantNil    bool
+		wantVal    int32
+		wantErr    string
 	}{
 		{
-			name: "no ssl-redirect",
+			name: "no ssl-redirect anywhere",
 			members: []networking.Ingress{
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"}},
 			},
-			wantNil: true,
+			icpByClass: map[string]*elbv2api.IngressClassParams{},
+			wantNil:    true,
 		},
 		{
-			name: "one member sets ssl-redirect",
+			name: "one member sets ssl-redirect via annotation",
 			members: []networking.Ingress{
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns"}},
 			},
-			wantVal: 443,
+			icpByClass: map[string]*elbv2api.IngressClassParams{},
+			wantVal:    443,
 		},
 		{
-			name: "same value no conflict",
-			members: []networking.Ingress{
-				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"}}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"}}},
-			},
-			wantVal: 443,
-		},
-		{
-			name: "conflicting values",
+			name: "conflicting annotation values",
 			members: []networking.Ingress{
 				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "8443"}}},
 			},
+			icpByClass: map[string]*elbv2api.IngressClassParams{},
+			wantErr:    "conflicting ssl-redirect",
+		},
+		{
+			name: "ICP sets ssl-redirect, annotation ignored",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "8443"}},
+					Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
+			},
+			icpByClass: map[string]*elbv2api.IngressClassParams{"alb": icpWithRedirect},
+			wantVal:    443, // ICP wins over annotation's 8443
+		},
+		{
+			name: "ICP sets ssl-redirect, member B annotation differs — error",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"},
+					Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "8443"}}},
+			},
+			icpByClass: map[string]*elbv2api.IngressClassParams{"alb": icpWithRedirect},
+			wantErr:    "conflicting ssl-redirect",
+		},
+		{
+			name: "two ICPs with different ssl-redirect — error",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns"},
+					Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "ns"},
+					Spec: networking.IngressSpec{IngressClassName: ptr.To("alb-other")}},
+			},
+			icpByClass: map[string]*elbv2api.IngressClassParams{
+				"alb":       icpWithRedirect,
+				"alb-other": icpWithDifferentRedirect,
+			},
 			wantErr: "conflicting ssl-redirect",
+		},
+		{
+			name: "ICP without ssl-redirect falls through to annotation",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "a", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/ssl-redirect": "443"}},
+					Spec: networking.IngressSpec{IngressClassName: ptr.To("alb")}},
+			},
+			icpByClass: map[string]*elbv2api.IngressClassParams{"alb": icpNoRedirect},
+			wantVal:    443,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := resolveGroupSSLRedirect(tt.members, nil)
+			result, err := resolveGroupSSLRedirect(tt.members, tt.icpByClass)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
