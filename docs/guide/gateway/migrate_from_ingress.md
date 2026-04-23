@@ -126,14 +126,6 @@ The migrated Gateway API manifests may produce more ALB listener rules than the 
 
 Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
 
-#### TargetGroupBinding
-
-If you have user-created `TargetGroupBinding` resources that reference external AWS Target Groups by ARN or name (the "bring your own TG" pattern), these are not affected by the migration. There is no Gateway API equivalent of `TargetGroupBinding` — Gateway API always creates and manages its own target groups.
-
-Standalone TGBs are reconciled independently by the TargetGroupBinding controller and do not depend on Ingress or Gateway resources. They will continue to work as-is after migration. No action is needed.
-
-Note: TargetGroupBindings that were automatically created by LBC to support Ingress or Service resources (visible via `kubectl get targetgroupbindings -n <namespace>`) are controller-managed. These are deleted when the Ingress is removed and recreated by the Gateway controller when it reconciles — you do not need to migrate them manually.
-
 #### Limited Support for Certain Ingress Annotations
 The following Ingress annotation types have limited support in the migration tool and Gatewaty API:
 
