@@ -165,7 +165,7 @@ func mergeExactMatchAnnotation(members []networking.Ingress, merged map[string]s
 func mergeCertificateARNs(members []networking.Ingress, merged map[string]string) error {
 	key := ingressAnnotationKeyPrefix + annotations.IngressSuffixCertificateARN
 	seen := make(map[string]struct{}) // for dedupe
-	var ordered []string              // for sorted output
+	var output []string
 	for _, ing := range members {
 		value, exists := ing.Annotations[key]
 		if !exists || value == "" {
@@ -178,12 +178,12 @@ func mergeCertificateARNs(members []networking.Ingress, merged map[string]string
 			}
 			if _, exists := seen[cert]; !exists {
 				seen[cert] = struct{}{}
-				ordered = append(ordered, cert)
+				output = append(output, cert)
 			}
 		}
 	}
-	if len(ordered) > 0 {
-		merged[key] = strings.Join(ordered, ",")
+	if len(output) > 0 {
+		merged[key] = strings.Join(output, ",")
 	}
 	return nil
 }

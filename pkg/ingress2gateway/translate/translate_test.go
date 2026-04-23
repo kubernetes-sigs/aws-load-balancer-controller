@@ -484,7 +484,7 @@ func TestTranslate(t *testing.T) {
 			},
 		},
 		{
-			name: "cross-namespace group gets allowedRoutes selector",
+			name: "cross-namespace group gets allowedRoutes All",
 			input: &ingress2gateway.InputResources{
 				Ingresses: []networking.Ingress{
 					{
@@ -540,12 +540,12 @@ func TestTranslate(t *testing.T) {
 			wantGatewayCount: 1, wantHTTPRouteCount: 2, wantLBConfigCount: 0, wantTGConfigCount: 0,
 			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
 				gw := out.Gateways[0]
-				// Gateway should have allowedRoutes with selector
+				// Gateway should have allowedRoutes with From: All
 				require.Len(t, gw.Spec.Listeners, 1)
 				require.NotNil(t, gw.Spec.Listeners[0].AllowedRoutes)
 				require.NotNil(t, gw.Spec.Listeners[0].AllowedRoutes.Namespaces)
-				assert.Equal(t, gwv1.NamespacesFromSelector, *gw.Spec.Listeners[0].AllowedRoutes.Namespaces.From)
-				assert.Equal(t, "cross-ns", gw.Spec.Listeners[0].AllowedRoutes.Namespaces.Selector.MatchLabels["lbc-migrate/ingress-group"])
+				assert.Equal(t, gwv1.NamespacesFromAll, *gw.Spec.Listeners[0].AllowedRoutes.Namespaces.From)
+				assert.Nil(t, gw.Spec.Listeners[0].AllowedRoutes.Namespaces.Selector)
 
 				// Cross-namespace HTTPRoute should have namespace in parentRef
 				for _, route := range out.HTTPRoutes {

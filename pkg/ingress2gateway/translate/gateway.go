@@ -37,17 +37,12 @@ func buildGateway(name, namespace string, lbConfig *gatewayv1beta1.LoadBalancerC
 			Port:     gwv1.PortNumber(lp.Port),
 			Protocol: toALBProtocol(lp.Protocol),
 		}
-		// For cross-namespace groups, allow routes from namespaces matching a label selector.
+		// For cross-namespace groups, allow routes from all namespaces.
 		if crossNamespaceGroupName != "" {
-			fromSelector := gwv1.NamespacesFromSelector
+			fromAll := gwv1.NamespacesFromAll
 			listener.AllowedRoutes = &gwv1.AllowedRoutes{
 				Namespaces: &gwv1.RouteNamespaces{
-					From: &fromSelector,
-					Selector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							utils.CrossNamespaceGroupLabel: crossNamespaceGroupName,
-						},
-					},
+					From: &fromAll,
 				},
 			}
 		}

@@ -16,12 +16,6 @@ const (
 	// MigrationTagKey is the AWS tag key used to track migration source.
 	MigrationTagKey = "gateway.k8s.aws/migrated-from"
 
-	// CrossNamespaceGroupLabel is the namespace label key used for cross-namespace
-	// IngressGroup migration. When a group spans multiple namespaces, the generated
-	// Gateway uses allowedRoutes with a selector matching this label. Users must
-	// label their namespaces with this key set to the group name.
-	CrossNamespaceGroupLabel = "lbc-migrate/ingress-group"
-
 	// ProtocolHTTP is the HTTP protocol string used in listen-ports and ProtocolPort.
 	ProtocolHTTP = "HTTP"
 
@@ -81,7 +75,6 @@ const (
 
 	// WarnCrossNamespaceGroupFormat is the warning format for cross-namespace groups.
 	WarnCrossNamespaceGroupFormat = "WARNING: IngressGroup %q has members in different namespaces. " +
-		"The generated Gateway uses allowedRoutes with a namespace selector matching label " +
-		"'lbc-migrate/ingress-group: <groupName>'. You must label the member namespaces before applying: " +
-		"kubectl label namespace <ns> lbc-migrate/ingress-group=<groupName>\n"
+		"The generated Gateway uses allowedRoutes with From: All, which permits HTTPRoutes from any namespace " +
+		"to attach. To restrict this, change From: All to From: Selector with a namespace label selector.\n"
 )

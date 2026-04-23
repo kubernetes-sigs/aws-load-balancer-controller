@@ -101,14 +101,11 @@ LB-level annotations (scheme, subnets, security groups, tags, etc.) must be cons
 
 Each member's `listen-ports` are unioned to build the shared Gateway's listeners. Each member's HTTPRoutes are scoped to only the listeners that member declared via `sectionName` in `parentRefs`. When `ssl-redirect` is set on any member, it applies group-wide: all members' routes attach to the HTTPS listener only, and a single redirect HTTPRoute is generated for HTTP listeners.
 
-Cross-namespace groups (Ingresses in different namespaces with the same `group.name`) are supported. When detected, the migration tool generates the Gateway in the first member's namespace (based on input file order) and sets `allowedRoutes.namespaces.from: Selector` on each listener, using a label selector matching `lbc-migrate/ingress-group: <groupName>`. You can move the Gateway to a different namespace after generation if needed. You must label the member namespaces accordingly before applying the generated manifests:
+Cross-namespace groups (Ingresses in different namespaces with the same `group.name`) are supported. When detected, the migration tool generates the Gateway in the first member's namespace (based on input file order) and sets `allowedRoutes.namespaces.from: All` on each listener, which permits HTTPRoutes from any namespace to attach. You can move the Gateway to a different namespace after generation if needed.
 
-```bash
-kubectl label namespace team-a lbc-migrate/ingress-group=shared-alb
-kubectl label namespace team-b lbc-migrate/ingress-group=shared-alb
-```
+!!! warning "Security consideration"
+    `From: All` allows HTTPRoutes from any namespace to attach to the Gateway. If you need tighter scoping, you can manually change `From: All` to `From: Selector` with a label selector after generation.
 
-If you later add a new namespace to the group, you must label it as well. The selector only matches namespaces with the label at the time of route attachment. See the [Gateway API cross-namespace routing guide](https://gateway-api.sigs.k8s.io/guides/multiple-ns/) for details.
 
 ### Known Differences from Ingress
 

@@ -30,7 +30,6 @@ func TestBuildGateway(t *testing.T) {
 		wantListeners           int
 		wantParamsRef           bool
 		wantAllowedRoutes       bool
-		wantGroupLabel          string
 	}{
 		{
 			name:   "with LB config",
@@ -48,13 +47,12 @@ func TestBuildGateway(t *testing.T) {
 			wantListeners: 2, wantParamsRef: false,
 		},
 		{
-			name:   "cross-namespace group sets allowedRoutes selector",
+			name:   "cross-namespace group sets allowedRoutes to All",
 			gwName: "gw", namespace: "infra-ns",
 			listenPorts:             []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
 			crossNamespaceGroupName: "shared-alb",
 			wantListeners:           2,
 			wantAllowedRoutes:       true,
-			wantGroupLabel:          "shared-alb",
 		},
 		{
 			name:   "same-namespace group has no allowedRoutes",
@@ -81,9 +79,8 @@ func TestBuildGateway(t *testing.T) {
 					require.NotNil(t, listener.AllowedRoutes, "listener %s should have AllowedRoutes", listener.Name)
 					require.NotNil(t, listener.AllowedRoutes.Namespaces)
 					require.NotNil(t, listener.AllowedRoutes.Namespaces.From)
-					assert.Equal(t, gwv1.NamespacesFromSelector, *listener.AllowedRoutes.Namespaces.From)
-					require.NotNil(t, listener.AllowedRoutes.Namespaces.Selector)
-					assert.Equal(t, tt.wantGroupLabel, listener.AllowedRoutes.Namespaces.Selector.MatchLabels[utils.CrossNamespaceGroupLabel])
+					assert.Equal(t, gwv1.NamespacesFromAll, *listener.AllowedRoutes.Namespaces.From)
+					assert.Nil(t, listener.AllowedRoutes.Namespaces.Selector)
 				} else {
 					assert.Nil(t, listener.AllowedRoutes, "listener %s should not have AllowedRoutes", listener.Name)
 				}
