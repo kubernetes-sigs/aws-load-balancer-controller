@@ -269,7 +269,7 @@ func BuildGatewayClassSpec(controllerName string) *gwv1.GatewayClass {
 	lbType := strings.Split(controllerName, "/")[1]
 	gwc := &gwv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: DefaultGatewayClassName + "-" + lbType,
+			Name: fmt.Sprintf("%s-%s-%s", DefaultGatewayClassName, lbType, utils.RandomDNS1123Label(6)),
 		},
 		Spec: gwv1.GatewayClassSpec{
 			ControllerName: gwv1.GatewayController(controllerName),
