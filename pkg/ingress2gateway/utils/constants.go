@@ -65,4 +65,16 @@ const (
 		Tip: Use --from-cluster to automatically read all referenced resources,
 			or include Service/IngressClass/IngressClassParams files in your input.
 		`
+
+	// WarnGroupOrderMessage is the warning shown when group.order is detected.
+	WarnGroupOrderMessage = `
+		WARNING: group.order annotation detected. Gateway API has no equivalent of group.order.
+		Rule precedence will be determined by Gateway API definitions. Review generated HTTPRoutes to verify
+		expected behavior matches current Ingress rule ordering.
+		`
+
+	// WarnCrossNamespaceGroupFormat is the warning format for cross-namespace groups.
+	WarnCrossNamespaceGroupFormat = "WARNING: IngressGroup %q has members in different namespaces. " +
+		"The generated Gateway uses allowedRoutes with From: All, which permits HTTPRoutes from any namespace " +
+		"to attach. To restrict this, change From: All to From: Selector with a namespace label selector.\n"
 )

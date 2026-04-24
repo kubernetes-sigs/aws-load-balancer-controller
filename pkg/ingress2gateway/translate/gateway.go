@@ -1,8 +1,6 @@
 package translate
 
 import (
-	"strings"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
@@ -29,7 +27,9 @@ func buildGatewayClass() gwv1.GatewayClass {
 
 // buildGateway builds a Gateway resource from listen-ports.
 // If lbConfig is non-nil, the Gateway's infrastructure.parametersRef points to it.
-func buildGateway(name, namespace string, lbConfig *gatewayv1beta1.LoadBalancerConfiguration, listenPorts []listenPortEntry) gwv1.Gateway {
+// If crossNamespaceGroupName is non-empty, each listener gets allowedRoutes with a
+// namespace selector so cross-namespace HTTPRoutes can attach.
+func buildGateway(name, namespace string, lbConfig *gatewayv1beta1.LoadBalancerConfiguration, listenPorts []listenPortEntry, crossNamespaceGroupName string) gwv1.Gateway {
 	var listeners []gwv1.Listener
 	for _, lp := range listenPorts {
 		listener := gwv1.Listener{
@@ -37,13 +37,12 @@ func buildGateway(name, namespace string, lbConfig *gatewayv1beta1.LoadBalancerC
 			Port:     gwv1.PortNumber(lp.Port),
 			Protocol: toALBProtocol(lp.Protocol),
 		}
-		// Gateway API requires a tls section for HTTPS listeners.
-		// The actual certificate is configured via LoadBalancerConfiguration,
-		// but the webhook rejects HTTPS listeners without tls set.
-		if strings.EqualFold(lp.Protocol, utils.ProtocolHTTPS) {
-			listener.TLS = &gwv1.ListenerTLSConfig{
-				CertificateRefs: []gwv1.SecretObjectReference{
-					{Name: utils.PlaceholderTLSSecretName},
+		// For cross-namespace groups, allow routes from all namespaces.
+		if crossNamespaceGroupName != "" {
+			fromAll := gwv1.NamespacesFromAll
+			listener.AllowedRoutes = &gwv1.AllowedRoutes{
+				Namespaces: &gwv1.RouteNamespaces{
+					From: &fromAll,
 				},
 			}
 		}

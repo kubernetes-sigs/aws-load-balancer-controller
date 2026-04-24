@@ -416,10 +416,184 @@ func TestTranslate(t *testing.T) {
 				assert.True(t, found, "HTTPRoute rule should have ExtensionRef filter for LRC %s", lrc.Name)
 			},
 		},
+		{
+			name: "grouped ingresses produce one shared Gateway",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "api", Namespace: "demo",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name": "shared-alb",
+								"alb.ingress.kubernetes.io/scheme":     "internet-facing",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								Host: "api.example.com",
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/api", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "api-svc", Port: networking.ServiceBackendPort{Number: 8080},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "web", Namespace: "demo",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name": "shared-alb",
+								"alb.ingress.kubernetes.io/scheme":     "internet-facing",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								Host: "web.example.com",
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "web-svc", Port: networking.ServiceBackendPort{Number: 80},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 2, wantLBConfigCount: 1, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				// One shared Gateway
+				assert.Contains(t, out.Gateways[0].Name, "grp-gw")
+				// Two separate HTTPRoutes
+				assert.Len(t, out.HTTPRoutes[0].Spec.Hostnames, 1)
+				assert.Len(t, out.HTTPRoutes[1].Spec.Hostnames, 1)
+			},
+		},
+		{
+			name: "cross-namespace group gets allowedRoutes All",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "api", Namespace: "team-a",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name": "cross-ns",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/api", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "web", Namespace: "team-b",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name": "cross-ns",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/web", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "web-svc", Port: networking.ServiceBackendPort{Number: 80},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 2, wantLBConfigCount: 0, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				gw := out.Gateways[0]
+				// Gateway should have allowedRoutes with From: All
+				require.Len(t, gw.Spec.Listeners, 1)
+				require.NotNil(t, gw.Spec.Listeners[0].AllowedRoutes)
+				require.NotNil(t, gw.Spec.Listeners[0].AllowedRoutes.Namespaces)
+				assert.Equal(t, gwv1.NamespacesFromAll, *gw.Spec.Listeners[0].AllowedRoutes.Namespaces.From)
+				assert.Nil(t, gw.Spec.Listeners[0].AllowedRoutes.Namespaces.Selector)
+
+				// Cross-namespace HTTPRoute should have namespace in parentRef
+				for _, route := range out.HTTPRoutes {
+					if route.Namespace != gw.Namespace {
+						require.NotNil(t, route.Spec.ParentRefs[0].Namespace)
+						assert.Equal(t, gwv1.Namespace(gw.Namespace), *route.Spec.ParentRefs[0].Namespace)
+					}
+				}
+			},
+		},
+		{
+			name: "conflicting scheme in group errors",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "a", Namespace: "ns",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name": "conflict",
+								"alb.ingress.kubernetes.io/scheme":     "internal",
+							},
+						},
+						Spec: networking.IngressSpec{DefaultBackend: &networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{Name: "svc", Port: networking.ServiceBackendPort{Number: 80}},
+						}},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "b", Namespace: "ns",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name": "conflict",
+								"alb.ingress.kubernetes.io/scheme":     "internet-facing",
+							},
+						},
+						Spec: networking.IngressSpec{DefaultBackend: &networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{Name: "svc", Port: networking.ServiceBackendPort{Number: 80}},
+						}},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Normalize namespaces like Migrate() does
+			tt.input.NormalizeNamespaces()
 			out, err := Translate(tt.input)
 			if tt.wantErr {
 				require.Error(t, err)

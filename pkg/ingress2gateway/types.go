@@ -43,3 +43,20 @@ type MigrateOptions struct {
 	OutputDir    string
 	OutputFormat string
 }
+
+// NormalizeNamespaces sets empty namespace fields to "default" on all input
+// resources. This mirrors the K8s API server behavior (which defaults namespace
+// during admission) for offline/file-based input where no admission runs.
+// After this call, downstream code can assume Namespace is always non-empty.
+func (r *InputResources) NormalizeNamespaces() {
+	for i := range r.Ingresses {
+		if r.Ingresses[i].Namespace == "" {
+			r.Ingresses[i].Namespace = "default"
+		}
+	}
+	for i := range r.Services {
+		if r.Services[i].Namespace == "" {
+			r.Services[i].Namespace = "default"
+		}
+	}
+}

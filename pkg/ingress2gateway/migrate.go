@@ -19,6 +19,10 @@ func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, transl
 		return nil
 	}
 
+	// Normalize empty namespaces to "default" once, so all downstream code
+	// (warnings, translate, write) can assume Namespace is always non-empty.
+	resources.NormalizeNamespaces()
+
 	fmt.Fprintf(os.Stderr, "Found %d Ingress(es), %d Service(s), %d IngressClass(es), %d IngressClassParams\n",
 		len(resources.Ingresses), len(resources.Services),
 		len(resources.IngressClasses), len(resources.IngressClassParams))

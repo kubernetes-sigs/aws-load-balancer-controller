@@ -64,7 +64,7 @@ func TestAllIngressClassParamsFieldsHandled(t *testing.T) {
 	lcs := []gatewayv1beta1.ListenerConfiguration{{ProtocolPort: "HTTPS:443"}}
 	lbSpec.ListenerConfigurations = &lcs
 
-	applyIngressClassParamsToLBConfig(&lbSpec, icp)
+	require.NoError(t, applyIngressClassParamsToLBConfig(&lbSpec, icp))
 
 	tgProps := gatewayv1beta1.TargetGroupProps{}
 	applyIngressClassParamsToTGProps(&tgProps, icp)
@@ -188,6 +188,135 @@ func TestResolveSSLRedirectPort(t *testing.T) {
 			} else {
 				require.NotNil(t, result)
 				assert.Equal(t, tt.wantPort, *result)
+			}
+		})
+	}
+}
+
+func TestApplyIngressClassParamsToLBConfig_MultiICP_Conflict(t *testing.T) {
+	tests := []struct {
+		name    string
+		icps    []*elbv2api.IngressClassParams
+		wantErr string
+	}{
+		{
+			name: "non-overlapping fields combine",
+			icps: []*elbv2api.IngressClassParams{
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Scheme: ptr.To(elbv2api.LoadBalancerSchemeInternal),
+				}},
+				{Spec: elbv2api.IngressClassParamsSpec{
+					IPAddressType: ptr.To(elbv2api.IPAddressTypeDualStack),
+				}},
+			},
+		},
+		{
+			name: "same value no conflict",
+			icps: []*elbv2api.IngressClassParams{
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Scheme: ptr.To(elbv2api.LoadBalancerSchemeInternal),
+				}},
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Scheme: ptr.To(elbv2api.LoadBalancerSchemeInternal),
+				}},
+			},
+		},
+		{
+			name: "conflicting scheme errors",
+			icps: []*elbv2api.IngressClassParams{
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Scheme: ptr.To(elbv2api.LoadBalancerSchemeInternal),
+				}},
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Scheme: ptr.To(elbv2api.LoadBalancerSchemeInternetFacing),
+				}},
+			},
+			wantErr: "conflicting IngressClassParams scheme",
+		},
+		{
+			name: "conflicting tags per-key errors",
+			icps: []*elbv2api.IngressClassParams{
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Tags: []elbv2api.Tag{{Key: "env", Value: "prod"}},
+				}},
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Tags: []elbv2api.Tag{{Key: "env", Value: "staging"}},
+				}},
+			},
+			wantErr: "conflicting IngressClassParams tag",
+		},
+		{
+			name: "non-overlapping tags combine",
+			icps: []*elbv2api.IngressClassParams{
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Tags: []elbv2api.Tag{{Key: "env", Value: "prod"}},
+				}},
+				{Spec: elbv2api.IngressClassParamsSpec{
+					Tags: []elbv2api.Tag{{Key: "team", Value: "platform"}},
+				}},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var spec gatewayv1beta1.LoadBalancerConfigurationSpec
+			var lastErr error
+			for _, icp := range tt.icps {
+				if err := applyIngressClassParamsToLBConfig(&spec, icp); err != nil {
+					lastErr = err
+					break
+				}
+			}
+			if tt.wantErr != "" {
+				require.Error(t, lastErr)
+				assert.Contains(t, lastErr.Error(), tt.wantErr)
+			} else {
+				require.NoError(t, lastErr)
+			}
+		})
+	}
+}
+
+func TestApplyICPSpecOverride(t *testing.T) {
+	internalScheme := gatewayv1beta1.LoadBalancerSchemeInternal
+	dualStack := gatewayv1beta1.LoadBalancerIpAddressTypeDualstack
+
+	tests := []struct {
+		name       string
+		dst        gatewayv1beta1.LoadBalancerConfigurationSpec
+		src        gatewayv1beta1.LoadBalancerConfigurationSpec
+		wantScheme *gatewayv1beta1.LoadBalancerScheme
+		wantIPType *gatewayv1beta1.LoadBalancerIpAddressType
+	}{
+		{
+			name:       "ICP overrides annotation-derived value",
+			dst:        gatewayv1beta1.LoadBalancerConfigurationSpec{Scheme: ptr.To(gatewayv1beta1.LoadBalancerSchemeInternetFacing)},
+			src:        gatewayv1beta1.LoadBalancerConfigurationSpec{Scheme: &internalScheme},
+			wantScheme: &internalScheme,
+		},
+		{
+			name:       "ICP sets field not in annotations",
+			dst:        gatewayv1beta1.LoadBalancerConfigurationSpec{},
+			src:        gatewayv1beta1.LoadBalancerConfigurationSpec{IpAddressType: &dualStack},
+			wantIPType: &dualStack,
+		},
+		{
+			name:       "ICP nil field does not overwrite annotation",
+			dst:        gatewayv1beta1.LoadBalancerConfigurationSpec{Scheme: ptr.To(gatewayv1beta1.LoadBalancerSchemeInternetFacing)},
+			src:        gatewayv1beta1.LoadBalancerConfigurationSpec{},
+			wantScheme: ptr.To(gatewayv1beta1.LoadBalancerSchemeInternetFacing),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			applyICPSpecOverride(&tt.dst, &tt.src)
+			if tt.wantScheme != nil {
+				require.NotNil(t, tt.dst.Scheme)
+				assert.Equal(t, *tt.wantScheme, *tt.dst.Scheme)
+			}
+			if tt.wantIPType != nil {
+				require.NotNil(t, tt.dst.IpAddressType)
+				assert.Equal(t, *tt.wantIPType, *tt.dst.IpAddressType)
 			}
 		})
 	}

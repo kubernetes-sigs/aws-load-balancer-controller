@@ -31,6 +31,10 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 
 	// Implemented: annotations handled in the translate package.
 	implemented := map[string][]string{
+		IngressGrouping: {
+			annotations.IngressSuffixGroupName,
+			annotations.IngressSuffixGroupOrder,
+		},
 		LoadBalancerConfig: {
 			annotations.IngressSuffixScheme,
 			annotations.IngressSuffixLoadBalancerName,
@@ -93,10 +97,6 @@ func TestAllIngressAnnotationsCovered(t *testing.T) {
 
 	// Planned: annotations not yet implemented.
 	planned := map[string][]string{
-		IngressGrouping: {
-			annotations.IngressSuffixGroupName,
-			annotations.IngressSuffixGroupOrder,
-		},
 		Routing: {
 			// NOTE: "use-annotation" action backends (alb.ingress.kubernetes.io/actions.{name}),
 			// condition annotations (alb.ingress.kubernetes.io/conditions.{name}), and

@@ -12,7 +12,8 @@ import (
 
 // CheckInputResources inspects the InputResources for missing referenced
 // resources and writes warnings to the provided writer (typically os.Stderr).
-// It also detects external target group references in action annotations.
+// It also detects external target group references in action annotations
+// and warns about group.order usage.
 // It returns the total number of warnings emitted.
 func CheckInputResources(resources *ingress2gateway.InputResources, w io.Writer) int {
 	warningCount := 0
@@ -22,11 +23,15 @@ func CheckInputResources(resources *ingress2gateway.InputResources, w io.Writer)
 	ingressClassNames := buildIngressClassNameSet(resources)
 
 	hasExternalTG := false
+	hasGroupOrder := false
 	for _, ing := range resources.Ingresses {
 		warningCount += checkMissingServices(ing, serviceNames, w)
 		warningCount += checkMissingIngressClass(ing, ingressClassNames, w)
 		if !hasExternalTG {
 			hasExternalTG = checkExternalTargetGroups(ing)
+		}
+		if !hasGroupOrder {
+			hasGroupOrder = checkGroupOrder(ing)
 		}
 	}
 
@@ -36,6 +41,10 @@ func CheckInputResources(resources *ingress2gateway.InputResources, w io.Writer)
 
 	if hasExternalTG {
 		fmt.Fprintln(w, utils.WarnExternalTargetGroupMessage)
+	}
+
+	if hasGroupOrder {
+		fmt.Fprintln(w, utils.WarnGroupOrderMessage)
 	}
 
 	return warningCount
@@ -61,9 +70,6 @@ func buildIngressClassNameSet(resources *ingress2gateway.InputResources) map[str
 func checkMissingServices(ing networking.Ingress, serviceNames map[string]struct{}, w io.Writer) int {
 	warningCount := 0
 	namespace := ing.Namespace
-	if namespace == "" {
-		namespace = "default"
-	}
 
 	// Check default backend
 	if ing.Spec.DefaultBackend != nil && ing.Spec.DefaultBackend.Service != nil {
@@ -103,9 +109,6 @@ func checkMissingServices(ing networking.Ingress, serviceNames map[string]struct
 
 func checkMissingIngressClass(ing networking.Ingress, ingressClassNames map[string]struct{}, w io.Writer) int {
 	namespace := ing.Namespace
-	if namespace == "" {
-		namespace = "default"
-	}
 
 	if ing.Spec.IngressClassName == nil {
 		return 0
@@ -131,4 +134,10 @@ func checkExternalTargetGroups(ing networking.Ingress) bool {
 		}
 	}
 	return false
+}
+
+// checkGroupOrder returns true if the Ingress has a group.order annotation.
+func checkGroupOrder(ing networking.Ingress) bool {
+	_, ok := ing.Annotations["alb.ingress.kubernetes.io/group.order"]
+	return ok
 }

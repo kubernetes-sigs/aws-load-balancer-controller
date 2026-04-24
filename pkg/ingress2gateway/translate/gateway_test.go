@@ -21,13 +21,15 @@ func TestBuildGatewayClass(t *testing.T) {
 
 func TestBuildGateway(t *testing.T) {
 	tests := []struct {
-		name          string
-		gwName        string
-		namespace     string
-		lbConfig      *gatewayv1beta1.LoadBalancerConfiguration
-		listenPorts   []listenPortEntry
-		wantListeners int
-		wantParamsRef bool
+		name                    string
+		gwName                  string
+		namespace               string
+		lbConfig                *gatewayv1beta1.LoadBalancerConfiguration
+		listenPorts             []listenPortEntry
+		crossNamespaceGroupName string
+		wantListeners           int
+		wantParamsRef           bool
+		wantAllowedRoutes       bool
 	}{
 		{
 			name:   "with LB config",
@@ -41,21 +43,47 @@ func TestBuildGateway(t *testing.T) {
 		{
 			name:   "without LB config",
 			gwName: "bare-gw", namespace: "default",
-			lbConfig:      nil,
 			listenPorts:   []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
 			wantListeners: 2, wantParamsRef: false,
+		},
+		{
+			name:   "cross-namespace group sets allowedRoutes to All",
+			gwName: "gw", namespace: "infra-ns",
+			listenPorts:             []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
+			crossNamespaceGroupName: "shared-alb",
+			wantListeners:           2,
+			wantAllowedRoutes:       true,
+		},
+		{
+			name:   "same-namespace group has no allowedRoutes",
+			gwName: "gw", namespace: "ns",
+			listenPorts:   []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			wantListeners: 1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gw := buildGateway(tt.gwName, tt.namespace, tt.lbConfig, tt.listenPorts)
+			gw := buildGateway(tt.gwName, tt.namespace, tt.lbConfig, tt.listenPorts, tt.crossNamespaceGroupName)
 			assert.Equal(t, tt.gwName, gw.Name)
 			require.Len(t, gw.Spec.Listeners, tt.wantListeners)
+
 			if tt.wantParamsRef {
 				require.NotNil(t, gw.Spec.Infrastructure)
 				assert.Equal(t, tt.lbConfig.Name, gw.Spec.Infrastructure.ParametersRef.Name)
 			} else {
 				assert.Nil(t, gw.Spec.Infrastructure)
+			}
+
+			for _, listener := range gw.Spec.Listeners {
+				if tt.wantAllowedRoutes {
+					require.NotNil(t, listener.AllowedRoutes, "listener %s should have AllowedRoutes", listener.Name)
+					require.NotNil(t, listener.AllowedRoutes.Namespaces)
+					require.NotNil(t, listener.AllowedRoutes.Namespaces.From)
+					assert.Equal(t, gwv1.NamespacesFromAll, *listener.AllowedRoutes.Namespaces.From)
+					assert.Nil(t, listener.AllowedRoutes.Namespaces.Selector)
+				} else {
+					assert.Nil(t, listener.AllowedRoutes, "listener %s should not have AllowedRoutes", listener.Name)
+				}
 			}
 		})
 	}
