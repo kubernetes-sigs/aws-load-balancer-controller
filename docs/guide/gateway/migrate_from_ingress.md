@@ -125,13 +125,9 @@ Additionally, ALB listener rule priority order may differ between Ingress and Ga
 
 #### TargetGroupBinding
 
-LBC uses `TargetGroupBinding` (TGB) internally to register pod targets for Ingress, Service, and Gateway resources. These controller-managed TGBs are created and deleted automatically — when you delete an Ingress, its TGBs are cleaned up, and the Gateway controller creates new ones when it reconciles. You do not need to migrate these.
+AWS Load Balancer Controller uses `TargetGroupBinding` (TGB) internally to register pod targets for Ingress, Service, and Gateway resources. These controller-managed TGBs are created and deleted automatically — when you delete an Ingress, its TGBs are cleaned up, and the Gateway controller creates new ones when it reconciles. You do not need to migrate these.
 
 If you have user-created TGBs that register pods into externally-managed AWS Target Groups (see [TargetGroupBinding documentation](../targetgroupbinding/targetgroupbinding.md)), these are independent of Ingress and Gateway resources. They are reconciled by the TargetGroupBinding controller regardless of how traffic is routed. No changes needed during migration.
-
-Standalone TGBs are reconciled independently by the TargetGroupBinding controller and do not depend on Ingress or Gateway resources. They will continue to work as-is after migration. No action is needed.
-
-Note: TargetGroupBindings that were automatically created by LBC to support Ingress or Service resources (visible via `kubectl get targetgroupbindings -n <namespace>`) are controller-managed. These are deleted when the Ingress is removed and recreated by the Gateway controller when it reconciles — you do not need to migrate them manually.
 
 #### External Target Group References in Actions
 
