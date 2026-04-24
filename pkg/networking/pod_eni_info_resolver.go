@@ -2,6 +2,11 @@ package networking
 
 import (
 	"context"
+	"net"
+	"strings"
+	"sync"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -11,14 +16,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"net"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -240,6 +241,12 @@ func (r *defaultPodENIInfoResolver) resolveViaPodENIAnnotation(ctx context.Conte
 		for _, podENIInfo := range pod.ENIInfos {
 			if podENIInfo.PrivateIP == pod.PodIP {
 				eniID = podENIInfo.ENIID
+				break
+			}
+
+			if len(podENIInfo.IPV6Addr) > 0 && pod.PodIP == podENIInfo.IPV6Addr {
+				eniID = podENIInfo.ENIID
+				break
 			}
 		}
 		if len(eniID) == 0 {

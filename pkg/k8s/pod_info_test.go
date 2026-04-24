@@ -596,6 +596,147 @@ func Test_buildPodInfo(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "standard case - with ENIInfo - ipv6",
+			args: args{
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-ns",
+						Name:      "pod-1",
+						UID:       "pod-uuid",
+						Annotations: map[string]string{
+							"vpc.amazonaws.com/pod-eni": `[{"eniId":"eni-0c312d68f0609d608","ifAddress":"12:6b:56:93:6e:69","privateIp":"192.168.68.47","ipv6Addr":"2600:1f18:1292:2b02::1ecc","vlanId":1,"subnetCidr":"192.168.64.0/19","subnetV6Cidr":"2600:1f18:1292:2b02::/64","associationID":"trunk-assoc-0fb5d6db1fba4ba79"}]`,
+						},
+						CreationTimestamp: metav1.Time{
+							Time: timeNow,
+						},
+					},
+					Spec: corev1.PodSpec{
+						NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
+						Containers: []corev1.Container{
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "ssh",
+										ContainerPort: 22,
+									},
+									{
+										Name:          "http",
+										ContainerPort: 8080,
+									},
+								},
+							},
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "https",
+										ContainerPort: 8443,
+									},
+								},
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								RestartPolicy: &initContainerRestartPolicyAlways,
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "dns",
+										ContainerPort: 53,
+									},
+									{
+										Name:          "ftp",
+										ContainerPort: 21,
+									},
+								},
+							},
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "smtp",
+										ContainerPort: 25,
+									},
+								},
+							},
+						},
+						ReadinessGates: []corev1.PodReadinessGate{
+							{
+								ConditionType: "ingress.k8s.aws/cond-1",
+							},
+							{
+								ConditionType: "ingress.k8s.aws/cond-2",
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Conditions: []corev1.PodCondition{
+							{
+								Type:   corev1.ContainersReady,
+								Status: corev1.ConditionFalse,
+							},
+							{
+								Type:   "ingress.k8s.aws/cond-2",
+								Status: corev1.ConditionTrue,
+							},
+						},
+						PodIP: "2600:1f18:1292:2b02::1ecc",
+					},
+				},
+			},
+			want: PodInfo{
+				Key: types.NamespacedName{Namespace: "my-ns", Name: "pod-1"},
+				UID: "pod-uuid",
+				ContainerPorts: []corev1.ContainerPort{
+					{
+						Name:          "ssh",
+						ContainerPort: 22,
+					},
+					{
+						Name:          "http",
+						ContainerPort: 8080,
+					},
+					{
+						Name:          "https",
+						ContainerPort: 8443,
+					},
+					{
+						Name:          "dns",
+						ContainerPort: 53,
+					},
+					{
+						Name:          "ftp",
+						ContainerPort: 21,
+					},
+				},
+				ReadinessGates: []corev1.PodReadinessGate{
+					{
+						ConditionType: "ingress.k8s.aws/cond-1",
+					},
+					{
+						ConditionType: "ingress.k8s.aws/cond-2",
+					},
+				},
+				Conditions: []corev1.PodCondition{
+					{
+						Type:   corev1.ContainersReady,
+						Status: corev1.ConditionFalse,
+					},
+					{
+						Type:   "ingress.k8s.aws/cond-2",
+						Status: corev1.ConditionTrue,
+					},
+				},
+				NodeName:     "ip-192-168-13-198.us-west-2.compute.internal",
+				PodIP:        "2600:1f18:1292:2b02::1ecc",
+				CreationTime: metav1.Time{Time: timeNow},
+				ENIInfos: []PodENIInfo{
+					{
+						ENIID:     "eni-0c312d68f0609d608",
+						PrivateIP: "192.168.68.47",
+						IPV6Addr:  "2600:1f18:1292:2b02::1ecc",
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
