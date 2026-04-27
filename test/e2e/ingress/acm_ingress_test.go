@@ -13,6 +13,7 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
 	networking "k8s.io/api/networking/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 
 	"github.com/gavv/httpexpect/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -213,7 +214,7 @@ func ExpectOneCertProvisionedForIngress(ctx context.Context, tf *framework.Frame
 		g.Expect(err).NotTo(HaveOccurred())
 		hosts = FindIngressHostnames(ing)
 		g.Expect(hosts).ShouldNot(BeEmpty())
-		certARN, err = tf.CertManager.FindCertificateByHostnames(ctx, hosts)
+		certARN, err = tf.CertManager.FindCertificateByHostnames(ctx, hosts, tracking.TagsAsTagFilter(map[string]string{"ingress.k8s.aws/stack": fmt.Sprintf("%s/%s", ing.ObjectMeta.Namespace, ing.ObjectMeta.Name)}))
 		g.Expect(err).ShouldNot(HaveOccurred())
 		g.Expect(certARN).ShouldNot(BeEmpty())
 	}, utils.CertReconcileTimeout, utils.PollIntervalMedium).Should(Succeed())
@@ -224,9 +225,12 @@ func ExpectOneCertProvisionedForIngress(ctx context.Context, tf *framework.Frame
 }
 
 func ExpectCertToBeInUse(ctx context.Context, certARN string) {
-	detail, err := tf.CertManager.GetCertificateDetail(ctx, certARN)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(len(detail.InUseBy)).ToNot(Equal(0))
+	var detail types.CertificateDetail
+	Eventually(func(g Gomega) {
+		detail, err := tf.CertManager.GetCertificateDetail(ctx, certARN)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(detail.InUseBy)).ToNot(Equal(0))
+	}, utils.PollTimeoutMedium, utils.PollIntervalMedium).Should(Succeed())
 
 	tf.Logger.Info("Cert in use", "arn", certARN, "inUseBy", detail.InUseBy)
 }
