@@ -64,6 +64,10 @@ Input can come from YAML/JSON files, a directory of manifest files, or a live Ku
 	cmd.Flags().StringVar(&opts.OutputFormat, "output-format", "yaml",
 		"Output format: yaml or json")
 
+	// Dry-run flag
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false,
+		"Add gateway.k8s.aws/dry-run annotation to generated Gateway manifests so LBC previews the generated AWS resources without creating them")
+
 	return cmd
 }
 

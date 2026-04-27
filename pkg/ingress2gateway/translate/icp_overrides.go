@@ -241,7 +241,13 @@ func applyICPSpecOverride(dst, src *gatewayv1beta1.LoadBalancerConfigurationSpec
 		dst.SourceRanges = src.SourceRanges
 	}
 	if src.Tags != nil {
-		dst.Tags = src.Tags
+		if dst.Tags == nil {
+			dst.Tags = src.Tags
+		} else {
+			for k, v := range *src.Tags {
+				(*dst.Tags)[k] = v
+			}
+		}
 	}
 	if len(src.LoadBalancerAttributes) > 0 {
 		dst.LoadBalancerAttributes = src.LoadBalancerAttributes

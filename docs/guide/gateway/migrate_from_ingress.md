@@ -73,6 +73,7 @@ You can combine `-f` and `--input-dir`, but `--from-cluster` cannot be used with
 | `--kubeconfig` | Optional | Path to kubeconfig file. Only valid with `--from-cluster` | `$KUBECONFIG` or `~/.kube/config` |
 | `--output-dir` | Optional | Directory to write output manifests | `./gateway-output` |
 | `--output-format` | Optional | Output format: `yaml` or `json` | `yaml` |
+| `--dry-run` | Optional | Add `gateway.k8s.aws/dry-run` annotation to generated Gateway manifests so LBC previews the plan without creating AWS resources | `false` |
 
 ## Output Resources
 
@@ -200,3 +201,177 @@ Tip: Use --from-cluster to automatically read all referenced resources,
 ```
 
 These warnings are informational — the tool still generates output. For the most accurate results, use `--from-cluster` which automatically fetches all referenced resources.
+
+## Preview Gateway resources with Dry-Run
+
+Before applying the generated Gateway manifests to create real AWS resources, you can use
+dry-run mode to preview exactly what the AWS Load Balancer Controller would create. When a
+Gateway is annotated with `gateway.k8s.aws/dry-run: "true"`, LBC builds its internal model
+stack and writes the serialized plan back to the Gateway as an annotation — **without
+creating any AWS resources**.
+
+### How it works
+
+1. Apply a Gateway with the `gateway.k8s.aws/dry-run: "true"` annotation.
+2. LBC resolves the GatewayClass, LoadBalancerConfiguration, and attached routes as usual.
+3. LBC builds the internal resource model (LoadBalancer, Listeners, ListenerRules,
+   TargetGroups, and all their configuration including tags, health checks, attributes,
+   and security groups).
+4. Instead of calling AWS to create resources, LBC marshals the model to JSON and writes it to
+   the Gateway's `gateway.k8s.aws/dry-run-plan` annotation.
+5. When you remove the `gateway.k8s.aws/dry-run` annotation, LBC cleans up the `dry-run-plan`
+   annotation, then proceeds with normal reconciliation (creating the ALB).
+
+### Enabling dry-run on a Gateway
+
+Use the `--dry-run` flag when running `lbc-migrate` to automatically add the annotation to
+the generated Gateway manifests:
+
+```bash
+lbc-migrate -f ingress.yaml --output-dir ./gw/ --dry-run
+# or from a live cluster
+lbc-migrate --from-cluster --namespace production --output-dir ./gw/ --dry-run
+```
+
+Alternatively, add the `gateway.k8s.aws/dry-run: "true"` annotation manually to any Gateway
+manifest:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: default
+  annotations:
+    gateway.k8s.aws/dry-run: "true"
+spec:
+  gatewayClassName: aws-alb
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - name: tls-secret
+```
+
+Apply it:
+
+```bash
+kubectl apply -f my-gateway.yaml
+```
+
+### Viewing the dry-run plan
+
+Check that the dry-run plan annotation is populated:
+
+```bash
+kubectl get gateway my-gateway \
+  -o jsonpath='{.metadata.annotations.gateway\.k8s\.aws/dry-run-plan}' | jq .
+```
+
+Example output:
+
+```json
+{
+  "id": "default/my-gateway",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "LoadBalancer": {
+        "spec": {
+          "name": "k8s-default-mygatew-abc123",
+          "type": "application",
+          "scheme": "internet-facing",
+          "ipAddressType": "ipv4",
+          "subnetMapping": [
+            {"subnetID": "subnet-aaa"},
+            {"subnetID": "subnet-bbb"}
+          ],
+          "securityGroups": ["sg-xxx"]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "443": {
+        "spec": {
+          "port": 443,
+          "protocol": "HTTPS",
+          "sslPolicy": "ELBSecurityPolicy-TLS-1-2-2017-01",
+          "certificates": [
+            {"certificateARN": "arn:aws:acm:us-west-2:123:cert/abc"}
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "default-api-service-8080": {
+        "spec": {
+          "name": "k8s-default-apisvc-xyz789",
+          "targetType": "ip",
+          "port": 8080,
+          "protocol": "HTTP",
+          "healthCheckConfig": {
+            "path": "/health",
+            "intervalSeconds": 15
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Confirm no AWS resources were created:
+
+```bash
+aws elbv2 describe-load-balancers --names k8s-default-mygatew-abc123
+# → "LoadBalancer not found" (expected: dry-run did not deploy)
+```
+
+### Troubleshooting
+
+If the `gateway.k8s.aws/dry-run-plan` annotation is empty after applying the Gateway, the
+model build failed before reaching the dry-run step. Debug with:
+
+1. Check Gateway events for build errors
+
+2. Check Gateway status conditions for validation errors
+
+3. Check controller logs for detailed errors
+
+### Deploying after review
+
+When the plan looks correct, remove the dry-run annotation to let LBC create the actual AWS
+resources. The trailing `-` on the annotation key is `kubectl annotate` syntax for removing
+an annotation:
+
+```bash
+# The trailing `-` tells kubectl to remove (not set) the annotation.
+kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run- 
+```
+
+This triggers a normal reconciliation:
+
+- The `gateway.k8s.aws/dry-run-plan` annotation is cleared.
+- LBC creates the ALB, listeners, target groups, and attaches routes.
+- Once the ALB is active, the `Programmed` condition is set to `True` and the ALB DNS appears
+  in `status.addresses`.
+
+### What dry-run does NOT do
+
+Dry-run intentionally skips every action that would touch AWS or cluster state beyond the
+Gateway annotation/status it owns:
+
+- No AWS resources are created, updated, or deleted.
+- No finalizer is added to the Gateway.
+- No backend security group is allocated or released.
+- No Kubernetes Secrets are monitored for certificate rotation.
+- No add-on state (WAF, Shield) is persisted.
+- No `serviceReferenceCounter` relations are updated.
+
+### Annotation reference
+
+| Annotation                              | Set by     | Description                                                                 |
+| --------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| `gateway.k8s.aws/dry-run`               | User       | Set to `"true"` to enable dry-run mode on a Gateway.                        |
+| `gateway.k8s.aws/dry-run-plan`          | Controller | Serialized stack JSON written by LBC when dry-run is enabled. Do not edit. |
