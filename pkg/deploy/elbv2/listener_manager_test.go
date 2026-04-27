@@ -999,6 +999,98 @@ func Test_buildSDKModifyListenerInput(t *testing.T) {
 	}
 }
 
+func Test_buildSDKCertificates(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		modelCerts           []elbv2model.Certificate
+		expectedDefaultCerts []elbv2types.Certificate
+		expectedExtraCerts   []elbv2types.Certificate
+	}{
+		{
+			name:                 "empty certificate list",
+			expectedDefaultCerts: nil,
+			expectedExtraCerts:   nil,
+		},
+		{
+			name: "single certificate is default and SNI certificate",
+			modelCerts: []elbv2model.Certificate{
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedDefaultCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedExtraCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+		},
+		{
+			name: "default certificate is included in SNI certificate list",
+			modelCerts: []elbv2model.Certificate{
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateARN: awssdk.String("cert-arn2"),
+				},
+			},
+			expectedDefaultCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedExtraCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateArn: awssdk.String("cert-arn2"),
+				},
+			},
+		},
+		{
+			name: "duplicate default certificate workaround is not duplicated in SNI certificate list",
+			modelCerts: []elbv2model.Certificate{
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateARN: awssdk.String("cert-arn2"),
+				},
+			},
+			expectedDefaultCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedExtraCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateArn: awssdk.String("cert-arn2"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defaultCerts, extraCerts := buildSDKCertificates(tc.modelCerts)
+			assert.Equal(t, tc.expectedDefaultCerts, defaultCerts)
+			assert.Equal(t, tc.expectedExtraCerts, extraCerts)
+		})
+	}
+}
+
 func Test_isRemoveMTLS(t *testing.T) {
 	testCases := []struct {
 		name                               string
