@@ -1,12 +1,17 @@
 package elbv2
 
 import (
+	"context"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/go-logr/logr"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
@@ -997,6 +1002,155 @@ func Test_buildSDKModifyListenerInput(t *testing.T) {
 			assert.Equal(t, tc.expected, *res)
 		})
 	}
+}
+
+func Test_buildSDKCertificates(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		modelCerts           []elbv2model.Certificate
+		expectedDefaultCerts []elbv2types.Certificate
+		expectedExtraCerts   []elbv2types.Certificate
+	}{
+		{
+			name:                 "empty certificate list",
+			expectedDefaultCerts: nil,
+			expectedExtraCerts:   nil,
+		},
+		{
+			name: "single certificate is default and SNI certificate",
+			modelCerts: []elbv2model.Certificate{
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedDefaultCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedExtraCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+		},
+		{
+			name: "default certificate is included in SNI certificate list",
+			modelCerts: []elbv2model.Certificate{
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateARN: awssdk.String("cert-arn2"),
+				},
+			},
+			expectedDefaultCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedExtraCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateArn: awssdk.String("cert-arn2"),
+				},
+			},
+		},
+		{
+			name: "duplicate default certificate workaround is not duplicated in SNI certificate list",
+			modelCerts: []elbv2model.Certificate{
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateARN: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateARN: awssdk.String("cert-arn2"),
+				},
+			},
+			expectedDefaultCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+			},
+			expectedExtraCerts: []elbv2types.Certificate{
+				{
+					CertificateArn: awssdk.String("cert-arn1"),
+				},
+				{
+					CertificateArn: awssdk.String("cert-arn2"),
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defaultCerts, extraCerts := buildSDKCertificates(tc.modelCerts)
+			assert.Equal(t, tc.expectedDefaultCerts, defaultCerts)
+			assert.Equal(t, tc.expectedExtraCerts, extraCerts)
+		})
+	}
+}
+
+func Test_updateSDKListenerWithExtraCertificatesAddsDefaultCertificateToSNI(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	elbv2Client := services.NewMockELBV2(ctrl)
+
+	listenerARN := "listener-arn"
+	defaultCertARN := "cert-arn1"
+	extraCertARN := "cert-arn2"
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+	resLS := elbv2model.NewListener(stack, "listener", elbv2model.ListenerSpec{
+		LoadBalancerARN: coremodel.LiteralStringToken("load-balancer-arn"),
+		Protocol:        elbv2model.ProtocolHTTPS,
+		SSLPolicy:       awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+		Certificates: []elbv2model.Certificate{
+			{
+				CertificateARN: awssdk.String(defaultCertARN),
+			},
+			{
+				CertificateARN: awssdk.String(extraCertARN),
+			},
+		},
+	})
+	sdkLS := ListenerWithTags{
+		Listener: &elbv2types.Listener{
+			ListenerArn: awssdk.String(listenerARN),
+			SslPolicy:   awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+		},
+	}
+
+	elbv2Client.EXPECT().DescribeListenerCertificatesAsList(gomock.Any(), &elbv2sdk.DescribeListenerCertificatesInput{
+		ListenerArn: awssdk.String(listenerARN),
+	}).Return([]elbv2types.Certificate{
+		{
+			CertificateArn: awssdk.String(defaultCertARN),
+			IsDefault:      awssdk.Bool(true),
+		},
+		{
+			CertificateArn: awssdk.String(extraCertARN),
+			IsDefault:      awssdk.Bool(false),
+		},
+	}, nil)
+	elbv2Client.EXPECT().AddListenerCertificatesWithContext(gomock.Any(), &elbv2sdk.AddListenerCertificatesInput{
+		ListenerArn: awssdk.String(listenerARN),
+		Certificates: []elbv2types.Certificate{
+			{
+				CertificateArn: awssdk.String(defaultCertARN),
+			},
+		},
+	}).Return(&elbv2sdk.AddListenerCertificatesOutput{}, nil)
+
+	manager := &defaultListenerManager{
+		elbv2Client: elbv2Client,
+		logger:      logr.Discard(),
+	}
+	err := manager.updateSDKListenerWithExtraCertificates(context.Background(), resLS, sdkLS, false)
+	assert.NoError(t, err)
 }
 
 func Test_isRemoveMTLS(t *testing.T) {

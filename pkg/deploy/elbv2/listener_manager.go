@@ -430,7 +430,14 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Cer
 	var defaultSDKCerts []elbv2types.Certificate
 	var extraSDKCerts []elbv2types.Certificate
 	defaultSDKCerts = append(defaultSDKCerts, buildSDKCertificate(modelCerts[0]))
-	for _, cert := range modelCerts[1:] {
+
+	extraCertARNs := make(map[string]struct{}, len(modelCerts))
+	for _, cert := range modelCerts {
+		certARN := awssdk.ToString(cert.CertificateARN)
+		if _, exists := extraCertARNs[certARN]; exists {
+			continue
+		}
+		extraCertARNs[certARN] = struct{}{}
 		extraSDKCerts = append(extraSDKCerts, buildSDKCertificate(cert))
 	}
 	return defaultSDKCerts, extraSDKCerts
