@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -17,6 +18,17 @@ func isDryRunEnabled(gw *gwv1.Gateway) bool {
 		return false
 	}
 	return gw.Annotations[gateway_constants.AnnotationDryRun] == gateway_constants.AnnotationDryRunEnabledValue
+}
+
+// isGatewayStatusProgrammed returns true if the Gateway's status has Programmed=True,
+// indicating that AWS resources have been successfully created and are active.
+func isGatewayStatusProgrammed(gw *gwv1.Gateway) bool {
+	for _, c := range gw.Status.Conditions {
+		if c.Type == string(gwv1.GatewayConditionProgrammed) && c.Status == metav1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 // hasDryRunPlanAnnotation returns true if the Gateway already carries a prior dry-run plan

@@ -359,6 +359,12 @@ This triggers a normal reconciliation:
 
 ### What dry-run does NOT do
 
+Dry-run is only effective on Gateways that have not yet been deployed. If the Gateway already
+has AWS resources (indicated by the presence of a controller finalizer), the
+`gateway.k8s.aws/dry-run` annotation is ignored and normal reconciliation proceeds.
+This prevents accidentally freezing a live or provisioning ALB by adding the dry-run annotation
+after deployment.
+
 Dry-run intentionally skips every action that would touch AWS or cluster state beyond the
 Gateway annotation/status it owns:
 
