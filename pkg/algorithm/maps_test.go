@@ -470,3 +470,72 @@ func TestDiffStringMapIgnoreAWSTags(t *testing.T) {
 		})
 	}
 }
+
+func TestContainsSubMapKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    map[string]string
+		subInput map[string]string
+		result   bool
+	}{
+		{
+			name:     "empty maps",
+			input:    nil,
+			subInput: nil,
+			result:   true,
+		},
+		{
+			name: "one tag in map",
+			input: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+				"elbv2.k8s.aws/stack":   "default/default",
+			},
+			subInput: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+			},
+			result: true,
+		},
+		{
+			name: "missing tag",
+			input: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+			},
+			subInput: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+				"elbv2.k8s.aws/stack":   "default/default",
+			},
+			result: false,
+		},
+		{
+			name: "same tags",
+			input: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+				"elbv2.k8s.aws/stack":   "default/default",
+			},
+			subInput: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+				"elbv2.k8s.aws/stack":   "default/default",
+			},
+			result: true,
+		},
+		{
+			name: "same tags, different values",
+			input: map[string]string{
+				"elbv2.k8s.aws/cluster": "test",
+				"elbv2.k8s.aws/stack":   "default/default",
+			},
+			subInput: map[string]string{
+				"elbv2.k8s.aws/cluster": "othertest",
+				"elbv2.k8s.aws/stack":   "default/otheringress",
+			},
+			result: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := ContainsSubMapKeys(tt.input, tt.subInput)
+			assert.Equal(t, tt.result, output)
+		})
+	}
+}

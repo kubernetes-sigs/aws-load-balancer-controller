@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
@@ -56,20 +57,21 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	networkingManager networkingpkg.NetworkingManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
 	elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
 	sgResolver networkingpkg.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
-	targetGroupCollector awsmetrics.TargetGroupCollector, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) *groupReconciler {
-
+	targetGroupCollector awsmetrics.TargetGroupCollector, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper,
+) *groupReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, controllerConfig.IngressConfig.TolerateNonExistentBackendService, controllerConfig.IngressConfig.TolerateNonExistentBackendAction)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
+	certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
 		cloud.EC2(), cloud.ELBV2(), cloud.WAFv2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), targetGroupNameToArnMapper, logger, metricsCollector)
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, logger, metricsCollector, certDiscovery)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
 		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector, true)
@@ -301,7 +303,6 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		if err := r.k8sClient.Status().Patch(ctx, ing, client.MergeFrom(ingOld)); err != nil {
 			return errors.Wrapf(err, "failed to update ingress status: %v", k8s.NamespacedName(ing))
 		}
-
 	}
 
 	return nil
@@ -480,7 +481,6 @@ func hasFrontendNlbHostName(ingressList []networking.IngressLoadBalancerIngress,
 		if ingress.Hostname == frontendNlbDNS {
 			return true
 		}
-
 	}
 	return false
 }

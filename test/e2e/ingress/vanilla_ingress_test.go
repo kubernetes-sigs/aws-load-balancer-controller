@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
 	"time"
 
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -757,7 +759,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
 
-			//TODO: update the traffic test for dualstack-without-public-ipv4 ALB
+			// TODO: update the traffic test for dualstack-without-public-ipv4 ALB
 			//      as it may need additional setup compared to dualstack ALB
 			if annotation["alb.ingress.kubernetes.io/ip-address-type"] != "dualstack-without-public-ipv4" {
 				httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
@@ -938,9 +940,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			nlbHttpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
-
 		})
-
 	})
 
 	Context("with JWT validation pre-routing action", func() {
@@ -1066,7 +1066,6 @@ var _ = Describe("vanilla ingress tests", func() {
 			})
 		})
 	})
-
 })
 
 // ExpectOneLBProvisionedForIngress expects one LoadBalancer provisioned for Ingress.
@@ -1076,7 +1075,7 @@ func ExpectOneLBProvisionedForIngress(ctx context.Context, tf *framework.Framewo
 		g.Expect(err).NotTo(HaveOccurred())
 		lbDNS = FindIngressDNSName(ing)
 		g.Expect(lbDNS).ShouldNot(BeEmpty())
-	}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
+	}, utils.CertReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
 	tf.Logger.Info("ingress DNS populated", "dnsName", lbDNS)
 
 	var err error
