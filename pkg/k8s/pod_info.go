@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,12 +41,16 @@ type PodInfo struct {
 
 // PodENIInfo is a json convertible structure that stores the Branch ENI details that can be
 // used by the CNI plugin or the component consuming the resource
+// This struct is a subset of the fields found here: https://github.com/aws/amazon-vpc-resource-controller-k8s/blob/master/pkg/provider/branch/trunk/trunk.go?#L134
 type PodENIInfo struct {
 	// ENIID is the network interface id of the branch interface
 	ENIID string `json:"eniId"`
 
 	// PrivateIP is the primary IP of the branch Network interface
 	PrivateIP string `json:"privateIp"`
+
+	// IPV6Addr is the IPv6 address associated with the branch network interface
+	IPV6Addr string `json:"ipv6Addr"`
 }
 
 func (i *PodInfo) GetQUICServerID(port int32) *string {

@@ -2,8 +2,9 @@ package networking
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -1283,6 +1284,112 @@ func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
 						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
 						NodeName: "node-a",
 						PodIP:    "192.168.100.5",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-3"}: {
+					NetworkInterfaceID: "eni-b",
+					SecurityGroups:     []string{"sg-b-1"},
+				},
+			},
+		},
+		{
+			name: "multiple pods have matching podENI annotation using ipv6 addresses",
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+						},
+						resp: []ec2types.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-a"),
+								Groups: []ec2types.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-a-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-b"),
+								Groups: []ec2types.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-b-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.1",
+								IPV6Addr:  "2600:1f18:1292:2b02::1ecc",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "2600:1f18:1292:2b02::1ecc",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-a",
+								PrivateIP: "192.168.100.2",
+								IPV6Addr:  "2600:1f18:1292:2b02::2ecc",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "2600:1f18:1292:2b02::2ecc",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-3"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-b",
+								PrivateIP: "192.168.100.3",
+								IPV6Addr:  "2600:1f18:1292:2b02::3ecc",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "2600:1f18:1292:2b02::3ecc",
+					},
+					{
+						Key: types.NamespacedName{Namespace: "default", Name: "pod-4"},
+						UID: types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						ENIInfos: []k8s.PodENIInfo{
+							{
+								ENIID:     "eni-c",
+								PrivateIP: "192.168.100.1",
+								IPV6Addr:  "2600:1f18:1292:2b02::1ecc",
+							},
+						},
+						NodeName: "node-a",
+						PodIP:    "2600:1f18:1292:2b02::4ecc",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-5"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "node-a",
+						PodIP:    "2600:1f18:1292:2b02::5ecc",
 					},
 				},
 			},
