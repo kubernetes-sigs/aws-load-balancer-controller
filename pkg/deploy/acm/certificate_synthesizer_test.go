@@ -1,6 +1,7 @@
 package acm
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -490,6 +491,40 @@ func Test_Synthesizer(t *testing.T) {
 				},
 				Tags: map[string]string{"foo": "amazon_issued/example.com"},
 			}},
+		},
+		{
+			name: "pre-check fails when hosted zone not found — no cert created in ACM",
+			setup: func(s core.Stack, mockACM *services.MockACM, mockRoute53 *services.MockRoute53, mockTracking *tracking.MockProvider) {
+				acmModel.NewCertificate(s, "amazon_issued/wrong.nonexistent-domain.com", acmModel.CertificateSpec{
+					Type:                    acmtypes.CertificateTypeAmazonIssued,
+					DomainName:              "wrong.nonexistent-domain.com",
+					SubjectAlternativeNames: []string{"wrong.nonexistent-domain.com"},
+					ValidationMethod:        acmtypes.ValidationMethodDns,
+					Tags:                    map[string]string{},
+				})
+
+				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
+				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string(nil))
+				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
+
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+					Return([]acmtypes.CertificateSummary{}, nil)
+
+				// Pre-check: GetHostedZoneID fails — no cert should be requested
+				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("wrong.nonexistent-domain.com")).
+					Return(nil, fmt.Errorf("no hosted zone found for validation records"))
+
+				// RequestCertificate should NOT be called
+			},
+			checkStack: func(s core.Stack) {
+				var resCerts []*acmModel.Certificate
+				_ = s.ListResources(&resCerts)
+				for _, cert := range resCerts {
+					assert.Nil(t, cert.Status, "cert status should not be set when pre-check fails")
+				}
+			},
+			wantErr:                  fmt.Errorf("pre-check failed for domain \"wrong.nonexistent-domain.com\": no hosted zone found for validation records"),
+			wantToDeleteCertificates: nil,
 		},
 	}
 

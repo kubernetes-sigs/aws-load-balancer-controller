@@ -27,7 +27,7 @@ func Test_buildACMCertificates(t *testing.T) {
 		wantNilCert  bool
 	}{
 		{
-			name: "Build certificate for catch-all ingress",
+			name: "Build certificate fails when no hostnames defined",
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Name: "explicit-group"},
@@ -47,7 +47,7 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantNilCert: true,
+			wantErr: true,
 		},
 		{
 			name: "Build certificate for regular ingress",

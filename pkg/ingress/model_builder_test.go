@@ -23,6 +23,7 @@ import (
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
@@ -34,6 +35,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -6271,6 +6274,128 @@ func Test_defaultModelBuildTask_buildResourceTagsPriority(t *testing.T) {
 					assert.Contains(t, got, key)
 					assert.Equal(t, value, got[key])
 				}
+			}
+		})
+	}
+}
+
+func Test_mergeListenPortConfigs_CertDedup(t *testing.T) {
+	tests := []struct {
+		name              string
+		configs           []listenPortConfigWithIngress
+		expectedCertCount int
+		wantErr           bool
+	}{
+		{
+			name: "two ingresses with different literal cert tokens should merge both",
+			configs: []listenPortConfigWithIngress{
+				{
+					ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-a"},
+					listenPortConfig: listenPortConfig{
+						protocol: elbv2model.ProtocolHTTPS,
+						tlsCerts: []core.StringToken{
+							core.LiteralStringToken("arn:aws:acm:us-east-1:123456789:certificate/cert-a"),
+						},
+					},
+				},
+				{
+					ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-b"},
+					listenPortConfig: listenPortConfig{
+						protocol: elbv2model.ProtocolHTTPS,
+						tlsCerts: []core.StringToken{
+							core.LiteralStringToken("arn:aws:acm:us-east-1:123456789:certificate/cert-b"),
+						},
+					},
+				},
+			},
+			expectedCertCount: 2,
+		},
+		{
+			name: "two ingresses with resource-backed cert tokens (auto-created) should merge both",
+			configs: func() []listenPortConfigWithIngress {
+				stack := core.NewDefaultStack(core.StackID{Namespace: "ns", Name: "test-group"})
+				certA := acmModel.NewCertificate(stack, "amazon_issued/app-a.example.com", acmModel.CertificateSpec{
+					DomainName:              "app-a.example.com",
+					SubjectAlternativeNames: []string{"app-a.example.com"},
+				})
+				certB := acmModel.NewCertificate(stack, "amazon_issued/app-b.example.com", acmModel.CertificateSpec{
+					DomainName:              "app-b.example.com",
+					SubjectAlternativeNames: []string{"app-b.example.com"},
+				})
+				return []listenPortConfigWithIngress{
+					{
+						ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-a"},
+						listenPortConfig: listenPortConfig{
+							protocol: elbv2model.ProtocolHTTPS,
+							tlsCerts: []core.StringToken{certA.CertificateARN()},
+						},
+					},
+					{
+						ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-b"},
+						listenPortConfig: listenPortConfig{
+							protocol: elbv2model.ProtocolHTTPS,
+							tlsCerts: []core.StringToken{certB.CertificateARN()},
+						},
+					},
+				}
+			}(),
+			expectedCertCount: 2,
+		},
+		{
+			name: "three ingresses mixing resource-backed and literal tokens should merge all",
+			configs: func() []listenPortConfigWithIngress {
+				stack := core.NewDefaultStack(core.StackID{Namespace: "ns", Name: "test-group"})
+				certA := acmModel.NewCertificate(stack, "amazon_issued/app-a.example.com", acmModel.CertificateSpec{
+					DomainName:              "app-a.example.com",
+					SubjectAlternativeNames: []string{"app-a.example.com"},
+				})
+				certB := acmModel.NewCertificate(stack, "amazon_issued/app-b.example.com", acmModel.CertificateSpec{
+					DomainName:              "app-b.example.com",
+					SubjectAlternativeNames: []string{"app-b.example.com"},
+				})
+				return []listenPortConfigWithIngress{
+					{
+						ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-a"},
+						listenPortConfig: listenPortConfig{
+							protocol: elbv2model.ProtocolHTTPS,
+							tlsCerts: []core.StringToken{certA.CertificateARN()},
+						},
+					},
+					{
+						ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-b"},
+						listenPortConfig: listenPortConfig{
+							protocol: elbv2model.ProtocolHTTPS,
+							tlsCerts: []core.StringToken{certB.CertificateARN()},
+						},
+					},
+					{
+						ingKey: types.NamespacedName{Namespace: "ns", Name: "ing-c"},
+						listenPortConfig: listenPortConfig{
+							protocol: elbv2model.ProtocolHTTPS,
+							tlsCerts: []core.StringToken{
+								core.LiteralStringToken("arn:aws:acm:us-east-1:123456789:certificate/manual-cert"),
+							},
+						},
+					},
+				}
+			}(),
+			expectedCertCount: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
+			}
+			got, err := task.mergeListenPortConfigs(t.Context(), tt.configs)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedCertCount, len(got.tlsCerts),
+					"expected %d certs but got %d", tt.expectedCertCount, len(got.tlsCerts))
 			}
 		})
 	}

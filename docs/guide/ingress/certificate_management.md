@@ -38,6 +38,29 @@ Amazon Issued certificates are currently validated using DNS Method and Route53 
 E-Mail validation is not supported due to significant higher delays between requesting a certificate and it's issuance. 
 When using a PCA, certificates don't have to be validated.
 
+## Ingress Group Behavior
+
+When using certificate management with [IngressGroups](ingress_class.md#specgroup), each ingress in the group gets its own certificate based on its own hostnames. All certificates are attached to the shared ALB's HTTPS listener.
+
+For example, if an ingress group has three members:
+
+- Ingress A with `create-acm-cert: "true"` and host `app-a.example.com`
+- Ingress B with `create-acm-cert: "true"` and host `app-b.example.com`
+- Ingress C with `certificate-arn` pointing to an existing cert
+
+The controller creates two managed certificates (for A and B) and uses the manually specified cert for C. All three certificates are attached to the same HTTPS:443 listener on the shared ALB.
+
+Each ingress in the group can independently choose its certificate strategy:
+
+- `create-acm-cert: "true"` — controller creates and manages a certificate
+- `certificate-arn` — use a manually specified certificate (takes precedence over `create-acm-cert`)
+- Neither — use certificate discovery (existing behavior)
+
+Deleting one ingress from the group removes only its managed certificate. The other ingresses and their certificates remain unaffected.
+
+!!!note "Same hostname across multiple ingresses"
+    Each ingress in a group gets its own certificate, even if multiple ingresses share the same hostname. If two ingresses both have `create-acm-cert: "true"` with the same host, two separate certificates are created and both are attached to the listener. To avoid duplicate certificates for the same domain, only enable `create-acm-cert` on one ingress per hostname — the other ingresses with the same hostname can omit the annotation and will still have their listener rules created on the shared ALB.
+
 ## PCA-Support
 
 If you don't want Amazon Issued certificates you can issue certificates from an existing PCA in your AWS account.
@@ -54,3 +77,48 @@ For platform operators who want to rotate PCAs without interaction from ingress 
 ## Limitations
 
 By using this feature the number of hostnames (Subject Alternative Names) you can specify in `spec.tls[].hosts` on a single ingress resource is limited by your AWS account's ACM SAN quota. The [default limit](https://docs.aws.amazon.com/acm/latest/userguide/acm-limits.html#general-limits) is 10 SANs per certificate. If you need more, request a quota increase via the AWS Service Quotas console.
+
+## Security Considerations
+
+The controller operates with a single IAM role at the cluster level and does not enforce namespace-level domain restrictions. Any namespace with Ingress creation permissions can request certificates for any domain. This is consistent with how `certificate-arn` annotations and certificate discovery work — they also operate without namespace-level domain isolation.
+
+ACM DNS validation provides the primary security boundary: a certificate is only issued if the controller can create validation records in a Route53 hosted zone, which requires the appropriate IAM permissions configured on the controller's role.
+
+For multi-tenant clusters, consider the following mitigations:
+
+- **Kubernetes RBAC**: Restrict which namespaces or users can create Ingress resources
+- **Route53 IAM scoping**: Scope the controller's Route53 permissions to specific hosted zone ARNs (e.g., `arn:aws:route53:::hostedzone/ZXXXXX`) rather than `Resource: "*"` to limit which domains can be validated
+
+### IAM Policy Scoping
+
+The sample IAM policy provided with this feature uses `Resource: "*"` for Route53 and PCA operations for simplicity. In production, you should scope these permissions to reduce the blast radius:
+
+**Route53** — Restrict `route53:ChangeResourceRecordSets` to specific hosted zones:
+
+```json
+{
+    "Effect": "Allow",
+    "Action": [
+        "route53:ChangeResourceRecordSets",
+        "route53:ListResourceRecordSets"
+    ],
+    "Resource": "arn:aws:route53:::hostedzone/<YOUR_ZONE_ID>"
+}
+```
+
+This ensures the controller can only create DNS validation records in the hosted zones you explicitly allow, preventing modification of unrelated DNS records in the account.
+
+**PCA** — If using private certificates, restrict `acm-pca:IssueCertificate` to specific certificate authorities:
+
+```json
+{
+    "Effect": "Allow",
+    "Action": ["acm-pca:IssueCertificate"],
+    "Resource": "arn:aws:acm-pca:<region>:<account>:certificate-authority/<YOUR_CA_ID>"
+}
+```
+
+This prevents the controller from issuing certificates from any PCA in the account other than the one you designate.
+
+!!!warning "Default policy is permissive"
+    The default IAM policy uses `Resource: "*"` for Route53 and PCA operations. This means the controller can modify DNS records in **any** hosted zone and issue certificates from **any** PCA in the account. Always scope these permissions in production environments.

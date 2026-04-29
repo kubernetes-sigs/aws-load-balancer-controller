@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
 
@@ -26,21 +27,23 @@ func (t *defaultModelBuildTask) buildACMCertificates(ctx context.Context, ing *C
 	}
 
 	if certSpec == nil {
-		return nil, nil
+		// No hostnames found — can't create a certificate without at least one hostname.
+		ingKey := fmt.Sprintf("%s/%s", ing.Ing.Namespace, ing.Ing.Name)
+		return nil, fmt.Errorf("ingress %v has create-acm-cert enabled but no hostnames defined in spec.rules[].host or spec.tls[].hosts — cannot create a certificate without at least one hostname", ingKey)
 	}
 
-	certID := t.buildCertificateResourceID(certSpec)
+	certID := t.buildCertificateResourceID(certSpec, ing)
 
 	cert := acmModel.NewCertificate(t.stack, certID, *certSpec)
 	return cert, nil
 }
 
-func (t *defaultModelBuildTask) buildCertificateResourceID(spec *acmModel.CertificateSpec) string {
-	if spec.CertificateAuthorityARN == "" {
-		return fmt.Sprintf("%s/%s", strings.ToLower(string(spec.Type)), spec.DomainName)
-	} else {
-		return fmt.Sprintf("%s/%s-%s", strings.ToLower(string(spec.Type)), spec.DomainName, spec.CertificateAuthorityARN)
-	}
+// buildCertificateResourceID builds a unique resource ID for a certificate.
+// The ID includes a hash of the ingress namespace/name to ensure each ingress gets its own certificate
+func (t *defaultModelBuildTask) buildCertificateResourceID(spec *acmModel.CertificateSpec, ing *ClassifiedIngress) string {
+	ingKey := fmt.Sprintf("%s/%s", ing.Ing.Namespace, ing.Ing.Name)
+	ingHash := fmt.Sprintf("%x", sha256.Sum256([]byte(ingKey)))[:8]
+	return fmt.Sprintf("%s/%s-%s", strings.ToLower(string(spec.Type)), spec.DomainName, ingHash)
 }
 
 func (t *defaultModelBuildTask) buildCertificateSpec(ctx context.Context, ing *ClassifiedIngress) (*acmModel.CertificateSpec, error) {
