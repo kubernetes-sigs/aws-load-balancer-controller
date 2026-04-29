@@ -274,6 +274,28 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 	r.logger.V(1).Info("Got this addon config", "current", currentAddOns, "new addon", newAddOnConfig)
 
+	// Dry-run short-circuit: if the Gateway requests dry-run and has not yet been provisioned
+	// skip all AWS deploy side-effects and only persist the serialized stack plan in the dry-run-plan
+	// annotation.
+	// If the Gateway already has a finalizer, it means reconcileUpdate was called at least once
+	// so AWS resources may exist or be provisioning.
+	// In that case, ignore the dry-run annotation and proceed with normal reconciliation.
+	// Skip dry-run when the Gateway is being deleted.
+	if isDryRunEnabled(gw) && !isDeleting {
+		if k8s.HasFinalizer(gw, r.finalizer) {
+			r.logger.Info("Ignoring dry-run annotation on already-provisioned Gateway", "gateway", k8s.NamespacedName(gw))
+		} else {
+			return r.reconcileDryRun(ctx, gw, stack)
+		}
+	}
+
+	// If the Gateway previously had dry-run enabled, clean up stale dry-run state before
+	// proceeding with normal reconciliation.
+	if err := r.cleanupDryRunState(ctx, gw); err != nil {
+		r.logger.Error(err, "Failed to clean up stale dry-run state", "gateway", k8s.NamespacedName(gw))
+		return err
+	}
+
 	// To accurately track the set of enabled addons, we need to figure out if any addons were added / removed during this run.
 	addOnAdditions, addOnRemovals := diffAddOns(currentAddOns, newAddOnConfig)
 

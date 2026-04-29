@@ -42,6 +42,10 @@ type MigrateOptions struct {
 	// Output options
 	OutputDir    string
 	OutputFormat string
+
+	// Dry-run: when true, the generated Gateway manifests include the
+	// gateway.k8s.aws/dry-run annotation so LBC builds the model without deploying.
+	DryRun bool
 }
 
 // NormalizeNamespaces sets empty namespace fields to "default" on all input

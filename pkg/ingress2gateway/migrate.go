@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 )
 
 // Migrate is the top-level orchestrator that reads input resources,
@@ -30,6 +32,17 @@ func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, transl
 	output, err := translateFunc(resources)
 	if err != nil {
 		return fmt.Errorf("failed to translate resources: %w", err)
+	}
+
+	// When --dry-run is set, inject the dry-run annotation onto every generated Gateway
+	// so LBC builds the model without creating AWS resources.
+	if opts.DryRun {
+		for i := range output.Gateways {
+			if output.Gateways[i].Annotations == nil {
+				output.Gateways[i].Annotations = map[string]string{}
+			}
+			output.Gateways[i].Annotations[gateway_constants.AnnotationDryRun] = gateway_constants.AnnotationDryRunEnabledValue
+		}
 	}
 
 	if err := writeFunc(output, opts.OutputDir, opts.OutputFormat); err != nil {

@@ -86,3 +86,20 @@ const (
 	ListenerResolvedRefMessage       = "Listener has all refs resolved."
 	ListenerPendingProgrammedMessage = "Listener is pending to be programmed."
 )
+
+/*
+   Dry-run constants
+*/
+
+const (
+	// AnnotationDryRun when set to "true" on a Gateway, LBC builds the model but skips AWS deployment.
+	// The resulting planned stack JSON is written back to the Gateway via AnnotationDryRunPlan.
+	AnnotationDryRun = "gateway.k8s.aws/dry-run"
+
+	// AnnotationDryRunPlan is the annotation written by LBC that holds the serialized planned
+	// stack JSON when the Gateway has dry-run enabled.
+	AnnotationDryRunPlan = "gateway.k8s.aws/dry-run-plan"
+
+	// AnnotationDryRunEnabledValue is the value that enables dry-run mode on a Gateway.
+	AnnotationDryRunEnabledValue = "true"
+)
