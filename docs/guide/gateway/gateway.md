@@ -17,8 +17,18 @@ The LBC is built for Gateway API version v1.6.0.
 * LBC >= v2.13.0
 * For `ip` target type:
     * Pods have native AWS VPC networking configured. For more information, see the [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s#readme) documentation.
-* Installation of Gateway API CRDs
-    * Standard Gateway API CRDs: `kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/standard-install.yaml` [REQUIRED]
+* Installation of Gateway API CRDs — choose one of:
+    * **Helm (recommended):** enable via Helm values when installing or upgrading the chart:
+        ```yaml
+        crds:
+          gatewayAPI:
+            standard:
+              enabled: true   # required: HTTPRoute, GRPCRoute, TCPRoute, UDPRoute, TLSRoute
+            experimental:
+              enabled: false  # optional: LBC doesn't need the experimental channel as of v1.6.0
+        ```
+    * **Manual:** apply directly from the upstream release:
+        * Standard Gateway API CRDs: `kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/standard-install.yaml` [REQUIRED]
 * Installation of LBC Gateway API specific CRDs: `kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml`
 
 
