@@ -136,3 +136,53 @@ func Test_getVpcID(t *testing.T) {
 		})
 	}
 }
+
+func Test_assumedRoleCacheKey(t *testing.T) {
+	tests := []struct {
+		name string
+		a    assumedRoleCacheKey
+		b    assumedRoleCacheKey
+		same bool
+	}{
+		{
+			name: "identical keys are equal",
+			a:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/MyRole", externalId: "ext-abc"},
+			b:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/MyRole", externalId: "ext-abc"},
+			same: true,
+		},
+		{
+			name: "same ARN different externalId are not equal",
+			a:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/Shared", externalId: "tenant-A"},
+			b:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/Shared", externalId: "tenant-B"},
+			same: false,
+		},
+		{
+			name: "different ARN same externalId are not equal",
+			a:    assumedRoleCacheKey{roleArn: "arn:aws:iam::111111111111:role/RoleA", externalId: "ext-1"},
+			b:    assumedRoleCacheKey{roleArn: "arn:aws:iam::222222222222:role/RoleB", externalId: "ext-1"},
+			same: false,
+		},
+		{
+			name: "empty externalId matches empty externalId",
+			a:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/MyRole", externalId: ""},
+			b:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/MyRole", externalId: ""},
+			same: true,
+		},
+		{
+			name: "empty vs non-empty externalId are not equal",
+			a:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/MyRole", externalId: ""},
+			b:    assumedRoleCacheKey{roleArn: "arn:aws:iam::123456789012:role/MyRole", externalId: "ext-1"},
+			same: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.same {
+				assert.Equal(t, tt.a, tt.b)
+			} else {
+				assert.NotEqual(t, tt.a, tt.b)
+			}
+		})
+	}
+}
