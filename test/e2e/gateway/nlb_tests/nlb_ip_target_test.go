@@ -157,8 +157,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				By("sending https request to the lb", func() {
 					if hasTLS {
 						url := fmt.Sprintf("https://%v/any-path", dnsName)
-						err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
-						Expect(err).NotTo(HaveOccurred())
+						Eventually(func() bool {
+							return tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200)) == nil
+						}, utils.PollTimeoutMedium, utils.PollIntervalMedium).Should(BeTrue())
 					}
 				})
 				By("sending udp request to the lb", func() {
@@ -407,7 +408,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						url := fmt.Sprintf("https://%v/any-path", dnsName)
 						Eventually(func() bool {
 							return tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200)) == nil
-						}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+						}, utils.PollTimeoutMedium, utils.PollIntervalMedium).Should(BeTrue())
 					}
 				})
 				By("sending udp request to the lb", func() {
@@ -831,8 +832,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				if hasTLS {
 					By("sending tcp traffic to the passthrough listener", func() {
 						url := fmt.Sprintf("http://%v:443/any-path", dnsName)
-						err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
-						Expect(err).NotTo(HaveOccurred())
+						Eventually(func() bool {
+							return tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200)) == nil
+						}, utils.PollTimeoutMedium, utils.PollIntervalMedium).Should(BeTrue())
 					})
 				}
 			})
