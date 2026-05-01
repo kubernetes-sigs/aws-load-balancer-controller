@@ -10,6 +10,8 @@ import (
 )
 
 func TestApplyGatewayFeatureFlags(t *testing.T) {
+	lbcKinds := sets.New[string]("TargetGroupConfiguration", "LoadBalancerConfiguration", "ListenerRuleConfiguration")
+
 	testCases := []struct {
 		name               string
 		presentKinds       map[string]sets.Set[string]
@@ -25,9 +27,19 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			listenerSetEnabled: false,
 		},
 		{
-			name: "v1 present",
+			name: "v1 present but LBC CRDs missing",
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion: sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
+			},
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
+		},
+		{
+			name: "v1 and LBC CRDs present",
+			presentKinds: map[string]sets.Set[string]{
+				GatewayV1GroupVersion:  sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
+				LBCGatewayGroupVersion: lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         false,
@@ -43,20 +55,32 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			listenerSetEnabled: false,
 		},
 		{
-			name: "all present",
+			name: "all standard CRDs present but LBC CRDs missing",
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+			},
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
+		},
+		{
+			name: "all present including LBC CRDs but ListenerSet missing",
+			presentKinds: map[string]sets.Set[string]{
+				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
+				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         true,
 			listenerSetEnabled: false,
 		},
 		{
-			name: "all present including ListenerSet",
+			name: "all present including ListenerSet and LBC CRDs",
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute", "ListenerSet"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         true,
@@ -67,6 +91,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         false,
 			nlbEnabled:         false,
@@ -77,6 +102,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         false,
 			nlbEnabled:         false,
@@ -87,6 +113,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         false,
 			nlbEnabled:         true,
@@ -97,6 +124,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         false,
 			nlbEnabled:         true,
@@ -107,6 +135,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         false,
@@ -117,6 +146,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("UDPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         false,
@@ -127,6 +157,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			presentKinds: map[string]sets.Set[string]{
 				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
 				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute"),
+				LBCGatewayGroupVersion:      lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         false,
@@ -140,6 +171,25 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			albEnabled:         false,
 			nlbEnabled:         false,
 			listenerSetEnabled: true,
+		},
+		{
+			name: "LBC CRDs present but no standard gateway CRDs",
+			presentKinds: map[string]sets.Set[string]{
+				LBCGatewayGroupVersion: lbcKinds,
+			},
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
+		},
+		{
+			name: "partial LBC CRDs - TargetGroupConfiguration missing",
+			presentKinds: map[string]sets.Set[string]{
+				GatewayV1GroupVersion:  sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"),
+				LBCGatewayGroupVersion: sets.New[string]("LoadBalancerConfiguration", "ListenerRuleConfiguration"),
+			},
+			albEnabled:         false,
+			nlbEnabled:         false,
+			listenerSetEnabled: false,
 		},
 	}
 

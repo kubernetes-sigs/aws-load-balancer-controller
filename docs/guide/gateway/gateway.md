@@ -37,13 +37,15 @@ The Load Balancer Controller (LBC) will attempt to detect Gateway CRDs.
 If they are present, the respective controller will be enabled. 
 To explicitly disable these controllers, use the following feature gates:
 
-```--feature-gates=NLBGatewayAPI=false,ALBGatewayAPI=false```
+```--feature-gates=NLBGatewayAPI=false,ALBGatewayAPI=false,GatewayListenerSet=false```
 
 For the NLB Gateway controller (Layer 4) to be enabled, ensure the following CRDs are installed:
-`Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, and `TLSRoute`
+`Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, `TLSRoute`, and the AWS vended CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
 
 For the ALB Gateway controller (Layer 7) to be enabled, ensure the following CRDs are installed:
-`Gateway`, `GatewayClass`, `HTTPRoute`, and `GRPCRoute`
+`Gateway`, `GatewayClass`, `HTTPRoute`, `GRPCRoute`, and the AWS vended CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
+
+To install CRDs, see the [Prerequisites](#prerequisites) section.
 
 ## Subnet tagging requirements
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring Elastic Load Balancing for public or private placement.
