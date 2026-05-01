@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
@@ -379,7 +380,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	return nil
 }
 
-func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listenPortConfigs []listenPortConfigWithIngress) (listenPortConfig, error) {
+func (t *defaultModelBuildTask) mergeListenPortConfigs(ctx context.Context, listenPortConfigs []listenPortConfigWithIngress) (listenPortConfig, error) {
 	var mergedProtocolProvider *types.NamespacedName
 	var mergedProtocol elbv2model.Protocol
 
@@ -455,15 +456,22 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		}
 
 		for j, cert := range cfg.listenPortConfig.tlsCerts {
-			c, _ := cert.Resolve(context.TODO())
+			// Use resource identity for dedup when available (auto-created certs),
+			// fall back to resolved ARN for literal tokens (e.g. certificate-arn).
+			var certKey string
+			if deps := cert.Dependencies(); len(deps) > 0 && deps[0].Type() != "" && deps[0].ID() != "" {
+				certKey = fmt.Sprintf("%s/%s", deps[0].Type(), deps[0].ID())
+			} else {
+				certKey, _ = cert.Resolve(ctx)
+			}
 			// The first certificate is ignored as it is the default certificate, which has already been added to the mergedTLSCerts.
 			if i == defaultCertMemberIndex && j == 0 {
 				continue
 			}
-			if mergedTLSCertsSet.Has(c) {
+			if mergedTLSCertsSet.Has(certKey) {
 				continue
 			}
-			mergedTLSCertsSet.Insert(c)
+			mergedTLSCertsSet.Insert(certKey)
 			mergedTLSCerts = append(mergedTLSCerts, cert)
 		}
 

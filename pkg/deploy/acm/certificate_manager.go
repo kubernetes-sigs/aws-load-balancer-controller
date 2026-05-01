@@ -74,6 +74,22 @@ func (c *defaultCertificateManager) Create(ctx context.Context, certModel *acmMo
 }
 
 func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Context, certModel *acmModel.Certificate) (*acmModel.CertificateStatus, error) {
+	// Pre-check: verify hosted zones exist for all domains before requesting the certificate.
+	// This prevents creating orphaned PENDING_VALIDATION certs in ACM that can never be issued.
+	hostedZoneByDomain := make(map[string]*string)
+	allHosts := []string{certModel.Spec.DomainName}
+	allHosts = append(allHosts, certModel.Spec.SubjectAlternativeNames...)
+	for _, host := range allHosts {
+		if _, checked := hostedZoneByDomain[host]; checked {
+			continue
+		}
+		zoneID, err := c.route53Client.GetHostedZoneID(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("pre-check failed for domain %q: %w", host, err)
+		}
+		hostedZoneByDomain[host] = zoneID
+	}
+
 	resp, err := c.create(ctx, certModel)
 	if err != nil {
 		return &acmModel.CertificateStatus{}, err
@@ -109,10 +125,7 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 	for _, opts := range desc.Certificate.DomainValidationOptions {
 		if opts.ValidationMethod == acmtypes.ValidationMethodDns {
 			c.logger.Info("creating validation record", "certificateARN", resp.CertificateArn, "record", opts.ResourceRecord)
-			id, err := c.route53Client.GetHostedZoneID(ctx, awssdk.ToString(opts.DomainName))
-			if err != nil {
-				return nil, err
-			}
+			id := hostedZoneByDomain[awssdk.ToString(opts.DomainName)]
 			if opts.ResourceRecord == nil {
 				// this should no longer happen since we retry the describe above until the records have been populated by AWS
 				return nil, fmt.Errorf("resource record to create was nil but validation method was DNS")
@@ -216,6 +229,12 @@ func (c *defaultCertificateManager) DeleteWithValidationRecords(ctx context.Cont
 			c.logger.Info("deleting validation records for certificate", "certificateARN", arn)
 			id, err := c.route53Client.GetHostedZoneID(ctx, awssdk.ToString(opts.DomainName))
 			if err != nil {
+				// If no hosted zone exists for this domain, skip validation records cleanup and
+				// proceed to delete the certificate itself.
+				if strings.Contains(err.Error(), "no hosted zone found") {
+					c.logger.Info("no hosted zone found for domain, skipping validation record cleanup", "domain", awssdk.ToString(opts.DomainName))
+					continue
+				}
 				return err
 			}
 			input := &route53sdk.ChangeResourceRecordSetsInput{
