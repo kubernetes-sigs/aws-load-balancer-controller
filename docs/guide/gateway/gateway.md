@@ -40,10 +40,10 @@ To explicitly disable these controllers, use the following feature gates:
 ```--feature-gates=NLBGatewayAPI=false,ALBGatewayAPI=false,GatewayListenerSet=false```
 
 For the NLB Gateway controller (Layer 4) to be enabled, ensure the following CRDs are installed:
-`Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, `TLSRoute`, and the LBC-specific CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
+`Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, `TLSRoute`, and the AWS vended CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
 
 For the ALB Gateway controller (Layer 7) to be enabled, ensure the following CRDs are installed:
-`Gateway`, `GatewayClass`, `HTTPRoute`, `GRPCRoute`, and the LBC-specific CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
+`Gateway`, `GatewayClass`, `HTTPRoute`, `GRPCRoute`, and the AWS vended CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
 
 To install CRDs, see the [Prerequisites](#prerequisites) section.
 
