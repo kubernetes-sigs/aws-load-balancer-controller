@@ -228,14 +228,26 @@ type defaultCloud struct {
 	logger             logr.Logger
 }
 
+// assumedRoleCacheKey identifies a cached assumed-role ELBv2 client.
+// Both fields are included so that sessions assumed with different ExternalId
+// values are never shared.  Using only the ARN would let the first caller's
+// ExternalId win for the lifetime of the cached session, breaking the
+// confused-deputy protection that ExternalId provides.
+type assumedRoleCacheKey struct {
+	roleArn    string
+	externalId string
+}
+
 // GetAssumedRoleELBV2 returns ELBV2 client for the given assumeRoleArn, or the default ELBV2 client if assumeRoleArn is empty
 func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn string, externalId string) (services.ELBV2, error) {
 	if assumeRoleArn == "" {
 		return c.elbv2, nil
 	}
 
+	cacheKey := assumedRoleCacheKey{roleArn: assumeRoleArn, externalId: externalId}
+
 	c.assumeRoleElbV2CacheMutex.RLock()
-	assumedRoleELBV2, exists := c.assumeRoleElbV2Cache.Get(assumeRoleArn)
+	assumedRoleELBV2, exists := c.assumeRoleElbV2Cache.Get(cacheKey)
 	c.assumeRoleElbV2CacheMutex.RUnlock()
 
 	if exists {
@@ -274,7 +286,7 @@ func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn st
 
 	c.assumeRoleElbV2CacheMutex.Lock()
 	defer c.assumeRoleElbV2CacheMutex.Unlock()
-	c.assumeRoleElbV2Cache.Set(assumeRoleArn, elbv2WithAssumedRole, cacheTTL-cacheTTLBufferTime)
+	c.assumeRoleElbV2Cache.Set(cacheKey, elbv2WithAssumedRole, cacheTTL-cacheTTLBufferTime)
 	return elbv2WithAssumedRole, nil
 }
 
