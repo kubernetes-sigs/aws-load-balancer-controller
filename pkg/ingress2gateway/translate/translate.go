@@ -3,6 +3,8 @@ package translate
 import (
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -11,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
@@ -107,6 +110,18 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 			crossNSGroupName = group.name
 		}
 		gw := buildGateway(gatewayName, group.namespace, lbConfig, allPorts, crossNSGroupName)
+
+		// For explicit groups, find the member holding the dry-run plan and write
+		// a pointer annotation on the Gateway so the in-cluster console can locate it.
+		if group.isExplicit {
+			if holder := findPlanHolder(group.members); holder != "" {
+				if gw.Annotations == nil {
+					gw.Annotations = map[string]string{}
+				}
+				gw.Annotations[utils.IngressPlanHolderAnnotation] = holder
+			}
+		}
+
 		out.Gateways = append(out.Gateways, gw)
 
 		// --- SSL redirect route ---
@@ -239,4 +254,37 @@ func buildIngressClassParamsMap(classes []networking.IngressClass, params []elbv
 		}
 	}
 	return result
+}
+
+// findPlanHolder returns the namespace/name of the group member that the ingress
+// controller writes the dry-run-plan annotation to. This is Members[0] after sorting
+// by group.order (default 0), with ties broken by lexical namespace/name — the same
+// logic used by the ingress controller's group loader.
+func findPlanHolder(members []networking.Ingress) string {
+	sorted := make([]networking.Ingress, len(members))
+	copy(sorted, members)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		orderI := getGroupOrder(sorted[i])
+		orderJ := getGroupOrder(sorted[j])
+		if orderI != orderJ {
+			return orderI < orderJ
+		}
+		nameI := fmt.Sprintf("%s/%s", sorted[i].Namespace, sorted[i].Name)
+		nameJ := fmt.Sprintf("%s/%s", sorted[j].Namespace, sorted[j].Name)
+		return nameI < nameJ
+	})
+	return fmt.Sprintf("%s/%s", sorted[0].Namespace, sorted[0].Name)
+}
+
+// getGroupOrder parses the group.order annotation from an ingress, defaulting to 0.
+func getGroupOrder(ing networking.Ingress) int32 {
+	val, ok := ing.Annotations[ingressAnnotationKeyPrefix+annotations.IngressSuffixGroupOrder]
+	if !ok {
+		return 0
+	}
+	order, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return 0
+	}
+	return int32(order)
 }

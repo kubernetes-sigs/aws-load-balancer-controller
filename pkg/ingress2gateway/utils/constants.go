@@ -16,6 +16,11 @@ const (
 	// MigrationTagKey is the AWS tag key used to track migration source.
 	MigrationTagKey = "gateway.k8s.aws/migrated-from"
 
+	// IngressPlanHolderAnnotation is the annotation key on a Gateway that points to the
+	// namespace/name of the ingress holding the dry-run-plan for an explicit ingress group.
+	// For gateway migrated from single ingress, we read AWS tag `migrated-from` for this purpose
+	IngressPlanHolderAnnotation = "gateway.k8s.aws/ingress-plan-holder"
+
 	// ProtocolHTTP is the HTTP protocol string used in listen-ports and ProtocolPort.
 	ProtocolHTTP = "HTTP"
 

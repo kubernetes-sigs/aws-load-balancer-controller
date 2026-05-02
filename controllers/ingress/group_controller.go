@@ -92,6 +92,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
+		featureGates:          controllerConfig.FeatureGates,
 		logger:                logger,
 		metricsCollector:      metricsCollector,
 		controllerName:        controllerName,
@@ -114,6 +115,7 @@ type groupReconciler struct {
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
+	featureGates          config.FeatureGates
 	logger                logr.Logger
 	metricsCollector      lbcmetrics.MetricCollector
 	controllerName        string
@@ -229,6 +231,12 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 		return nil, nil, nil, nil, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
+
+	if r.featureGates.Enabled(config.IngressPlanAnnotation) && len(ingGroup.Members) > 0 {
+		if err := patchDryRunPlanAnnotation(ctx, r.k8sClient, ingGroup.Members[0].Ing, stackJSON); err != nil {
+			r.logger.Error(err, "failed to patch dry-run plan annotation", "ingress", k8s.NamespacedName(ingGroup.Members[0].Ing))
+		}
+	}
 
 	deployModelFn := func() {
 		err = r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, "ingress")
