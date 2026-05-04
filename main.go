@@ -232,7 +232,7 @@ func main() {
 
 	deferredTGBQueue := elbv2controller.NewDeferredTargetGroupBindingReconciler(delayingQueue, controllerCFG.RuntimeConfig.SyncPeriod, mgr.GetClient(), ctrl.Log.WithName("deferredTGBQueue"))
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
-		finalizerManager, tgbResManager, controllerCFG, deferredTGBQueue, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"), lbcMetricsCollector, reconcileCounters)
+		finalizerManager, tgbResManager, controllerCFG, deferredTGBQueue, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"), lbcMetricsCollector, reconcileCounters, podInfoRepo.GetInformer())
 
 	ctx := ctrl.SetupSignalHandler()
 	if err = ingGroupReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {

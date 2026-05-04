@@ -22,6 +22,7 @@ import (
 	"time"
 
 	discv1 "k8s.io/api/discovery/v1"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -56,7 +57,7 @@ const (
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
 func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager,
 	tgbResourceManager targetgroupbinding.ResourceManager, config config.ControllerConfig, deferredTargetGroupBindingReconciler DeferredTargetGroupBindingReconciler,
-	logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *targetGroupBindingReconciler {
+	logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters, podInformer cache.Informer) *targetGroupBindingReconciler {
 
 	return &targetGroupBindingReconciler{
 		k8sClient:                            k8sClient,
@@ -71,6 +72,7 @@ func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder reco
 		maxConcurrentReconciles:    config.TargetGroupBindingMaxConcurrentReconciles,
 		maxExponentialBackoffDelay: config.TargetGroupBindingMaxExponentialBackoffDelay,
 		enableEndpointSlices:       config.EnableEndpointSlices,
+		podInformer:                podInformer,
 	}
 }
 
@@ -84,6 +86,7 @@ type targetGroupBindingReconciler struct {
 	logger                               logr.Logger
 	metricsCollector                     lbcmetrics.MetricCollector
 	reconcileCounters                    *metricsutil.ReconcileCounters
+	podInformer                          cache.Informer
 
 	maxConcurrentReconciles    int
 	maxExponentialBackoffDelay time.Duration
@@ -275,7 +278,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		Watches(&corev1.Service{}, svcEventHandler).
 		Watches(clientObj, eventHandler).
 		Watches(&corev1.Node{}, nodeEventsHandler).
-		Watches(&corev1.Pod{}, podEventHandler).
+		WatchesRawSource(&k8s.TypedInformer[*k8s.PodInfo]{Informer: r.podInformer, Handler: podEventHandler}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.maxConcurrentReconciles,
 			RateLimiter:             workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](5*time.Millisecond, r.maxExponentialBackoffDelay)}).
