@@ -8,10 +8,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
@@ -26,7 +26,7 @@ func Test_enqueueRequestsForPodEvent_enqueueImpactedTargetGroupBindings(t *testi
 		err  error
 	}
 	type args struct {
-		pod *corev1.Pod
+		pod *k8s.PodInfo
 	}
 	tests := []struct {
 		name         string
@@ -36,16 +36,14 @@ func Test_enqueueRequestsForPodEvent_enqueueImpactedTargetGroupBindings(t *testi
 		{
 			name: "pod event should enqueue TGBs used as readiness gates",
 			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				pod: &k8s.PodInfo{
+					Key: types.NamespacedName{
 						Namespace: "awesome-ns",
 						Name:      "awesome-pod",
 					},
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{ConditionType: "target-health.elbv2.k8s.aws/tgb-1"},
-							{ConditionType: "target-health.alb.ingress.k8s.aws/tgb-3"},
-						},
+					ReadinessGates: []corev1.PodReadinessGate{
+						{ConditionType: "target-health.elbv2.k8s.aws/tgb-1"},
+						{ConditionType: "target-health.alb.ingress.k8s.aws/tgb-3"},
 					},
 				},
 			},
@@ -61,15 +59,13 @@ func Test_enqueueRequestsForPodEvent_enqueueImpactedTargetGroupBindings(t *testi
 		{
 			name: "pod event without matching readiness gates are ignored",
 			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				pod: &k8s.PodInfo{
+					Key: types.NamespacedName{
 						Namespace: "awesome-ns",
 						Name:      "awesome-pod",
 					},
-					Spec: corev1.PodSpec{
-						ReadinessGates: []corev1.PodReadinessGate{
-							{ConditionType: "ignored-prefix/tgb-2"},
-						},
+					ReadinessGates: []corev1.PodReadinessGate{
+						{ConditionType: "ignored-prefix/tgb-2"},
 					},
 				},
 			},

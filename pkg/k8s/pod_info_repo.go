@@ -2,7 +2,9 @@ package k8s
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -10,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"time"
 )
 
 const (
@@ -34,15 +35,13 @@ type PodInfoRepo interface {
 //   - if watchNamespace is not "", this repo monitors pods in specific namespace
 func NewDefaultPodInfoRepo(getter cache.Getter, watchNamespace string, quicServerIDVariableName string, logger logr.Logger) *defaultPodInfoRepo {
 	converter := newPodInfoBuilder(quicServerIDVariableName)
-
-	store := NewConversionStore(converter.podInfoConverter, podInfoKeyFunc)
 	lw := cache.NewListWatchFromClient(getter, resourceTypePods, watchNamespace, fields.Everything())
-	rt := cache.NewReflector(lw, &corev1.Pod{}, store, 0)
 
+	informer := cache.NewSharedIndexInformer(lw, &corev1.Pod{}, 0, cache.Indexers{})
+	informer.SetTransform(converter.podInfoConverter)
 	repo := &defaultPodInfoRepo{
-		store:  store,
-		rt:     rt,
-		logger: logger,
+		logger:   logger,
+		informer: informer,
 	}
 	return repo
 }
@@ -52,28 +51,33 @@ var _ manager.Runnable = &defaultPodInfoRepo{}
 
 // default implementation for PodInfoRepo
 type defaultPodInfoRepo struct {
-	store  *ConversionStore
-	rt     *cache.Reflector
-	logger logr.Logger
+	informer cache.SharedIndexInformer
+	logger   logr.Logger
+}
+
+func (r *defaultPodInfoRepo) GetInformer() cache.SharedIndexInformer {
+	return r.informer
 }
 
 // Get returns PodInfo specified with specific podKey, and whether it exists.
 func (r *defaultPodInfoRepo) Get(_ context.Context, key types.NamespacedName) (PodInfo, bool, error) {
-	pInfo := PodInfo{Key: key}
-	raw, exists, err := r.store.Get(&pInfo)
+	raw, exists, err := r.informer.GetStore().Get(cache.ExplicitKey(key.String()))
 	if err != nil {
 		return PodInfo{}, false, err
 	}
 	if !exists {
 		return PodInfo{}, false, nil
 	}
-	pInfo = *raw.(*PodInfo)
-	return pInfo, true, nil
+	pInfo, ok := raw.(*PodInfo)
+	if !ok {
+		return PodInfo{}, false, fmt.Errorf("expect *PodInfo object got %T", raw)
+	}
+	return *pInfo, true, nil
 }
 
 // ListKeys will list the pod keys in this repo.
 func (r *defaultPodInfoRepo) ListKeys(_ context.Context) []types.NamespacedName {
-	storeKeys := r.store.ListKeys()
+	storeKeys := r.informer.GetStore().ListKeys()
 	keys := make([]types.NamespacedName, 0, len(storeKeys))
 	for _, storeKey := range storeKeys {
 		namespace, name, _ := cache.SplitMetaNamespaceKey(storeKey)
@@ -86,26 +90,17 @@ func (r *defaultPodInfoRepo) ListKeys(_ context.Context) []types.NamespacedName 
 	return keys
 }
 
-// Start will start the repo.
+// Start will start the informer.
 // It leverages ListWatch to keep pod info stored locally to be in-sync with Kubernetes.
 func (r *defaultPodInfoRepo) Start(ctx context.Context) error {
-	r.rt.Run(ctx.Done())
+	r.informer.RunWithContext(ctx)
 	return nil
 }
 
 // WaitForCacheSync waits for the initial sync of pod information repository.
 func (r *defaultPodInfoRepo) WaitForCacheSync(ctx context.Context) error {
 	return wait.PollImmediateUntil(waitCacheSyncPollPeriod, func() (bool, error) {
-		lastSyncResourceVersion := r.rt.LastSyncResourceVersion()
+		lastSyncResourceVersion := r.informer.LastSyncResourceVersion()
 		return lastSyncResourceVersion != "", nil
 	}, ctx.Done())
-}
-
-// podInfoKeyFunc computes the store key per PodInfo object.
-func podInfoKeyFunc(obj interface{}) (string, error) {
-	info, ok := obj.(*PodInfo)
-	if !ok {
-		return "", errors.New("expect PodInfo object")
-	}
-	return info.Key.String(), nil
 }
