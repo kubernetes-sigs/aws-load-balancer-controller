@@ -190,24 +190,21 @@ func VerifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Fr
 	listenerCerts, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, awssdk.ToString(listeners[0].ListenerArn))
 	Expect(err).ToNot(HaveOccurred())
 
-	var observedCertArns []string
+	observedCertSet := sets.New[string]()
 	var defaultCert string
 	for _, cert := range listenerCerts {
 		if awssdk.ToBool(cert.IsDefault) {
 			defaultCert = awssdk.ToString(cert.CertificateArn)
 		}
-		observedCertArns = append(observedCertArns, awssdk.ToString(cert.CertificateArn))
+		observedCertSet.Insert(awssdk.ToString(cert.CertificateArn))
 	}
 	if defaultCert != expectedCertARNS[0] {
 		return errors.New("default cert does not match")
 	}
-	//Expect(defaultCert).To(Equal(expectedCertARNS[0]))
-	if len(expectedCertARNS) != len(observedCertArns) {
-		return errors.New("cert len mismatch")
+	expectedCertSet := sets.New[string](expectedCertARNS...)
+	if !observedCertSet.Equal(expectedCertSet) {
+		return errors.New("cert mismatch")
 	}
-	sort.Strings(observedCertArns)
-	sort.Strings(expectedCertARNS)
-	Expect(expectedCertARNS).To(Equal(observedCertArns))
 	return nil
 }
 
