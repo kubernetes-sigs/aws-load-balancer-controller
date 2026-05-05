@@ -166,17 +166,13 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 
 	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
-	resolveOpts := []backend.EndpointResolveOption{
-		backend.WithPodReadinessGate(targetHealthCondType),
-	}
 
 	var endpoints []backend.PodEndpoint
-	var containsPotentialReadyEndpoints bool
 	var err error
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
-	endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
+	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port)
 
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
@@ -192,7 +188,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
 
-	if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
+	if oldCheckPoint == newCheckPoint {
 		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
 		return newCheckPoint, oldCheckPoint, true, nil
 	}
@@ -223,7 +219,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	// Any change that we perform should reset the checkpoint.
 	// TODO - How to make this cleaner?
-	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 || needNetworkingRequeue || containsPotentialReadyEndpoints || preflightNeedFurtherProbe {
+	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 || needNetworkingRequeue || preflightNeedFurtherProbe {
 		// Set to an empty checkpoint, to ensure that no matter what we try to reconcile atleast one more time.
 		// Consider this ordering of events (without using this method of overriding the checkpoint)
 		// 1. Register some pod IP, don't update TGB checkpoint.
@@ -283,11 +279,6 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if anyPodNeedFurtherProbe {
 		tgbScopedLogger.Info("Requeue for target monitor target health")
 		return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor targetHealth", m.requeueDuration)
-	}
-
-	if containsPotentialReadyEndpoints {
-		tgbScopedLogger.Info("Requeue for potentially ready endpoints")
-		return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor potential ready endpoints", m.requeueDuration)
 	}
 
 	if needNetworkingRequeue {

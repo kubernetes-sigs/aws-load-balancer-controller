@@ -39,6 +39,8 @@ type PodInfo struct {
 	ENIInfos []PodENIInfo
 }
 
+var _ v1.ObjectMetaAccessor = &PodInfo{}
+
 // PodENIInfo is a json convertible structure that stores the Branch ENI details that can be
 // used by the CNI plugin or the component consuming the resource
 // This struct is a subset of the fields found here: https://github.com/aws/amazon-vpc-resource-controller-k8s/blob/master/pkg/provider/branch/trunk/trunk.go?#L134
@@ -105,6 +107,12 @@ func (i *PodInfo) LookupContainerPort(port intstr.IntOrString) (int64, error) {
 		return int64(port.IntVal), nil
 	}
 	return 0, errors.Errorf("unable to find port %s on pod %s", port.String(), i.Key)
+}
+
+// GetObjectMeta returns a metav1.Object containing the pod's metadata. This is
+// used to support indexing the informer by pod namespace/name.
+func (i *PodInfo) GetObjectMeta() v1.Object {
+	return &corev1.Pod{ObjectMeta: v1.ObjectMeta{Namespace: i.Key.Namespace, Name: i.Key.Name}}
 }
 
 type podInfoBuilder struct {
