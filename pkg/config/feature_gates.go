@@ -40,6 +40,7 @@ const (
 	ALBTargetControlAgent         Feature = "ALBTargetControlAgent"
 	GatewayListenerSet            Feature = "GatewayListenerSet"
 	EnableCertificateManagement   Feature = "EnableCertificateManagement"
+	IngressPlanAnnotation         Feature = "IngressPlanAnnotation"
 )
 
 type FeatureGates interface {
@@ -94,6 +95,7 @@ func NewFeatureGates() FeatureGates {
 			ALBTargetControlAgent:         generateDefaultFeatureStatus(false),
 			GatewayListenerSet:            generateDefaultFeatureStatus(true),
 			EnableCertificateManagement:   generateDefaultFeatureStatus(false),
+			IngressPlanAnnotation:         generateDefaultFeatureStatus(false),
 		},
 	}
 }

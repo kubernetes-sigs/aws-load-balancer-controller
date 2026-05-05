@@ -102,4 +102,10 @@ const (
 
 	// AnnotationDryRunEnabledValue is the value that enables dry-run mode on a Gateway.
 	AnnotationDryRunEnabledValue = "true"
+
+	// AnnotationIngressPlanHolder is the annotation on a Gateway that points to the
+	// namespace/name of the ingress holding the dry-run-plan for an explicit ingress group.
+	// Set by the migration tool so the in-cluster console can locate the ingress model.
+	// it is only needed for group ingress
+	AnnotationIngressPlanHolder = "gateway.k8s.aws/ingress-plan-holder"
 )
