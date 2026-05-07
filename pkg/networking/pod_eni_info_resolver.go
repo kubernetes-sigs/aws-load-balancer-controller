@@ -262,7 +262,8 @@ func (r *defaultPodENIInfoResolver) resolveViaPodENIAnnotation(ctx context.Conte
 
 	eniIDs := sets.StringKeySet(podKeysByENIID).List()
 	req := &ec2sdk.DescribeNetworkInterfacesInput{
-		NetworkInterfaceIds: eniIDs,
+		NetworkInterfaceIds:     eniIDs,
+		IncludeManagedResources: awssdk.Bool(true),
 	}
 	enis, err := r.ec2Client.DescribeNetworkInterfacesAsList(ctx, req)
 	if err != nil {
@@ -459,6 +460,7 @@ func (r *defaultPodENIInfoResolver) getENIMappingViaDescribe(ctx context.Context
 					Values: podIPChunk,
 				},
 			},
+			IncludeManagedResources: awssdk.Bool(true),
 		}
 		enis, err := r.ec2Client.DescribeNetworkInterfacesAsList(ctx, req)
 		if err != nil {

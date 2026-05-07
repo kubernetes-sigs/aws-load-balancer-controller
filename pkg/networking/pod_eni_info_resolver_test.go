@@ -97,6 +97,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -120,6 +121,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-c", "eni-d"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -235,6 +237,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -258,6 +261,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-c"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -365,6 +369,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -464,6 +469,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -670,6 +676,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_EC2(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -889,6 +896,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_Fargate(t *testing.
 									Values: []string{"192.168.128.147", "192.168.128.148"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -1070,6 +1078,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_SageMakerHyperPod(t
 									Values: []string{"192.168.128.151", "192.168.128.152"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -1207,6 +1216,7 @@ func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -1309,6 +1319,7 @@ func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a", "eni-b"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -1444,6 +1455,7 @@ func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
 					{
 						req: &ec2sdk.DescribeNetworkInterfacesInput{
 							NetworkInterfaceIds: []string{"eni-a"},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						err: errors.New("eni eni-a not found"),
 					},
@@ -2017,6 +2029,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 									Values: []string{"192.168.100.1", "192.168.100.3"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2098,6 +2111,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 									Values: []string{"192.168.100.1", "192.168.100.2"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2130,6 +2144,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 									Values: []string{"192.168.100.3", "192.168.100.4"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 
@@ -2216,6 +2231,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 									Values: []string{"192.168.100.1", "192.168.100.3"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2277,6 +2293,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 									Values: []string{"192.168.100.1", "192.168.100.3"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						err: errors.New("some AWS API Error"),
 					},
@@ -2363,6 +2380,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsByNodeIPAndPrefix(t *testin
 									Values: []string{"192.168.1.10"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2439,6 +2457,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsByNodeIPAndPrefix(t *testin
 									Values: []string{"10.0.0.1"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2548,6 +2567,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsByNodeIPAndPrefix(t *testin
 									Values: []string{"10.0.0.1"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						err: errors.New("ec2 api error"),
 					},
@@ -2632,6 +2652,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 									Values: []string{"2001:0db8:85a3:0000:0000:8a2e:0370:ee50", "2001:0db8:85a3:0000:0000:9704:6c49:9e7d"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2713,6 +2734,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 									Values: []string{"2001:0db8:85a3:0000:0000:8a2e:0370:ee50", "2001:0db8:85a3:0000:0000:9704:6c49:9e7d"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2745,6 +2767,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 									Values: []string{"2001:0db8:85a3:0000:0000:8493:9af3:a786", "2001:0db8:85a3:0000:0000:3f04:39e7:58d9"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2830,6 +2853,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 									Values: []string{"2001:0db8:85a3:0000:0000:8493:9af3:a786", "2001:0db8:85a3:0000:0000:3f04:39e7:58d9"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						resp: []ec2types.NetworkInterface{
 							{
@@ -2888,6 +2912,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 									Values: []string{"2001:0db8:85a3:0000:0000:8493:9af3:a786", "2001:0db8:85a3:0000:0000:3f04:39e7:58d9"},
 								},
 							},
+							IncludeManagedResources: awssdk.Bool(true),
 						},
 						err: errors.New("some AWS API Error"),
 					},
