@@ -244,160 +244,26 @@ These warnings are informational — the tool still generates output. For the mo
 
 ## Migration Console (Web UI)
 
-After applying the generated Gateway manifests with dry-run enabled (the default), the
-migration console provides a local web UI for reviewing every field on every resource the
-gateway controller will produce, side by side against the plan the ingress controller has
-for the same workload. Use it to confirm no unexpected changes are introduced before
-switching traffic.
+After applying the generated Gateway manifests with dry-run enabled (the default),
+use the migration console to review every field on every resource the gateway
+controller will produce, side by side against the plan the ingress controller has
+for the same workload. It's read-only, runs locally, and doesn't touch AWS.
 
-### Launching
-
-```bash
-lbc-migrate --console
-# or bind to a different port
-lbc-migrate --console --port 9000
-```
-
-The console binds to `http://localhost:8080` by default and operates cluster-wide using your
-current kubeconfig context. It is read-only: it lists Gateways and reads annotations, and
-never modifies cluster state.
-
-### Landing page
-
-The landing page lists every namespace that has at least one Gateway carrying a
-`gateway.k8s.aws/dry-run-plan` annotation, with a count of those Gateways. Namespaces
-without dry-run plans do not appear.
-
-Click a namespace to enter the comparison view for that namespace.
-
-### Comparison view
-
-One tab per Gateway in the namespace. For the selected Gateway the view shows:
-
-- **Metric chips**: how many fields fall into each status — `same`, `changed`, `removed`,
-  `added` — plus an `all` chip to reset the filter. Click a chip to scope the view.
-- **Hide expected** toggle (upper right): filter out diffs that the migration tool classifies as
-  expected migration artifacts (see below). Scoped to whatever filter is currently active.
-- **Ingress model** (left) and **Gateway model** (right): each resource in the stack appears
-  as a card colored by its status. Click a card to open the detail drawer, which shows every
-  field with its ingress-side value, gateway-side value, and status. The drawer also carries
-  its own `Hide expected` checkbox for per-resource filtering.
-
-Resources are matched across the two plans by a correlation key. For most resource types the
-raw stack ID is stable, so the key is the ID itself. For `TargetGroup` and
-`TargetGroupBinding` the two controllers generate different raw IDs even when pointing at
-the same backing service, so the console keys on the TGB's `serviceRef.name:port` — each
-resource shows as a single correlated row with field-level diffs instead of a
-removed+added pair.
-
-### How diffs are classified
-
-Every field diff is assigned one of four statuses:
-
-- **same**: both sides produce the same value. Slice fields are compared as multisets
-  (`[80, 81]` equals `[81, 80]`) because ALB and both controllers treat things like
-  SecurityGroup ingress rules as unordered.
-- **changed**: both sides have the field, values differ.
-- **added**: only the gateway side has the field.
-- **removed**: only the ingress side has the field.
-
-Expected entries are the ones `Hide expected` filters out. Current rules:
-
-- **`migrated-from` tag added to any resource** — the migration tool stamps
-  `spec.tags.gateway.k8s.aws/migrated-from` on every generated resource, so an `added`
-  entry for this tag is expected on the gateway side.
-- **Controller-generated name change on ALB-family resources** — `spec.name` on
-  `LoadBalancer` and `TargetGroup`, `spec.groupName` on `SecurityGroup`, and
-  `spec.template.metadata.name` on `TargetGroupBinding`. Marked expected only when both
-  sides match the controller-generated format (`k8s-<...>-<10 hex>`, two or three dash
-  sections before the suffix). A custom name set via annotation on either side will still
-  surface as a real changed diff.
-- **Health-check defaults drift on TargetGroup** — `spec.healthCheckConfig.healthyThresholdCount`,
-  `spec.healthCheckConfig.unhealthyThresholdCount`, and `spec.healthCheckConfig.matcher.httpCode`.
-  The ingress controller defaults to 2/2/200, the gateway controller defaults to 3/3/200-399.
-- **`weight` added on ListenerRule forward actions** — any field under
-  `forwardConfig.targetGroups[...]` ending in `.weight`. The gateway controller always emits
-  a weight on every forward target group; the ingress controller omits it.
-- **`targetGroupARN.$ref` string change** — on ListenerRule
-  (`forwardConfig.targetGroups[...].targetGroupARN.$ref`) and on TargetGroupBinding
-  (`spec.template.spec.targetGroupARN.$ref`). These `$ref` values are JSON-pointer strings
-  that reference another resource's raw stack ID (e.g.
-  `#/resources/AWS::...::TargetGroup/<id>/status/targetGroupARN`) — the internal IDs differ
-  per controller even when they point at the same backing service, so the string always
-  differs. The real target-group differences surface on the correlated `TargetGroup` row,
-  which the console keys by `serviceRef.name:port` to line up across the two plans.
-
-Everything not matching these rules is shown as-is so genuine user-visible changes are never
-silently hidden.
-
-### Resolving the ingress source for a Gateway
-
-Each Gateway the console shows is paired with a specific Ingress that holds the
-`alb.ingress.kubernetes.io/dry-run-plan` annotation. The console derives the pairing from
-the `gateway.k8s.aws/migrated-from` tag that the migration tool stamps onto the
-LoadBalancer resource of every generated plan:
-
-- `ingress/<namespace>/<name>` (standalone ingress) — direct pointer to that Ingress.
-- `ingress-group/<group-name>` (explicit ingress group) — the console lists Ingresses
-  cluster-wide filtered by `alb.ingress.kubernetes.io/group.name == <group-name>` and
-  returns whichever member currently carries a non-empty `dry-run-plan` annotation.
-
-On a healthy group exactly one member holds the plan. If the console finds zero or more than
-one, it surfaces an error on the Gateway card (see Troubleshooting below).
-
-### RBAC
-
-The console needs these permissions in the context it runs under:
-
-- Cluster-wide `list` on `gateways.gateway.networking.k8s.io` (for the landing page and
-  per-namespace gateway lists).
-- Cluster-wide `list` on `ingresses.networking.k8s.io` (for resolving group plan holders —
-  ingress groups can span namespaces).
-- `get` on `ingresses.networking.k8s.io` in any namespace that appears on the landing page
-  (to read the plan annotation once the holder is resolved).
-
-### Troubleshooting
-
-**"could not determine ingress plan holder: no migrated-from tag found on LoadBalancer in
-gateway model"** — the Gateway's dry-run plan lacks a `migrated-from` tag, which means it
-wasn't generated by `lbc-migrate`. Confirm you applied the output of `lbc-migrate` and not a
-hand-authored Gateway.
-
-**"no ingress in group <name> carries a dry-run-plan annotation"** — the ingress controller
-has not yet written the plan annotation for any member of that group. Confirm the
-`IngressPlanAnnotation` feature gate is enabled and the ingress controller has reconciled
-the group at least once.
-
-**Empty drawer / browser shows stale content** — the console's static assets are embedded in
-the binary, so after upgrading `lbc-migrate` you need to restart it and hard-refresh the
-browser (DevTools → Network → Disable cache, or Cmd/Ctrl+Shift+R).
-
-### Limitations
-
-- The console does not verify AWS resource state. It only compares the two dry-run plans.
-- Cross-namespace explicit groups require cluster-wide list permission on Ingresses (see
-  RBAC above). There is no namespace-scoped mode.
+See [In-Cluster Migration Console](in_cluster_console.md) for how to launch it,
+the UI walk-through, how diffs are classified and filtered, RBAC, and
+troubleshooting.
 
 
 ## Preview Gateway resources with Dry-Run
 
 Before applying the generated Gateway manifests to create real AWS resources, you can use
 dry-run mode to preview exactly what the AWS Load Balancer Controller would create. When a
-Gateway is annotated with `gateway.k8s.aws/dry-run: "true"`, LBC builds its internal model
+Gateway is annotated with `gateway.k8s.aws/dry-run: "true"`, LBC builds its built model
 stack and writes the serialized plan back to the Gateway as an annotation — **without
 creating any AWS resources**.
 
-### How it works
-
-1. Apply a Gateway with the `gateway.k8s.aws/dry-run: "true"` annotation.
-2. LBC resolves the GatewayClass, LoadBalancerConfiguration, and attached routes as usual.
-3. LBC builds the internal resource model (LoadBalancer, Listeners, ListenerRules,
-   TargetGroups, and all their configuration including tags, health checks, attributes,
-   and security groups).
-4. Instead of calling AWS to create resources, LBC marshals the model to JSON and writes it to
-   the Gateway's `gateway.k8s.aws/dry-run-plan` annotation.
-5. When you remove the `gateway.k8s.aws/dry-run` annotation, LBC cleans up the `dry-run-plan`
-   annotation, then proceeds with normal reconciliation (creating the ALB).
+For the end-to-end workflow (feature gate → generate → apply → review in console),
+see [In-Cluster Migration Console](in_cluster_console.md#end-to-end-dry-run-workflow).
 
 ### Enabling dry-run on a Gateway
 
