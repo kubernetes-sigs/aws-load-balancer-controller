@@ -1,8 +1,12 @@
 package console
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 // DiffStatus represents the comparison status of a field or resource.
@@ -16,13 +20,32 @@ const (
 )
 
 // DiffEntry represents a single field-level difference between two models.
+//
+// Correlation vs. Raw IDs:
+//   - CorrelationID is the join key used to match ingress-side resources
+//     against gateway-side resources. For most resource types it equals the
+//     raw resource ID from the stack JSON. For TargetGroup /
+//     TargetGroupBinding it's derived from the TGB's serviceRef so a renamed
+//     resource still aligns.
+//   - IngressResourceID and GatewayResourceID hold the raw IDs emitted by
+//     each controller. They are what the UI displays in each column so
+//     customers still see the exact names the controller will produce.
+//
+// Expected is true when the change is a known, semantic artifact of the
+// Ingress→Gateway migration itself (e.g., added migrated-from tag, ALB name
+// format, controller default drift). The UI uses this to de-emphasize noise.
 type DiffEntry struct {
-	ResourceType string     `json:"resourceType"`
-	ResourceID   string     `json:"resourceId"`
-	Field        string     `json:"field"`
-	Ingress      any        `json:"ingress,omitempty"`
-	Gateway      any        `json:"gateway,omitempty"`
-	Status       DiffStatus `json:"status"`
+	ResourceType      string `json:"resourceType"`
+	CorrelationID     string `json:"correlationId"`
+	IngressResourceID string `json:"ingressResourceId,omitempty"`
+	GatewayResourceID string `json:"gatewayResourceId,omitempty"`
+
+	Field          string     `json:"field"`
+	Ingress        any        `json:"ingress,omitempty"`
+	Gateway        any        `json:"gateway,omitempty"`
+	Status         DiffStatus `json:"status"`
+	Expected       bool       `json:"expected,omitempty"`
+	ExpectedReason string     `json:"expectedReason,omitempty"`
 }
 
 // DiffSummary counts entries by status.
@@ -36,13 +59,21 @@ type DiffSummary struct {
 
 // DiffResult holds the complete comparison between an ingress and gateway model.
 type DiffResult struct {
-	IngressSource string      `json:"ingressSource"`
-	GatewaySource string      `json:"gatewaySource"`
-	Entries       []DiffEntry `json:"entries"`
-	Summary       DiffSummary `json:"summary"`
+	Entries []DiffEntry `json:"entries"`
+	Summary DiffSummary `json:"summary"`
 }
 
-// Diff compares two ResourceTrees and produces a DiffResult.
+// correlated bundles a raw ID with the flattened fields it points to so we
+// can defer the "ingress-side vs gateway-side" decision until after matching.
+type correlated struct {
+	rawID  string
+	fields map[string]any
+}
+
+// Diff compares two ResourceTrees and produces a DiffResult. Resources are
+// matched across trees by their correlation ID (see correlate.go) rather
+// than by their raw IDs, so a TargetGroup that was renamed during migration
+// still shows as a single "changed" resource with field-level deltas.
 func Diff(ingress, gateway ResourceTree) DiffResult {
 	var entries []DiffEntry
 
@@ -50,38 +81,38 @@ func Diff(ingress, gateway ResourceTree) DiffResult {
 	allTypes := mergedSortedKeys(ingress, gateway)
 
 	for _, resType := range allTypes {
-		ingressResources := ingress[resType]
-		gatewayResources := gateway[resType]
+		ingressByCorr := groupByCorrelation(resType, ingress)
+		gatewayByCorr := groupByCorrelation(resType, gateway)
 
-		allIDs := mergedSortedKeys(ingressResources, gatewayResources)
+		allCorrs := mergedSortedKeys(ingressByCorr, gatewayByCorr)
 
-		for _, resID := range allIDs {
-			inFields, inOK := ingressResources[resID]
-			gwFields, gwOK := gatewayResources[resID]
+		for _, corr := range allCorrs {
+			inRes, inOK := ingressByCorr[corr]
+			gwRes, gwOK := gatewayByCorr[corr]
 
-			if inOK && gwOK {
-				// Resource exists in both — diff fields.
-				entries = append(entries, diffFields(resType, resID, inFields, gwFields)...)
-			} else if inOK {
-				// Resource only in ingress — removed.
-				for _, field := range sortedKeys(inFields) {
+			switch {
+			case inOK && gwOK:
+				entries = append(entries, diffFields(resType, corr, inRes, gwRes)...)
+			case inOK:
+				for _, field := range sortedKeys(inRes.fields) {
 					entries = append(entries, DiffEntry{
-						ResourceType: resType,
-						ResourceID:   resID,
-						Field:        field,
-						Ingress:      inFields[field],
-						Status:       StatusRemoved,
+						ResourceType:      resType,
+						CorrelationID:     corr,
+						IngressResourceID: inRes.rawID,
+						Field:             field,
+						Ingress:           inRes.fields[field],
+						Status:            StatusRemoved,
 					})
 				}
-			} else {
-				// Resource only in gateway — added.
-				for _, field := range sortedKeys(gwFields) {
+			case gwOK:
+				for _, field := range sortedKeys(gwRes.fields) {
 					entries = append(entries, DiffEntry{
-						ResourceType: resType,
-						ResourceID:   resID,
-						Field:        field,
-						Gateway:      gwFields[field],
-						Status:       StatusAdded,
+						ResourceType:      resType,
+						CorrelationID:     corr,
+						GatewayResourceID: gwRes.rawID,
+						Field:             field,
+						Gateway:           gwRes.fields[field],
+						Status:            StatusAdded,
 					})
 				}
 			}
@@ -89,8 +120,13 @@ func Diff(ingress, gateway ResourceTree) DiffResult {
 	}
 
 	summary := DiffSummary{}
-	for _, e := range entries {
-		switch e.Status {
+	for i := range entries {
+		// Classify each entry as expected (known migration artifact) or not.
+		c := classifyEntry(entries[i])
+		entries[i].Expected = c.Expected
+		entries[i].ExpectedReason = c.Reason
+
+		switch entries[i].Status {
 		case StatusSame:
 			summary.Same++
 		case StatusChanged:
@@ -108,26 +144,40 @@ func Diff(ingress, gateway ResourceTree) DiffResult {
 	}
 }
 
-// diffFields compares two flat field maps for the same resource.
-func diffFields(resType, resID string, ingressFields, gatewayFields map[string]any) []DiffEntry {
+// groupByCorrelation returns the resources of a single type keyed by their
+// correlation ID. The correlation is computed against the full per-side
+// tree so it can cross-reference (e.g., a TargetGroup looking up its TGB).
+func groupByCorrelation(resType string, tree ResourceTree) map[string]correlated {
+	out := make(map[string]correlated)
+	for rawID, fields := range tree[resType] {
+		corr := correlationID(resType, rawID, tree)
+		out[corr] = correlated{rawID: rawID, fields: fields}
+	}
+	return out
+}
+
+// diffFields compares two flat field maps for a correlated resource pair.
+func diffFields(resType, corr string, ingress, gateway correlated) []DiffEntry {
 	var entries []DiffEntry
-	allFields := mergedSortedKeys(ingressFields, gatewayFields)
+	allFields := mergedSortedKeys(ingress.fields, gateway.fields)
 
 	for _, field := range allFields {
-		inVal, inOK := ingressFields[field]
-		gwVal, gwOK := gatewayFields[field]
+		inVal, inOK := ingress.fields[field]
+		gwVal, gwOK := gateway.fields[field]
 
 		entry := DiffEntry{
-			ResourceType: resType,
-			ResourceID:   resID,
-			Field:        field,
+			ResourceType:      resType,
+			CorrelationID:     corr,
+			IngressResourceID: ingress.rawID,
+			GatewayResourceID: gateway.rawID,
+			Field:             field,
 		}
 
 		switch {
 		case inOK && gwOK:
 			entry.Ingress = inVal
 			entry.Gateway = gwVal
-			if fmt.Sprintf("%v", inVal) == fmt.Sprintf("%v", gwVal) {
+			if semanticEqual(inVal, gwVal) {
 				entry.Status = StatusSame
 			} else {
 				entry.Status = StatusChanged
@@ -169,4 +219,21 @@ func sortedKeys(m map[string]any) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// semanticEqual reports whether two JSON-decoded values represent the same
+// content, treating slices as multisets.
+func semanticEqual(a, b any) bool {
+	return cmp.Equal(a, b, cmpopts.SortSlices(canonicalLess))
+}
+
+func canonicalLess(x, y any) bool {
+	return canonicalBytes(x) < canonicalBytes(y)
+}
+
+func canonicalBytes(v any) string {
+	if b, err := json.Marshal(v); err == nil {
+		return string(b)
+	}
+	return fmt.Sprintf("%v", v)
 }

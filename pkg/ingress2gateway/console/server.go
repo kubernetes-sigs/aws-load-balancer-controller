@@ -1,7 +1,7 @@
 package console
 
 import (
-	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,56 +10,71 @@ import (
 )
 
 // ConsoleServer serves the migration console web UI and API endpoints.
+// The server operates cluster-wide: it lists namespaces containing Gateways
+// with dry-run-plan annotations, then lists gateways and diffs on demand.
 type ConsoleServer struct {
 	k8sClient client.Client
-	namespace string
 }
 
 // NewConsoleServer creates a new ConsoleServer.
-func NewConsoleServer(k8sClient client.Client, namespace string) *ConsoleServer {
-	return &ConsoleServer{
-		k8sClient: k8sClient,
-		namespace: namespace,
-	}
+func NewConsoleServer(k8sClient client.Client) *ConsoleServer {
+	return &ConsoleServer{k8sClient: k8sClient}
 }
 
 // Handler returns an http.Handler with all routes registered.
 // Routes:
-//   - GET /              serves the HTML page (Gateway selector + comparison UI)
-//   - GET /api/gateways  returns JSON list of all Gateways with dry-run plans (used by UI to render tabs)
-//   - GET /api/diff      returns field-level diff JSON for a specific Gateway (used by UI when a tab is selected)
+//   - GET /                               serves the HTML page (landing page + comparison UI router)
+//   - GET /api/namespaces                 returns the namespaces cluster-wide that have at least one
+//     Gateway with a dry-run-plan annotation (landing page data)
+//   - GET /api/gateways?namespace=<ns>    returns the Gateways in <ns> with dry-run plans + per-gateway summaries
+//   - GET /api/diff?namespace=<ns>&gateway=<name>
+//     returns the field-level diff for a specific Gateway
 func (s *ConsoleServer) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/namespaces", s.handleNamespaces)
 	mux.HandleFunc("/api/gateways", s.handleGateways)
 	mux.HandleFunc("/api/diff", s.handleDiff)
 	mux.HandleFunc("/", s.handleIndex)
 	return mux
 }
 
-// handleGateways returns all Gateways with dry-run plans in the namespace.
+// handleNamespaces returns all namespaces with at least one Gateway that has a dry-run-plan annotation.
+func (s *ConsoleServer) handleNamespaces(w http.ResponseWriter, r *http.Request) {
+	namespaces, err := DiscoverNamespaces(r.Context(), s.k8sClient)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, namespaces)
+}
+
+// handleGateways returns all Gateways with dry-run plans in the given namespace.
 func (s *ConsoleServer) handleGateways(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	gateways, err := DiscoverGateways(ctx, s.k8sClient, s.namespace)
+	namespace := r.URL.Query().Get("namespace")
+	if namespace == "" {
+		writeError(w, http.StatusBadRequest, "missing ?namespace= parameter")
+		return
+	}
+
+	gateways, err := DiscoverGateways(r.Context(), s.k8sClient, namespace)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	type gatewayListItem struct {
-		Name              string      `json:"name"`
-		Namespace         string      `json:"namespace"`
-		IngressPlanHolder string      `json:"ingressPlanHolder"`
-		Error             string      `json:"error,omitempty"`
-		Summary           DiffSummary `json:"summary"`
+		Name      string      `json:"name"`
+		Namespace string      `json:"namespace"`
+		Error     string      `json:"error,omitempty"`
+		Summary   DiffSummary `json:"summary"`
 	}
 
 	items := make([]gatewayListItem, 0, len(gateways))
 	for _, gw := range gateways {
 		item := gatewayListItem{
-			Name:              gw.Name,
-			Namespace:         gw.Namespace,
-			IngressPlanHolder: gw.IngressPlanHolder,
-			Error:             gw.Error,
+			Name:      gw.Name,
+			Namespace: gw.Namespace,
+			Error:     gw.Error,
 		}
 		// Compute summary if both plans are available.
 		if gw.IngressPlan != "" && gw.GatewayPlan != "" {
@@ -76,22 +91,27 @@ func (s *ConsoleServer) handleGateways(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, items)
 }
 
-// handleDiff returns the field-level diff for a specific Gateway.
+// handleDiff returns the field-level diff for a specific Gateway in a namespace.
 func (s *ConsoleServer) handleDiff(w http.ResponseWriter, r *http.Request) {
+	namespace := r.URL.Query().Get("namespace")
 	gatewayName := r.URL.Query().Get("gateway")
+	if namespace == "" {
+		writeError(w, http.StatusBadRequest, "missing ?namespace= parameter")
+		return
+	}
 	if gatewayName == "" {
 		writeError(w, http.StatusBadRequest, "missing ?gateway= parameter")
 		return
 	}
 
-	info, err := s.loadGatewayWithFallback(r.Context(), gatewayName)
+	info, err := LoadGatewayInfo(r.Context(), s.k8sClient, namespace, gatewayName)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
 	if info.IngressPlan == "" {
-		writeError(w, http.StatusNotFound, fmt.Sprintf("no ingress plan found for gateway %s", gatewayName))
+		writeError(w, http.StatusNotFound, fmt.Sprintf("no ingress plan found for gateway %s/%s", namespace, gatewayName))
 		return
 	}
 
@@ -107,33 +127,22 @@ func (s *ConsoleServer) handleDiff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	diff := Diff(inTree, gwTree)
-	diff.IngressSource = info.IngressPlanHolder
-	diff.GatewaySource = fmt.Sprintf("%s/%s", info.Namespace, info.Name)
 
 	writeJSON(w, diff)
 }
 
-// TO-DO: handleIndex serves the placeholder HTML page.
-func (s *ConsoleServer) handleIndex(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
-<html>
-<head><title>LBC Migration Console</title></head>
-<body>
-<h1>LBC Migration Console</h1>
-<p>Namespace: %s</p>
-<p>API endpoints:</p>
-<ul>
-  <li><a href="/api/gateways">/api/gateways</a> — list all Gateways with dry-run plans</li>
-  <li>/api/diff?gateway=NAME — field-level diff for a Gateway</li>
-</ul>
-<p>Full web UI under development...</p>
-</body>
-</html>`, s.namespace)
-}
+//go:embed static/index.html
+var indexHTML embed.FS
 
-func (s *ConsoleServer) loadGatewayWithFallback(ctx context.Context, gatewayName string) (*GatewayInfo, error) {
-	return LoadGatewayInfo(ctx, s.k8sClient, s.namespace, gatewayName)
+// handleIndex serves the embedded HTML page.
+func (s *ConsoleServer) handleIndex(w http.ResponseWriter, r *http.Request) {
+	data, err := indexHTML.ReadFile("static/index.html")
+	if err != nil {
+		http.Error(w, "failed to load UI", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(data)
 }
 
 func writeJSON(w http.ResponseWriter, data any) {
@@ -146,5 +155,5 @@ func writeJSON(w http.ResponseWriter, data any) {
 func writeError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }

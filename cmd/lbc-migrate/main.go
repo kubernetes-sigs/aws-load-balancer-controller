@@ -51,10 +51,6 @@ Use --console to launch a local web UI that compares ingress and gateway dry-run
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if consoleMode {
-				consoleOpts.Namespace = opts.Namespace
-				if consoleOpts.Namespace == "" {
-					return fmt.Errorf("--namespace is required with --console")
-				}
 				return runConsole(cmd.Context(), consoleOpts)
 			}
 			if err := validateFlags(opts); err != nil {
@@ -97,9 +93,10 @@ Use --console to launch a local web UI that compares ingress and gateway dry-run
 	cmd.Flags().StringVar(&opts.Split, "split", ingress2gateway.SplitModeNone,
 		"Split output layout. Empty (default) writes one combined file; 'namespace' writes one file per namespace plus a gatewayclass file for cluster-scoped resources")
 
-	// Dry-run flag
-	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false,
-		"Add gateway.k8s.aws/dry-run annotation to generated Gateway manifests so LBC previews the generated AWS resources without creating them")
+	// Dry-run flag: default to true so users preview the generated model before
+	// creating real AWS resources. Pass --dry-run=false to opt out.
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", true,
+		"Add gateway.k8s.aws/dry-run annotation to generated Gateway manifests so LBC previews the generated AWS resources without creating them. Pass --dry-run=false to generate live Gateway manifests.")
 
 	return cmd
 }
@@ -186,8 +183,7 @@ func runMigrate(ctx context.Context, opts *ingress2gateway.MigrateOptions) error
 
 // ConsoleOptions holds the flags for --console mode.
 type ConsoleOptions struct {
-	Namespace string
-	Port      int
+	Port int
 }
 
 func runConsole(ctx context.Context, opts *ConsoleOptions) error {
@@ -206,7 +202,7 @@ func runConsole(ctx context.Context, opts *ConsoleOptions) error {
 		return fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	server := console.NewConsoleServer(k8sClient, opts.Namespace)
+	server := console.NewConsoleServer(k8sClient)
 	addr := fmt.Sprintf("localhost:%d", opts.Port)
 
 	httpServer := &http.Server{
