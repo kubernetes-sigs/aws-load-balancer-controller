@@ -41,8 +41,8 @@ type Reference struct {
 	Name string `json:"name"`
 }
 
-// TODO: Add a validation in the admission webhook to check if only one of HTTPCode or GRPCCode is set.
 // Information to use when checking for a successful response from a target.
+// +kubebuilder:validation:XValidation:rule="has(self.httpCode) != has(self.grpcCode)",message="Only one of httpCode or grpcCode must be specified"
 type HealthCheckMatcher struct {
 	// The HTTP codes.
 	HTTPCode *string `json:"httpCode,omitempty"`
@@ -241,10 +241,11 @@ type TargetGroupAttribute struct {
 	Value string `json:"value"`
 }
 
-// TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.
-
 // TargetGroupConfigurationStatus defines the observed state of TargetGroupConfiguration
 type TargetGroupConfigurationStatus struct {
+	// The generation of the TargetGroupConfiguration object observed by the controller.
+	// +optional
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 	// The generation of the Gateway Configuration attached to the Gateway object.
 	// +optional
 	ObservedGatewayConfigurationGeneration *int64 `json:"observedGatewayConfigurationGeneration,omitempty"`
