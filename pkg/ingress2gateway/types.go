@@ -27,6 +27,15 @@ type OutputResources struct {
 	ListenerRuleConfigurations []gatewayv1beta1.ListenerRuleConfiguration
 }
 
+// Split mode values accepted by MigrateOptions.Split and WriteOptions.Split.
+const (
+	// SplitModeNone emits a single manifest file containing every generated resource.
+	SplitModeNone = ""
+	// SplitModeNamespace emits one manifest file per namespace plus a file for
+	// cluster-scoped resources. See writer package for the exact layout.
+	SplitModeNamespace = "namespace"
+)
+
 // MigrateOptions holds the resolved configuration for a migration run.
 type MigrateOptions struct {
 	// Input mode
@@ -43,9 +52,22 @@ type MigrateOptions struct {
 	OutputDir    string
 	OutputFormat string
 
+	// Split controls how the writer lays out the output files. Valid values are
+	// SplitModeNone (default, single file) and SplitModeNamespace (one file per namespace).
+	Split string
+
 	// Dry-run: when true, the generated Gateway manifests include the
 	// gateway.k8s.aws/dry-run annotation so LBC builds the model without deploying.
 	DryRun bool
+}
+
+// WriteOptions holds the options consumed by a WriteFunc implementation.
+// Kept separate from MigrateOptions so the writer is not coupled to CLI/input concerns.
+type WriteOptions struct {
+	// Format is the serialization format. Supported values are "yaml" and "json".
+	Format string
+	// Split controls the file layout. See the Split mode constants above.
+	Split string
 }
 
 // NormalizeNamespaces sets empty namespace fields to "default" on all input
