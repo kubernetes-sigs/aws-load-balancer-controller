@@ -222,7 +222,7 @@ func runConsole(ctx context.Context, opts *ConsoleOptions) error {
 	fmt.Fprintf(os.Stderr, "Console running at http://%s\nPress Ctrl+C to stop.\n", addr)
 
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("server error: %w", err)
+		return fmt.Errorf("failed to start console on %s: %w\nUse --port to specify a different port", addr, err)
 	}
 	return nil
 }

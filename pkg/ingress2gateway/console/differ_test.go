@@ -79,7 +79,7 @@ func TestDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := Diff(tt.ingress, tt.gateway)
+			result := Diff(tt.ingress, tt.gateway, nil)
 			assert.Equal(t, tt.wantSummary, result.Summary)
 		})
 	}
@@ -92,7 +92,7 @@ func TestDiff_ChangedFieldValues(t *testing.T) {
 	gateway := ResourceTree{
 		"AWS::ElasticLoadBalancingV2::LoadBalancer": {"LoadBalancer": {"spec.name": "k8s-gateway-xyz"}},
 	}
-	result := Diff(ingress, gateway)
+	result := Diff(ingress, gateway, nil)
 	for _, e := range result.Entries {
 		if e.Field == "spec.name" {
 			assert.Equal(t, StatusChanged, e.Status)
@@ -178,7 +178,7 @@ func TestDiff_SliceOrderInvariance(t *testing.T) {
 			gateway := ResourceTree{
 				"AWS::EC2::SecurityGroup": {"SG": {"spec.ingress": tt.gateway}},
 			}
-			result := Diff(ingress, gateway)
+			result := Diff(ingress, gateway, nil)
 			var got DiffStatus
 			for _, e := range result.Entries {
 				if e.Field == "spec.ingress" {

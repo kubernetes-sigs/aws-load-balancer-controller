@@ -257,11 +257,135 @@ func TestClassifyEntry(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := classifyEntry(tt.entry)
+			c := classifyEntry(tt.entry, nil)
 			assert.Equal(t, tt.wantExpected, c.Expected)
 			if tt.wantReason != "" {
 				assert.Equal(t, tt.wantReason, c.Reason)
 			}
+		})
+	}
+}
+
+func TestClassifyEntry_UserSpecifiedHealthCheck(t *testing.T) {
+	tests := []struct {
+		name          string
+		entry         DiffEntry
+		userSpecified UserSpecifiedFields
+		wantExpected  bool
+	}{
+		{
+			name: "healthyThresholdCount NOT expected when user explicitly set it",
+			entry: DiffEntry{
+				ResourceType: utils.StackResTypeTargetGroup,
+				Field:        "spec.healthCheckConfig.healthyThresholdCount",
+				Ingress:      float64(2),
+				Gateway:      float64(3),
+				Status:       StatusChanged,
+			},
+			userSpecified: UserSpecifiedFields{
+				"spec.healthCheckConfig.healthyThresholdCount": true,
+			},
+			wantExpected: false,
+		},
+		{
+			name: "unhealthyThresholdCount NOT expected when user explicitly set it",
+			entry: DiffEntry{
+				ResourceType: utils.StackResTypeTargetGroup,
+				Field:        "spec.healthCheckConfig.unhealthyThresholdCount",
+				Ingress:      float64(2),
+				Gateway:      float64(3),
+				Status:       StatusChanged,
+			},
+			userSpecified: UserSpecifiedFields{
+				"spec.healthCheckConfig.unhealthyThresholdCount": true,
+			},
+			wantExpected: false,
+		},
+		{
+			name: "matcher.httpCode NOT expected when user explicitly set success-codes",
+			entry: DiffEntry{
+				ResourceType: utils.StackResTypeTargetGroup,
+				Field:        "spec.healthCheckConfig.matcher.httpCode",
+				Ingress:      "200",
+				Gateway:      "200-399",
+				Status:       StatusChanged,
+			},
+			userSpecified: UserSpecifiedFields{
+				"spec.healthCheckConfig.matcher.httpCode": true,
+			},
+			wantExpected: false,
+		},
+		{
+			name: "healthyThresholdCount still expected when a different field is user-specified",
+			entry: DiffEntry{
+				ResourceType: utils.StackResTypeTargetGroup,
+				Field:        "spec.healthCheckConfig.healthyThresholdCount",
+				Ingress:      float64(2),
+				Gateway:      float64(3),
+				Status:       StatusChanged,
+			},
+			userSpecified: UserSpecifiedFields{
+				"spec.healthCheckConfig.matcher.httpCode": true,
+			},
+			wantExpected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := classifyEntry(tt.entry, tt.userSpecified)
+			assert.Equal(t, tt.wantExpected, c.Expected)
+		})
+	}
+}
+
+func TestBuildUserSpecifiedFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantFields  UserSpecifiedFields
+	}{
+		{
+			name:        "no annotations",
+			annotations: map[string]string{},
+			wantFields:  UserSpecifiedFields{},
+		},
+		{
+			name: "healthy-threshold-count set",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/healthy-threshold-count": "5",
+			},
+			wantFields: UserSpecifiedFields{
+				"spec.healthCheckConfig.healthyThresholdCount": true,
+			},
+		},
+		{
+			name: "all three health check annotations set",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/healthy-threshold-count":   "5",
+				"alb.ingress.kubernetes.io/unhealthy-threshold-count": "3",
+				"alb.ingress.kubernetes.io/success-codes":             "200",
+			},
+			wantFields: UserSpecifiedFields{
+				"spec.healthCheckConfig.healthyThresholdCount":   true,
+				"spec.healthCheckConfig.unhealthyThresholdCount": true,
+				"spec.healthCheckConfig.matcher.httpCode":        true,
+			},
+		},
+		{
+			name: "unrelated annotations ignored",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/scheme":    "internet-facing",
+				"alb.ingress.kubernetes.io/group.name": "my-group",
+			},
+			wantFields: UserSpecifiedFields{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildUserSpecifiedFields(tt.annotations)
+			assert.Equal(t, tt.wantFields, got)
 		})
 	}
 }

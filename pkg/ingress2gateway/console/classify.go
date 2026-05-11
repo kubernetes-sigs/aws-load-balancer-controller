@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 )
 
@@ -38,10 +39,14 @@ var healthCheckDefaultFields = map[string]string{
 	"spec.healthCheckConfig.matcher.httpCode":        "Controller default differs (Ingress=200, Gateway=200-399)",
 }
 
+// UserSpecifiedFields tracks which model fields were explicitly set by the user
+// via Ingress annotations (as opposed to being controller defaults).
+type UserSpecifiedFields map[string]bool
+
 // classifyEntry returns whether a diff entry is an expected migration artifact.
 // Rules are intentionally conservative: we only mark entries that match a known
 // pattern so genuine user-visible changes never get hidden.
-func classifyEntry(e DiffEntry) classification {
+func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classification {
 	// Added migrated-from tag on any resource.
 	if e.Status == StatusAdded && e.Field == migratedFromTagField {
 		return classification{Expected: true, Reason: "Added by migration tool"}
@@ -65,10 +70,13 @@ func classifyEntry(e DiffEntry) classification {
 		}
 	}
 
-	// Health check defaults drift on TargetGroup.
+	// Health check defaults drift on TargetGroup — only when the user did NOT
+	// explicitly set the corresponding annotation on the Ingress.
 	if e.Status == StatusChanged && e.ResourceType == utils.StackResTypeTargetGroup {
 		if reason, ok := healthCheckDefaultFields[e.Field]; ok {
-			return classification{Expected: true, Reason: reason}
+			if !userSpecified[e.Field] {
+				return classification{Expected: true, Reason: reason}
+			}
 		}
 	}
 
@@ -99,6 +107,28 @@ func classifyEntry(e DiffEntry) classification {
 	}
 
 	return classification{}
+}
+
+// annotationToFieldPath maps Ingress annotation suffixes to the model field
+// paths they control. Used to determine which health-check fields were
+// explicitly set by the user vs. left as controller defaults.
+var annotationToFieldPath = map[string]string{
+	annotations.IngressSuffixHealthyThresholdCount:   "spec.healthCheckConfig.healthyThresholdCount",
+	annotations.IngressSuffixUnhealthyThresholdCount: "spec.healthCheckConfig.unhealthyThresholdCount",
+	annotations.IngressSuffixSuccessCodes:            "spec.healthCheckConfig.matcher.httpCode",
+}
+
+// buildUserSpecifiedFields scans Ingress annotations and returns the set of
+// model field paths that were explicitly configured by the user.
+func buildUserSpecifiedFields(ingressAnnotations map[string]string) UserSpecifiedFields {
+	usf := make(UserSpecifiedFields)
+	for suffix, fieldPath := range annotationToFieldPath {
+		key := annotations.AnnotationPrefixIngress + "/" + suffix
+		if _, ok := ingressAnnotations[key]; ok {
+			usf[fieldPath] = true
+		}
+	}
+	return usf
 }
 
 // matchesALBName reports whether v is a string matching the controller's

@@ -74,7 +74,10 @@ type correlated struct {
 // matched across trees by their correlation ID (see correlate.go) rather
 // than by their raw IDs, so a TargetGroup that was renamed during migration
 // still shows as a single "changed" resource with field-level deltas.
-func Diff(ingress, gateway ResourceTree) DiffResult {
+//
+// userSpecified indicates which model fields were explicitly set by the user
+// via Ingress annotations.
+func Diff(ingress, gateway ResourceTree, userSpecified UserSpecifiedFields) DiffResult {
 	var entries []DiffEntry
 
 	// Collect all resource types from both trees.
@@ -122,7 +125,7 @@ func Diff(ingress, gateway ResourceTree) DiffResult {
 	summary := DiffSummary{}
 	for i := range entries {
 		// Classify each entry as expected (known migration artifact) or not.
-		c := classifyEntry(entries[i])
+		c := classifyEntry(entries[i], userSpecified)
 		entries[i].Expected = c.Expected
 		entries[i].ExpectedReason = c.Reason
 

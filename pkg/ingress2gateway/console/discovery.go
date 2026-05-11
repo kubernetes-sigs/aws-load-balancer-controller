@@ -24,11 +24,12 @@ const (
 
 // GatewayInfo holds metadata about a discovered Gateway with a dry-run plan.
 type GatewayInfo struct {
-	Name        string `json:"name"`
-	Namespace   string `json:"namespace"`
-	Error       string `json:"error,omitempty"` // non-empty if the ingress plan could not be resolved
-	GatewayPlan string `json:"-"`               // raw JSON, not sent in list response
-	IngressPlan string `json:"-"`               // raw JSON, not sent in list response
+	Name               string            `json:"name"`
+	Namespace          string            `json:"namespace"`
+	Error              string            `json:"error,omitempty"` // non-empty if the ingress plan could not be resolved
+	GatewayPlan        string            `json:"-"`               // raw JSON, not sent in list response
+	IngressPlan        string            `json:"-"`               // raw JSON, not sent in list response
+	IngressAnnotations map[string]string `json:"-"`               // annotations from the source Ingress
 }
 
 // NamespaceInfo describes a namespace that has at least one Gateway with a dry-run-plan annotation.
@@ -125,12 +126,13 @@ func resolveGatewayInfo(ctx context.Context, k8sClient client.Client, gw *gwv1.G
 		return info
 	}
 
-	plan, err := readIngressPlan(ctx, k8sClient, holderRef)
+	result, err := readIngressPlan(ctx, k8sClient, holderRef)
 	if err != nil {
 		info.Error = fmt.Sprintf("failed to read ingress plan from %s: %v", holderRef, err)
 		return info
 	}
-	info.IngressPlan = plan
+	info.IngressPlan = result.Plan
+	info.IngressAnnotations = result.Annotations
 	return info
 }
 
@@ -191,24 +193,30 @@ func resolvePlanHolder(ctx context.Context, k8sClient client.Client, gwNamespace
 	}
 }
 
+// ingressPlanResult holds the plan and annotations from a source Ingress.
+type ingressPlanResult struct {
+	Plan        string
+	Annotations map[string]string
+}
+
 // readIngressPlan reads the dry-run-plan annotation from an Ingress.
 // ingressRef is in "namespace/name" format.
-func readIngressPlan(ctx context.Context, k8sClient client.Client, ingressRef string) (string, error) {
+func readIngressPlan(ctx context.Context, k8sClient client.Client, ingressRef string) (ingressPlanResult, error) {
 	ns, name, err := parseNamespacedName(ingressRef)
 	if err != nil {
-		return "", err
+		return ingressPlanResult{}, err
 	}
 
 	ing := &networking.Ingress{}
 	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, ing); err != nil {
-		return "", fmt.Errorf("failed to get Ingress %s: %w", ingressRef, err)
+		return ingressPlanResult{}, fmt.Errorf("failed to get Ingress %s: %w", ingressRef, err)
 	}
 
 	plan, ok := ing.Annotations[ingressDryRunPlanAnnotation]
 	if !ok || plan == "" {
-		return "", fmt.Errorf("Ingress %s does not have a dry-run-plan annotation", ingressRef)
+		return ingressPlanResult{}, fmt.Errorf("Ingress %s does not have a dry-run-plan annotation", ingressRef)
 	}
-	return plan, nil
+	return ingressPlanResult{Plan: plan, Annotations: ing.Annotations}, nil
 }
 
 // parseNamespacedName splits "namespace/name" into its parts.
