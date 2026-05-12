@@ -45,7 +45,7 @@ func Migrate(ctx context.Context, opts MigrateOptions, readFunc ReadFunc, transl
 		}
 	}
 
-	if err := writeFunc(output, opts.OutputDir, opts.OutputFormat); err != nil {
+	if err := writeFunc(output, opts.OutputDir, WriteOptions{Format: opts.OutputFormat, Split: opts.Split}); err != nil {
 		return fmt.Errorf("failed to write output: %w", err)
 	}
 
@@ -59,4 +59,4 @@ type ReadFunc func(ctx context.Context, opts MigrateOptions) (*InputResources, e
 type TranslateFunc func(in *InputResources) (*OutputResources, error)
 
 // WriteFunc is the signature for writing output resources.
-type WriteFunc func(resources *OutputResources, outputDir string, format string) error
+type WriteFunc func(resources *OutputResources, outputDir string, opts WriteOptions) error

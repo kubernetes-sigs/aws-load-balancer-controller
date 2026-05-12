@@ -64,6 +64,9 @@ Input can come from YAML/JSON files, a directory of manifest files, or a live Ku
 	cmd.Flags().StringVar(&opts.OutputFormat, "output-format", "yaml",
 		"Output format: yaml or json")
 
+	cmd.Flags().StringVar(&opts.Split, "split", ingress2gateway.SplitModeNone,
+		"Split output layout. Empty (default) writes one combined file; 'namespace' writes one file per namespace plus a gatewayclass file for cluster-scoped resources")
+
 	// Dry-run flag
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false,
 		"Add gateway.k8s.aws/dry-run annotation to generated Gateway manifests so LBC previews the generated AWS resources without creating them")
@@ -107,6 +110,12 @@ func validateFlags(opts *ingress2gateway.MigrateOptions) error {
 	// Validate output format
 	if opts.OutputFormat != "yaml" && opts.OutputFormat != "json" {
 		return fmt.Errorf("--output-format must be yaml or json, got %q", opts.OutputFormat)
+	}
+
+	// Validate split mode
+	if opts.Split != ingress2gateway.SplitModeNone && opts.Split != ingress2gateway.SplitModeNamespace {
+		return fmt.Errorf("--split must be %q or %q, got %q",
+			ingress2gateway.SplitModeNone, ingress2gateway.SplitModeNamespace, opts.Split)
 	}
 
 	return nil

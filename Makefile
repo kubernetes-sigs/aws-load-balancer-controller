@@ -52,9 +52,13 @@ fast-unit-test:
 controller: generate fmt vet
 	go build -o bin/controller main.go
 
-# Build lbc-migrate binary
+# Build lbc-migrate binary, then run its unit tests.
 lbc-migrate: fmt vet
 	go build -o bin/lbc-migrate ./cmd/lbc-migrate
+	$(MAKE) test-lbc-migrate
+
+test-lbc-migrate:
+	go test -race ./pkg/ingress2gateway/... ./cmd/lbc-migrate/...
 
 # Install lbc-migrate to $GOBIN (symlink so rebuilds are picked up automatically)
 install-lbc-migrate: lbc-migrate
