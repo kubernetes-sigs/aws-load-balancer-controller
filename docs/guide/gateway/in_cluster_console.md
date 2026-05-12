@@ -13,22 +13,22 @@ Captured images:
 
   1. console/landing.png
        Landing page at http://localhost:8080.
-       Highlight: a namespace row and its gateway count.
+       Shows the info alert, namespace list with gateway counts.
 
-  2. console/comparison-overview.png
-       Comparison view for a namespace with multiple gateway tabs at top.
-       Highlight: metric chips row (all / same / changed / removed / added)
-       and the "Hide expected" toggle in the upper right.
+  2. console/gateway-list.png
+       Gateway list for a namespace, showing summary pills per gateway.
 
-  3. console/resource-cards.png
-       Ingress (left) and Gateway (right) columns with the "Changed" filter
-       active so status coloring is visible. Highlight: the TargetGroupBinding
-       card on each side so the pairing is obvious.
+  3. console/comparison-overview.png
+       Comparison view with segmented filter control, Hide expected toggle,
+       Export buttons, and split columns showing resource cards.
 
-  4. console/detail-drawer.png
-       Field-level drawer opened for a TargetGroup so the health-check
-       default-drift rows are visible. Highlight: the drawer's per-resource
-       "Hide expected" checkbox and an expected row.
+  4. console/resource-cards.png
+       Same comparison view with the "Changed" filter active, showing
+       status tags next to each resource ID.
+
+  5. console/detail-drawer.png
+       Field-level drawer opened for a LoadBalancer showing the per-field
+       diff table with status and expected columns.
 -->
 
 !!! warning "Under Development"
@@ -40,8 +40,9 @@ It compares the ingress controller's dry-run plan against the gateway controller
 dry-run plan side by side, field by field, so you can confirm the generated
 Gateway manifests behave the same as the current Ingress before switching traffic.
 
-The console is read-only. It lists Gateways and reads annotations from your
-cluster using your current kubeconfig context. It never creates, updates, or
+The console is read-only. It connects to your Kubernetes cluster using the
+current kubeconfig context (the same config used by `kubectl`). It reads Gateway
+and Ingress resources and their annotations. It never creates, updates, or
 deletes cluster or AWS resources.
 
 ## What it supports
@@ -64,6 +65,8 @@ deletes cluster or AWS resources.
 - **IngressGroup resolution** including cross-namespace groups, using the
   `migrated-from` tag plus a cluster-wide list of Ingresses to locate the single
   group member that carries the plan annotation.
+- **Export** — download a self-contained HTML report or raw JSON to share the
+  diff with team members who do not have cluster access.
 
 What it does not do:
 
@@ -144,33 +147,58 @@ The landing page lists every namespace that has at least one Gateway carrying
 a `gateway.k8s.aws/dry-run-plan` annotation, with a count of those Gateways.
 Namespaces without dry-run plans do not appear.
 
+An info alert at the top reminds you that the console reads from the cluster
+using your current kubeconfig context and that all operations are read-only.
+
 ![Landing page showing namespaces with dry-run plans](assets/console/landing.png)
 
-Click a namespace to enter the comparison view.
+Click a namespace to see its gateways.
+
+### Gateway list
+
+After selecting a namespace, the console lists all Gateways with dry-run plans
+in that namespace. Each gateway row shows a summary of its diff status (how
+many fields are same, changed, removed, or added).
+
+![Gateway list showing summary pills per gateway](assets/console/gateway-list.png)
+
+Click a gateway to enter the comparison view.
 
 ### Comparison view
 
-The comparison view shows one tab per Gateway in the selected namespace. For
-the active Gateway, the view is organized into three regions:
+The comparison view shows a side-by-side diff for the selected gateway. It is
+organized into these regions:
 
-![Comparison view with metric chips and Hide expected toggle](assets/console/comparison-overview.png)
+![Comparison view with filter controls and resource columns](assets/console/comparison-overview.png)
 
-- **Metric chips** — counts of fields per status (`same`, `changed`, `removed`,
-  `added`) plus an `all` chip to reset the filter. Click a chip to scope the
-  view to only fields in that status.
-- **Hide expected toggle** (upper right) — filters out diffs classified as
-  expected migration artifacts (see [How diffs are classified](#how-diffs-are-classified)
+- **Segmented filter control** — buttons for `All`, `Same`, `Changed`,
+  `Removed`, `Added` with counts. Click a button to scope the view to only
+  resources in that status. Clicking an active filter resets back to All.
+  Hover over any filter for a description of what it shows.
+- **Hide expected changes toggle** — filters out diffs classified as expected
+  migration artifacts (see [How diffs are classified](#how-diffs-are-classified)
   below). Works in combination with the active status filter.
+- **Export buttons** — download the diff as a self-contained HTML report or raw
+  JSON. A confirmation dialog warns that the exported file can be viewed without
+  cluster access.
 - **Ingress model** (left) and **Gateway model** (right) — each resource in the
-  stack appears as a card colored by its status.
+  stack appears as a card. When a status filter is active, each card shows a
+  status tag next to the resource ID for accessibility (readable without relying
+  on color alone).
 
-![Left and right columns with cards colored by the active Changed filter, with the TargetGroupBinding card highlighted on each side](assets/console/resource-cards.png)
+![Resource cards with Changed filter active showing status tags](assets/console/resource-cards.png)
 
 Click a card to open the detail drawer. The drawer lists every field with its
 ingress-side value, gateway-side value, and status. It carries its own
-`Hide expected` checkbox for per-resource filtering.
+`Hide expected changes` checkbox for per-resource filtering.
 
-![Detail drawer for a TargetGroup with per-resource Hide expected toggle](assets/console/detail-drawer.png)
+![Detail drawer showing field-level diff with status and expected columns](assets/console/detail-drawer.png)
+
+### Breadcrumb navigation
+
+The top bar shows breadcrumbs for your current location:
+`Namespaces / <namespace> / <gateway>`. Click any breadcrumb to navigate back
+to that level. The "← Back" button goes up one level.
 
 ### How resources are correlated
 
@@ -193,7 +221,7 @@ Every field diff is assigned one of four statuses:
 - **added** — only the gateway side has the field.
 - **removed** — only the ingress side has the field.
 
-The `Hide expected` toggle filters out the following known-artifact cases:
+The `Hide expected changes` toggle filters out the following known-artifact cases:
 
 - **`migrated-from` tag added to any resource** — the migration tool stamps
   `spec.tags.gateway.k8s.aws/migrated-from` on every generated resource, so an
@@ -223,6 +251,18 @@ The `Hide expected` toggle filters out the following known-artifact cases:
 
 Everything not matching these rules is shown as-is, so genuine user-visible
 changes are never silently hidden.
+
+### Exporting results
+
+Click **Export HTML** or **Export JSON** in the filter strip to share the diff:
+
+- **HTML** — a self-contained report with embedded styles and a full table of
+  all diff entries. Open in any browser with no dependencies.
+- **JSON** — the raw diff payload including namespace, gateway, timestamp, and
+  all entries. Useful for storing in a ticket or processing programmatically.
+
+Both exports trigger a confirmation dialog warning that the file contains full
+resource configurations viewable without cluster access.
 
 ### Resolving the ingress source for a Gateway
 

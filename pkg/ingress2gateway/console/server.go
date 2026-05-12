@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +25,7 @@ func NewConsoleServer(k8sClient client.Client) *ConsoleServer {
 // Handler returns an http.Handler with all routes registered.
 // Routes:
 //   - GET /                               serves the HTML page (landing page + comparison UI router)
+//   - GET /static/                        serves embedded static assets (CSS, JS)
 //   - GET /api/namespaces                 returns the namespaces cluster-wide that have at least one
 //     Gateway with a dry-run-plan annotation (landing page data)
 //   - GET /api/gateways?namespace=<ns>    returns the Gateways in <ns> with dry-run plans + per-gateway summaries
@@ -34,6 +36,10 @@ func (s *ConsoleServer) Handler() http.Handler {
 	mux.HandleFunc("/api/namespaces", s.handleNamespaces)
 	mux.HandleFunc("/api/gateways", s.handleGateways)
 	mux.HandleFunc("/api/diff", s.handleDiff)
+
+	staticFS, _ := fs.Sub(staticFiles, "static")
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+
 	mux.HandleFunc("/", s.handleIndex)
 	return mux
 }
@@ -133,12 +139,12 @@ func (s *ConsoleServer) handleDiff(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, diff)
 }
 
-//go:embed static/index.html
-var indexHTML embed.FS
+//go:embed static
+var staticFiles embed.FS
 
 // handleIndex serves the embedded HTML page.
 func (s *ConsoleServer) handleIndex(w http.ResponseWriter, r *http.Request) {
-	data, err := indexHTML.ReadFile("static/index.html")
+	data, err := staticFiles.ReadFile("static/index.html")
 	if err != nil {
 		http.Error(w, "failed to load UI", http.StatusInternalServerError)
 		return

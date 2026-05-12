@@ -375,7 +375,7 @@ func TestBuildUserSpecifiedFields(t *testing.T) {
 		{
 			name: "unrelated annotations ignored",
 			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/scheme":    "internet-facing",
+				"alb.ingress.kubernetes.io/scheme":     "internet-facing",
 				"alb.ingress.kubernetes.io/group.name": "my-group",
 			},
 			wantFields: UserSpecifiedFields{},
