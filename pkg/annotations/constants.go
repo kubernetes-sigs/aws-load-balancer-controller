@@ -81,6 +81,7 @@ const (
 	IngressSuffixTargetControlPort                             = "target-control-port"
 	IngressSuffixCreateCertificate                             = "create-acm-cert"
 	IngressSuffixACMCaARN                                      = "acm-pca-arn"
+	IngressSuffixDryRunPlan                                    = "dry-run-plan"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
