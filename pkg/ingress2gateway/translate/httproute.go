@@ -35,6 +35,11 @@ type httpRouteTranslator struct {
 	svcRefSeen          sets.Set[string]
 	svcRefs             []serviceRef
 	listenerRuleConfigs []gatewayv1beta1.ListenerRuleConfiguration
+	// userTags is the resolved set of user-facing tags for this ingress, merged
+	// from alb.ingress.kubernetes.io/tags and any IngressClassParams.spec.tags.
+	// When non-empty, each generated HTTPRouteRule gets an ExtensionRef pointing
+	// to an LRC so the tags can propagate to the ListenerRule resource.
+	userTags map[string]string
 }
 
 // trackBackend records a unique service reference for TGC generation.
@@ -48,9 +53,10 @@ func (t *httpRouteTranslator) trackBackend(svcName string, resolvedPort int32) {
 
 // buildHTTPRoutes builds one or more HTTPRoutes from an Ingress resource and collects
 // service refs and ListenerRuleConfigurations. The caller provides parentRefs to control
-// which Gateway listeners the routes attach to (sectionName scoping for groups).
+// which Gateway listeners the routes attach to (sectionName scoping for groups), and
+// userTags — the resolved set of user-facing tags (annotation tags merged with ICP tags)
 // SSL redirect routes are NOT generated here — the caller handles them at group level.
-func buildHTTPRoutes(ing networking.Ingress, namespace string, parentRefs []gwv1.ParentReference, servicesByKey map[string]corev1.Service) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
+func buildHTTPRoutes(ing networking.Ingress, namespace string, parentRefs []gwv1.ParentReference, servicesByKey map[string]corev1.Service, userTags map[string]string) ([]gwv1.HTTPRoute, []serviceRef, []gatewayv1beta1.ListenerRuleConfiguration, error) {
 	t := &httpRouteTranslator{
 		namespace:      namespace,
 		ingName:        ing.Name,
@@ -58,6 +64,7 @@ func buildHTTPRoutes(ing networking.Ingress, namespace string, parentRefs []gwv1
 		useRegex:       strings.EqualFold(getString(ing.Annotations, annotations.IngressSuffixUseRegexPathMatch), "true"),
 		servicesByKey:  servicesByKey,
 		svcRefSeen:     sets.New[string](),
+		userTags:       userTags,
 	}
 
 	var rules []gwv1.HTTPRouteRule
@@ -142,12 +149,28 @@ func (t *httpRouteTranslator) buildRouteRule(rule networking.IngressRule, path n
 		if err := t.buildTransforms(&routeRule, path.Backend.Service.Name); err != nil {
 			return routeRule, nil, err
 		}
+		// Ensure an LRC exists so user-defined tags (and the migrated-from tag) propagate
+		// to the generated ListenerRule even when the rule has no other LRC-worthy config.
+		t.buildLRCForTags(&routeRule, path.Backend.Service.Name)
 		if hsr != nil {
 			return routeRule, hsr, nil
 		}
 	}
 
 	return routeRule, nil, nil
+}
+
+// buildLRCForTags creates (or reuses) a ListenerRuleConfiguration for the given service
+// when the Ingress carries user-defined tags (from annotations or IngressClassParams).
+// The tag merge in Translate() populates Spec.Tags
+func (t *httpRouteTranslator) buildLRCForTags(routeRule *gwv1.HTTPRouteRule, svcName string) {
+	if len(t.userTags) == 0 {
+		return
+	}
+	lrc := findOrCreateLRC(&t.listenerRuleConfigs, t.namespace, t.ingName, svcName)
+	if !routeRuleHasExtensionRef(*routeRule, lrc.Name) {
+		routeRule.Filters = append(routeRule.Filters, extensionRefFilter(lrc.Name))
+	}
 }
 
 // buildPathMatch builds an HTTPRouteMatch from an Ingress path spec.

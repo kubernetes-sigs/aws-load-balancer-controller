@@ -588,6 +588,173 @@ func TestTranslate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "user tags on simple ingress propagate to ListenerRuleConfiguration",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "tagged", Namespace: "default",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/tags": "ManagedBy=platform-team,Env=prod",
+						},
+					},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{{
+							Host: "app.example.com",
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{{
+										Path: "/api", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									}},
+								},
+							},
+						}},
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 1, wantTGConfigCount: 1,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				require.Len(t, out.ListenerRuleConfigurations, 1)
+				lrc := out.ListenerRuleConfigurations[0]
+				require.NotNil(t, lrc.Spec.Tags)
+				assert.Equal(t, "platform-team", (*lrc.Spec.Tags)["ManagedBy"])
+				assert.Equal(t, "prod", (*lrc.Spec.Tags)["Env"])
+				assert.Equal(t, "ingress/default/tagged", (*lrc.Spec.Tags)[constants.MigrationTagKey])
+			},
+		},
+		{
+			name: "simple ingress without tags annotation produces no ListenerRuleConfiguration",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{Name: "untagged", Namespace: "default"},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{{
+										Path: "/", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									}},
+								},
+							},
+						}},
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 0, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				assert.Empty(t, out.ListenerRuleConfigurations)
+			},
+		},
+		{
+			name: "IngressClassParams tags propagate to ListenerRuleConfiguration (no annotation)",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{Name: "icp-tagged", Namespace: "default"},
+					Spec: networking.IngressSpec{
+						IngressClassName: ptr.To("alb"),
+						Rules: []networking.IngressRule{{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{{
+										Path: "/", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									}},
+								},
+							},
+						}},
+					},
+				}},
+				IngressClasses: []networking.IngressClass{{
+					ObjectMeta: metav1.ObjectMeta{Name: "alb"},
+					Spec: networking.IngressClassSpec{
+						Parameters: &networking.IngressClassParametersReference{
+							Kind: "IngressClassParams", Name: "alb-params",
+						},
+					},
+				}},
+				IngressClassParams: []elbv2api.IngressClassParams{{
+					ObjectMeta: metav1.ObjectMeta{Name: "alb-params"},
+					Spec: elbv2api.IngressClassParamsSpec{
+						Tags: []elbv2api.Tag{{Key: "ManagedBy", Value: "platform-team"}},
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 1, wantTGConfigCount: 0,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				require.Len(t, out.ListenerRuleConfigurations, 1)
+				lrc := out.ListenerRuleConfigurations[0]
+				require.NotNil(t, lrc.Spec.Tags)
+				assert.Equal(t, "platform-team", (*lrc.Spec.Tags)["ManagedBy"])
+				assert.Equal(t, "ingress/default/icp-tagged", (*lrc.Spec.Tags)[constants.MigrationTagKey])
+			},
+		},
+		{
+			name: "annotation tags and IngressClassParams tags merged (ICP wins on conflict)",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "both-tagged", Namespace: "default",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/tags": "ManagedBy=app-team,Env=dev",
+						},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: ptr.To("alb"),
+						Rules: []networking.IngressRule{{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{{
+										Path: "/", PathType: &pathPrefix,
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+											},
+										},
+									}},
+								},
+							},
+						}},
+					},
+				}},
+				IngressClasses: []networking.IngressClass{{
+					ObjectMeta: metav1.ObjectMeta{Name: "alb"},
+					Spec: networking.IngressClassSpec{
+						Parameters: &networking.IngressClassParametersReference{
+							Kind: "IngressClassParams", Name: "alb-params",
+						},
+					},
+				}},
+				IngressClassParams: []elbv2api.IngressClassParams{{
+					ObjectMeta: metav1.ObjectMeta{Name: "alb-params"},
+					Spec: elbv2api.IngressClassParamsSpec{
+						// ICP overrides ManagedBy from annotation.
+						Tags: []elbv2api.Tag{{Key: "ManagedBy", Value: "platform-team"}},
+					},
+				}},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 1, wantLBConfigCount: 1, wantTGConfigCount: 1,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				require.Len(t, out.ListenerRuleConfigurations, 1)
+				lrc := out.ListenerRuleConfigurations[0]
+				require.NotNil(t, lrc.Spec.Tags)
+				assert.Equal(t, "platform-team", (*lrc.Spec.Tags)["ManagedBy"]) // ICP wins
+				assert.Equal(t, "dev", (*lrc.Spec.Tags)["Env"])                 // annotation-only key preserved
+			},
+		},
 	}
 
 	for _, tt := range tests {

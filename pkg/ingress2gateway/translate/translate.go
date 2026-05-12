@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
@@ -29,7 +30,12 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 	servicesByKey := buildServiceMap(in.Services)
 	ingressClassParamsByClass := buildIngressClassParamsMap(in.IngressClasses, in.IngressClassParams)
 
-	// Track which services we've already created TGCs for (deduplicate)
+	// Track which services we've already created TGCs for (deduplicate).
+	//
+	// TODO: when two ingresses share a service but carry different TG-level annotations
+	// (healthcheck path, tags, etc.), only the first ingress's values are captured here.
+	// Follow-up: emit one RouteConfiguration per (ingress × service) so each HTTPRoute
+	// picks up its originating ingress's props via the controller's longest-match merge.
 	tgcCreated := sets.New[string]()
 
 	// Partition Ingresses into groups (ungrouped become single-member groups)
@@ -107,6 +113,7 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 			crossNSGroupName = group.name
 		}
 		gw := buildGateway(gatewayName, group.namespace, lbConfig, allPorts, crossNSGroupName)
+
 		out.Gateways = append(out.Gateways, gw)
 
 		// --- SSL redirect route ---
@@ -128,25 +135,36 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 			memberPorts := perMemberPorts[k8s.NamespacedName(&ing).String()]
 			parentRefs := buildMemberParentRefs(gatewayName, group.namespace, ing.Namespace, memberPorts, allPorts, sslRedirectPort)
 
-			routes, svcRefs, lrcs, err := buildHTTPRoutes(ing, ing.Namespace, parentRefs, servicesByKey)
+			// Resolve effective annotations for this member (used for tags and TG config)
+			effectiveAnnotations := resolveAnnotations(ing)
+
+			// Compute the member's effective user tags: annotation tags + ICP tags
+			memberUserTags := resolveMemberUserTags(ing, effectiveAnnotations, ingressClassParamsByClass)
+
+			routes, svcRefs, lrcs, err := buildHTTPRoutes(ing, ing.Namespace, parentRefs, servicesByKey, memberUserTags)
 			if err != nil {
 				return nil, err
 			}
 			out.HTTPRoutes = append(out.HTTPRoutes, routes...)
 
-			// Add migration tags to ListenerRuleConfigurations
+			// Add migration tags and user tags to ListenerRuleConfigurations
 			memberMigrationTag := fmt.Sprintf("ingress/%s/%s", ing.Namespace, ing.Name)
 			for i := range lrcs {
 				if lrcs[i].Spec.Tags == nil {
 					tags := make(map[string]string)
 					lrcs[i].Spec.Tags = &tags
 				}
+				// Merge user-defined tags (from annotation + ICP) onto the LRC.
+				for k, v := range memberUserTags {
+					(*lrcs[i].Spec.Tags)[k] = v
+				}
 				(*lrcs[i].Spec.Tags)[utils.MigrationTagKey] = memberMigrationTag
 			}
 			out.ListenerRuleConfigurations = append(out.ListenerRuleConfigurations, lrcs...)
 
-			// Build TargetGroupConfigurations for each unique service
-			effectiveAnnotations := resolveAnnotations(ing)
+			//  Build TargetGroupConfigurations for each unique service. Dedup happens on
+			//  (namespace, service, port) so only the first ingress processed for a given
+			//  service contributes its annotations. See the TODO at the top of Translate.
 			for _, svcRef := range svcRefs {
 				if tgcCreated.Has(svcRef.getServiceRefKey()) {
 					continue
@@ -168,7 +186,32 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 	return out, nil
 }
 
-// resolveAnnotations returns the Ingress annotations map.
+// resolveMemberUserTags returns the effective user-facing tag set for a single
+// ingress member: tags from the alb.ingress.kubernetes.io/tags annotation merged
+// with tags from the IngressClassParams referenced by the member's class.
+// IngressClassParams tags take priority on key conflicts, matching the behavior
+// applied to LoadBalancerConfiguration.Spec.Tags in applyICPSpecOverride.
+func resolveMemberUserTags(ing networking.Ingress, annos map[string]string, icpByClass map[string]*elbv2api.IngressClassParams) map[string]string {
+	tags := getStringMap(annos, annotations.IngressSuffixTags)
+	// Copy to avoid mutating the caller's map (getStringMap may share state).
+	merged := make(map[string]string, len(tags))
+	for k, v := range tags {
+		merged[k] = v
+	}
+
+	if ing.Spec.IngressClassName == nil {
+		return merged
+	}
+	icp, ok := icpByClass[*ing.Spec.IngressClassName]
+	if !ok || icp == nil {
+		return merged
+	}
+	for _, t := range icp.Spec.Tags {
+		merged[t.Key] = t.Value
+	}
+	return merged
+}
+
 func resolveAnnotations(ing networking.Ingress) map[string]string {
 	output := make(map[string]string)
 	for k, v := range ing.Annotations {

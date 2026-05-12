@@ -73,7 +73,9 @@ func GetTGConfigName(namespace, serviceName string) string {
 // The name is scoped per Ingress+service to avoid collisions when multiple
 // Ingresses reference the same service with different configurations (e.g. auth).
 func GetLRConfigName(namespace, ingressName, actionName string) string {
-	return resourceName(namespace, ingressName+"/"+actionName, "lr-config")
+	// Replace "/" with "-" so the combined ingress/action identifier produces a
+	// valid K8s resource name (RFC 1123) after truncation in resourceName.
+	return resourceName(namespace, ingressName+"-"+actionName, "lr-config")
 }
 
 // GetRedirectHTTPRouteName returns the HTTPRoute name for the SSL redirect route.
