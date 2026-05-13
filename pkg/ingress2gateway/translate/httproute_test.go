@@ -24,6 +24,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		gwName          string
 		ports           []listenPortEntry
 		sslRedirectPort *int32
+		userTags        map[string]string
 		wantRoutes      int
 		wantErr         string
 		check           func(t *testing.T, routes []gwv1.HTTPRoute)
@@ -624,6 +625,84 @@ func TestBuildHTTPRoutes(t *testing.T) {
 				assert.Equal(t, gatewayv1beta1.ActionTypeJwtValidation, lrcs[0].Spec.Actions[0].Type)
 			},
 		},
+		{
+			name: "simple rule with user tags annotation produces tag-only LRC",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "tagged",
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/tags": "ManagedBy=platform-team",
+					},
+				},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						Host: "app.example.com",
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{{
+									Path: "/api", PathType: &pathPrefix,
+									Backend: networking.IngressBackend{
+										Service: &networking.IngressServiceBackend{
+											Name: "api-svc", Port: networking.ServiceBackendPort{Number: 80},
+										},
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "gw",
+			ports:      []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			userTags:   map[string]string{"ManagedBy": "platform-team"},
+			wantRoutes: 1,
+			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
+				r := routes[0]
+				require.Len(t, r.Spec.Rules, 1)
+				// Rule must reference the LRC so user tags propagate to the ListenerRule.
+				require.Len(t, r.Spec.Rules[0].Filters, 1)
+				f := r.Spec.Rules[0].Filters[0]
+				assert.Equal(t, gwv1.HTTPRouteFilterExtensionRef, f.Type)
+				require.NotNil(t, f.ExtensionRef)
+				assert.Equal(t, gwv1.Kind("ListenerRuleConfiguration"), f.ExtensionRef.Kind)
+			},
+			checkLRCs: func(t *testing.T, lrcs []gatewayv1beta1.ListenerRuleConfiguration) {
+				require.Len(t, lrcs, 1)
+				assert.Empty(t, lrcs[0].Spec.Actions)
+				assert.Empty(t, lrcs[0].Spec.Conditions)
+			},
+		},
+		{
+			name: "simple rule without tags annotation produces no LRC",
+			ing: networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{Name: "untagged"},
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{{
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{{
+									Path: "/", PathType: &pathPrefix,
+									Backend: networking.IngressBackend{
+										Service: &networking.IngressServiceBackend{
+											Name: "svc", Port: networking.ServiceBackendPort{Number: 80},
+										},
+									},
+								}},
+							},
+						},
+					}},
+				},
+			},
+			namespace: "default", gwName: "gw",
+			ports:      []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			wantRoutes: 1,
+			check: func(t *testing.T, routes []gwv1.HTTPRoute) {
+				assert.Empty(t, routes[0].Spec.Rules[0].Filters)
+			},
+			checkLRCs: func(t *testing.T, lrcs []gatewayv1beta1.ListenerRuleConfiguration) {
+				assert.Empty(t, lrcs)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -636,7 +715,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			} else {
 				parentRefs = buildParentRefs(tt.gwName, nil)
 			}
-			routes, _, lrcs, err := buildHTTPRoutes(tt.ing, tt.namespace, parentRefs, nil)
+			routes, _, lrcs, err := buildHTTPRoutes(tt.ing, tt.namespace, parentRefs, nil, tt.userTags)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -758,7 +837,7 @@ func TestBuildHTTPRoutes_DefaultBackendError(t *testing.T) {
 	}
 	// No services provided — named port resolution for defaultBackend will fail
 	parentRefs := buildParentRefs("gw", nil)
-	_, _, _, err := buildHTTPRoutes(ing, "default", parentRefs, nil)
+	_, _, _, err := buildHTTPRoutes(ing, "default", parentRefs, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "defaultBackend")
 }
