@@ -16,11 +16,11 @@ import (
 )
 
 // runMigrateTool runs lbc-migrate as a subprocess with the given extra flags.
+// When namespace is non-empty, --from-cluster and --namespace are added automatically.
 func runMigrateTool(namespace, outputDir string, extraArgs ...string) error {
-	args := []string{
-		"--from-cluster",
-		"--namespace", namespace,
-		"--output-dir", outputDir,
+	args := []string{"--output-dir", outputDir}
+	if namespace != "" {
+		args = append(args, "--from-cluster", "--namespace", namespace)
 	}
 	args = append(args, extraArgs...)
 	cmd := exec.Command("lbc-migrate", args...)

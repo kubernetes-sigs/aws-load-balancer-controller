@@ -1,0 +1,85 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: aws-alb
+spec:
+  controllerName: gateway.k8s.aws/alb
+---
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: vanilla-lb-confi-17d9f29244
+  namespace: vanilla-ns
+spec:
+  scheme: internet-facing
+  tags:
+    gateway.k8s.aws/migrated-from: ingress/vanilla-ns/vanilla-ingress
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: vanilla-gateway-86d474571f
+  namespace: vanilla-ns
+spec:
+  gatewayClassName: aws-alb
+  infrastructure:
+    parametersRef:
+      group: gateway.k8s.aws
+      kind: LoadBalancerConfiguration
+      name: vanilla-lb-confi-17d9f29244
+  listeners:
+  - name: http-80
+    port: 80
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vanilla-route-a166c439e9
+  namespace: vanilla-ns
+spec:
+  hostnames:
+  - app.example.com
+  parentRefs:
+  - name: vanilla-gateway-86d474571f
+  rules:
+  - backendRefs:
+    - name: svc-api
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /api
+  - backendRefs:
+    - name: svc-web
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /web
+---
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: svc-api-tg-confi-076740c021
+  namespace: vanilla-ns
+spec:
+  defaultConfiguration:
+    tags:
+      gateway.k8s.aws/migrated-from: ingress/vanilla-ns/vanilla-ingress
+    targetType: ip
+  targetReference:
+    name: svc-api
+---
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: svc-web-tg-confi-72203f1b04
+  namespace: vanilla-ns
+spec:
+  defaultConfiguration:
+    tags:
+      gateway.k8s.aws/migrated-from: ingress/vanilla-ns/vanilla-ingress
+    targetType: ip
+  targetReference:
+    name: svc-web
