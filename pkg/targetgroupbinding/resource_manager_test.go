@@ -1282,3 +1282,162 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 		})
 	}
 }
+
+// Test_needReadinessGateFlip tests that needReadinessGateFlip correctly
+// identifies pods with a written but not-yet-True readiness gate condition.
+func Test_needReadinessGateFlip(t *testing.T) {
+	condType := corev1.PodConditionType("target-health.elbv2.k8s.aws/my-tgb")
+
+	tests := []struct {
+		name      string
+		endpoints []backend.PodEndpoint
+		want      bool
+	}{
+		{
+			name: "all pods have target health condition True — no flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionTrue},
+					},
+				}},
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-2"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionTrue},
+					},
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "one pod has target health condition False (target unhealthy) — flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionTrue},
+					},
+				}},
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-2"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionFalse},
+					},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "pod has no target health condition written yet — no flip needed (requeue after condition is first written handles it)",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key:        types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{},
+				}},
+			},
+			want: false,
+		},
+		{
+			name:      "no endpoints — no flip needed",
+			endpoints: []backend.PodEndpoint{},
+			want:      false,
+		},
+		{
+			name: "pod has no target health condition and no readiness gate configured — no flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key:        types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{},
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "mix — one pod target health condition True, one pod condition not yet written — no flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-target-healthy"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionTrue},
+					},
+				}},
+				{Pod: k8s.PodInfo{
+					Key:        types.NamespacedName{Name: "pod-no-condition-yet"},
+					Conditions: []corev1.PodCondition{},
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "mix — one pod target health condition True, one pod target health condition False (target unhealthy) — flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-target-healthy"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionTrue},
+					},
+				}},
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-target-unhealthy"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionFalse},
+					},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "all pods have target health condition False (all targets unhealthy) — flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionFalse},
+					},
+				}},
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-2"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionFalse},
+					},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "pod has multiple TGB conditions — current TGB condition True, other TGB condition False — no flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionTrue},
+						{Type: corev1.PodConditionType("target-health.elbv2.k8s.aws/other-tgb"), Status: corev1.ConditionFalse},
+					},
+				}},
+			},
+			want: false, // only condType is checked; the other TGB's condition is irrelevant
+		},
+		{
+			name: "pod has multiple TGB conditions — current TGB condition False, other TGB condition True — flip needed",
+			endpoints: []backend.PodEndpoint{
+				{Pod: k8s.PodInfo{
+					Key: types.NamespacedName{Name: "pod-1"},
+					Conditions: []corev1.PodCondition{
+						{Type: condType, Status: corev1.ConditionFalse},
+						{Type: corev1.PodConditionType("target-health.elbv2.k8s.aws/other-tgb"), Status: corev1.ConditionTrue},
+					},
+				}},
+			},
+			want: true, // condType is False regardless of other TGB conditions
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := needReadinessGateFlip(tt.endpoints, condType)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

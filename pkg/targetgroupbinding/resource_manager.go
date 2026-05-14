@@ -192,9 +192,13 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
 
+	// Block the checkpoint early-exit if any pod has a pending readiness gate condition in cache.
+	// Only compute when checkpoints match — if they differ the early-exit won't fire anyway.
 	if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
-		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
-		return newCheckPoint, oldCheckPoint, true, nil
+		if !needReadinessGateFlip(endpoints, targetHealthCondType) {
+			tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
+			return newCheckPoint, oldCheckPoint, true, nil
+		}
 	}
 
 	targets, err := m.targetsManager.ListTargets(ctx, tgb)
@@ -760,6 +764,17 @@ func (m *defaultResourceManager) generateOverrideAzFn(ctx context.Context, vpcID
 type podEndpointAndTargetPair struct {
 	endpoint backend.PodEndpoint
 	target   TargetInfo
+}
+
+// needReadinessGateFlip returns true if any endpoint's pod has the readiness gate condition
+// written but not yet True.
+func needReadinessGateFlip(endpoints []backend.PodEndpoint, targetHealthCondType corev1.PodConditionType) bool {
+	for _, ep := range endpoints {
+		if cond, exists := ep.Pod.GetPodCondition(targetHealthCondType); exists && cond.Status != corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 func partitionTargetsByDrainingStatus(targets []TargetInfo) ([]TargetInfo, []TargetInfo) {
