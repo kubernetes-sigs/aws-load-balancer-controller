@@ -34,13 +34,14 @@ type Options struct {
 	ControllerImage string
 
 	// Additional parameters for e2e tests
-	S3BucketName        string
-	CertificateARNs     string
-	IPFamily            string
-	TestImageRegistry   string
-	EnableGatewayTests  bool
-	EnableAGATests      bool
-	EnableCertMgmtTests bool
+	S3BucketName         string
+	CertificateARNs      string
+	IPFamily             string
+	TestImageRegistry    string
+	EnableGatewayTests   bool
+	EnableAGATests       bool
+	EnableCertMgmtTests  bool
+	EnableMigrationTests bool
 
 	// ACM Certificate Management configuration for e2e test
 	Route53ValidationDomain string
@@ -74,6 +75,7 @@ func (options *Options) BindFlags() {
 	flag.BoolVar(&options.EnableGatewayTests, "enable-gateway-tests", false, "enables gateway tests")
 	flag.BoolVar(&options.EnableAGATests, "enable-aga-tests", false, "enables AWS Global Accelerator tests")
 	flag.BoolVar(&options.EnableCertMgmtTests, "enable-cert-tests", false, "enables AWS ACM Certificate Management tests")
+	flag.BoolVar(&options.EnableMigrationTests, "enable-migration-tests", false, "enables ingress-to-gateway migration tests")
 
 	flag.StringVar(&options.Route53ValidationDomain, "route53-validation-domain", "", `Route53 domain that can be used for requesting amazon_issued certificates`)
 	flag.StringVar(&options.PCAARN, "pca-arn", "", `PCA ARN of CA that can be used to request private certificates`)
