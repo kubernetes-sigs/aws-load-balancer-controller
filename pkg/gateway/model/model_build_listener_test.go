@@ -2299,6 +2299,63 @@ func Test_buildL4TargetGroupTuples(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "one route - one rule - two backends with one at weight 0",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 100,
+								},
+								{
+									Weight: 0,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 100,
+				},
+				{
+					arn:    "arn2",
+					weight: 0,
+				},
+			},
+		},
+		{
+			name: "all backends weight 0 returns nil",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 0,
+								},
+								{
+									Weight: 0,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
 	}
 
 	for _, tc := range testCases {

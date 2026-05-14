@@ -188,6 +188,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 
 func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes []routeutils.RouteDescriptor, gw *gwv1.Gateway, port int32, listenerProtocol elbv2model.Protocol, ipAddressType elbv2model.IPAddressType) ([]elbv2model.TargetGroupTuple, error) {
 	tgTuples := make([]elbv2model.TargetGroupTuple, 0)
+	hasNonZeroWeight := false
 	for routeIndx := range routes {
 		routeDescriptor := routes[routeIndx]
 		if routeDescriptor.GetAttachedRules() == nil || len(routeDescriptor.GetAttachedRules()) == 0 {
@@ -198,10 +199,6 @@ func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes [
 			backends := rule.GetBackends()
 			for backendIndx := range backends {
 				backend := backends[backendIndx]
-				if backend.Weight == 0 {
-					l.logger.Info("Ignoring NLB backend with 0 weight.", "route", routeDescriptor.GetRouteNamespacedName())
-					continue
-				}
 
 				arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, listenerProtocol, ipAddressType, routeDescriptor, backend)
 				if tgErr != nil {
@@ -218,9 +215,17 @@ func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes [
 					tuple.Weight = nil
 				}
 
+				if backend.Weight > 0 {
+					hasNonZeroWeight = true
+				}
+
 				tgTuples = append(tgTuples, tuple)
 			}
 		}
+	}
+	if len(tgTuples) > 0 && !hasNonZeroWeight {
+		l.logger.Info("Skipping listener creation due to all backends having 0 weight", "gateway", k8s.NamespacedName(gw))
+		return nil, nil
 	}
 	return tgTuples, nil
 }
