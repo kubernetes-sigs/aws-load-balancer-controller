@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
+	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 func TestBuildTargetGroupConfig(t *testing.T) {
@@ -114,6 +115,187 @@ func TestBuildTargetGroupConfig(t *testing.T) {
 				return
 			}
 			require.NotNil(t, result)
+			if tt.check != nil {
+				tt.check(t, result)
+			}
+		})
+	}
+}
+
+func TestBuildTargetGroupConfigFromEntries(t *testing.T) {
+	svcRef := serviceRef{namespace: "default", name: "my-svc", port: 8080}
+
+	tests := []struct {
+		name    string
+		entries []tgcEntry
+		wantNil bool
+		check   func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration)
+	}{
+		{
+			name:    "no entries returns nil",
+			entries: nil,
+			wantNil: true,
+		},
+		{
+			name: "single entry with config uses DefaultConfiguration",
+			entries: []tgcEntry{
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{"alb.ingress.kubernetes.io/target-type": "ip"},
+					migrationTag: "ingress/default/ing-a",
+					routeName:    "default-ing-a-route-abc123",
+				},
+			},
+			check: func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration) {
+				require.NotNil(t, tgc.Spec.DefaultConfiguration.TargetType)
+				assert.Equal(t, gatewayv1beta1.TargetTypeIP, *tgc.Spec.DefaultConfiguration.TargetType)
+				assert.Empty(t, tgc.Spec.RouteConfigurations)
+			},
+		},
+		{
+			name: "multiple entries with identical config",
+			entries: []tgcEntry{
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{"alb.ingress.kubernetes.io/target-type": "ip"},
+					migrationTag: "ingress/default/ing-a",
+					routeName:    "default-ing-a-route-abc123",
+				},
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{"alb.ingress.kubernetes.io/target-type": "ip"},
+					migrationTag: "ingress/default/ing-b",
+					routeName:    "default-ing-b-route-def456",
+				},
+			},
+			check: func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration) {
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[0].TargetGroupProps.TargetType)
+				assert.Equal(t, gatewayv1beta1.TargetTypeIP, *tgc.Spec.RouteConfigurations[0].TargetGroupProps.TargetType)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[1].TargetGroupProps.TargetType)
+				assert.Equal(t, gatewayv1beta1.TargetTypeIP, *tgc.Spec.RouteConfigurations[1].TargetGroupProps.TargetType)
+			},
+		},
+		{
+			name: "multiple entries with different config",
+			entries: []tgcEntry{
+				{
+					svcRef: svcRef,
+					annotations: map[string]string{
+						"alb.ingress.kubernetes.io/backend-protocol": "HTTP",
+						"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
+					},
+					migrationTag: "ingress/default/ing-a",
+					routeName:    "default-ing-a-route-abc123",
+				},
+				{
+					svcRef: svcRef,
+					annotations: map[string]string{
+						"alb.ingress.kubernetes.io/backend-protocol": "HTTPS",
+						"alb.ingress.kubernetes.io/healthcheck-path": "/ready",
+					},
+					migrationTag: "ingress/default/ing-b",
+					routeName:    "default-ing-b-route-def456",
+				},
+			},
+			check: func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration) {
+				// DefaultConfiguration should be empty since configs differ.
+				assert.Nil(t, tgc.Spec.DefaultConfiguration.Protocol)
+				// Should have two RouteConfigurations.
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+
+				rc0 := tgc.Spec.RouteConfigurations[0]
+				assert.Equal(t, sharedconstants.HTTPRouteKind, rc0.RouteIdentifier.RouteKind)
+				assert.Equal(t, "default", rc0.RouteIdentifier.RouteNamespace)
+				assert.Equal(t, "default-ing-a-route-abc123", rc0.RouteIdentifier.RouteName)
+				require.NotNil(t, rc0.TargetGroupProps.Protocol)
+				assert.Equal(t, gatewayv1beta1.ProtocolHTTP, *rc0.TargetGroupProps.Protocol)
+				require.NotNil(t, rc0.TargetGroupProps.HealthCheckConfig)
+				assert.Equal(t, "/healthz", *rc0.TargetGroupProps.HealthCheckConfig.HealthCheckPath)
+
+				rc1 := tgc.Spec.RouteConfigurations[1]
+				assert.Equal(t, "default-ing-b-route-def456", rc1.RouteIdentifier.RouteName)
+				require.NotNil(t, rc1.TargetGroupProps.Protocol)
+				assert.Equal(t, gatewayv1beta1.ProtocolHTTPS, *rc1.TargetGroupProps.Protocol)
+				require.NotNil(t, rc1.TargetGroupProps.HealthCheckConfig)
+				assert.Equal(t, "/ready", *rc1.TargetGroupProps.HealthCheckConfig.HealthCheckPath)
+			},
+		},
+		{
+			name: "entries with one empty config emit RouteConfigurations for all entries",
+			entries: []tgcEntry{
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{"alb.ingress.kubernetes.io/target-type": "ip"},
+					migrationTag: "ingress/default/ing-a",
+					routeName:    "default-ing-a-route-abc123",
+				},
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{},
+					migrationTag: "ingress/default/ing-b",
+					routeName:    "default-ing-b-route-def456",
+				},
+			},
+			check: func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration) {
+				// Both entries get RouteConfigurations (even the empty one gets migration tag).
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+				assert.Equal(t, "default-ing-a-route-abc123", tgc.Spec.RouteConfigurations[0].RouteIdentifier.RouteName)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[0].TargetGroupProps.TargetType)
+				assert.Equal(t, gatewayv1beta1.TargetTypeIP, *tgc.Spec.RouteConfigurations[0].TargetGroupProps.TargetType)
+				assert.Equal(t, "default-ing-b-route-def456", tgc.Spec.RouteConfigurations[1].RouteIdentifier.RouteName)
+			},
+		},
+		{
+			name: "all entries empty still creates TGC with migration tags",
+			entries: []tgcEntry{
+				{svcRef: svcRef, annotations: map[string]string{}, migrationTag: "ingress/default/ing-a", routeName: "r1"},
+				{svcRef: svcRef, annotations: map[string]string{}, migrationTag: "ingress/default/ing-b", routeName: "r2"},
+			},
+			check: func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration) {
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[0].TargetGroupProps.Tags)
+				assert.Equal(t, "ingress/default/ing-a", (*tgc.Spec.RouteConfigurations[0].TargetGroupProps.Tags)[utils.MigrationTagKey])
+				require.NotNil(t, tgc.Spec.RouteConfigurations[1].TargetGroupProps.Tags)
+				assert.Equal(t, "ingress/default/ing-b", (*tgc.Spec.RouteConfigurations[1].TargetGroupProps.Tags)[utils.MigrationTagKey])
+			},
+		},
+		{
+			name: "migration tags are set on each RouteConfiguration",
+			entries: []tgcEntry{
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{"alb.ingress.kubernetes.io/target-type": "ip"},
+					migrationTag: "ingress/default/ing-a",
+					routeName:    "route-a",
+				},
+				{
+					svcRef:       svcRef,
+					annotations:  map[string]string{"alb.ingress.kubernetes.io/target-type": "instance"},
+					migrationTag: "ingress/default/ing-b",
+					routeName:    "route-b",
+				},
+			},
+			check: func(t *testing.T, tgc *gatewayv1beta1.TargetGroupConfiguration) {
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[0].TargetGroupProps.Tags)
+				assert.Equal(t, "ingress/default/ing-a", (*tgc.Spec.RouteConfigurations[0].TargetGroupProps.Tags)[utils.MigrationTagKey])
+				require.NotNil(t, tgc.Spec.RouteConfigurations[1].TargetGroupProps.Tags)
+				assert.Equal(t, "ingress/default/ing-b", (*tgc.Spec.RouteConfigurations[1].TargetGroupProps.Tags)[utils.MigrationTagKey])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildTargetGroupConfigFromEntries(tt.entries)
+			if tt.wantNil {
+				assert.Nil(t, result)
+				return
+			}
+			require.NotNil(t, result)
+			assert.Equal(t, utils.GetTGConfigName("default", "my-svc"), result.Name)
+			assert.Equal(t, "my-svc", result.Spec.TargetReference.Name)
 			if tt.check != nil {
 				tt.check(t, result)
 			}
