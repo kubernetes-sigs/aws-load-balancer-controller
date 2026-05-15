@@ -557,6 +557,160 @@ func TestTranslate(t *testing.T) {
 			},
 		},
 		{
+			name: "grouped ingresses with different TG annotations produce RouteConfigurations",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-a", Namespace: "demo",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name":       "shared-alb",
+								"alb.ingress.kubernetes.io/backend-protocol": "HTTP",
+								"alb.ingress.kubernetes.io/healthcheck-path": "/healthz",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								Host: "a.example.com",
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/a", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "shared-svc", Port: networking.ServiceBackendPort{Number: 8080},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-b", Namespace: "demo",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name":       "shared-alb",
+								"alb.ingress.kubernetes.io/backend-protocol": "HTTPS",
+								"alb.ingress.kubernetes.io/healthcheck-path": "/ready",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								Host: "b.example.com",
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/b", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "shared-svc", Port: networking.ServiceBackendPort{Number: 8080},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 2, wantLBConfigCount: 0, wantTGConfigCount: 1,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				tgc := out.TargetGroupConfigurations[0]
+				assert.Equal(t, "shared-svc", tgc.Spec.TargetReference.Name)
+				// DefaultConfiguration should be empty since entries differ.
+				assert.Nil(t, tgc.Spec.DefaultConfiguration.Protocol)
+				// Should have RouteConfigurations for each ingress.
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+
+				rc0 := tgc.Spec.RouteConfigurations[0]
+				assert.Equal(t, constants.GetHTTPRouteName("demo", "ing-a"), rc0.RouteIdentifier.RouteName)
+				require.NotNil(t, rc0.TargetGroupProps.Protocol)
+				assert.Equal(t, gatewayv1beta1.ProtocolHTTP, *rc0.TargetGroupProps.Protocol)
+				require.NotNil(t, rc0.TargetGroupProps.HealthCheckConfig)
+				assert.Equal(t, "/healthz", *rc0.TargetGroupProps.HealthCheckConfig.HealthCheckPath)
+
+				rc1 := tgc.Spec.RouteConfigurations[1]
+				assert.Equal(t, constants.GetHTTPRouteName("demo", "ing-b"), rc1.RouteIdentifier.RouteName)
+				require.NotNil(t, rc1.TargetGroupProps.Protocol)
+				assert.Equal(t, gatewayv1beta1.ProtocolHTTPS, *rc1.TargetGroupProps.Protocol)
+				require.NotNil(t, rc1.TargetGroupProps.HealthCheckConfig)
+				assert.Equal(t, "/ready", *rc1.TargetGroupProps.HealthCheckConfig.HealthCheckPath)
+			},
+		},
+		{
+			name: "grouped ingresses with same TG annotations produce RouteConfigurations for each",
+			input: &ingress2gateway.InputResources{
+				Ingresses: []networking.Ingress{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-a", Namespace: "demo",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name":  "shared-alb",
+								"alb.ingress.kubernetes.io/target-type": "ip",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								Host: "a.example.com",
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/a", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "shared-svc", Port: networking.ServiceBackendPort{Number: 8080},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-b", Namespace: "demo",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/group.name":  "shared-alb",
+								"alb.ingress.kubernetes.io/target-type": "ip",
+							},
+						},
+						Spec: networking.IngressSpec{
+							Rules: []networking.IngressRule{{
+								Host: "b.example.com",
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{{
+											Path: "/b", PathType: &pathPrefix,
+											Backend: networking.IngressBackend{
+												Service: &networking.IngressServiceBackend{
+													Name: "shared-svc", Port: networking.ServiceBackendPort{Number: 8080},
+												},
+											},
+										}},
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			wantGatewayCount: 1, wantHTTPRouteCount: 2, wantLBConfigCount: 0, wantTGConfigCount: 1,
+			check: func(t *testing.T, out *ingress2gateway.OutputResources) {
+				tgc := out.TargetGroupConfigurations[0]
+				assert.Equal(t, "shared-svc", tgc.Spec.TargetReference.Name)
+				// Multiple entries always produce RouteConfigurations.
+				require.Len(t, tgc.Spec.RouteConfigurations, 2)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[0].TargetGroupProps.TargetType)
+				assert.Equal(t, gatewayv1beta1.TargetTypeIP, *tgc.Spec.RouteConfigurations[0].TargetGroupProps.TargetType)
+				require.NotNil(t, tgc.Spec.RouteConfigurations[1].TargetGroupProps.TargetType)
+				assert.Equal(t, gatewayv1beta1.TargetTypeIP, *tgc.Spec.RouteConfigurations[1].TargetGroupProps.TargetType)
+			},
+		},
+		{
 			name: "conflicting scheme in group errors",
 			input: &ingress2gateway.InputResources{
 				Ingresses: []networking.Ingress{

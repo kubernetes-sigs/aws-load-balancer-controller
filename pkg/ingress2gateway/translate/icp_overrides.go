@@ -284,6 +284,15 @@ func applyIngressClassParamsToTGProps(props *gatewayv1beta1.TargetGroupProps, ic
 		tt := gatewayv1beta1.TargetType(icp.Spec.TargetType)
 		props.TargetType = &tt
 	}
+	if len(icp.Spec.Tags) > 0 {
+		if props.Tags == nil {
+			tags := make(map[string]string)
+			props.Tags = &tags
+		}
+		for _, t := range icp.Spec.Tags {
+			(*props.Tags)[t.Key] = t.Value
+		}
+	}
 }
 
 // resolveSSLRedirectPort returns the SSL redirect port if configured.

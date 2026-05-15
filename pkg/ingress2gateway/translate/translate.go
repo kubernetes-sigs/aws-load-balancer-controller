@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -18,6 +17,15 @@ import (
 	k8s "sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
+
+// tgcEntry holds per-ingress data needed to build a TargetGroupConfiguration.
+type tgcEntry struct {
+	svcRef       serviceRef
+	annotations  map[string]string
+	migrationTag string
+	routeName    string
+	icps         []*elbv2api.IngressClassParams
+}
 
 // Translate converts InputResources into OutputResources (Gateway API manifests).
 func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResources, error) {
@@ -30,16 +38,11 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 	servicesByKey := buildServiceMap(in.Services)
 	ingressClassParamsByClass := buildIngressClassParamsMap(in.IngressClasses, in.IngressClassParams)
 
-	// Track which services we've already created TGCs for (deduplicate).
-	//
-	// TODO: when two ingresses share a service but carry different TG-level annotations
-	// (healthcheck path, tags, etc.), only the first ingress's values are captured here.
-	// Follow-up: emit one RouteConfiguration per (ingress × service) so each HTTPRoute
-	// picks up its originating ingress's props via the controller's longest-match merge.
-	tgcCreated := sets.New[string]()
-
 	// Partition Ingresses into groups (ungrouped become single-member groups)
 	groups := partitionByGroup(in.Ingresses)
+
+	// key: "namespace/serviceName:port", value: per-ingress TGC entries for that service
+	tgcEntries := make(map[string][]tgcEntry)
 
 	for _, group := range groups {
 		var gatewayName, lbConfigName, lbMigrationTag string
@@ -130,7 +133,7 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 			}
 		}
 
-		// --- Per-member: HTTPRoutes, TGConfigs, LRConfigs ---
+		// --- Per-member: HTTPRoutes, LRConfigs, TGC entry accumulation ---
 		for _, ing := range group.members {
 			memberPorts := perMemberPorts[k8s.NamespacedName(&ing).String()]
 			parentRefs := buildMemberParentRefs(gatewayName, group.namespace, ing.Namespace, memberPorts, allPorts, sslRedirectPort)
@@ -162,24 +165,27 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 			}
 			out.ListenerRuleConfigurations = append(out.ListenerRuleConfigurations, lrcs...)
 
-			//  Build TargetGroupConfigurations for each unique service. Dedup happens on
-			//  (namespace, service, port) so only the first ingress processed for a given
-			//  service contributes its annotations. See the TODO at the top of Translate.
+			// Accumulate TGC entries for each service referenced by this member.
 			for _, svcRef := range svcRefs {
-				if tgcCreated.Has(svcRef.getServiceRefKey()) {
-					continue
-				}
-				tgcCreated.Insert(svcRef.getServiceRefKey())
-
+				key := svcRef.getServiceRefKey()
 				tgAnnotations := mergeTGAnnotations(effectiveAnnotations, servicesByKey, svcRef.namespace, svcRef.name)
-				tgc := buildTargetGroupConfig(svcRef, tgAnnotations, memberMigrationTag)
-				if tgc != nil {
-					for _, icp := range icps {
-						applyIngressClassParamsToTGProps(&tgc.Spec.DefaultConfiguration, icp)
-					}
-					out.TargetGroupConfigurations = append(out.TargetGroupConfigurations, *tgc)
-				}
+				routeName := utils.GetHTTPRouteName(ing.Namespace, ing.Name)
+				tgcEntries[key] = append(tgcEntries[key], tgcEntry{
+					svcRef:       svcRef,
+					annotations:  tgAnnotations,
+					migrationTag: memberMigrationTag,
+					routeName:    routeName,
+					icps:         icps,
+				})
 			}
+		}
+	}
+
+	// Build TargetGroupConfigurations from accumulated entries.
+	for _, entries := range tgcEntries {
+		tgc := buildTargetGroupConfigFromEntries(entries)
+		if tgc != nil {
+			out.TargetGroupConfigurations = append(out.TargetGroupConfigurations, *tgc)
 		}
 	}
 

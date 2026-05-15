@@ -8,6 +8,7 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
+	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 // buildTargetGroupConfig builds a TargetGroupConfiguration for a given service from annotations.
@@ -44,6 +45,76 @@ func buildTargetGroupConfig(svcRef serviceRef, annos map[string]string, migratio
 			DefaultConfiguration: props,
 		},
 	}
+}
+
+// buildTargetGroupConfigFromEntries builds a TargetGroupConfiguration from one or more
+// ingress entries referencing the same service. A single entry uses DefaultConfiguration.
+// Multiple entries always emit RouteConfigurations keyed by the generated HTTPRoute name,
+// so the controller's longest-match merge assigns each HTTPRoute its own TG settings.
+func buildTargetGroupConfigFromEntries(entries []tgcEntry) *gatewayv1beta1.TargetGroupConfiguration {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// All entries share the same svcRef (grouped by namespace/name:port).
+	svcRef := entries[0].svcRef
+
+	// Single entry — use DefaultConfiguration (simple path).
+	if len(entries) == 1 {
+		tgc := buildTargetGroupConfig(svcRef, entries[0].annotations, entries[0].migrationTag)
+		if tgc != nil {
+			for _, icp := range entries[0].icps {
+				applyIngressClassParamsToTGProps(&tgc.Spec.DefaultConfiguration, icp)
+			}
+		}
+		return tgc
+	}
+
+	// Multiple entries — emit a RouteConfiguration per ingress.
+	tgc := &gatewayv1beta1.TargetGroupConfiguration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: utils.LBConfigAPIVersion,
+			Kind:       utils.TGConfigKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      utils.GetTGConfigName(svcRef.namespace, svcRef.name),
+			Namespace: svcRef.namespace,
+		},
+		Spec: gatewayv1beta1.TargetGroupConfigurationSpec{
+			TargetReference: &gatewayv1beta1.Reference{
+				Name: svcRef.name,
+			},
+		},
+	}
+
+	for _, entry := range entries {
+		props := buildTargetGroupProps(entry.annotations, svcRef.name, svcRef.port)
+
+		// Apply ICP overrides from this entry's group.
+		for _, icp := range entry.icps {
+			applyIngressClassParamsToTGProps(&props, icp)
+		}
+
+		// Add migration tag.
+		if entry.migrationTag != "" {
+			if props.Tags == nil {
+				tags := make(map[string]string)
+				props.Tags = &tags
+			}
+			(*props.Tags)[utils.MigrationTagKey] = entry.migrationTag
+		}
+
+		tgc.Spec.RouteConfigurations = append(tgc.Spec.RouteConfigurations, gatewayv1beta1.RouteConfiguration{
+			RouteIdentifier: gatewayv1beta1.RouteIdentifier{
+				RouteKind:      sharedconstants.HTTPRouteKind,
+				RouteNamespace: svcRef.namespace,
+				RouteName:      entry.routeName,
+			},
+			TargetGroupProps: props,
+		})
+	}
+
+	return tgc
 }
 
 // buildTargetGroupProps builds TargetGroupProps from annotations.
