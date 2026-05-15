@@ -701,16 +701,14 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 	type args struct {
 		svcKey types.NamespacedName
 		port   intstr.IntOrString
-		opts   []EndpointResolveOption
 	}
 	tests := []struct {
-		name                                string
-		env                                 env
-		fields                              fields
-		args                                args
-		want                                []PodEndpoint
-		wantContainsPotentialReadyEndpoints bool
-		wantErr                             error
+		name    string
+		env     env
+		fields  fields
+		args    args
+		want    []PodEndpoint
+		wantErr error
 	}{
 		{
 			name: "[with endpoints][with failOpen] choose every ready pod only when there are ready pods",
@@ -763,7 +761,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			want: []PodEndpoint{
 				{
@@ -777,7 +774,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods",
@@ -835,7 +831,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			want: []PodEndpoint{
 				{
@@ -849,7 +844,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "[with endpointSlices][without failOpen] choose every ready pod only when there are ready pods",
@@ -907,7 +901,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			want: []PodEndpoint{
 				{
@@ -921,7 +914,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "[with endpointSlices][with failOpen] choose every unknown pod when there are no ready pods",
@@ -969,7 +961,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			want: []PodEndpoint{
 				{
@@ -988,7 +979,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod8,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "[with endpointSlices][without failOpen] don't choose unknown pod when there are no ready pods",
@@ -1036,13 +1026,11 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
-			want:                                nil,
-			wantContainsPotentialReadyEndpoints: false,
+			want: nil,
 		},
 		{
-			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods - some pod have readinessGate",
+			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
 				services:       []*corev1.Service{svc1},
@@ -1097,7 +1085,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
 			want: []PodEndpoint{
 				{
@@ -1111,10 +1098,9 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: true,
 		},
 		{
-			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods - no pod have readinessGate",
+			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
 				services:       []*corev1.Service{svc1},
@@ -1164,7 +1150,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
 			want: []PodEndpoint{
 				{
@@ -1178,7 +1163,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
 		},
 		{
 			name: "[with endpoints][with failOpen] choose every ready pod only when there are ready pods - ignore pods don't exists",
@@ -1231,7 +1215,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			want: []PodEndpoint{
 				{
@@ -1240,7 +1223,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: true,
 		},
 		{
 			name: "service not found",
@@ -1254,11 +1236,9 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
-			want:                                []PodEndpoint{},
-			wantContainsPotentialReadyEndpoints: false,
-			wantErr:                             fmt.Errorf("%w: %v", ErrNotFound, "services \"svc-1\" not found"),
+			want:    []PodEndpoint{},
+			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "services \"svc-1\" not found"),
 		},
 		{
 			name: "service port not found",
@@ -1272,7 +1252,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "unable to find port http on service test-ns/svc-1"),
 		},
@@ -1288,7 +1267,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "endpoints \"svc-1\" not found"),
 		},
@@ -1328,7 +1306,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				endpointSliceEnabled: tt.fields.endpointSliceEnabled,
 				logger:               logr.New(&log.NullLogSink{}),
 			}
-			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
+			got, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1341,7 +1319,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				}
 				assert.True(t, cmp.Equal(tt.want, got, opt),
 					"diff: %v", cmp.Diff(tt.want, got, opt))
-				assert.Equal(t, tt.wantContainsPotentialReadyEndpoints, gotContainsPotentialReadyEndpoints)
 			}
 		})
 	}
@@ -1647,7 +1624,6 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			args: args{
 				svcKey: k8s.NamespacedName(svc1),
 				port:   intstr.FromString("http"),
-				opts:   nil,
 			},
 			want: nil,
 		},
