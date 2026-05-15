@@ -1051,6 +1051,82 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "ALB TargetGroup healthCheck protocol change does not require replacement",
+			args: args{
+				sdkTG: TargetGroupWithTags{
+					TargetGroup: &elbv2types.TargetGroup{
+						Protocol:            elbv2types.ProtocolEnumHttps,
+						HealthCheckEnabled:  awssdk.Bool(true),
+						HealthCheckPort:     awssdk.String("8080"),
+						HealthCheckProtocol: elbv2types.ProtocolEnumHttps,
+						HealthCheckPath:     awssdk.String("/readyz"),
+						Matcher: &elbv2types.Matcher{
+							HttpCode: awssdk.String("200"),
+						},
+						HealthCheckIntervalSeconds: awssdk.Int32(10),
+						HealthCheckTimeoutSeconds:  awssdk.Int32(5),
+						HealthyThresholdCount:      awssdk.Int32(3),
+						UnhealthyThresholdCount:    awssdk.Int32(2),
+					},
+				},
+				resTG: &elbv2model.TargetGroup{
+					Spec: elbv2model.TargetGroupSpec{
+						Protocol: elbv2model.ProtocolHTTPS,
+						HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+							Port:                    &port8080,
+							Protocol:                protocolHTTP,
+							Path:                    awssdk.String("/readyz"),
+							Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
+							IntervalSeconds:         awssdk.Int32(10),
+							TimeoutSeconds:          awssdk.Int32(5),
+							HealthyThresholdCount:   awssdk.Int32(3),
+							UnhealthyThresholdCount: awssdk.Int32(2),
+						},
+					},
+				},
+				disableAdvancedNLBHealthCheckConfig: true,
+			},
+			want: false,
+		},
+		{
+			name: "ALB TargetGroup healthCheck interval change does not require replacement",
+			args: args{
+				sdkTG: TargetGroupWithTags{
+					TargetGroup: &elbv2types.TargetGroup{
+						Protocol:            elbv2types.ProtocolEnumHttp,
+						HealthCheckEnabled:  awssdk.Bool(true),
+						HealthCheckPort:     awssdk.String("8080"),
+						HealthCheckProtocol: elbv2types.ProtocolEnumHttp,
+						HealthCheckPath:     awssdk.String("/"),
+						Matcher: &elbv2types.Matcher{
+							HttpCode: awssdk.String("200"),
+						},
+						HealthCheckIntervalSeconds: awssdk.Int32(30),
+						HealthCheckTimeoutSeconds:  awssdk.Int32(5),
+						HealthyThresholdCount:      awssdk.Int32(3),
+						UnhealthyThresholdCount:    awssdk.Int32(2),
+					},
+				},
+				resTG: &elbv2model.TargetGroup{
+					Spec: elbv2model.TargetGroupSpec{
+						Protocol: elbv2model.ProtocolHTTP,
+						HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+							Port:                    &port8080,
+							Protocol:                protocolHTTP,
+							Path:                    awssdk.String("/"),
+							Matcher:                 &elbv2model.HealthCheckMatcher{HTTPCode: awssdk.String("200")},
+							IntervalSeconds:         awssdk.Int32(10),
+							TimeoutSeconds:          awssdk.Int32(5),
+							HealthyThresholdCount:   awssdk.Int32(3),
+							UnhealthyThresholdCount: awssdk.Int32(2),
+						},
+					},
+				},
+				disableAdvancedNLBHealthCheckConfig: true,
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1059,6 +1135,61 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 				featureGates.Disable(config.NLBHealthCheckAdvancedConfig)
 			}
 			got := isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(tt.args.sdkTG, tt.args.resTG, featureGates)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_isL4TargetGroup(t *testing.T) {
+	tests := []struct {
+		name     string
+		protocol elbv2model.Protocol
+		want     bool
+	}{
+		{
+			name:     "TCP is L4",
+			protocol: elbv2model.ProtocolTCP,
+			want:     true,
+		},
+		{
+			name:     "UDP is L4",
+			protocol: elbv2model.ProtocolUDP,
+			want:     true,
+		},
+		{
+			name:     "TLS is L4",
+			protocol: elbv2model.ProtocolTLS,
+			want:     true,
+		},
+		{
+			name:     "QUIC is L4",
+			protocol: elbv2model.ProtocolQUIC,
+			want:     true,
+		},
+		{
+			name:     "TCP_QUIC is L4",
+			protocol: elbv2model.ProtocolTCP_QUIC,
+			want:     true,
+		},
+		{
+			name:     "TCP_UDP is L4",
+			protocol: elbv2model.ProtocolTCP_UDP,
+			want:     true,
+		},
+		{
+			name:     "HTTP is not L4",
+			protocol: elbv2model.ProtocolHTTP,
+			want:     false,
+		},
+		{
+			name:     "HTTPS is not L4",
+			protocol: elbv2model.ProtocolHTTPS,
+			want:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isL4TargetGroup(tt.protocol)
 			assert.Equal(t, tt.want, got)
 		})
 	}
