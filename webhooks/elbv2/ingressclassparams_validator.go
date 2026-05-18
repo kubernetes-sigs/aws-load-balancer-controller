@@ -146,7 +146,7 @@ func (v *ingressClassParamsValidator) checkSubnetSelectors(icp *elbv2api.Ingress
 	return allErrs
 }
 
-// +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-ingressclassparams,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=ingressclassparams,verbs=create;update,versions=v1beta1,name=vingressclassparams.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-ingressclassparams,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=ingressclassparams,verbs=create;update,versions=v1beta1,name=vingressclassparams.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1
 
 func (v *ingressClassParamsValidator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathValidateELBv2IngressClassParams, webhook.ValidatingWebhookForValidator(v, mgr.GetScheme()))

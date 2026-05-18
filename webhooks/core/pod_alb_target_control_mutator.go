@@ -59,8 +59,8 @@ func (m *ALBTargetControlAgentMutator) MutateUpdate(ctx context.Context, obj run
 	return obj, nil
 }
 
-// +kubebuilder:webhook:path=/mutate-alb-target-control-namespace-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=alb-target-control.namespace.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
-// +kubebuilder:webhook:path=/mutate-alb-target-control-object-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=alb-target-control.object.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/mutate-alb-target-control-namespace-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=alb-target-control.namespace.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate-alb-target-control-object-v1-pod,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=alb-target-control.object.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1
 
 func (m *ALBTargetControlAgentMutator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathMutateAlbTargetControlNamespace, webhook.MutatingWebhookForMutator(m, mgr.GetScheme()))

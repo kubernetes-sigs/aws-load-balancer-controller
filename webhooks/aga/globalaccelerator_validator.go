@@ -180,7 +180,7 @@ func getEndpointKey(endpoint agaapi.GlobalAcceleratorEndpoint, defaultNamespace 
 	return string(endpoint.Type) + "/" + namespace + "/" + name
 }
 
-// +kubebuilder:webhook:path=/validate-aga-k8s-aws-v1beta1-globalaccelerator,mutating=false,failurePolicy=fail,groups=aga.k8s.aws,resources=globalaccelerators,verbs=create;update,versions=v1beta1,name=vglobalaccelerator.aga.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/validate-aga-k8s-aws-v1beta1-globalaccelerator,mutating=false,failurePolicy=fail,groups=aga.k8s.aws,resources=globalaccelerators,verbs=create;update,versions=v1beta1,name=vglobalaccelerator.aga.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1
 
 func (v *globalAcceleratorValidator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathValidateAGAGlobalAccelerator, webhook.ValidatingWebhookForValidator(v, mgr.GetScheme()))

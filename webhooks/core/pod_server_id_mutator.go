@@ -47,7 +47,7 @@ func (m *ServerIDMutator) MutateUpdate(_ context.Context, obj runtime.Object, _ 
 	return obj, nil
 }
 
-// +kubebuilder:webhook:path=/mutate-v1-pod-server-id,mutating=true,failurePolicy=Fail,groups="",resources=pods,verbs=create,versions=v1,name=quicid.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/mutate-v1-pod-server-id,mutating=true,failurePolicy=Fail,groups="",resources=pods,verbs=create,versions=v1,name=quicid.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1
 
 func (m *ServerIDMutator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathMutatePodServerID, webhook.MutatingWebhookForMutator(m, mgr.GetScheme()))
