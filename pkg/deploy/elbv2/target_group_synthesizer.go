@@ -180,11 +180,9 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 }
 
 // most of the healthCheck settings for NLB targetGroups cannot be changed for now.
+// Only L4 (NLB) target groups require replacement when health check settings change if NLBHealthCheckAdvancedConfig is enabled.
 func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup, featureGates config.FeatureGates) bool {
-	if resTG.Spec.HealthCheckConfig == nil || featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
-		return false
-	}
-	if isL4TargetGroup(resTG.Spec.Protocol) {
+	if !isL4TargetGroup(resTG.Spec.Protocol) || resTG.Spec.HealthCheckConfig == nil || featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
 		return false
 	}
 	sdkObj := sdkTG.TargetGroup
@@ -206,17 +204,16 @@ func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWit
 
 func isL4TargetGroup(protocol elbv2model.Protocol) bool {
 	switch protocol {
-	case elbv2model.ProtocolTCP:
-	case elbv2model.ProtocolUDP:
-	case elbv2model.ProtocolTLS:
-	case elbv2model.ProtocolQUIC:
-	case elbv2model.ProtocolTCP_QUIC:
-	case elbv2model.ProtocolTCP_UDP:
+	case elbv2model.ProtocolTCP,
+		elbv2model.ProtocolUDP,
+		elbv2model.ProtocolTLS,
+		elbv2model.ProtocolQUIC,
+		elbv2model.ProtocolTCP_QUIC,
+		elbv2model.ProtocolTCP_UDP:
 		return true
 	default:
 		return false
 	}
-	return false
 }
 
 func isSDKTargetGroupTargetControlPortDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG TargetGroupWithTags) bool {
