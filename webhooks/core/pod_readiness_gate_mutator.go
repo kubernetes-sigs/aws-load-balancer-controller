@@ -48,7 +48,7 @@ func (m *podReadinessGateMutator) MutateUpdate(ctx context.Context, obj runtime.
 	return obj, nil
 }
 
-// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=mpod.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/mutate-v1-pod,mutating=true,failurePolicy=ignore,groups="",resources=pods,verbs=create,versions=v1,name=mpod.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1
 
 func (m *podReadinessGateMutator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathMutatePodReadinessGate, webhook.MutatingWebhookForMutator(m, mgr.GetScheme()))

@@ -22,7 +22,7 @@ webhooks:
   failurePolicy: {{ .Values.podMutatorWebhookConfig.failurePolicy }}
   name: mpod.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   namespaceSelector:
     matchExpressions:
     {{ if .Values.webhookNamespaceSelectors }}
@@ -67,7 +67,7 @@ webhooks:
   failurePolicy: Fail
   name: quicid.elbv2.k8s.aws
   admissionReviewVersions:
-    - v1beta1
+    - v1
   namespaceSelector:
     matchExpressions:
     {{ if .Values.webhookNamespaceSelectors }}
@@ -113,7 +113,7 @@ webhooks:
   failurePolicy: {{ .Values.serviceMutatorWebhookConfig.failurePolicy }}
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   {{- if .Values.serviceMutatorWebhookConfig.namespaceSelectors }}
   namespaceSelector:
     matchExpressions:
@@ -155,7 +155,7 @@ webhooks:
   failurePolicy: Fail
   name: alb-target-control.namespace.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   namespaceSelector:
     matchExpressions:
     - key: elbv2.k8s.aws/alb-target-control-agent-injection
@@ -193,7 +193,7 @@ webhooks:
   failurePolicy: Fail
   name: alb-target-control.object.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   namespaceSelector:
     matchExpressions:
     - key: elbv2.k8s.aws/alb-target-control-agent-injection
@@ -229,7 +229,7 @@ webhooks:
   failurePolicy: Fail
   name: mtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   rules:
   - apiGroups:
     - elbv2.k8s.aws
@@ -264,7 +264,7 @@ webhooks:
   failurePolicy: Fail
   name: vingressclassparams.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   objectSelector:
     matchExpressions:
     - key: app.kubernetes.io/name
@@ -293,7 +293,7 @@ webhooks:
   failurePolicy: Fail
   name: vtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   rules:
   - apiGroups:
     - elbv2.k8s.aws
@@ -340,7 +340,7 @@ webhooks:
     {{- end }}
   {{- end }}
   admissionReviewVersions:
-  - v1beta1
+  - v1
   rules:
   - apiGroups:
     - networking.k8s.io
@@ -367,7 +367,7 @@ webhooks:
   matchPolicy: Equivalent
   name: vglobalaccelerator.aga.k8s.aws
   admissionReviewVersions:
-  - v1beta1
+  - v1
   namespaceSelector: {}
   objectSelector: {}
   rules:
