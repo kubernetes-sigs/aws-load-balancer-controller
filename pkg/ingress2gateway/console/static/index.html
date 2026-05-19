@@ -100,9 +100,9 @@
     <div class="strip" id="strip" style="display:none;">
       <div class="metrics" id="metrics"></div>
       <div class="filter-row">
-        <label class="strip-toggle" id="hide-expected-all-wrap" title="Hide differences that are expected migration artifacts (e.g., controller-generated names, default weights). Remaining entries represent real behavioral differences.">
-          <input type="checkbox" id="hide-expected-all">
-          Hide expected changes
+        <label class="strip-toggle" id="hide-known-all-wrap" title="Hide differences that are known migration artifacts (e.g., controller-generated names, default weights). Remaining entries represent real behavioral differences.">
+          <input type="checkbox" id="hide-known-all">
+          Hide known changes
         </label>
         <button class="export-btn" id="export-html-btn" type="button" title="Download a self-contained HTML report that can be shared with anyone — no cluster access required">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1v9.5m0 0L5 7.5m3 3L11 7.5M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
@@ -140,9 +140,9 @@
   <div class="drawer-head">
     <span class="drawer-kicker">Field diff</span>
     <span class="drawer-title" id="drawer-title"></span>
-    <label class="drawer-toggle" id="drawer-toggle-wrap" style="display:none;" title="Hide differences that are expected migration artifacts. Remaining entries represent real behavioral differences.">
-      <input type="checkbox" id="hide-expected-toggle">
-      Hide expected changes
+    <label class="drawer-toggle" id="drawer-toggle-wrap" style="display:none;" title="Hide differences that are known migration artifacts. Remaining entries represent real behavioral differences.">
+      <input type="checkbox" id="hide-known-toggle">
+      Hide known changes
     </label>
     <button class="drawer-close" id="drawer-close" type="button" title="Close detail" aria-label="Close detail">&times;</button>
   </div>

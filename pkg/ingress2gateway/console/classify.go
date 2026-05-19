@@ -8,10 +8,10 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
 )
 
-// classification describes why a diff entry is considered an expected migration artifact.
+// classification describes why a diff entry is considered a known migration artifact.
 type classification struct {
-	Expected bool
-	Reason   string
+	Known  bool
+	Reason string
 }
 
 // migratedFromTagField is the stack-JSON path to the migration tag the
@@ -28,7 +28,7 @@ var migratedFromTagField = "spec.tags." + utils.MigrationTagKey
 //
 // We accept both so a migration that shifts an explicit group into a per-gateway
 // name (the gateway controller always emits the 3-section form) is classified
-// as expected when both sides look controller-generated.
+// as known when both sides look controller-generated.
 var albNameRegex = regexp.MustCompile(`^k8s-[a-z0-9]+(-[a-z0-9]+)?-[0-9a-f]{10}$`)
 
 // healthCheckDefaultFields are controller-default fields that drift between
@@ -43,13 +43,13 @@ var healthCheckDefaultFields = map[string]string{
 // via Ingress annotations (as opposed to being controller defaults).
 type UserSpecifiedFields map[string]bool
 
-// classifyEntry returns whether a diff entry is an expected migration artifact.
+// classifyEntry returns whether a diff entry is a known migration artifact.
 // Rules are intentionally conservative: we only mark entries that match a known
 // pattern so genuine user-visible changes never get hidden.
 func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classification {
 	// Added migrated-from tag on any resource.
 	if e.Status == StatusAdded && e.Field == migratedFromTagField {
-		return classification{Expected: true, Reason: "Added by migration tool"}
+		return classification{Known: true, Reason: "Added by migration tool"}
 	}
 
 	// ALB-family resources: name change with controller-generated format on both sides.
@@ -57,15 +57,15 @@ func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classificatio
 		switch {
 		case e.Field == "spec.name" && (e.ResourceType == utils.StackResTypeLoadBalancer || e.ResourceType == utils.StackResTypeTargetGroup):
 			if matchesALBName(e.Ingress) && matchesALBName(e.Gateway) {
-				return classification{Expected: true, Reason: "Controller-generated name; format preserved"}
+				return classification{Known: true, Reason: "Controller-generated name; format preserved"}
 			}
 		case e.Field == "spec.groupName" && e.ResourceType == utils.StackResTypeSecurityGroup:
 			if matchesALBName(e.Ingress) && matchesALBName(e.Gateway) {
-				return classification{Expected: true, Reason: "Controller-generated name; format preserved"}
+				return classification{Known: true, Reason: "Controller-generated name; format preserved"}
 			}
 		case e.Field == "spec.template.metadata.name" && e.ResourceType == utils.StackResTypeTargetGroupBinding:
 			if matchesALBName(e.Ingress) && matchesALBName(e.Gateway) {
-				return classification{Expected: true, Reason: "Controller-generated name; format preserved"}
+				return classification{Known: true, Reason: "Controller-generated name; format preserved"}
 			}
 		}
 	}
@@ -75,7 +75,7 @@ func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classificatio
 	if e.Status == StatusChanged && e.ResourceType == utils.StackResTypeTargetGroup {
 		if reason, ok := healthCheckDefaultFields[e.Field]; ok {
 			if !userSpecified[e.Field] {
-				return classification{Expected: true, Reason: reason}
+				return classification{Known: true, Reason: reason}
 			}
 		}
 	}
@@ -84,7 +84,7 @@ func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classificatio
 	// weight on every target group; ingress controller omits it.
 	if e.Status == StatusAdded && e.ResourceType == utils.StackResTypeListenerRule {
 		if strings.Contains(e.Field, "forwardConfig.targetGroups") && strings.HasSuffix(e.Field, ".weight") {
-			return classification{Expected: true, Reason: "Gateway API always sets forward weight"}
+			return classification{Known: true, Reason: "Gateway API always sets forward weight"}
 		}
 	}
 
@@ -99,10 +99,10 @@ func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classificatio
 		case e.ResourceType == utils.StackResTypeListenerRule &&
 			strings.Contains(e.Field, "forwardConfig.targetGroups") &&
 			strings.HasSuffix(e.Field, ".targetGroupARN.$ref"):
-			return classification{Expected: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
+			return classification{Known: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
 		case e.ResourceType == utils.StackResTypeTargetGroupBinding &&
 			e.Field == "spec.template.spec.targetGroupARN.$ref":
-			return classification{Expected: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
+			return classification{Known: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
 		}
 	}
 

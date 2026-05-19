@@ -31,7 +31,7 @@ const (
 //     each controller. They are what the UI displays in each column so
 //     customers still see the exact names the controller will produce.
 //
-// Expected is true when the change is a known, semantic artifact of the
+// Known is true when the change is a known, semantic artifact of the
 // Ingress→Gateway migration itself (e.g., added migrated-from tag, ALB name
 // format, controller default drift). The UI uses this to de-emphasize noise.
 type DiffEntry struct {
@@ -40,12 +40,12 @@ type DiffEntry struct {
 	IngressResourceID string `json:"ingressResourceId,omitempty"`
 	GatewayResourceID string `json:"gatewayResourceId,omitempty"`
 
-	Field          string     `json:"field"`
-	Ingress        any        `json:"ingress,omitempty"`
-	Gateway        any        `json:"gateway,omitempty"`
-	Status         DiffStatus `json:"status"`
-	Expected       bool       `json:"expected,omitempty"`
-	ExpectedReason string     `json:"expectedReason,omitempty"`
+	Field      string     `json:"field"`
+	Ingress    any        `json:"ingress,omitempty"`
+	Gateway    any        `json:"gateway,omitempty"`
+	Status     DiffStatus `json:"status"`
+	Known      bool       `json:"known,omitempty"`
+	KnownCause string     `json:"knownCause,omitempty"`
 }
 
 // DiffSummary counts entries by status.
@@ -124,10 +124,10 @@ func Diff(ingress, gateway ResourceTree, userSpecified UserSpecifiedFields) Diff
 
 	summary := DiffSummary{}
 	for i := range entries {
-		// Classify each entry as expected (known migration artifact) or not.
+		// Classify each entry as a known migration artifact or not.
 		c := classifyEntry(entries[i], userSpecified)
-		entries[i].Expected = c.Expected
-		entries[i].ExpectedReason = c.Reason
+		entries[i].Known = c.Known
+		entries[i].KnownCause = c.Reason
 
 		switch entries[i].Status {
 		case StatusSame:

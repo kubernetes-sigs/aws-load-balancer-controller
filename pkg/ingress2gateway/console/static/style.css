@@ -707,6 +707,7 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
   width: 100%;
 }
 .res-card:last-child { margin-bottom: 0; }
+.res-card.active { border-color: var(--link); background: var(--hover-bg); box-shadow: 0 0 0 2px color-mix(in srgb, var(--link) 25%, transparent); }
 .res-card.status-same    { border-left-color: var(--same); }
 .res-card.status-changed { border-left-color: var(--changed); }
 .res-card.status-removed { border-left-color: var(--removed); }
@@ -931,13 +932,13 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
 .status-tag.removed { color: var(--removed); background: var(--removed-bg); }
 .status-tag.added   { color: var(--added);   background: var(--added-bg); }
 
-.expected {
+.known-cause {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-xs);
   font-size: 12px;
 }
-.expected-mark {
+.known-cause-mark {
   width: 10px; height: 10px;
   background: var(--success);
   border-radius: var(--radius-badge);
@@ -945,7 +946,7 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
   margin-top: 3px;
   flex-shrink: 0;
 }
-.expected-reason { color: var(--text-body); }
+.known-cause-text { color: var(--text-body); }
 
 /* Modal */
 .modal-backdrop {

@@ -6,10 +6,10 @@ const state = {
   gateways: [],
   currentGateway: null,
   diff: null,
-  filter: 'all',
+  filter: 'changed',
   detailKey: null,
-  hideExpectedInDetail: false,
-  hideExpectedAll: false,
+  hideKnownInDetail: true,
+  hideKnownAll: true,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -161,6 +161,9 @@ async function showGatewayList(namespace) {
 async function showComparison(namespace, gatewayName) {
   state.namespace = namespace;
   state.currentGateway = gatewayName;
+  state.filter = 'changed';
+  state.hideKnownAll = true;
+  state.hideKnownInDetail = true;
   $('landing').style.display = 'none';
   $('gateway-list').style.display = 'none';
   $('comparison').style.display = 'grid';
@@ -196,7 +199,12 @@ async function showComparison(namespace, gatewayName) {
   $('comparison-header').style.display = 'block';
   $('strip').style.display = 'flex';
   $('split').style.display = 'grid';
+  $('hide-known-all').checked = state.hideKnownAll;
+  $('hide-known-toggle').checked = state.hideKnownInDetail;
   renderDiff();
+
+  const firstCard = document.querySelector('.res-card');
+  if (firstCard) firstCard.click();
 }
 
 function renderDiff() {
@@ -287,7 +295,7 @@ function syncFilterUI() {
   document.querySelectorAll('.seg-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.filter === state.filter);
   });
-  const wrap = $('hide-expected-all-wrap');
+  const wrap = $('hide-known-all-wrap');
   if (wrap) wrap.classList.add('visible');
 }
 
@@ -302,12 +310,12 @@ function renderColumn(containerId, byType, allTypes, side) {
       if (state.filter === 'all') return true;
       return r.entries.some(e => e.status === state.filter);
     });
-    if (state.hideExpectedAll) {
+    if (state.hideKnownAll) {
       filtered = filtered.filter(r => {
         const scoped = state.filter === 'all'
           ? r.entries
           : r.entries.filter(e => e.status === state.filter);
-        return scoped.some(e => !e.expected);
+        return scoped.some(e => !e.known);
       });
     }
     if (filtered.length === 0) return;
@@ -351,8 +359,10 @@ function renderColumn(containerId, byType, allTypes, side) {
    ========================================================================= */
 function showDetail(key) {
   state.detailKey = key;
-  state.hideExpectedInDetail = state.hideExpectedAll;
-  $('hide-expected-toggle').checked = state.hideExpectedInDetail;
+  state.hideKnownInDetail = state.hideKnownAll;
+  $('hide-known-toggle').checked = state.hideKnownInDetail;
+  document.querySelectorAll('.res-card.active').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll(`.res-card[data-key="${CSS.escape(key)}"]`).forEach(c => c.classList.add('active'));
   renderDetail();
   $('drawer').classList.add('visible');
 }
@@ -378,9 +388,9 @@ function renderDetail() {
     ? entries
     : entries.filter(e => e.status === statusFilter);
 
-  const hasExpected = filtered.some(e => e.expected);
-  $('drawer-toggle-wrap').style.display = hasExpected ? 'inline-flex' : 'none';
-  const showExpected = hasExpected && !state.hideExpectedInDetail;
+  const hasKnown = filtered.some(e => e.known);
+  $('drawer-toggle-wrap').style.display = hasKnown ? 'inline-flex' : 'none';
+  const showKnown = hasKnown && !state.hideKnownInDetail;
 
   const headCells = [
     '<th style="width: 30%;">Field</th>',
@@ -388,11 +398,11 @@ function renderDetail() {
     '<th>Gateway</th>',
     '<th style="width: 110px;">Status</th>',
   ];
-  if (showExpected) headCells.push('<th style="width: 28%;">Expected</th>');
+  if (showKnown) headCells.push('<th style="width: 28%;">Known Cause</th>');
   $('detail-thead').innerHTML = `<tr>${headCells.join('')}</tr>`;
 
-  const visible = state.hideExpectedInDetail
-    ? filtered.filter(e => !e.expected)
+  const visible = state.hideKnownInDetail
+    ? filtered.filter(e => !e.known)
     : filtered;
 
   $('detail-body').innerHTML = visible.map(e => {
@@ -404,9 +414,9 @@ function renderDetail() {
       `<td class="val${gw ? '' : ' empty'}">${gw ? escapeHTML(gw) : '—'}</td>`,
       `<td><span class="status-tag ${e.status}"><span class="dot"></span>${e.status}</span></td>`,
     ];
-    if (showExpected) {
-      cells.push(e.expected
-        ? `<td><div class="expected"><span class="expected-mark"></span><span class="expected-reason">${escapeHTML(e.expectedReason || 'Migration artifact')}</span></div></td>`
+    if (showKnown) {
+      cells.push(e.known
+        ? `<td><div class="known-cause"><span class="known-cause-mark"></span><span class="known-cause-text">${escapeHTML(e.knownCause || 'Migration artifact')}</span></div></td>`
         : '<td></td>');
     }
     return `<tr class="row-${e.status}">${cells.join('')}</tr>`;
@@ -426,15 +436,18 @@ function navigateBack() {
   }
 }
 
-$('drawer-close').addEventListener('click', () => $('drawer').classList.remove('visible'));
-$('hide-expected-toggle').addEventListener('change', (e) => {
-  state.hideExpectedInDetail = e.target.checked;
+$('drawer-close').addEventListener('click', () => {
+  $('drawer').classList.remove('visible');
+  document.querySelectorAll('.res-card.active').forEach(c => c.classList.remove('active'));
+});
+$('hide-known-toggle').addEventListener('change', (e) => {
+  state.hideKnownInDetail = e.target.checked;
   renderDetail();
 });
-$('hide-expected-all').addEventListener('change', (e) => {
-  state.hideExpectedAll = e.target.checked;
-  state.hideExpectedInDetail = e.target.checked;
-  $('hide-expected-toggle').checked = e.target.checked;
+$('hide-known-all').addEventListener('change', (e) => {
+  state.hideKnownAll = e.target.checked;
+  state.hideKnownInDetail = e.target.checked;
+  $('hide-known-toggle').checked = e.target.checked;
   if ($('drawer').classList.contains('visible')) renderDetail();
   renderDiff();
 });
@@ -455,6 +468,7 @@ window.addEventListener('popstate', () => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('drawer').classList.contains('visible')) {
     $('drawer').classList.remove('visible');
+    document.querySelectorAll('.res-card.active').forEach(c => c.classList.remove('active'));
   }
 });
 
@@ -543,7 +557,7 @@ $('export-html-btn').addEventListener('click', () => {
         <td class="mono">${ing ? esc(ing) : '<em>—</em>'}</td>
         <td class="mono">${gw ? esc(gw) : '<em>—</em>'}</td>
         <td><span class="tag ${esc(e.status)}">${esc(e.status)}</span></td>
-        <td>${e.expected ? esc(e.expectedReason || 'Migration artifact') : ''}</td>
+        <td>${e.known ? esc(e.knownCause || 'Migration artifact') : ''}</td>
       </tr>`;
     }).join('\n');
 
@@ -588,7 +602,7 @@ td { padding: 8px 12px; border-bottom: 1px solid #ebebf0; vertical-align: top; w
   <div class="summary-item"><div class="label">Added</div><div class="value">${summary.added}</div></div>
 </div>
 <table>
-<thead><tr><th>Resource Type</th><th>Resource</th><th>Field</th><th>Ingress</th><th>Gateway</th><th>Status</th><th>Expected</th></tr></thead>
+<thead><tr><th>Resource Type</th><th>Resource</th><th>Field</th><th>Ingress</th><th>Gateway</th><th>Status</th><th>Known Cause</th></tr></thead>
 <tbody>
 ${rows}
 </tbody>

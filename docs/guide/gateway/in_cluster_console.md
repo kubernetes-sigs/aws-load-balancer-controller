@@ -38,7 +38,7 @@ Captured images:
 The migration console is a local web UI bundled into the `lbc-migrate` binary.
 It compares the ingress controller's dry-run plan against the gateway controller's
 dry-run plan side by side, field by field, so you can confirm the generated
-Gateway manifests behave the same as the current Ingress before switching traffic.
+Gateway manifests will create same AWS resources as the current Ingres before switching traffic.
 
 The console is read-only. It connects to your Kubernetes cluster using the
 current kubeconfig context (the same config used by `kubectl`). It reads Gateway
@@ -78,7 +78,7 @@ What it does not do:
 
 ## End-to-end dry-run workflow
 
-The console is the last step of a four-step preview flow. Each step populates
+The console is the last step of a four-step preview flow. It is used to review what AWS resources will be created and how they differs from resources created by Ingress manifests. Each step populates
 or consumes a specific annotation; nothing talks to AWS until the final cutover.
 
 ### 1. Enable the ingress plan annotation
