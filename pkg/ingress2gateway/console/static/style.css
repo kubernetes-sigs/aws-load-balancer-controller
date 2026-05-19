@@ -45,8 +45,8 @@
   --all:      var(--neutral);  --all-bg:     #f3f3f7;
 
   /* Typography */
-  --font-sans: 'Open Sans', 'Amazon Ember', 'Helvetica Neue', Roboto, Arial, sans-serif;
-  --font-mono: Monaco, Menlo, Consolas, 'Courier Prime', Courier, monospace;
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
 
   /* Spacing (Cloudscape scale) */
   --space-xxxs: 2px;
