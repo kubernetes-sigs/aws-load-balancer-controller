@@ -97,11 +97,14 @@
         were removed, or were added. Click any resource card to see field-level details.
       </p>
     </div>
-    <div class="strip" id="strip" style="display:none;">
-      <div class="metrics" id="metrics"></div>
-      <div class="filter-row">
+    <div class="toolbar" id="toolbar" style="display:none;">
+      <div class="toolbar-left">
+        <button class="view-tab active" data-view="map" type="button">Resource Map</button>
+        <button class="view-tab" data-view="diff" type="button">Diff List</button>
+      </div>
+      <div class="toolbar-right">
         <label class="strip-toggle" id="hide-known-all-wrap" title="Hide differences that are known migration artifacts (e.g., controller-generated names, default weights). Remaining entries represent real behavioral differences.">
-          <input type="checkbox" id="hide-known-all">
+          <input type="checkbox" id="hide-known-all" checked>
           Hide known changes
         </label>
         <button class="export-btn" id="export-html-btn" type="button" title="Download a self-contained HTML report that can be shared with anyone — no cluster access required">
@@ -113,6 +116,14 @@
           Export JSON
         </button>
       </div>
+    </div>
+
+    <div class="strip" id="strip" style="display:none;">
+      <div class="metrics" id="metrics"></div>
+    </div>
+
+    <div class="resource-map" id="resource-map" style="display:none;">
+      <div class="resource-map-inner" id="resource-map-inner"></div>
     </div>
 
     <div class="split" id="split" style="display:none;">

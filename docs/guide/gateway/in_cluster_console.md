@@ -19,16 +19,20 @@ Captured images:
        Gateway list for a namespace, showing summary pills per gateway.
 
   3. console/comparison-overview.png
-       Comparison view with segmented filter control, Hide expected toggle,
-       Export buttons, and split columns showing resource cards.
+       Comparison view with view tabs (Resource Map / Diff List), toolbar
+       with Hide known changes toggle and Export buttons.
 
-  4. console/resource-cards.png
-       Same comparison view with the "Changed" filter active, showing
-       status tags next to each resource ID.
+  4. console/resource-map.png
+       Resource Map view showing AWS resources arranged left-to-right by type,
+       with lines connecting related resources and colors indicating diff status.
 
-  5. console/detail-drawer.png
+  5. console/diff-list.png
+       Diff List view with segmented filter control and split columns
+       showing resource cards with status tags.
+
+  6. console/detail-drawer.png
        Field-level drawer opened for a LoadBalancer showing the per-field
-       diff table with status and expected columns.
+       diff table with status and Known Cause columns.
 -->
 
 !!! warning "Under Development"
@@ -53,9 +57,11 @@ deletes cluster or AWS resources.
 - **Side-by-side comparison** of the full built model stack — LoadBalancer,
   Listeners, ListenerRules, TargetGroups, TargetGroupBindings, SecurityGroups —
   produced by each controller.
+- **Two views** — a Resource Map showing the relationships between AWS resources
+  with color-coded status, and a Diff List with side-by-side field-level comparison.
 - **Field-level diff** with four statuses: `same`, `changed`, `added`, `removed`.
   Slice fields (e.g. SecurityGroup ingress rules) are compared as multisets.
-- **Expected-diff filtering** that hides known migration artifacts (migrated-from
+- **Known-change filtering** that hides known migration artifacts (migrated-from
   tag, controller-generated names, health-check default drift, forward weights,
   `targetGroupARN.$ref` pointer churn) so genuine user-visible changes stand out.
 - **Resource correlation across controllers**: `TargetGroup` and
@@ -166,33 +172,78 @@ Click a gateway to enter the comparison view.
 
 ### Comparison view
 
-The comparison view shows a side-by-side diff for the selected gateway. It is
-organized into these regions:
+The comparison view shows two view modes for the selected gateway, toggled via
+tabs at the top:
 
-![Comparison view with filter controls and resource columns](assets/console/comparison-overview.png)
+![Comparison view with view tabs and toolbar](assets/console/comparison-overview.png)
+
+**Toolbar** — always visible across both views:
+
+- **View tabs** — switch between Resource Map and Diff List.
+- **Hide known changes toggle** — filters out diffs classified as known
+  migration artifacts (see [How diffs are classified](#how-diffs-are-classified)
+  below). On by default. Affects both the resource map node colors and the diff
+  list filtering.
+- **Export buttons** — download the diff as a self-contained HTML report or raw
+  JSON. A confirmation dialog warns that the exported file can be viewed without
+  cluster access.
+
+#### Resource Map
+
+The default view when entering a comparison. It renders the AWS resources
+planned by the gateway controller as a left-to-right flow diagram, with each
+node color-coded to show how it compares to the ingress model:
+
+`Load Balancer → Listeners → Listener Rules → Target Groups → Target Group Bindings`
+
+Security Groups are shown below the Load Balancer in the same column.
+
+![Resource Map showing AWS resources with color-coded nodes](assets/console/resource-map.png)
+
+Each node is color-coded by its aggregate diff status:
+
+- **Green** — all fields are the same between ingress and gateway models.
+- **Yellow** — at least one field differs.
+- **Blue** — resource only exists in the gateway model (added).
+
+Resources removed from gateway model (exists in ingress model) are not displayed in resource map. Use diff list view to check them.
+
+
+When "Hide known changes" is on, nodes whose diffs are all known artifacts
+display as green (same) — since the change is expected and do not need
+attention.
+
+Lines connect related resources, showing the resource relationships. Click any node
+to open the detail drawer with field-level diffs for that resource. Connected
+edges highlight when a node is selected.
+
+#### Diff List
+
+The field-level comparison view, showing two columns side by side:
+
+![Diff List with filter controls and resource columns](assets/console/diff-list.png)
 
 - **Segmented filter control** — buttons for `All`, `Same`, `Changed`,
   `Removed`, `Added` with counts. Click a button to scope the view to only
   resources in that status. Clicking an active filter resets back to All.
-  Hover over any filter for a description of what it shows.
-- **Hide expected changes toggle** — filters out diffs classified as expected
-  migration artifacts (see [How diffs are classified](#how-diffs-are-classified)
-  below). Works in combination with the active status filter.
-- **Export buttons** — download the diff as a self-contained HTML report or raw
-  JSON. A confirmation dialog warns that the exported file can be viewed without
-  cluster access.
 - **Ingress model** (left) and **Gateway model** (right) — each resource in the
   stack appears as a card. When a status filter is active, each card shows a
-  status tag next to the resource ID for accessibility (readable without relying
-  on color alone).
+  status tag next to the resource ID for accessibility.
 
-![Resource cards with Changed filter active showing status tags](assets/console/resource-cards.png)
+Click a card to open the detail drawer.
 
-Click a card to open the detail drawer. The drawer lists every field with its
-ingress-side value, gateway-side value, and status. It carries its own
-`Hide expected changes` checkbox for per-resource filtering.
+#### Detail drawer
 
-![Detail drawer showing field-level diff with status and expected columns](assets/console/detail-drawer.png)
+The drawer lists every field with its ingress-side value, gateway-side value,
+and status. It carries its own "Hide known changes" checkbox for per-resource
+filtering. When a known cause is identified, it appears in the "Known Cause"
+column.
+
+![Detail drawer showing field-level diff with status and Known Cause columns](assets/console/detail-drawer.png)
+
+In Resource Map view, clicking a node opens the drawer with all fields for that
+resource (no status filter applied). In Diff List view, the drawer respects the
+active status filter.
 
 ### Breadcrumb navigation
 
@@ -221,7 +272,7 @@ Every field diff is assigned one of four statuses:
 - **added** — only the gateway side has the field.
 - **removed** — only the ingress side has the field.
 
-The `Hide expected changes` toggle filters out the following known-artifact cases:
+The `Hide known changes` toggle filters out the following known-artifact cases:
 
 - **`migrated-from` tag added to any resource** — the migration tool stamps
   `spec.tags.gateway.k8s.aws/migrated-from` on every generated resource, so an
@@ -254,7 +305,7 @@ changes are never silently hidden.
 
 ### Exporting results
 
-Click **Export HTML** or **Export JSON** in the filter strip to share the diff:
+Click **Export HTML** or **Export JSON** in the toolbar to share the diff:
 
 - **HTML** — a self-contained report with embedded styles and a full table of
   all diff entries. Open in any browser with no dependencies.

@@ -10,6 +10,7 @@ const state = {
   detailKey: null,
   hideKnownInDetail: true,
   hideKnownAll: true,
+  currentView: 'map',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -197,14 +198,12 @@ async function showComparison(namespace, gatewayName) {
   }
   state.diff = await resp.json();
   $('comparison-header').style.display = 'block';
-  $('strip').style.display = 'flex';
-  $('split').style.display = 'grid';
+  $('toolbar').style.display = 'flex';
   $('hide-known-all').checked = state.hideKnownAll;
   $('hide-known-toggle').checked = state.hideKnownInDetail;
-  renderDiff();
 
-  const firstCard = document.querySelector('.res-card');
-  if (firstCard) firstCard.click();
+  state.currentView = 'map';
+  syncView();
 }
 
 function renderDiff() {
@@ -283,6 +282,25 @@ function renderDiff() {
   $('drawer').classList.remove('visible');
 }
 
+function syncView() {
+  const isMap = state.currentView === 'map';
+  $('resource-map').style.display = isMap ? 'block' : 'none';
+  $('split').style.display = isMap ? 'none' : 'grid';
+  $('strip').style.display = isMap ? 'none' : 'flex';
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.view === state.currentView);
+  });
+
+  if (isMap) {
+    $('drawer').classList.remove('visible');
+    renderResourceMap();
+  } else {
+    renderDiff();
+    const firstCard = document.querySelector('.res-card');
+    if (firstCard) firstCard.click();
+  }
+}
+
 function setFilter(next) {
   state.filter = next;
   syncFilterUI();
@@ -295,8 +313,6 @@ function syncFilterUI() {
   document.querySelectorAll('.seg-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.filter === state.filter);
   });
-  const wrap = $('hide-known-all-wrap');
-  if (wrap) wrap.classList.add('visible');
 }
 
 function renderColumn(containerId, byType, allTypes, side) {
@@ -383,10 +399,10 @@ function renderDetail() {
   }
   $('drawer-title').textContent = title;
 
-  const statusFilter = state.filter;
-  const filtered = statusFilter === 'all'
+  const skipStatusFilter = state.currentView === 'map';
+  const filtered = (skipStatusFilter || state.filter === 'all')
     ? entries
-    : entries.filter(e => e.status === statusFilter);
+    : entries.filter(e => e.status === state.filter);
 
   const hasKnown = filtered.some(e => e.known);
   $('drawer-toggle-wrap').style.display = hasKnown ? 'inline-flex' : 'none';
@@ -449,7 +465,11 @@ $('hide-known-all').addEventListener('change', (e) => {
   state.hideKnownInDetail = e.target.checked;
   $('hide-known-toggle').checked = e.target.checked;
   if ($('drawer').classList.contains('visible')) renderDetail();
-  renderDiff();
+  if (state.currentView === 'map') {
+    renderResourceMap();
+  } else {
+    renderDiff();
+  }
 });
 $('back-btn').addEventListener('click', (e) => { e.preventDefault(); navigateBack(); });
 $('brand').addEventListener('click', (e) => { e.preventDefault(); pushState(null, null); showLanding(); });
@@ -500,6 +520,215 @@ document.addEventListener('keydown', (e) => {
   grip.addEventListener('pointerup', release);
   grip.addEventListener('pointercancel', release);
 })();
+
+/* =========================================================================
+   VIEW TABS + RESOURCE MAP
+   ========================================================================= */
+document.querySelectorAll('.view-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    state.currentView = tab.dataset.view;
+    syncView();
+  });
+});
+
+const TYPE_ORDER = [
+  'AWS::ElasticLoadBalancingV2::LoadBalancer',
+  'AWS::ElasticLoadBalancingV2::Listener',
+  'AWS::ElasticLoadBalancingV2::ListenerRule',
+  'AWS::ElasticLoadBalancingV2::TargetGroup',
+  'K8S::ElasticLoadBalancingV2::TargetGroupBinding',
+];
+const SG_TYPE = 'AWS::EC2::SecurityGroup';
+const TYPE_LABELS = {
+  'AWS::ElasticLoadBalancingV2::LoadBalancer': 'Load Balancer',
+  'AWS::EC2::SecurityGroup': 'Security Groups',
+  'AWS::ElasticLoadBalancingV2::Listener': 'Listeners',
+  'AWS::ElasticLoadBalancingV2::ListenerRule': 'Listener Rules',
+  'AWS::ElasticLoadBalancingV2::TargetGroup': 'Target Groups',
+  'K8S::ElasticLoadBalancingV2::TargetGroupBinding': 'Target Group Bindings',
+};
+
+// Compute effective node status considering "hide known" toggle.
+// When known changes are hidden, a node whose diffs are all known shows as "same".
+function computeEffectiveStatus(node) {
+  if (!state.hideKnownAll) return node.status;
+
+  // Find all diff entries for this node.
+  const entries = state.diff.entries.filter(e => {
+    const nodeId = e.resourceType + '|' + (e.gatewayResourceId || e.correlationId);
+    return nodeId === node.id;
+  });
+  if (entries.length === 0) return node.status;
+
+  // Exclude known entries and recompute status.
+  const unknownEntries = entries.filter(e => !e.known);
+  if (unknownEntries.length === 0) return 'same';
+
+  const priority = { same: 0, added: 1, removed: 2, changed: 3 };
+  let maxStatus = 'same';
+  for (const e of unknownEntries) {
+    if ((priority[e.status] || 0) > (priority[maxStatus] || 0)) {
+      maxStatus = e.status;
+    }
+  }
+  return maxStatus;
+}
+
+function renderTopoNode(n) {
+  const effectiveStatus = computeEffectiveStatus(n);
+  const badge = effectiveStatus !== 'same' ? `<span class="topo-node-badge ${effectiveStatus}">${effectiveStatus}</span>` : '';
+  return `<div class="topo-node status-${effectiveStatus}" data-node-id="${escapeHTML(n.id)}" tabindex="0">
+    <span class="topo-node-dot"></span>
+    <span class="topo-node-label">${escapeHTML(n.label)}</span>${badge}
+  </div>`;
+}
+
+function renderResourceMap() {
+  const topo = state.diff.topology;
+  if (!topo || !topo.nodes || topo.nodes.length === 0) {
+    $('resource-map-inner').innerHTML = '<div class="empty">No topology data available.</div>';
+    return;
+  }
+
+  const nodesByType = {};
+  topo.nodes.forEach(n => {
+    (nodesByType[n.resourceType] = nodesByType[n.resourceType] || []).push(n);
+  });
+
+  // Render columns (lanes) left to right — SecurityGroup rendered separately below LB.
+  const columns = TYPE_ORDER.filter(t => nodesByType[t] && nodesByType[t].length > 0);
+  const sgNodes = nodesByType[SG_TYPE] || [];
+
+  let html = '<div class="topo-legend">';
+  html += '<span class="topo-legend-item"><span class="topo-legend-dot status-same"></span>Same</span>';
+  html += '<span class="topo-legend-item"><span class="topo-legend-dot status-changed"></span>Changed</span>';
+  html += '<span class="topo-legend-item"><span class="topo-legend-dot status-added"></span>Added</span>';
+  html += '<span class="topo-legend-item"><span class="topo-legend-dot status-removed"></span>Removed</span>';
+  html += '</div>';
+
+  html += '<div class="topo-lanes">';
+  columns.forEach((type, colIdx) => {
+    const nodes = nodesByType[type];
+    const typeLabel = TYPE_LABELS[type] || type.split('::').pop();
+    html += `<div class="topo-lane" data-col="${colIdx}">`;
+    html += `<div class="topo-lane-head">${escapeHTML(typeLabel)}</div>`;
+    html += `<div class="topo-lane-body">`;
+    nodes.forEach(n => { html += renderTopoNode(n); });
+    // Render SecurityGroups below LoadBalancer in the same lane.
+    if (type === 'AWS::ElasticLoadBalancingV2::LoadBalancer' && sgNodes.length > 0) {
+      html += `<div class="topo-sg-section">`;
+      html += `<div class="topo-lane-head">${escapeHTML(TYPE_LABELS[SG_TYPE])}</div>`;
+      sgNodes.forEach(n => { html += renderTopoNode(n); });
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  });
+  html += '</div>';
+
+  // SVG overlay for edges.
+  html += '<svg class="topo-edges" id="topo-edges"></svg>';
+
+  $('resource-map-inner').innerHTML = html;
+
+  // Draw edges after DOM is ready.
+  requestAnimationFrame(() => drawTopoEdges(topo.edges));
+
+  // Node click → open drawer for that resource.
+  document.querySelectorAll('.topo-node').forEach(node => {
+    node.addEventListener('click', () => {
+      const nodeId = node.dataset.nodeId;
+      document.querySelectorAll('.topo-node.active').forEach(n => n.classList.remove('active'));
+      node.classList.add('active');
+      highlightTopoEdges(nodeId);
+
+      // Resolve topology node ID to diff key (resourceType|correlationId).
+      const detailKey = resolveDiffKey(nodeId);
+      if (detailKey) {
+        showDetail(detailKey);
+        $('drawer').classList.add('visible');
+      }
+    });
+  });
+}
+
+// resolveDiffKey maps a topology node ID (resourceType|rawResourceId) to the
+// diff entry key (resourceType|correlationId). For most resources these are the
+// same; for TargetGroup/TGB the correlationId is derived from serviceRef.
+function resolveDiffKey(nodeId) {
+  const [resType, rawId] = nodeId.split('|');
+  // Try direct match first (works for LB, Listener, ListenerRule).
+  const directKey = resType + '|' + rawId;
+  const directMatch = state.diff.entries.find(e => (e.resourceType + '|' + e.correlationId) === directKey);
+  if (directMatch) return directKey;
+
+  // Fallback: find by gatewayResourceId.
+  const byGwId = state.diff.entries.find(e => e.resourceType === resType && e.gatewayResourceId === rawId);
+  if (byGwId) return resType + '|' + byGwId.correlationId;
+
+  return null;
+}
+
+function drawTopoEdges(edges) {
+  const svg = document.getElementById('topo-edges');
+  if (!svg) return;
+  const container = $('resource-map-inner');
+  const rect = container.getBoundingClientRect();
+  svg.setAttribute('width', rect.width);
+  svg.setAttribute('height', rect.height);
+  svg.innerHTML = '';
+
+  edges.forEach(edge => {
+    const fromEl = container.querySelector(`[data-node-id="${CSS.escape(edge.from)}"]`);
+    const toEl = container.querySelector(`[data-node-id="${CSS.escape(edge.to)}"]`);
+    if (!fromEl || !toEl) return;
+
+    const fromRect = fromEl.getBoundingClientRect();
+    const toRect = toEl.getBoundingClientRect();
+
+    // Detect if nodes are in the same column (vertically stacked).
+    const sameColumn = Math.abs(fromRect.left - toRect.left) < fromRect.width;
+
+    let d;
+    if (sameColumn) {
+      // Vertical edge: bottom of "from" to top of "to".
+      const x1 = fromRect.left + fromRect.width / 2 - rect.left;
+      const y1 = fromRect.bottom - rect.top;
+      const x2 = toRect.left + toRect.width / 2 - rect.left;
+      const y2 = toRect.top - rect.top;
+      const midY = (y1 + y2) / 2;
+      d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
+    } else {
+      // Horizontal edge: right of "from" to left of "to".
+      const x1 = fromRect.right - rect.left;
+      const y1 = fromRect.top + fromRect.height / 2 - rect.top;
+      const x2 = toRect.left - rect.left;
+      const y2 = toRect.top + toRect.height / 2 - rect.top;
+      const midX = (x1 + x2) / 2;
+      d = `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`;
+    }
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'topo-edge');
+    path.dataset.from = edge.from;
+    path.dataset.to = edge.to;
+    svg.appendChild(path);
+  });
+}
+
+function highlightTopoEdges(nodeId) {
+  document.querySelectorAll('.topo-edge').forEach(edge => {
+    const connected = edge.dataset.from === nodeId || edge.dataset.to === nodeId;
+    edge.classList.toggle('highlighted', connected);
+    edge.classList.toggle('dimmed', !connected);
+  });
+}
+
+window.addEventListener('resize', () => {
+  if (state.currentView === 'map' && state.diff.topology) {
+    requestAnimationFrame(() => drawTopoEdges(state.diff.topology.edges));
+  }
+});
 
 /* =========================================================================
    EXPORT

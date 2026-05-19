@@ -59,8 +59,9 @@ type DiffSummary struct {
 
 // DiffResult holds the complete comparison between an ingress and gateway model.
 type DiffResult struct {
-	Entries []DiffEntry `json:"entries"`
-	Summary DiffSummary `json:"summary"`
+	Entries  []DiffEntry    `json:"entries"`
+	Summary  DiffSummary    `json:"summary"`
+	Topology TopologyResult `json:"topology"`
 }
 
 // correlated bundles a raw ID with the flattened fields it points to so we
