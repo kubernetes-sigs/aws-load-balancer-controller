@@ -354,8 +354,9 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "name  arrow"
-    "count arrow";
+    "name   arrow"
+    "source arrow"
+    "count  arrow";
   padding: var(--space-s) var(--space-l);
   gap: var(--space-xxs) var(--space-m);
   align-items: center;
@@ -373,6 +374,24 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
   font-weight: 400;
   color: var(--text);
   overflow-wrap: anywhere;
+}
+.t-row .t-source {
+  grid-area: source;
+  font-size: 12px;
+  color: var(--text-sub);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.migrated-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.migrated-detail {
+  font-size: 12px;
+  color: var(--text-sub);
+  font-family: var(--font-mono);
 }
 .t-row .t-count {
   grid-area: count;
@@ -1095,7 +1114,7 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
 
   .t-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto 40px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto 40px;
     padding: var(--space-xs) var(--space-l);
     gap: var(--space-m);
     background: var(--surface-2);
@@ -1106,8 +1125,8 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
     color: var(--text-body);
   }
   .t-row {
-    grid-template-columns: minmax(0, 1fr) auto 40px;
-    grid-template-areas: "name count arrow";
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto 40px;
+    grid-template-areas: "name source count arrow";
     padding: var(--space-s) var(--space-l);
     gap: var(--space-m);
   }

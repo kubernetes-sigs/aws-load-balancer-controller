@@ -18,6 +18,21 @@ const escapeHTML = (s) => String(s).replace(/[&<>"']/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 
+function formatMigratedFrom(tag) {
+  if (!tag) return '';
+  if (tag.startsWith('ingress-group/')) {
+    const group = tag.slice('ingress-group/'.length);
+    return `<span class="migrated-type">IngressGroup</span><span class="migrated-detail">IngressGroupName: ${escapeHTML(group)}</span>`;
+  }
+  if (tag.startsWith('ingress/')) {
+    const parts = tag.slice('ingress/'.length).split('/');
+    if (parts.length === 2) {
+      return `<span class="migrated-type">Ingress</span><span class="migrated-detail">Namespace: ${escapeHTML(parts[0])}</span><span class="migrated-detail">IngressName: ${escapeHTML(parts[1])}</span>`;
+    }
+  }
+  return escapeHTML(tag);
+}
+
 function getUrlParams() {
   const params = new URLSearchParams(window.location.search);
   return {
@@ -126,7 +141,7 @@ async function showGatewayList(namespace) {
   }
 
   table.innerHTML =
-    '<div class="t-header"><div>Gateway</div><div>Summary</div><div></div></div>' +
+    '<div class="t-header"><div>Gateway</div><div>Migrated From Ingress/IngressGroup</div><div>Summary</div><div></div></div>' +
     state.gateways.map(gw => {
       let summaryHTML = '';
       if (gw.error) {
@@ -139,9 +154,11 @@ async function showGatewayList(namespace) {
         if (gw.summary.same) pills.push(`<span class="count-pill same">${gw.summary.same} same</span>`);
         summaryHTML = pills.join(' ');
       }
+      const sourceHTML = formatMigratedFrom(gw.migratedFrom || '');
       return `
       <div class="t-row" data-gw="${escapeHTML(gw.name)}" role="row" tabindex="0">
         <div class="t-name">${escapeHTML(gw.name)}</div>
+        <div class="t-source">${sourceHTML}</div>
         <div class="t-count">${summaryHTML}</div>
         <div class="t-arrow" aria-hidden="true">→</div>
       </div>`;

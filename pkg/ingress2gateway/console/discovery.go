@@ -27,6 +27,7 @@ type GatewayInfo struct {
 	Name               string            `json:"name"`
 	Namespace          string            `json:"namespace"`
 	Error              string            `json:"error,omitempty"` // non-empty if the ingress plan could not be resolved
+	MigratedFrom       string            `json:"-"`               // raw migrated-from tag value
 	GatewayPlan        string            `json:"-"`               // raw JSON, not sent in list response
 	IngressPlan        string            `json:"-"`               // raw JSON, not sent in list response
 	IngressAnnotations map[string]string `json:"-"`               // annotations from the source Ingress
@@ -119,6 +120,7 @@ func resolveGatewayInfo(ctx context.Context, k8sClient client.Client, gw *gwv1.G
 		info.Error = "could not determine ingress plan holder: no migrated-from tag found on LoadBalancer in gateway model"
 		return info
 	}
+	info.MigratedFrom = tag
 
 	holderRef, err := resolvePlanHolder(ctx, k8sClient, gw.Namespace, tag)
 	if err != nil {

@@ -69,18 +69,20 @@ func (s *ConsoleServer) handleGateways(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type gatewayListItem struct {
-		Name      string      `json:"name"`
-		Namespace string      `json:"namespace"`
-		Error     string      `json:"error,omitempty"`
-		Summary   DiffSummary `json:"summary"`
+		Name         string      `json:"name"`
+		Namespace    string      `json:"namespace"`
+		Error        string      `json:"error,omitempty"`
+		MigratedFrom string      `json:"migratedFrom,omitempty"`
+		Summary      DiffSummary `json:"summary"`
 	}
 
 	items := make([]gatewayListItem, 0, len(gateways))
 	for _, gw := range gateways {
 		item := gatewayListItem{
-			Name:      gw.Name,
-			Namespace: gw.Namespace,
-			Error:     gw.Error,
+			Name:         gw.Name,
+			Namespace:    gw.Namespace,
+			Error:        gw.Error,
+			MigratedFrom: gw.MigratedFrom,
 		}
 		// Compute summary if both plans are available.
 		if gw.IngressPlan != "" && gw.GatewayPlan != "" {
