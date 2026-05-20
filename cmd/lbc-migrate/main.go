@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
@@ -51,10 +52,12 @@ Input can come from YAML/JSON files, a directory of manifest files, or a live Ku
 		"Read resources from a live Kubernetes cluster")
 
 	// Cluster flags
-	cmd.Flags().StringVar(&opts.Namespace, "namespace", "",
-		"Namespace to read from (only with --from-cluster)")
+	cmd.Flags().StringSliceVar(&opts.Namespaces, "namespaces", nil,
+		"Comma-separated namespaces to read from (e.g. --namespaces ns-a,ns-b; only with --from-cluster)")
 	cmd.Flags().BoolVar(&opts.AllNamespaces, "all-namespaces", false,
 		"Read from all namespaces (only with --from-cluster)")
+	cmd.Flags().StringVar(&opts.IngressName, "ingress-name", "",
+		"Name of a specific Ingress to migrate (requires exactly one --namespaces value; only with --from-cluster)")
 	cmd.Flags().StringVar(&opts.Kubeconfig, "kubeconfig", "",
 		"Path to kubeconfig file (only with --from-cluster, defaults to $KUBECONFIG or ~/.kube/config)")
 
@@ -91,20 +94,36 @@ func validateFlags(opts *ingress2gateway.MigrateOptions) error {
 
 	// Cluster-only flags
 	if !opts.FromCluster {
-		if opts.Namespace != "" {
-			return fmt.Errorf("--namespace can only be used with --from-cluster")
+		if len(opts.Namespaces) > 0 {
+			return fmt.Errorf("--namespaces can only be used with --from-cluster")
 		}
 		if opts.AllNamespaces {
 			return fmt.Errorf("--all-namespaces can only be used with --from-cluster")
+		}
+		if opts.IngressName != "" {
+			return fmt.Errorf("--ingress-name can only be used with --from-cluster")
 		}
 		if opts.Kubeconfig != "" {
 			return fmt.Errorf("--kubeconfig can only be used with --from-cluster")
 		}
 	}
 
-	// --namespace and --all-namespaces are mutually exclusive
-	if opts.Namespace != "" && opts.AllNamespaces {
-		return fmt.Errorf("--namespace and --all-namespaces are mutually exclusive")
+	// --namespaces and --all-namespaces are mutually exclusive
+	if len(opts.Namespaces) > 0 && opts.AllNamespaces {
+		return fmt.Errorf("--namespaces and --all-namespaces are mutually exclusive")
+	}
+
+	// --ingress-name requires exactly one namespace and conflicts with --all-namespaces
+	if opts.IngressName != "" {
+		if strings.Contains(opts.IngressName, ",") {
+			return fmt.Errorf("--ingress-name accepts a single Ingress name, got %q", opts.IngressName)
+		}
+		if opts.AllNamespaces {
+			return fmt.Errorf("--ingress-name and --all-namespaces are mutually exclusive")
+		}
+		if len(opts.Namespaces) != 1 {
+			return fmt.Errorf("--ingress-name requires exactly one --namespaces value")
+		}
 	}
 
 	// Validate output format

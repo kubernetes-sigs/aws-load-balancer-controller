@@ -8,7 +8,7 @@
 *.dylib
 bin
 build
-lbc-migrate
+/lbc-migrate
 
 # mkdocs generated live docs
 site

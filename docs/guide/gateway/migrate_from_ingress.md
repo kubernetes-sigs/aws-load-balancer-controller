@@ -56,7 +56,8 @@ lbc-migrate --input-dir ./my-manifests/
 
 ```bash
 lbc-migrate --from-cluster --all-namespaces
-lbc-migrate --from-cluster --namespace production
+lbc-migrate --from-cluster --namespaces production
+lbc-migrate --from-cluster --namespaces production --ingress-name my-ingress
 ```
 
 You can combine `-f` and `--input-dir`, but `--from-cluster` cannot be used with file-based input.
@@ -68,8 +69,9 @@ You can combine `-f` and `--input-dir`, but `--from-cluster` cannot be used with
 | `-f, --file` | One of `-f`, `--input-dir`, or `--from-cluster` is required | Comma-separated input YAML/JSON file paths (e.g. `-f file1.yaml,file2.yaml`) | |
 | `--input-dir` | One of `-f`, `--input-dir`, or `--from-cluster` is required | Directory containing YAML/JSON files | |
 | `--from-cluster` | One of `-f`, `--input-dir`, or `--from-cluster` is required | Read resources from a live Kubernetes cluster | |
-| `--namespace` | Optional | Namespace to read from. Only valid with `--from-cluster`. Mutually exclusive with `--all-namespaces` | Current kubeconfig context namespace |
-| `--all-namespaces` | Optional | Read from all namespaces. Only valid with `--from-cluster`. Mutually exclusive with `--namespace` | |
+| `--namespaces` | Optional | Comma-separated namespaces to read from (e.g. `--namespaces ns-a,ns-b`). Only valid with `--from-cluster`. Mutually exclusive with `--all-namespaces` | |
+| `--all-namespaces` | Optional | Read from all namespaces. Only valid with `--from-cluster`. Mutually exclusive with `--namespaces` | |
+| `--ingress-name` | Optional | Name of a specific Ingress to migrate. Requires exactly one `--namespaces` value. Only valid with `--from-cluster`. Mutually exclusive with `--all-namespaces` | |
 | `--kubeconfig` | Optional | Path to kubeconfig file. Only valid with `--from-cluster` | `$KUBECONFIG` or `~/.kube/config` |
 | `--output-dir` | Optional | Directory to write output manifests | `./gateway-output` |
 | `--output-format` | Optional | Output format: `yaml` or `json` | `yaml` |
@@ -114,7 +116,7 @@ Apply everything recursively:
 kubectl apply -R -f ./gw/
 ```
 
-For cross-namespace IngressGroups (Ingresses in different namespaces sharing a `group.name`), the generated resources naturally split across namespace directories: the shared `Gateway` and `LoadBalancerConfiguration` land in the first member's namespace, while each member's `HTTPRoute` lands in its own namespace. No `ReferenceGrant` is required because HTTPRoutes only reference backends in their own namespace and the generated Gateway sets `allowedRoutes.namespaces.from: All`.
+For cross-namespace IngressGroups (Ingresses in different namespaces sharing a `group.name`), the generated resources naturally split across namespace directories: the shared `Gateway` and `LoadBalancerConfiguration` land in the primary member's namespace (determined by `group.order`, then lexical `namespace/name`), while each member's `HTTPRoute` lands in its own namespace. No `ReferenceGrant` is required because HTTPRoutes only reference backends in their own namespace and the generated Gateway sets `allowedRoutes.namespaces.from: All`.
 
 ### Default Backend Handling
 
@@ -128,7 +130,9 @@ LB-level annotations (scheme, subnets, security groups, tags, etc.) must be cons
 
 Each member's `listen-ports` are unioned to build the shared Gateway's listeners. Each member's HTTPRoutes are scoped to only the listeners that member declared via `sectionName` in `parentRefs`. When `ssl-redirect` is set on any member, it applies group-wide: all members' routes attach to the HTTPS listener only, and a single redirect HTTPRoute is generated for HTTP listeners.
 
-Cross-namespace groups (Ingresses in different namespaces with the same `group.name`) are supported. When detected, the migration tool generates the Gateway in the first member's namespace (based on input file order) and sets `allowedRoutes.namespaces.from: All` on each listener, which permits HTTPRoutes from any namespace to attach. You can move the Gateway to a different namespace after generation if needed.
+Cross-namespace groups (Ingresses in different namespaces with the same `group.name`) are supported. When detected, the migration tool generates the Gateway in the primary member's namespace (determined by `group.order` annotation, then lexical `namespace/name` — matching LBC's runtime behavior) and sets `allowedRoutes.namespaces.from: All` on each listener, which permits HTTPRoutes from any namespace to attach. You can move the Gateway to a different namespace after generation if needed.
+
+For cross-namespace groups, use `--namespaces ns-a,ns-b` (listing all namespaces the group spans) or `--all-namespaces` to ensure all members are included. Using a single `--namespaces` that omits some members will produce incomplete output without warning.
 
 !!! warning "Security consideration"
     `From: All` allows HTTPRoutes from any namespace to attach to the Gateway. If you need tighter scoping, you can manually change `From: All` to `From: Selector` with a label selector after generation.
@@ -208,7 +212,17 @@ lbc-migrate --from-cluster --all-namespaces --output-dir ./gateway-output/
 
 ### From a live cluster (specific namespace)
 ```bash
-lbc-migrate --from-cluster --namespace production --output-dir ./gateway-output/
+lbc-migrate --from-cluster --namespaces production --output-dir ./gateway-output/
+```
+
+### From a live cluster (multiple namespaces)
+```bash
+lbc-migrate --from-cluster --namespaces team-a,team-b --output-dir ./gateway-output/
+```
+
+### From a live cluster (single Ingress)
+```bash
+lbc-migrate --from-cluster --namespaces production --ingress-name my-api --output-dir ./gateway-output/
 ```
 
 ## Missing Resource Warnings
@@ -256,7 +270,7 @@ the generated Gateway manifests:
 ```bash
 lbc-migrate -f ingress.yaml --output-dir ./gw/ --dry-run
 # or from a live cluster
-lbc-migrate --from-cluster --namespace production --output-dir ./gw/ --dry-run
+lbc-migrate --from-cluster --namespaces production --output-dir ./gw/ --dry-run
 ```
 
 Alternatively, add the `gateway.k8s.aws/dry-run: "true"` annotation manually to any Gateway
