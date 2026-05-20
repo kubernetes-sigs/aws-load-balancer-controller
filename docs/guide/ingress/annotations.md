@@ -646,6 +646,8 @@ Traffic Routing can be controlled with following annotations:
          - By default, additional `path-pattern` conditions **must** use `values`.
         
             This is because the AWS Load Balancer Controller automatically adds `path-pattern` conditions using `values` according to your [Ingress specification](../spec/).
+
+            When an Ingress rule specifies a catch-all path (for example, `path: /` with `pathType: Prefix`), the controller omits the redundant `/*` `path-pattern` condition when other rule conditions are present, freeing a match evaluation for additional conditions (such as more `source-ip` CIDRs via [`alb.ingress.kubernetes.io/conditions.${conditions-name}`](#conditions)).
             
             To configure additional `path-pattern` conditions using `regexValues`, configure the [`alb.ingress.kubernetes.io/use-regex-path-match`](#use-regex-path-match) annotation. When this annotation is set to `"true"`, the AWS Load Balancer Controller can add `path-pattern` conditions with `regexValues`.
         
