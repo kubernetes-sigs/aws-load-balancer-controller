@@ -6,6 +6,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -19,8 +20,9 @@ import (
 // ClusterReaderOptions holds options for reading from a live cluster.
 type ClusterReaderOptions struct {
 	Kubeconfig    string
-	Namespace     string
+	Namespaces    []string
 	AllNamespaces bool
+	IngressName   string
 }
 
 // ReadFromCluster reads Ingress, Service, IngressClass, and IngressClassParams
@@ -48,29 +50,42 @@ func ReadFromCluster(ctx context.Context, opts ClusterReaderOptions) (*ingress2g
 func readFromClient(ctx context.Context, k8sClient client.Client, clientSet kubernetes.Interface, opts ClusterReaderOptions) (*ingress2gateway.InputResources, error) {
 	resources := &ingress2gateway.InputResources{}
 
-	namespace := opts.Namespace
+	namespaces := opts.Namespaces
 	if opts.AllNamespaces {
-		namespace = ""
+		namespaces = nil
 	}
 
-	listOpts := []client.ListOption{}
-	if namespace != "" {
-		listOpts = append(listOpts, client.InNamespace(namespace))
-	}
+	// When targeting a specific Ingress, fetch it directly instead of listing
+	if opts.IngressName != "" {
+		if len(namespaces) != 1 {
+			return nil, fmt.Errorf("IngressName requires exactly one namespace, got %d", len(namespaces))
+		}
+		ns := namespaces[0]
+		var ing networking.Ingress
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: opts.IngressName}, &ing); err != nil {
+			return nil, fmt.Errorf("failed to get Ingress %s/%s: %w", ns, opts.IngressName, err)
+		}
+		resources.Ingresses = []networking.Ingress{ing}
 
-	// Read Ingresses
-	ingressList := &networking.IngressList{}
-	if err := k8sClient.List(ctx, ingressList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list Ingresses: %w", err)
+		// Still list Services in the namespace for backend resolution
+		serviceList := &corev1.ServiceList{}
+		if err := k8sClient.List(ctx, serviceList, client.InNamespace(ns)); err != nil {
+			return nil, fmt.Errorf("failed to list Services in namespace %q: %w", ns, err)
+		}
+		resources.Services = serviceList.Items
+	} else if len(namespaces) == 0 {
+		// All-namespaces: single list call with no namespace filter
+		if err := listNamespacedResources(ctx, k8sClient, resources, ""); err != nil {
+			return nil, err
+		}
+	} else {
+		// Per-namespace list calls
+		for _, ns := range namespaces {
+			if err := listNamespacedResources(ctx, k8sClient, resources, ns); err != nil {
+				return nil, err
+			}
+		}
 	}
-	resources.Ingresses = ingressList.Items
-
-	// Read Services
-	serviceList := &corev1.ServiceList{}
-	if err := k8sClient.List(ctx, serviceList, listOpts...); err != nil {
-		return nil, fmt.Errorf("failed to list Services: %w", err)
-	}
-	resources.Services = serviceList.Items
 
 	// Read IngressClasses (cluster-scoped, no namespace filter)
 	ingressClassList := &networking.IngressClassList{}
@@ -92,6 +107,29 @@ func readFromClient(ctx context.Context, k8sClient client.Client, clientSet kube
 	}
 
 	return resources, nil
+}
+
+// listNamespacedResources lists Ingresses and Services for a single namespace
+// (or all namespaces if ns is empty) and appends them to resources.
+func listNamespacedResources(ctx context.Context, k8sClient client.Client, resources *ingress2gateway.InputResources, ns string) error {
+	listOpts := []client.ListOption{}
+	if ns != "" {
+		listOpts = append(listOpts, client.InNamespace(ns))
+	}
+
+	ingressList := &networking.IngressList{}
+	if err := k8sClient.List(ctx, ingressList, listOpts...); err != nil {
+		return fmt.Errorf("failed to list Ingresses in namespace %q: %w", ns, err)
+	}
+	resources.Ingresses = append(resources.Ingresses, ingressList.Items...)
+
+	serviceList := &corev1.ServiceList{}
+	if err := k8sClient.List(ctx, serviceList, listOpts...); err != nil {
+		return fmt.Errorf("failed to list Services in namespace %q: %w", ns, err)
+	}
+	resources.Services = append(resources.Services, serviceList.Items...)
+
+	return nil
 }
 
 // buildRestConfig builds a rest.Config from the given kubeconfig path.

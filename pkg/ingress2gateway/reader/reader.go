@@ -13,8 +13,9 @@ func Read(ctx context.Context, opts ingress2gateway.MigrateOptions) (*ingress2ga
 	if opts.FromCluster {
 		return ReadFromCluster(ctx, ClusterReaderOptions{
 			Kubeconfig:    opts.Kubeconfig,
-			Namespace:     opts.Namespace,
+			Namespaces:    opts.Namespaces,
 			AllNamespaces: opts.AllNamespaces,
+			IngressName:   opts.IngressName,
 		})
 	}
 

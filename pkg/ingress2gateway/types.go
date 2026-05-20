@@ -44,9 +44,10 @@ type MigrateOptions struct {
 	FromCluster bool
 
 	// Cluster options
-	Namespace     string
+	Namespaces    []string
 	AllNamespaces bool
 	Kubeconfig    string
+	IngressName   string
 
 	// Output options
 	OutputDir    string
