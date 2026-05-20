@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -2202,15 +2203,14 @@ func Test_buildL4TargetGroupTuples(t *testing.T) {
 			},
 		},
 		{
-			name: "two routes - one rule / two backends each",
+			name: "two routes - take oldest route",
 			targetGroups: []*elbv2model.TargetGroup{
 				tgs[0],
 				tgs[1],
-				tgs[2],
-				tgs[3],
 			},
 			routes: []routeutils.RouteDescriptor{
 				&routeutils.MockRoute{
+					CreationTime: time.Unix(5000, 0),
 					Rules: []routeutils.RouteRule{
 						&routeutils.MockRule{
 							BackendRefs: []routeutils.Backend{
@@ -2225,14 +2225,15 @@ func Test_buildL4TargetGroupTuples(t *testing.T) {
 					},
 				},
 				&routeutils.MockRoute{
+					CreationTime: time.Unix(10000, 0),
 					Rules: []routeutils.RouteRule{
 						&routeutils.MockRule{
 							BackendRefs: []routeutils.Backend{
 								{
-									Weight: 2,
+									Weight: 3,
 								},
 								{
-									Weight: 1,
+									Weight: 4,
 								},
 							},
 						},
@@ -2246,29 +2247,27 @@ func Test_buildL4TargetGroupTuples(t *testing.T) {
 				},
 				{
 					arn:    "arn2",
-					weight: 1,
-				},
-				{
-					arn:    "arn3",
-					weight: 2,
-				},
-				{
-					arn:    "arn4",
 					weight: 1,
 				},
 			},
 		},
 		{
-			name: "two routes - one rule / one backend each",
+			name: "two routes - same age, use alphabetical order to resolve tie",
 			targetGroups: []*elbv2model.TargetGroup{
 				tgs[0],
 				tgs[1],
 			},
 			routes: []routeutils.RouteDescriptor{
 				&routeutils.MockRoute{
+					CreationTime: time.Unix(5000, 0),
+					Namespace:    "a",
+					Name:         "a",
 					Rules: []routeutils.RouteRule{
 						&routeutils.MockRule{
 							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
 								{
 									Weight: 1,
 								},
@@ -2277,11 +2276,17 @@ func Test_buildL4TargetGroupTuples(t *testing.T) {
 					},
 				},
 				&routeutils.MockRoute{
+					Namespace:    "b",
+					Name:         "a",
+					CreationTime: time.Unix(5000, 0),
 					Rules: []routeutils.RouteRule{
 						&routeutils.MockRule{
 							BackendRefs: []routeutils.Backend{
 								{
-									Weight: 2,
+									Weight: 3,
+								},
+								{
+									Weight: 4,
 								},
 							},
 						},
@@ -2295,7 +2300,60 @@ func Test_buildL4TargetGroupTuples(t *testing.T) {
 				},
 				{
 					arn:    "arn2",
-					weight: 2,
+					weight: 1,
+				},
+			},
+		},
+		{
+			name: "two routes - same age, use alphabetical order to resolve tie - do not use first route",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					CreationTime: time.Unix(5000, 0),
+					Namespace:    "b",
+					Name:         "a",
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+				&routeutils.MockRoute{
+					Namespace:    "a",
+					Name:         "a",
+					CreationTime: time.Unix(5000, 0),
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 3,
+								},
+								{
+									Weight: 4,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 3,
+				},
+				{
+					arn:    "arn2",
+					weight: 4,
 				},
 			},
 		},
