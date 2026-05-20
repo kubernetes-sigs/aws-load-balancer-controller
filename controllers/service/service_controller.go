@@ -137,6 +137,7 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request
 		if err != nil {
 			return ctrlerrors.NewErrorWithMetrics(controllerName, "cleanup_load_balancer_error", err, r.metricsCollector)
 		}
+		return nil
 	}
 	return r.reconcileLoadBalancerResources(ctx, svc, stack, lb, backendSGRequired)
 }
