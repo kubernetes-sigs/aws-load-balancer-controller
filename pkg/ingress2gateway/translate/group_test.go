@@ -509,58 +509,53 @@ func TestResolveGroupSSLRedirect(t *testing.T) {
 
 func TestBuildMemberParentRefs(t *testing.T) {
 	tests := []struct {
-		name            string
-		memberPorts     []listenPortEntry
-		allPorts        []listenPortEntry
-		sslRedirectPort *int32
-		memberNS        string
-		gatewayNS       string
-		wantCount       int
-		wantSectionName *string
-		wantNamespace   bool
+		name             string
+		memberPorts      []listenPortEntry
+		sslRedirectPort  *int32
+		memberNS         string
+		gatewayNS        string
+		wantCount        int
+		wantSectionNames []string
+		wantNamespace    bool
 	}{
 		{
-			name:        "same ports no sectionName",
+			name:        "single port gets explicit sectionName",
 			memberPorts: []listenPortEntry{{Protocol: "HTTP", Port: 80}},
-			allPorts:    []listenPortEntry{{Protocol: "HTTP", Port: 80}},
 			memberNS:    "ns", gatewayNS: "ns",
-			wantCount: 1,
+			wantCount:        1,
+			wantSectionNames: []string{"http-80"},
 		},
 		{
-			name:        "different ports get sectionName",
-			memberPorts: []listenPortEntry{{Protocol: "HTTP", Port: 80}},
-			allPorts:    []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
+			name:        "multiple member ports each get sectionName",
+			memberPorts: []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
 			memberNS:    "ns", gatewayNS: "ns",
-			wantCount:       1,
-			wantSectionName: ptr.To("http-80"),
+			wantCount:        2,
+			wantSectionNames: []string{"http-80", "https-443"},
 		},
 		{
-			name:            "ssl-redirect scopes to HTTPS",
+			name:            "ssl-redirect scopes to HTTPS only",
 			memberPorts:     []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
-			allPorts:        []listenPortEntry{{Protocol: "HTTP", Port: 80}, {Protocol: "HTTPS", Port: 443}},
 			sslRedirectPort: ptr.To(int32(443)),
 			memberNS:        "ns", gatewayNS: "ns",
-			wantCount:       1,
-			wantSectionName: ptr.To("https-443"),
+			wantCount:        1,
+			wantSectionNames: []string{"https-443"},
 		},
 		{
 			name:        "cross-namespace adds namespace",
 			memberPorts: []listenPortEntry{{Protocol: "HTTP", Port: 80}},
-			allPorts:    []listenPortEntry{{Protocol: "HTTP", Port: 80}},
 			memberNS:    "team-b", gatewayNS: "team-a",
-			wantCount:     1,
-			wantNamespace: true,
+			wantCount:        1,
+			wantSectionNames: []string{"http-80"},
+			wantNamespace:    true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			refs := buildMemberParentRefs("gw", tt.gatewayNS, tt.memberNS, tt.memberPorts, tt.allPorts, tt.sslRedirectPort)
+			refs := buildMemberParentRefs("gw", tt.gatewayNS, tt.memberNS, tt.memberPorts, tt.sslRedirectPort)
 			assert.Len(t, refs, tt.wantCount)
-			if tt.wantSectionName != nil {
-				require.NotNil(t, refs[0].SectionName)
-				assert.Equal(t, gwv1.SectionName(*tt.wantSectionName), *refs[0].SectionName)
-			} else if tt.sslRedirectPort == nil && len(tt.memberPorts) == len(tt.allPorts) {
-				assert.Nil(t, refs[0].SectionName)
+			for i, wantSN := range tt.wantSectionNames {
+				require.NotNil(t, refs[i].SectionName, "parentRef[%d] should have sectionName", i)
+				assert.Equal(t, gwv1.SectionName(wantSN), *refs[i].SectionName)
 			}
 			if tt.wantNamespace {
 				require.NotNil(t, refs[0].Namespace)

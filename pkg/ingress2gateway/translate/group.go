@@ -345,34 +345,13 @@ func resolveGroupSSLRedirect(members []networking.Ingress, icpByClass map[string
 	return result, nil
 }
 
-// listenPortsEqual returns true if two port slices contain the same entries (order-independent).
-func listenPortsEqual(a, b []listenPortEntry) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	set := make(map[listenPortEntry]struct{}, len(a))
-	for _, p := range a {
-		set[listenPortEntry{Protocol: p.Protocol, Port: p.Port}] = struct{}{}
-	}
-	for _, p := range b {
-		if _, ok := set[listenPortEntry{Protocol: p.Protocol, Port: p.Port}]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
 // buildMemberParentRefs builds parentRefs for a member's HTTPRoutes.
 // - 1. sslRedirectPort set: scope to HTTPS listener only.
-// - 2. memberPorts == allPorts: no sectionName (attach to all listeners).
-// - 3. Otherwise: one parentRef per memberPort with sectionName.
-func buildMemberParentRefs(gatewayName, gatewayNamespace, memberNamespace string, memberPorts, allPorts []listenPortEntry, sslRedirectPort *int32) []gwv1.ParentReference {
+// - 2. Otherwise: one parentRef per memberPort with explicit sectionName.
+func buildMemberParentRefs(gatewayName, gatewayNamespace, memberNamespace string, memberPorts []listenPortEntry, sslRedirectPort *int32) []gwv1.ParentReference {
 	if sslRedirectPort != nil {
 		sn := utils.GenerateSectionName(utils.ProtocolHTTPS, *sslRedirectPort)
 		return []gwv1.ParentReference{buildParentRef(gatewayName, gatewayNamespace, memberNamespace, &sn)}
-	}
-	if listenPortsEqual(memberPorts, allPorts) {
-		return []gwv1.ParentReference{buildParentRef(gatewayName, gatewayNamespace, memberNamespace, nil)}
 	}
 	refs := make([]gwv1.ParentReference, 0, len(memberPorts))
 	for _, listenerPortEntry := range memberPorts {

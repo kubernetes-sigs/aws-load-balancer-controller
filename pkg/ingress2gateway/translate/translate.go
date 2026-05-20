@@ -136,7 +136,7 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 		// --- Per-member: HTTPRoutes, LRConfigs, TGC entry accumulation ---
 		for _, ing := range group.members {
 			memberPorts := perMemberPorts[k8s.NamespacedName(&ing).String()]
-			parentRefs := buildMemberParentRefs(gatewayName, group.namespace, ing.Namespace, memberPorts, allPorts, sslRedirectPort)
+			parentRefs := buildMemberParentRefs(gatewayName, group.namespace, ing.Namespace, memberPorts, sslRedirectPort)
 
 			// Resolve effective annotations for this member (used for tags and TG config)
 			effectiveAnnotations := resolveAnnotations(ing)
