@@ -19,12 +19,14 @@ func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Conte
 		return nil, err
 	}
 	var minimumLoadBalancerCapacity *elbv2model.MinimumLoadBalancerCapacity
-	var capacityUnits int64
 	for key, value := range ingGroupCapacityUnits {
 		if key != elbv2model.CapacityUnits {
 			return nil, errors.Errorf("invalid key to set the capacity: %v, Expected key: %v", key, elbv2model.CapacityUnits)
 		}
-		capacityUnits, _ = strconv.ParseInt(value, 10, 64)
+		capacityUnits, err := strconv.ParseInt(value, 10, 32)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid value to set the capacity: %v", value)
+		}
 		minimumLoadBalancerCapacity = &elbv2model.MinimumLoadBalancerCapacity{
 			CapacityUnits: int32(capacityUnits),
 		}
