@@ -55,36 +55,14 @@ func readFromClient(ctx context.Context, k8sClient client.Client, clientSet kube
 		namespaces = nil
 	}
 
-	// When targeting a specific Ingress, fetch it directly instead of listing
 	if opts.IngressName != "" {
 		if len(namespaces) != 1 {
 			return nil, fmt.Errorf("IngressName requires exactly one namespace, got %d", len(namespaces))
 		}
-		ns := namespaces[0]
-		var ing networking.Ingress
-		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: opts.IngressName}, &ing); err != nil {
-			return nil, fmt.Errorf("failed to get Ingress %s/%s: %w", ns, opts.IngressName, err)
-		}
-		resources.Ingresses = []networking.Ingress{ing}
+	}
 
-		// Still list Services in the namespace for backend resolution
-		serviceList := &corev1.ServiceList{}
-		if err := k8sClient.List(ctx, serviceList, client.InNamespace(ns)); err != nil {
-			return nil, fmt.Errorf("failed to list Services in namespace %q: %w", ns, err)
-		}
-		resources.Services = serviceList.Items
-	} else if len(namespaces) == 0 {
-		// All-namespaces: single list call with no namespace filter
-		if err := listNamespacedResources(ctx, k8sClient, resources, ""); err != nil {
-			return nil, err
-		}
-	} else {
-		// Per-namespace list calls
-		for _, ns := range namespaces {
-			if err := listNamespacedResources(ctx, k8sClient, resources, ns); err != nil {
-				return nil, err
-			}
-		}
+	if err := listNamespacedResources(ctx, k8sClient, resources, namespaces, opts.IngressName); err != nil {
+		return nil, err
 	}
 
 	// Read IngressClasses (cluster-scoped, no namespace filter)
@@ -109,25 +87,50 @@ func readFromClient(ctx context.Context, k8sClient client.Client, clientSet kube
 	return resources, nil
 }
 
-// listNamespacedResources lists Ingresses and Services for a single namespace
-// (or all namespaces if ns is empty) and appends them to resources.
-func listNamespacedResources(ctx context.Context, k8sClient client.Client, resources *ingress2gateway.InputResources, ns string) error {
-	listOpts := []client.ListOption{}
-	if ns != "" {
-		listOpts = append(listOpts, client.InNamespace(ns))
+// listNamespacedResources reads Ingresses and Services into resources.
+//   - If ingressName is set, it fetches that single Ingress by name from namespaces[0].
+//   - If namespaces is empty, it lists across all namespaces.
+//   - Otherwise, it issues per-namespace list calls.
+//
+// Services are always listed per namespace since backends may reference any Service
+// in the same namespace as the Ingress.
+func listNamespacedResources(ctx context.Context, k8sClient client.Client, resources *ingress2gateway.InputResources, namespaces []string, ingressName string) error {
+	queryNamespaces := namespaces
+	if len(queryNamespaces) == 0 {
+		queryNamespaces = []string{""}
 	}
 
-	ingressList := &networking.IngressList{}
-	if err := k8sClient.List(ctx, ingressList, listOpts...); err != nil {
-		return fmt.Errorf("failed to list Ingresses in namespace %q: %w", ns, err)
+	if ingressName != "" {
+		var ing networking.Ingress
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: queryNamespaces[0], Name: ingressName}, &ing); err != nil {
+			return fmt.Errorf("failed to get Ingress %s/%s: %w", queryNamespaces[0], ingressName, err)
+		}
+		resources.Ingresses = []networking.Ingress{ing}
+	} else {
+		for _, ns := range queryNamespaces {
+			var listOpts []client.ListOption
+			if ns != "" {
+				listOpts = append(listOpts, client.InNamespace(ns))
+			}
+			ingressList := &networking.IngressList{}
+			if err := k8sClient.List(ctx, ingressList, listOpts...); err != nil {
+				return fmt.Errorf("failed to list Ingresses in namespace %q: %w", ns, err)
+			}
+			resources.Ingresses = append(resources.Ingresses, ingressList.Items...)
+		}
 	}
-	resources.Ingresses = append(resources.Ingresses, ingressList.Items...)
 
-	serviceList := &corev1.ServiceList{}
-	if err := k8sClient.List(ctx, serviceList, listOpts...); err != nil {
-		return fmt.Errorf("failed to list Services in namespace %q: %w", ns, err)
+	for _, ns := range queryNamespaces {
+		var listOpts []client.ListOption
+		if ns != "" {
+			listOpts = append(listOpts, client.InNamespace(ns))
+		}
+		serviceList := &corev1.ServiceList{}
+		if err := k8sClient.List(ctx, serviceList, listOpts...); err != nil {
+			return fmt.Errorf("failed to list Services in namespace %q: %w", ns, err)
+		}
+		resources.Services = append(resources.Services, serviceList.Items...)
 	}
-	resources.Services = append(resources.Services, serviceList.Items...)
 
 	return nil
 }
