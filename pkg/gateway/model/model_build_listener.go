@@ -189,12 +189,10 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes []routeutils.RouteDescriptor, gw *gwv1.Gateway, port int32, listenerProtocol elbv2model.Protocol, ipAddressType elbv2model.IPAddressType) ([]elbv2model.TargetGroupTuple, error) {
 	tgTuples := make([]elbv2model.TargetGroupTuple, 0)
 	hasNonZeroWeight := false
-	for routeIndx := range routes {
-		routeDescriptor := routes[routeIndx]
-		if routeDescriptor.GetAttachedRules() == nil || len(routeDescriptor.GetAttachedRules()) == 0 {
-			continue
-		}
 
+	descriptorPtr := pickOneL4Route(routes)
+	if descriptorPtr != nil && (*descriptorPtr).GetAttachedRules() != nil {
+		routeDescriptor := *descriptorPtr
 		for _, rule := range routeDescriptor.GetAttachedRules() {
 			backends := rule.GetBackends()
 			for backendIndx := range backends {
@@ -696,4 +694,45 @@ func mergeProtocols(storedProtocol, proposedProtocol elbv2model.Protocol) (elbv2
 	}
 
 	return elbv2model.ProtocolHTTP, errors.New("unsupported merge")
+}
+
+// L4 listeners should only allow 1 Route;
+/*
+		Because a TCP/UDP listener has no mechanism to distinguish between connections (no
+		hostname, no SNI, no path), attaching multiple [TCP/UDP]Routes to the same listener
+		results in only one route effectively receiving traffic.
+
+		When multiple [TCP/UDP]Routes reference the same listener, the implementation MUST
+		follow the general Gateway API route precedence rules defined in `AllowedRoutes`:
+
+		1. The oldest Route based on `metadata.creationTimestamp`.
+		2. If timestamps are equal, the Route appearing first in alphabetical order
+		   (`namespace/name`).
+
+		All attached [TCP/UDP]Routes are `Accepted`, consistent with how other route types
+		handle precedence in the Gateway API. Only the winning route's backends receive
+		traffic.
+
+
+	As we don't support SNI routing, apply this same logic to TLS routes.
+*/
+func pickOneL4Route(routes []routeutils.RouteDescriptor) *routeutils.RouteDescriptor {
+	if len(routes) == 0 {
+		return nil
+	}
+	toReturn := routes[0]
+	for _, r := range routes[1:] {
+		currentReturnTs := toReturn.GetRouteCreateTimestamp().UnixMilli()
+		toCompareTs := r.GetRouteCreateTimestamp().UnixMilli()
+		if currentReturnTs > toCompareTs {
+			toReturn = r
+		} else if currentReturnTs == toCompareTs {
+			currentReturnNsn := toReturn.GetRouteNamespacedName()
+			toCompareNsn := r.GetRouteNamespacedName()
+			if currentReturnNsn.String() > toCompareNsn.String() {
+				toReturn = r
+			}
+		}
+	}
+	return new(toReturn)
 }
