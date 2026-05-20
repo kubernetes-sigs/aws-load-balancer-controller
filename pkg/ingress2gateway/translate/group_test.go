@@ -73,6 +73,114 @@ func TestPartitionByGroup(t *testing.T) {
 	}
 }
 
+func TestSortMembers(t *testing.T) {
+	tests := []struct {
+		name      string
+		members   []networking.Ingress
+		wantOrder []string // expected namespace/name order after sort
+	}{
+		{
+			name: "sort by group.order ascending",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "high", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/group.order": "10"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "low", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/group.order": "1"}}},
+			},
+			wantOrder: []string{"ns/low", "ns/high"},
+		},
+		{
+			name: "same group.order tie-breaks by namespace/name",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "z-ingress", Namespace: "ns"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "a-ingress", Namespace: "ns"}},
+			},
+			wantOrder: []string{"ns/a-ingress", "ns/z-ingress"},
+		},
+		{
+			name: "same group.order tie-breaks by namespace first",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "app", Namespace: "team-b"}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "app", Namespace: "team-a"}},
+			},
+			wantOrder: []string{"team-a/app", "team-b/app"},
+		},
+		{
+			name: "mixed: group.order wins over lexical name",
+			members: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "aaa", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/group.order": "100"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "zzz", Namespace: "ns", Annotations: map[string]string{"alb.ingress.kubernetes.io/group.order": "1"}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "mmm", Namespace: "ns"}},
+			},
+			wantOrder: []string{"ns/mmm", "ns/zzz", "ns/aaa"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sortMembers(tt.members)
+			var got []string
+			for _, m := range tt.members {
+				got = append(got, m.Namespace+"/"+m.Name)
+			}
+			assert.Equal(t, tt.wantOrder, got)
+		})
+	}
+}
+
+func TestPartitionByGroupDeterministicNamespace(t *testing.T) {
+	tests := []struct {
+		name          string
+		ingresses     []networking.Ingress
+		wantNamespace string // expected Gateway namespace (from sorted members[0])
+	}{
+		{
+			name: "cross-namespace group picks lowest order member namespace",
+			ingresses: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "team-b", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/group.name":  "shared",
+					"alb.ingress.kubernetes.io/group.order": "10",
+				}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "team-a", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/group.name":  "shared",
+					"alb.ingress.kubernetes.io/group.order": "1",
+				}}},
+			},
+			wantNamespace: "team-a",
+		},
+		{
+			name: "reverse input order produces same result",
+			ingresses: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "team-a", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/group.name":  "shared",
+					"alb.ingress.kubernetes.io/group.order": "1",
+				}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "team-b", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/group.name":  "shared",
+					"alb.ingress.kubernetes.io/group.order": "10",
+				}}},
+			},
+			wantNamespace: "team-a",
+		},
+		{
+			name: "same group.order falls back to lexical namespace/name",
+			ingresses: []networking.Ingress{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ing", Namespace: "zulu", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/group.name": "shared",
+				}}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ing", Namespace: "alpha", Annotations: map[string]string{
+					"alb.ingress.kubernetes.io/group.name": "shared",
+				}}},
+			},
+			wantNamespace: "alpha",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			groups := partitionByGroup(tt.ingresses)
+			require.Len(t, groups, 1)
+			assert.Equal(t, tt.wantNamespace, groups[0].namespace)
+		})
+	}
+}
+
 func TestMergeGroupLBAnnotations(t *testing.T) {
 	tests := []struct {
 		name    string

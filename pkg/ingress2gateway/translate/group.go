@@ -50,6 +50,7 @@ func partitionByGroup(ingresses []networking.Ingress) []ingressGroup {
 
 	for _, name := range slices.Sorted(maps.Keys(explicit)) {
 		members := explicit[name]
+		sortMembers(members)
 		crossNS := isCrossNamespace(members)
 		groups = append(groups, ingressGroup{
 			name:           name,
@@ -69,6 +70,28 @@ func partitionByGroup(ingresses []networking.Ingress) []ingressGroup {
 	}
 
 	return groups
+}
+
+// sortMembers sorts group members by group.order annotation (ascending, default 0),
+// then by namespace/name lexicographically. This matches LBC's runtime ordering and
+// ensures deterministic Gateway namespace placement via members[0].
+func sortMembers(members []networking.Ingress) {
+	sort.SliceStable(members, func(i, j int) bool {
+		orderI := int32(0)
+		if v := getInt32(members[i].Annotations, annotations.IngressSuffixGroupOrder); v != nil {
+			orderI = *v
+		}
+		orderJ := int32(0)
+		if v := getInt32(members[j].Annotations, annotations.IngressSuffixGroupOrder); v != nil {
+			orderJ = *v
+		}
+		if orderI != orderJ {
+			return orderI < orderJ
+		}
+		nameI := k8s.NamespacedName(&members[i]).String()
+		nameJ := k8s.NamespacedName(&members[j]).String()
+		return nameI < nameJ
+	})
 }
 
 // isCrossNamespace returns true if ingresses span multiple namespaces.
