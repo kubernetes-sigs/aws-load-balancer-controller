@@ -80,30 +80,22 @@ func classifyEntry(e DiffEntry, userSpecified UserSpecifiedFields) classificatio
 		}
 	}
 
-	// Weight added on ListenerRule forward actions — gateway controller emits
-	// weight on every target group; ingress controller omits it.
-	if e.Status == StatusAdded && e.ResourceType == utils.StackResTypeListenerRule {
-		if strings.Contains(e.Field, "forwardConfig.targetGroups") && strings.HasSuffix(e.Field, ".weight") {
-			return classification{Known: true, Reason: "Gateway API always sets forward weight"}
+	// ListenerRule spec.actions
+	// The only expected differences are: (1) different $ref strings for TGs
+	// (2) added "weight" field. If after normalizing these the two values are equal, the diff is a known artifact.
+	if e.Status == StatusChanged && e.ResourceType == utils.StackResTypeListenerRule && e.Field == "spec.actions" {
+		if actionsOnlyDifferByKnownFields(e.Ingress, e.Gateway) {
+			return classification{Known: true, Reason: "Only differs by targetGroup $ref naming and default weight"}
 		}
 	}
 
-	// ListenerRule actions and TargetGroupBindings reference TargetGroups by
-	// raw stack ID via targetGroupARN.$ref. The controllers generate different
-	// raw IDs for TGs on each side even when the backing service is identical,
-	// so a $ref string diff here is an artifact of naming — the underlying
-	// endpoint is covered by the TargetGroup row which is correlated by
-	// serviceRef.
-	if e.Status == StatusChanged {
-		switch {
-		case e.ResourceType == utils.StackResTypeListenerRule &&
-			strings.Contains(e.Field, "forwardConfig.targetGroups") &&
-			strings.HasSuffix(e.Field, ".targetGroupARN.$ref"):
-			return classification{Known: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
-		case e.ResourceType == utils.StackResTypeTargetGroupBinding &&
-			e.Field == "spec.template.spec.targetGroupARN.$ref":
-			return classification{Known: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
-		}
+	// TargetGroupBinding references its TargetGroup by raw stack ID via
+	// targetGroupARN.$ref. The controllers generate different raw IDs even when
+	// they point at the same backing service. Real differences surface on the
+	// correlated TargetGroup row.
+	if e.Status == StatusChanged && e.ResourceType == utils.StackResTypeTargetGroupBinding &&
+		e.Field == "spec.template.spec.targetGroupARN.$ref" {
+		return classification{Known: true, Reason: "Points at the correlated TargetGroup; see that row for real field diffs"}
 	}
 
 	return classification{}
@@ -116,6 +108,53 @@ var annotationToFieldPath = map[string]string{
 	annotations.IngressSuffixHealthyThresholdCount:   "spec.healthCheckConfig.healthyThresholdCount",
 	annotations.IngressSuffixUnhealthyThresholdCount: "spec.healthCheckConfig.unhealthyThresholdCount",
 	annotations.IngressSuffixSuccessCodes:            "spec.healthCheckConfig.matcher.httpCode",
+}
+
+// actionsOnlyDifferByKnownFields checks whether two spec.actions values (both
+// []any after JSON unmarshal) differ only in known-artifact ways:
+//   - targetGroupARN.$ref values differ (naming artifact)
+//   - gateway side has an added "weight" field on target groups
+//
+// If after stripping these the values are equivalent, returns true.
+func actionsOnlyDifferByKnownFields(ingress, gateway any) bool {
+	inNorm := normalizeActions(ingress)
+	gwNorm := normalizeActions(gateway)
+	return semanticEqual(inNorm, gwNorm)
+}
+
+// normalizeActions strips $ref values and weight fields from an actions array
+// so that only semantically meaningful differences remain.
+func normalizeActions(v any) any {
+	switch val := v.(type) {
+	case []any:
+		out := make([]any, len(val))
+		for i, item := range val {
+			out[i] = normalizeActions(item)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any)
+		for k, child := range val {
+			if k == "$ref" {
+				if s, ok := child.(string); ok && isTargetGroupRef(s) {
+					out[k] = "NORMALIZED"
+					continue
+				}
+			}
+			if k == "weight" && child == float64(1) {
+				continue
+			}
+			out[k] = normalizeActions(child)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// isTargetGroupRef reports whether a $ref string points at a TargetGroup resource.
+func isTargetGroupRef(s string) bool {
+	return strings.HasPrefix(s, "#/resources/"+utils.StackResTypeTargetGroup+"/")
 }
 
 // buildUserSpecifiedFields scans Ingress annotations and returns the set of

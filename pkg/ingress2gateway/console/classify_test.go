@@ -179,26 +179,6 @@ func TestClassifyEntry(t *testing.T) {
 			wantKnown: false,
 		},
 		{
-			name: "added ListenerRule weight",
-			entry: DiffEntry{
-				ResourceType: utils.StackResTypeListenerRule,
-				Field:        "spec.actions[0].forwardConfig.targetGroups[0].weight",
-				Gateway:      float64(1),
-				Status:       StatusAdded,
-			},
-			wantKnown:  true,
-			wantReason: "Gateway API always sets forward weight",
-		},
-		{
-			name: "non-forwardConfig weight — not classified",
-			entry: DiffEntry{
-				ResourceType: utils.StackResTypeListenerRule,
-				Field:        "spec.weight",
-				Status:       StatusAdded,
-			},
-			wantKnown: false,
-		},
-		{
 			name: "same status never marked known",
 			entry: DiffEntry{
 				ResourceType: utils.StackResTypeLoadBalancer,
@@ -250,6 +230,60 @@ func TestClassifyEntry(t *testing.T) {
 				Ingress:      "ip",
 				Gateway:      "instance",
 				Status:       StatusChanged,
+			},
+			wantKnown: false,
+		},
+		{
+			name: "ListenerRule spec.actions differs only by $ref and weight — known",
+			entry: DiffEntry{
+				ResourceType: utils.StackResTypeListenerRule,
+				Field:        "spec.actions",
+				Ingress: []any{
+					map[string]any{
+						"type": "forward",
+						"forwardConfig": map[string]any{
+							"targetGroups": []any{
+								map[string]any{
+									"targetGroupARN": map[string]any{
+										"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/console-test/echo-echoserver:80/status/targetGroupARN",
+									},
+								},
+							},
+						},
+					},
+				},
+				Gateway: []any{
+					map[string]any{
+						"type": "forward",
+						"forwardConfig": map[string]any{
+							"targetGroups": []any{
+								map[string]any{
+									"targetGroupARN": map[string]any{
+										"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/console-test/echo-gateway:route:HTTPRoute-echoserver:80/status/targetGroupARN",
+									},
+									"weight": float64(1),
+								},
+							},
+						},
+					},
+				},
+				Status: StatusChanged,
+			},
+			wantKnown:  true,
+			wantReason: "Only differs by targetGroup $ref naming and default weight",
+		},
+		{
+			name: "ListenerRule spec.actions with real action type change — not known",
+			entry: DiffEntry{
+				ResourceType: utils.StackResTypeListenerRule,
+				Field:        "spec.actions",
+				Ingress: []any{
+					map[string]any{"type": "forward", "forwardConfig": map[string]any{"targetGroups": []any{}}},
+				},
+				Gateway: []any{
+					map[string]any{"type": "fixed-response", "fixedResponseConfig": map[string]any{"statusCode": "503"}},
+				},
+				Status: StatusChanged,
 			},
 			wantKnown: false,
 		},
