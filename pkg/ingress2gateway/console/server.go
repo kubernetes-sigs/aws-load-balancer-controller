@@ -30,7 +30,7 @@ func NewConsoleServer(k8sClient client.Client) *ConsoleServer {
 //     Gateway with a dry-run-plan annotation (landing page data)
 //   - GET /api/gateways?namespace=<ns>    returns the Gateways in <ns> with dry-run plans + per-gateway summaries
 //   - GET /api/diff?namespace=<ns>&gateway=<name>
-//     returns the field-level diff and resource topology for a specific Gateway
+//     returns the field-level diff for a specific Gateway
 func (s *ConsoleServer) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/namespaces", s.handleNamespaces)
@@ -137,7 +137,6 @@ func (s *ConsoleServer) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	userSpecified := buildUserSpecifiedFields(info.IngressAnnotations)
 	diff := Diff(inTree, gwTree, userSpecified)
-	diff.Topology = BuildTopology(gwTree, diff)
 
 	writeJSON(w, diff)
 }

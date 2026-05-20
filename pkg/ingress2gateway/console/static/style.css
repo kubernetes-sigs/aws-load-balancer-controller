@@ -443,7 +443,7 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
 
 .comparison {
   display: grid;
-  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr;
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -455,8 +455,11 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-s);
-  padding: var(--space-xs) var(--space-m);
+  padding: var(--space-s) var(--space-m);
   align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-2);
 }
 
 /* Segmented filter control (Cloudscape Box-inspired) */
@@ -1146,190 +1149,7 @@ button { font-family: inherit; font-size: inherit; color: inherit; }
   .page-title { font-size: 24px; }
 }
 
-/* Toolbar */
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-m);
-  margin-bottom: var(--space-m);
-  gap: var(--space-m);
-}
-.toolbar-left {
-  display: flex;
-  gap: var(--space-xs);
-}
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s);
-}
-.view-tab {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: var(--space-xs) var(--space-m);
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-badge);
-  background: var(--surface);
-  color: var(--text-body);
-  cursor: pointer;
-  transition: background var(--t-responsive), border-color var(--t-responsive);
-}
-.view-tab:hover { background: var(--hover-bg); }
-.view-tab.active {
-  background: var(--link);
-  color: #fff;
-  border-color: var(--link);
-}
 
-/* Resource Map */
-.resource-map {
-  padding: 0 var(--space-m);
-  margin-bottom: var(--space-m);
-}
-.resource-map-inner {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border-2);
-  border-radius: var(--radius-card);
-  padding: var(--space-l);
-  overflow-x: auto;
-}
-/* Resource Map Legend */
-.topo-legend {
-  display: flex;
-  gap: var(--space-m);
-  margin-bottom: var(--space-m);
-  padding-bottom: var(--space-s);
-  border-bottom: 1px solid var(--border-2);
-}
-.topo-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xxs);
-  font-size: 12px;
-  color: var(--text-sub);
-}
-.topo-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-.topo-legend-dot.status-same    { background: var(--same); }
-.topo-legend-dot.status-changed { background: var(--changed); }
-.topo-legend-dot.status-added   { background: var(--added); }
-.topo-legend-dot.status-removed { background: var(--removed); }
-
-.topo-lanes {
-  display: flex;
-  gap: var(--space-xl);
-  align-items: flex-start;
-  min-height: 200px;
-}
-.topo-lane {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-s);
-  min-width: 160px;
-  flex-shrink: 0;
-}
-.topo-lane-head {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-sub);
-  padding-bottom: var(--space-xs);
-  border-bottom: 2px solid var(--border-2);
-}
-.topo-lane-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-.topo-sg-section {
-  margin-top: var(--space-m);
-  padding-top: var(--space-s);
-  border-top: 1px dashed var(--border-2);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-.topo-node {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-s);
-  border: 1px solid var(--border-2);
-  border-left: 3px solid var(--border-2);
-  border-radius: var(--radius-input);
-  background: var(--surface);
-  cursor: pointer;
-  transition: border-color var(--t-responsive), background var(--t-responsive), box-shadow var(--t-responsive);
-  min-height: 36px;
-}
-.topo-node:hover { border-color: var(--link); background: var(--hover-bg); }
-.topo-node.active { border-color: var(--link); background: var(--hover-bg); box-shadow: 0 0 0 2px color-mix(in srgb, var(--link) 25%, transparent); }
-.topo-node.status-same    { border-left-color: var(--same); }
-.topo-node.status-changed { border-left-color: var(--changed); }
-.topo-node.status-removed { border-left-color: var(--removed); }
-.topo-node.status-added   { border-left-color: var(--added); }
-
-.topo-node-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.topo-node.status-same    .topo-node-dot { background: var(--same); }
-.topo-node.status-changed .topo-node-dot { background: var(--changed); }
-.topo-node.status-removed .topo-node-dot { background: var(--removed); }
-.topo-node.status-added   .topo-node-dot { background: var(--added); }
-
-.topo-node-label {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
-}
-.topo-node-badge {
-  margin-left: auto;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-.topo-node-badge.changed { color: var(--changed); background: var(--changed-bg); }
-.topo-node-badge.added   { color: var(--added);   background: var(--added-bg); }
-.topo-node-badge.removed { color: var(--removed); background: var(--removed-bg); }
-
-/* SVG edges */
-.topo-edges {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  overflow: visible;
-}
-.topo-edge {
-  fill: none;
-  stroke: var(--border-2);
-  stroke-width: 1.5;
-  transition: stroke var(--t-responsive), opacity var(--t-responsive);
-}
-.topo-edge.highlighted {
-  stroke: var(--link);
-  stroke-width: 2;
-}
-.topo-edge.dimmed {
-  opacity: 0.2;
-}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
