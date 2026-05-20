@@ -1849,6 +1849,18 @@ func Test_defaultModelBuilderTask_buildLbCapacity(t *testing.T) {
 			},
 			wantError: true,
 		},
+		{
+			testName: "Annotation invalid value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                           "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity": "CapacityUnits=invalid",
+					},
+				},
+			},
+			wantError: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {

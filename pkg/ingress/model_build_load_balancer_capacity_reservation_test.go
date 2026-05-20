@@ -228,6 +228,31 @@ func Test_defaultModelBuildTask_buildLoadBalancerMinimumCapacity(t *testing.T) {
 			},
 			wantErr: errors.New("invalid key to set the capacity: InvalidUnits, Expected key: CapacityUnits"),
 		},
+		{
+			name: "invalid value to set the capacity reservation",
+			featureGates: map[config.Feature]bool{
+				config.LBCapacityReservation: true,
+			},
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "ig-group-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/minimum-load-balancer-capacity": "CapacityUnits=invalid",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errors.New("invalid value to set the capacity: invalid: strconv.ParseInt: parsing \"invalid\": invalid syntax"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
