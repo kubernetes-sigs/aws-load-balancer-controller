@@ -3,6 +3,7 @@ package translate
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -182,8 +183,14 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 	}
 
 	// Build TargetGroupConfigurations from accumulated entries.
-	for _, entries := range tgcEntries {
-		tgc := buildTargetGroupConfigFromEntries(entries)
+	// Sort keys for deterministic output order.
+	tgcKeys := make([]string, 0, len(tgcEntries))
+	for k := range tgcEntries {
+		tgcKeys = append(tgcKeys, k)
+	}
+	sort.Strings(tgcKeys)
+	for _, key := range tgcKeys {
+		tgc := buildTargetGroupConfigFromEntries(tgcEntries[key])
 		if tgc != nil {
 			out.TargetGroupConfigurations = append(out.TargetGroupConfigurations, *tgc)
 		}
