@@ -20,7 +20,7 @@ import (
 func runMigrateTool(namespace, outputDir string, extraArgs ...string) error {
 	args := []string{"--output-dir", outputDir}
 	if namespace != "" {
-		args = append(args, "--from-cluster", "--namespace", namespace)
+		args = append(args, "--from-cluster", "--namespaces", namespace)
 	}
 	args = append(args, extraArgs...)
 	cmd := exec.Command("lbc-migrate", args...)

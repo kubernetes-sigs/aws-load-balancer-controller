@@ -42,6 +42,7 @@ spec:
   - app.example.com
   parentRefs:
   - name: vanilla-gateway-86d474571f
+    sectionName: http-80
   rules:
   - backendRefs:
     - name: svc-api

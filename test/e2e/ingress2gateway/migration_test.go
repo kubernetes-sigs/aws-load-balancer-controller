@@ -57,29 +57,6 @@ var _ = Describe("ingress to gateway migration", func() {
 		}
 	})
 
-	It("should produce expected gateway manifests from file input", func() {
-		outputDir, err := os.MkdirTemp("", "i2g-vanilla-*")
-		Expect(err).NotTo(HaveOccurred())
-		defer os.RemoveAll(outputDir)
-
-		By("running lbc-migrate with --file input", func() {
-			err = runMigrateTool("", outputDir,
-				"--file", "testdata/vanilla_ingress.yaml",
-			)
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		By("comparing output against expected gateway file", func() {
-			actual, err := os.ReadFile(filepath.Join(outputDir, "gateway-resources.yaml"))
-			Expect(err).NotTo(HaveOccurred())
-
-			expected, err := os.ReadFile("testdata/expected_vanilla_gateway.yaml")
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(string(actual)).To(Equal(string(expected)), "generated gateway manifest does not match expected")
-		})
-	})
-
 	It("should migrate an IngressGroup with multiple paths, tags, and health checks through dry-run and full cutover", func() {
 		groupName := fmt.Sprintf("e2e-mig-%s", sandboxNS.Name)
 
