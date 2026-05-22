@@ -77,59 +77,16 @@ What it does not do:
   require cluster-wide list permission on Ingresses and Gateways.
 - It does not modify any Kubernetes or AWS resource.
 
-## End-to-end dry-run workflow
+## How to launch
 
-The console is the last step of a four-step preview flow. It is used to review what AWS resources will be created and how they differs from resources created by Ingress manifests. Each step populates
-or consumes a specific annotation; nothing talks to AWS until the final cutover.
+The console is part of the dry-run verification workflow (Step 2 of the
+[Migration Guide](migrate_from_ingress.md#step-2-preview-with-dry-run)). In
+summary:
 
-### 1. Enable the ingress plan annotation
-
-On the AWS Load Balancer Controller, enable the feature gate:
-
-```
---feature-gates=IngressPlanAnnotation=true
-```
-
-This is off by default. Once enabled, the ingress controller writes its
-built model stack to each reconciled Ingress as
-`alb.ingress.kubernetes.io/dry-run-plan` on every reconcile.
-
-!!! note "IngressGroup behavior"
-    For an IngressGroup, all members share one plan. To avoid duplication, the
-    controller writes the annotation only to the primary member — the one
-    with the lowest `alb.ingress.kubernetes.io/group.order`, tie-broken by
-    lexical order of `<namespace>/<name>`. Other members of the group carry
-    no plan annotation; the controller actively clears the annotation from
-    non-primary members so the console always sees exactly one holder per
-    group. The console resolves the holder automatically via the
-    `migrated-from` tag.
-
-### 2. Generate the Gateway manifest
-
-Run `lbc-migrate` against your Ingresses. Dry-run is the default, so every
-generated Gateway carries `gateway.k8s.aws/dry-run: "true"`:
-
-```bash
-lbc-migrate --from-cluster --namespace production --output-dir ./gw/
-```
-
-See [Migrate from Ingress](migrate_from_ingress.md) for the full set of input
-modes and flags.
-
-### 3. Apply the manifest
-
-```bash
-kubectl apply -f ./gw/gateway-resources.yaml
-```
-
-Because the Gateways carry the dry-run annotation, the gateway controller
-builds the full built model but does **not** create an ALB. It writes the
-serialized plan back to the Gateway as `gateway.k8s.aws/dry-run-plan`.
-
-At this point both controllers have attached their plans as annotations on
-their respective resources. No AWS resource has been created.
-
-### 4. Launch the console
+1. Enable `IngressPlanAnnotation=true` feature gate on the controller
+2. Generate Gateway manifests with `lbc-migrate` (dry-run is on by default)
+3. Apply the manifests — both controllers write their plans as annotations
+4. Launch the console to compare them
 
 ```bash
 lbc-migrate --console
@@ -139,6 +96,9 @@ lbc-migrate --console --port 9000
 
 The console binds to `http://localhost:8080` by default and operates cluster-wide
 using your current kubeconfig context. Open that URL in a browser.
+
+See the [Migration Guide](migrate_from_ingress.md) for the full step-by-step
+instructions including prerequisites and feature gate setup.
 
 ## Using the console
 
@@ -309,11 +269,6 @@ the ingress controller has reconciled the group at least once.
 **"multiple ingresses in group `<name>` carry a dry-run-plan annotation"** —
 usually a stale annotation left behind after group membership changed.
 Manually clear the annotation from all but one member and refresh the console.
-
-**Empty drawer / browser shows stale content** — the console's static assets
-are embedded in the binary, so after upgrading `lbc-migrate` you need to
-restart it and hard-refresh the browser (DevTools → Network → Disable cache,
-or Cmd/Ctrl+Shift+R).
 
 ## Limitations
 

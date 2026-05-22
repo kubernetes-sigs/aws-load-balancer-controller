@@ -1,176 +1,30 @@
-# Migrate from Ingress
+# Migrate from Ingress to Gateway API
 
 !!! warning "Under Development"
     This tool is under active development.
     Features may change, and not all annotation translations are implemented yet.
 
-`lbc-migrate` is a CLI tool that helps migrate AWS Load Balancer Controller (LBC) Ingress resources to Gateway API equivalents. It reads Ingress, Service, IngressClass, and IngressClassParams resources from YAML/JSON files or a live Kubernetes cluster, translates annotations to Gateway API CRD fields, and writes the output manifests.
+This guide covers migrating AWS Load Balancer Controller (LBC) Ingress resources to Gateway API, step by step. The migration is designed to be safe and non-disruptive — new ALBs are created alongside existing ones, so current workloads stay running throughout the process.
 
-## Prerequisites
+Two tools are provided to help:
 
-- The Gateway API CRDs must be installed in your cluster at a compatible version before applying the generated manifests. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
-- The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations or enforce the same constraints as the ingress controller (e.g., ALB rule limits, mutually exclusive annotation combinations). If an Ingress has invalid or conflicting annotations, the output may be incorrect or incomplete without warning.
+- **[`lbc-migrate` CLI](lbc_migrate_reference.md)** — translates Ingress manifests (annotations, rules, groups) into equivalent Gateway API YAML.
+- **[Migration Console](in_cluster_console.md)** — a local web UI that compares the AWS resource plans produced by both the ingress and gateway controllers field by field, to verify equivalence before applying Gateway manifests for real.
 
-## Installation
+## Overview
 
-Build from source (requires Go):
-```bash
-# From the root of the aws-load-balancer-controller repo
-make lbc-migrate
-```
+The migration follows six steps. Each step is safe to pause at — you can stop and resume at any point.
 
-The binary will be at `bin/lbc-migrate`. To install it on your PATH (creates a symlink, so future `make lbc-migrate` rebuilds are picked up automatically):
-```bash
-make install-lbc-migrate
-```
+![Migration flow overview](assets/migration/migration_flow.png)
 
-Alternatively, use `go run` directly without building:
-```bash
-go run ./cmd/lbc-migrate/ [flags]
-```
-
-## Usage
-
-```
-lbc-migrate [flags]
-```
-
-### Input Modes
-
-The tool supports three input modes. You must provide at least one.
-
-#### Option 1: Individual files
-```bash
-lbc-migrate -f ingress1.yaml,ingress2.yaml
-```
-
-#### Option 2: Directory of files
-```bash
-lbc-migrate --input-dir ./my-manifests/
-```
-
-#### Option 3: Read from a live cluster
-
-!!! note "Read-only access"
-    The `--from-cluster` mode only performs read operations (list/get). It never creates, updates, or deletes any cluster resources. We recommend using a user or service account with read-only RBAC permissions (e.g. a ClusterRole with only `get` and `list` verbs on Ingress, Service, IngressClass, and IngressClassParams resources).
-
-```bash
-lbc-migrate --from-cluster --all-namespaces
-lbc-migrate --from-cluster --namespaces production
-lbc-migrate --from-cluster --namespaces production --ingress-name my-ingress
-```
-
-You can combine `-f` and `--input-dir`, but `--from-cluster` cannot be used with file-based input.
-
-### Flags
-
-| Flag | Required | Description | Default |
-|------|----------|-------------|---------|
-| `-f, --file` | One of `-f`, `--input-dir`, or `--from-cluster` is required | Comma-separated input YAML/JSON file paths (e.g. `-f file1.yaml,file2.yaml`) | |
-| `--input-dir` | One of `-f`, `--input-dir`, or `--from-cluster` is required | Directory containing YAML/JSON files | |
-| `--from-cluster` | One of `-f`, `--input-dir`, or `--from-cluster` is required | Read resources from a live Kubernetes cluster | |
-| `--namespaces` | Optional | Comma-separated namespaces to read from (e.g. `--namespaces ns-a,ns-b`). Only valid with `--from-cluster`. Mutually exclusive with `--all-namespaces` | |
-| `--all-namespaces` | Optional | Read from all namespaces. Only valid with `--from-cluster`. Mutually exclusive with `--namespaces` | |
-| `--ingress-name` | Optional | Name of a specific Ingress to migrate. Requires exactly one `--namespaces` value. Only valid with `--from-cluster`. Mutually exclusive with `--all-namespaces` | |
-| `--kubeconfig` | Optional | Path to kubeconfig file. Only valid with `--from-cluster` | `$KUBECONFIG` or `~/.kube/config` |
-| `--output-dir` | Optional | Directory to write output manifests | `./gateway-output` |
-| `--output-format` | Optional | Output format: `yaml` or `json` | `yaml` |
-| `--split` | Optional | Split output layout. Empty (default) writes one combined file; `namespace` writes one file per namespace plus a `gatewayclass` file for cluster-scoped resources | `""` |
-| `--dry-run` | Optional | Add `gateway.k8s.aws/dry-run` annotation to generated Gateway manifests so LBC previews the plan without creating AWS resources. Pass `--dry-run=false` to generate live Gateway manifests. | `true` |
-
-## Output Resources
-
-By default the tool generates a single manifest file (`gateway-resources.yaml` or `.json`) containing all translated Gateway API resources separated by `---`. To split the output into one file per namespace, see [Split output by namespace](#split-output-by-namespace) below.
-
-| Output Kind | API Group | Description |
-|---|---|---|
-| `GatewayClass` | `gateway.networking.k8s.io` | Static, always `controllerName: gateway.k8s.aws/alb`. One per run. |
-| `Gateway` | `gateway.networking.k8s.io` | One per Ingress (or per `group.name` group, when supported). Listeners from `listen-ports`. |
-| `HTTPRoute` | `gateway.networking.k8s.io` | One or more per Ingress. Routes from `spec.rules`. When the Ingress has a `defaultBackend` and host-based rules, a separate catch-all HTTPRoute is generated (see below). |
-| `LoadBalancerConfiguration` | `gateway.k8s.aws` | LB-level settings. Only generated when LB-level annotations are present. |
-| `TargetGroupConfiguration` | `gateway.k8s.aws` | Per-service TG settings. Only generated when TG-level annotations are present. |
-| `ListenerRuleConfiguration` | `gateway.k8s.aws` | Auth, fixed-response, source-ip conditions. |
-
-Existing `Deployment` and `Service` resources are reused as-is and are not generated by the tool. Gateway API HTTPRoute `backendRefs` point directly to your existing Services by name — no changes to your application workload are needed. You keep your existing Deployment and Service manifests and replace only the Ingress manifest with the generated Gateway API resources.
-
-### Split output by namespace
-
-By default the tool writes a single `gateway-resources.<ext>` file containing every generated resource. Pass `--split=namespace` to produce one file per namespace plus a file for cluster-scoped resources:
-
-```bash
-lbc-migrate --from-cluster --all-namespaces --output-dir ./gw/ --split=namespace
-```
-
-Resulting layout:
-
-```
-gw/
-├── gatewayclass.yaml                    # GatewayClass (cluster-scoped)
-├── team-a/gateway-resources.yaml        # Gateway resources scoped to team-a
-└── team-b/gateway-resources.yaml        # Gateway resources scoped to team-b
-```
-
-Apply everything recursively:
-
-```bash
-kubectl apply -R -f ./gw/
-```
-
-For cross-namespace IngressGroups (Ingresses in different namespaces sharing a `group.name`), the generated resources naturally split across namespace directories: the shared `Gateway` and `LoadBalancerConfiguration` land in the primary member's namespace (determined by `group.order`, then lexical `namespace/name`), while each member's `HTTPRoute` lands in its own namespace. No `ReferenceGrant` is required because HTTPRoutes only reference backends in their own namespace and the generated Gateway sets `allowedRoutes.namespaces.from: All`.
-
-### Default Backend Handling
-
-Gateway API has no `defaultBackend` equivalent ([upstream docs](https://gateway-api.sigs.k8s.io/guides/getting-started/migrating-from-ingress/#default-backend)). When an Ingress has both a `defaultBackend` and host-based rules, the tool generates a separate catch-all HTTPRoute with no hostnames or match conditions. This results in one additional ALB listener rule compared to the original Ingress, which is the expected Gateway API behavior. Additionally, the gateway controller scopes target groups per route, so the separate default-backend HTTPRoute creates its own target group even if it points to the same service as other rules. This means the migrated setup may have one extra target group compared to the Ingress setup, where a single target group is shared across all rules for the same service.
-
-### IngressGroup Support
-
-The migration tool detects `alb.ingress.kubernetes.io/group.name` and produces one shared Gateway + LoadBalancerConfiguration per group, with separate HTTPRoutes per member Ingress (preserving team ownership).
-
-LB-level annotations (scheme, subnets, security groups, tags, etc.) must be consistent across all Ingresses in a group — the tool errors if conflicting values are detected. TLS certificates (`certificate-arn`) are unioned across members. Tags and load-balancer-attributes are unioned with per-key conflict detection.
-
-Each member's `listen-ports` are unioned to build the shared Gateway's listeners. Each member's HTTPRoutes are scoped to only the listeners that member declared via `sectionName` in `parentRefs`. When `ssl-redirect` is set on any member, it applies group-wide: all members' routes attach to the HTTPS listener only, and a single redirect HTTPRoute is generated for HTTP listeners.
-
-Cross-namespace groups (Ingresses in different namespaces with the same `group.name`) are supported. When detected, the migration tool generates the Gateway in the primary member's namespace (determined by `group.order` annotation, then lexical `namespace/name` — matching LBC's runtime behavior) and sets `allowedRoutes.namespaces.from: All` on each listener, which permits HTTPRoutes from any namespace to attach. You can move the Gateway to a different namespace after generation if needed.
-
-For cross-namespace groups, use `--namespaces ns-a,ns-b` (listing all namespaces the group spans) or `--all-namespaces` to ensure all members are included. Using a single `--namespaces` that omits some members will produce incomplete output without warning.
-
-!!! warning "Security consideration"
-    `From: All` allows HTTPRoutes from any namespace to attach to the Gateway. If you need tighter scoping, you can manually change `From: All` to `From: Selector` with a label selector after generation.
-
-
-### Known Differences from Ingress
-
-#### Rule Priority and `group.order`
-
-The `alb.ingress.kubernetes.io/group.order` annotation has no equivalent in Gateway API. In the Ingress model, `group.order` gives explicit control over ALB listener rule priority — rules from a lower-order Ingress always get lower priority numbers (higher precedence). In Gateway API, rule precedence is determined by the [Gateway API specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule): hostname specificity, path match type, path length, header/query param count, route creation timestamp, and route name (alphabetical) etc. There is no annotation or field to override this ordering.
-
-For most configurations — where grouped Ingresses have non-overlapping hosts or paths — this produces equivalent behavior. If your Ingresses rely on `group.order` to resolve overlapping rules (same host + same path across different Ingresses), the migrated Gateway API rules may be evaluated in a different order. Review the generated HTTPRoutes and verify with the dry-run feature before switching traffic.
-
-The migration tool emits a warning when `group.order` is detected.
-
-#### ALB Listener Rule Count and Priority Order
-
-The migrated Gateway API manifests may produce more ALB listener rules than the original Ingress. This happens because ALB supports OR within a single condition (e.g., one `http-request-method` condition with values `[GET, HEAD]`), while Gateway API represents OR as separate `HTTPRouteMatch` entries — each becoming its own ALB rule. The routing behavior is functionally equivalent, but the rule count and priority numbers may differ. This affects conditions with multiple values for `path-pattern`, `http-request-method`, and `query-string`.
-
-Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
-
-#### TargetGroupBinding
-
-AWS Load Balancer Controller uses `TargetGroupBinding` (TGB) internally to register pod targets for Ingress, Service, and Gateway resources. These controller-managed TGBs are created and deleted automatically — when you delete an Ingress, its TGBs are cleaned up, and the Gateway controller creates new ones when it reconciles. You do not need to migrate these.
-
-If you have user-created TGBs that register pods into externally-managed AWS Target Groups (see [TargetGroupBinding documentation](../targetgroupbinding/targetgroupbinding.md)), these are independent of Ingress and Gateway resources. They are reconciled by the TargetGroupBinding controller regardless of how traffic is routed. No changes needed during migration.
-
-#### External Target Group References in Actions
-
-If your Ingress uses `actions.*` annotations that reference external target groups (via `targetGroupARN` or `targetGroupName`), the migration tool translates these to Gateway API `backendRefs` with `kind: TargetGroupName`. When the original annotation uses an ARN, the tool extracts the target group name from it. See [Specify out-of-band Target Groups](gateway.md#specify-out-of-band-target-groups) for how the gateway controller handles these references.
-
-Note: external target groups can only be associated with one ALB at a time. During side-by-side migration (Phase 3-5), the Gateway ALB cannot attach the same external TG that the Ingress ALB is using. You must either delete the Ingress rules referencing the external TG before applying Gateway manifests (cutover), or create a duplicate TG and update the generated manifest to use the new name.
-
-#### Limited Support for Certain Ingress Annotations
-The following Ingress annotation types have limited support in the migration tool and Gatewaty API:
-
-- `host-header` conditions — values are passed through to Gateway API hostnames. Since hostnames are route-level in Gateway API (not per-rule), rules with host-header conditions are split into separate HTTPRoutes with their own hostnames. Complex wildcards (e.g., `www.*.example.com`) or regex values that don't conform to Gateway API hostname format will be rejected by the K8s API server when the manifest is applied.
-- `url-rewrite` and `host-header-rewrite` transforms with regex capture group references (e.g., `replace: "/$1"` or `replace: "$1.example.org"`) — Gateway API's `URLRewrite` filter only supports static replacements (`ReplaceFullPath` for paths, `PreciseHostname` for hostnames). Transforms with static replacements (no `$N` references) are translated; transforms with capture group references are skipped. Additionally, the original Ingress transform regex is discarded during migration — the gateway controller generates its own fixed regex from the Gateway API filter type (`^([^?]*)` for path rewrites, `.*` for hostname rewrites). This means the ALB transform will always match all paths or all hostnames for the rule, regardless of what the original Ingress regex was. This is functionally equivalent because the ALB rule's conditions (from the HTTPRoute match) already narrow the traffic before the transform is applied. Verify the generated output if your Ingress uses transforms.
+| Step | Action | What happens | Rollback |
+|------|--------|--------------|----------|
+| 1 | Translate manifests | `lbc-migrate` converts Ingress YAML to Gateway API YAML | Delete generated files |
+| 2 | Preview with dry-run | Ingress controller writes its plan to annotation (requires feature gate). Gateway manifests applied with dry-run — gateway controller writes its plan without creating AWS resources. Console compares both plans. | Delete the dry-run Gateway |
+| 3 | Apply Gateway manifests | LBC creates new ALBs for the Gateway resources alongside existing Ingress ALBs | Delete Gateway resources |
+| 4 | Verify Gateway ALBs | Confirm new ALBs are healthy, configurations are correct, and metrics look normal | — |
+| 5 | Shift traffic | Gradually move traffic from Ingress ALBs to Gateway ALBs | Shift traffic back |
+| 6 | Cleanup | Delete Ingress and old resources | — |
 
 !!! important "What changes and what stays the same"
     The generated output **replaces only your Ingress resource**. Everything else stays untouched:
@@ -179,253 +33,414 @@ The following Ingress annotation types have limited support in the migration too
     - **Deployment** — unchanged, continues running your application pods.
     - **Service** — unchanged, the new HTTPRoute `backendRefs` reference it by name.
 
-    Once equivalent gateway manifest is generated from ingress manifests, apply the generated Gateway API manifest alongside your existing workload.
+![Service reuse during migration](assets/migration/service_reuse.png)
 
+## Prerequisites
 
-### Annotation Priority Chain
+- AWS Load Balancer Controller installed in the cluster with Gateway API support enabled
+- The [Gateway API CRDs](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) installed at a compatible version (see [Gateway API documentation](gateway.md))
+- `lbc-migrate` binary built (see [Installation](lbc_migrate_reference.md#installation))
+- The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations.
 
-LBC resolves annotations with a priority chain (highest wins):
+---
 
-1. **IngressClassParams** (cluster-level policy)
-2. **Service annotations** (per-backend override)
-3. **Ingress annotations** (per-Ingress config)
-4. **LBC controller defaults**
+## Step 1: Translate Manifests
 
-The migration tool applies this same priority chain when translating. For the most accurate results, use `--from-cluster` which automatically fetches all referenced resources (Services, IngressClasses, IngressClassParams).
-
-## Examples
-
-### Basic: single Ingress file
-```bash
-lbc-migrate -f ingress.yaml --output-dir ./gateway-output/
-```
-
-### Directory of manifests
-```bash
-lbc-migrate --input-dir ./k8s-manifests/ --output-dir ./gateway-output/
-```
-
-### From a live cluster (all namespaces)
-```bash
-lbc-migrate --from-cluster --all-namespaces --output-dir ./gateway-output/
-```
-
-### From a live cluster (specific namespace)
-```bash
-lbc-migrate --from-cluster --namespaces production --output-dir ./gateway-output/
-```
-
-### From a live cluster (multiple namespaces)
-```bash
-lbc-migrate --from-cluster --namespaces team-a,team-b --output-dir ./gateway-output/
-```
-
-### From a live cluster (single Ingress)
-```bash
-lbc-migrate --from-cluster --namespaces production --ingress-name my-api --output-dir ./gateway-output/
-```
-
-## Missing Resource Warnings
-
-When using file-based input (`-f` or `--input-dir`), the tool checks for missing referenced resources and emits warnings to stderr. For example, if an Ingress references a Service that was not provided in the input files:
-
-```
-WARNING: Ingress "default/my-ingress" references Service "api-service"
-  but it was not provided. Service-level annotation overrides may be missing.
-
-WARNING: Ingress "default/my-ingress" uses IngressClass "alb"
-  but it was not provided. IngressClassParams overrides may be missing.
-
-Tip: Use --from-cluster to automatically read all referenced resources,
-     or include Service/IngressClass/IngressClassParams files in your input.
-```
-
-These warnings are informational — the tool still generates output. For the most accurate results, use `--from-cluster` which automatically fetches all referenced resources.
-
-## Migration Console (Web UI)
-
-After applying the generated Gateway manifests with dry-run enabled (the default),
-use the migration console to review every field on every resource the gateway
-controller will produce, side by side against the plan the ingress controller has
-for the same workload. It's read-only, runs locally, and doesn't touch AWS.
-
-See [In-Cluster Migration Console](in_cluster_console.md) for how to launch it,
-the UI walk-through, how diffs are classified and filtered, RBAC, and
-troubleshooting.
-
-
-## Preview Gateway resources with Dry-Run
-
-Before applying the generated Gateway manifests to create real AWS resources, you can use
-dry-run mode to preview exactly what the AWS Load Balancer Controller would create. When a
-Gateway is annotated with `gateway.k8s.aws/dry-run: "true"`, LBC builds its built model
-stack and writes the serialized plan back to the Gateway as an annotation — **without
-creating any AWS resources**.
-
-For the end-to-end workflow (feature gate → generate → apply → review in console),
-see [In-Cluster Migration Console](in_cluster_console.md#end-to-end-dry-run-workflow).
-
-### Enabling dry-run on a Gateway
-
-`lbc-migrate` adds the `gateway.k8s.aws/dry-run: "true"` annotation to generated Gateway manifests by default, so the first apply always previews the plan without creating AWS resources:
+First, install the `lbc-migrate` CLI if you haven't already:
 
 ```bash
+# Build from the aws-load-balancer-controller repo
+make lbc-migrate
+
+# (Optional) Install on your PATH
+make install-lbc-migrate
+```
+
+See [Installation](lbc_migrate_reference.md#installation) for details.
+
+Then run `lbc-migrate` to convert your Ingress resources to Gateway API equivalents.
+
+### Quick start
+
+```bash
+# From YAML files
 lbc-migrate -f ingress.yaml --output-dir ./gw/
-# or from a live cluster
-lbc-migrate --from-cluster --namespaces production --output-dir ./gw/ --dry-run
+
+# From a directory of manifests
+lbc-migrate --input-dir ./k8s-manifests/ --output-dir ./gw/
+
+# From a live cluster (recommended — automatically fetches referenced Services, IngressClass, etc.)
+lbc-migrate --from-cluster --namespaces production --output-dir ./gw/
 ```
 
-Once you've reviewed the plan and want to deploy for real, opt out with `--dry-run=false`:
+The tool generates Gateway, HTTPRoute, GatewayClass, and optional CRD resources (LoadBalancerConfiguration, TargetGroupConfiguration, ListenerRuleConfiguration).
+
+!!! tip "Use `--from-cluster` for best results"
+    File-based input may miss Service-level annotations and IngressClassParams overrides. `--from-cluster` automatically fetches all referenced resources for the most accurate translation.
+
+**Output:** A directory of Gateway API YAML files ready to apply. By default, `--dry-run=true` is set, so the generated Gateway manifests include the `gateway.k8s.aws/dry-run: "true"` annotation.
+
+For the full CLI reference (all flags, output formats, split modes, IngressGroup handling, annotation support table), see **[Migration Tool (lbc-migrate)](lbc_migrate_reference.md)**.
+
+---
+
+## Step 2: Preview with Dry-Run
+
+Before creating any AWS resources, verify that the generated Gateway manifests will produce the same ALB configuration as your current Ingress.
+
+![Dry-run verification workflow](assets/migration/dryrun_workflow.png)
+
+### 2a. Enable the Ingress plan annotation
+
+On the AWS Load Balancer Controller, enable the feature gate:
+
+```
+--feature-gates=IngressPlanAnnotation=true
+```
+
+Once enabled, the ingress controller writes its built model stack to each reconciled Ingress as `alb.ingress.kubernetes.io/dry-run-plan`.
+
+!!! note "IngressGroup behavior"
+    For an IngressGroup, all members share one plan. The controller writes the annotation only to the primary member (lowest `group.order`, tie-broken by lexical `namespace/name`).
+
+### 2b. Apply the generated Gateway manifests
 
 ```bash
-lbc-migrate -f ingress.yaml --output-dir ./gw/ --dry-run=false
+kubectl apply -f ./gw/gateway-resources.yaml
 ```
 
-Alternatively, add the `gateway.k8s.aws/dry-run: "true"` annotation manually to any Gateway
-manifest:
+Because the Gateways carry `gateway.k8s.aws/dry-run: "true"`, the gateway controller builds its model but does **not** create an ALB. It writes the plan back to the Gateway as `gateway.k8s.aws/dry-run-plan`. **No AWS resources are created.**
 
-```yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: my-gateway
-  namespace: default
-  annotations:
-    gateway.k8s.aws/dry-run: "true"
-spec:
-  gatewayClassName: aws-alb
-  listeners:
-    - name: https
-      port: 443
-      protocol: HTTPS
-      tls:
-        certificateRefs:
-          - name: tls-secret
-```
-
-Apply it:
+### 2c. Launch the migration console
 
 ```bash
-kubectl apply -f my-gateway.yaml
+lbc-migrate --console
+# or bind to a different port
+lbc-migrate --console --port 9000
 ```
 
-### Viewing the dry-run plan
+Open `http://localhost:8080` in your browser. The console reads both plan annotations and shows a field-by-field comparison of every AWS resource (LoadBalancer, Listeners, ListenerRules, TargetGroups, SecurityGroups) that each controller would create.
 
-Check that the dry-run plan annotation is populated:
+The console is read-only and uses your current kubeconfig context — it never modifies any cluster or AWS resources.
+
+Look for:
+
+- **"Changed" diffs** — fields that differ between ingress and gateway plans. Known migration artifacts (naming changes, health-check defaults) are filtered by default.
+- **"Added" / "Removed"** — resources or fields present on only one side.
+
+!!! success "When to proceed"
+    Review the diffs and confirm they are expected. Some differences are intentional (e.g., you deliberately changed a health-check path). As long as you understand and accept all listed changes, you can proceed to Step 3.
+
+For the full console walkthrough (UI guide, diff classification, export, RBAC, troubleshooting), see **[Migration Console](in_cluster_console.md)**.
+
+### 2d. (Optional) Inspect the raw plan
+
+You can also inspect the plan annotation directly:
 
 ```bash
 kubectl get gateway my-gateway \
   -o jsonpath='{.metadata.annotations.gateway\.k8s\.aws/dry-run-plan}' | jq .
 ```
 
-Example output:
+---
 
-```json
-{
-  "id": "default/my-gateway",
-  "resources": {
-    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
-      "LoadBalancer": {
-        "spec": {
-          "name": "k8s-default-mygatew-abc123",
-          "type": "application",
-          "scheme": "internet-facing",
-          "ipAddressType": "ipv4",
-          "subnetMapping": [
-            {"subnetID": "subnet-aaa"},
-            {"subnetID": "subnet-bbb"}
-          ],
-          "securityGroups": ["sg-xxx"]
+## Step 3: Apply Gateway Manifests
+
+Once you've confirmed the dry-run plan matches, regenerate the manifests without dry-run and apply:
+
+```bash
+# Regenerate without dry-run
+lbc-migrate --from-cluster --namespaces production --output-dir ./gw/ --dry-run=false
+
+# Apply
+kubectl apply -f ./gw/gateway-resources.yaml
+```
+
+Alternatively, remove the dry-run annotation from the existing Gateway:
+
+```bash
+kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run-
+```
+
+**What happens:**
+
+- LBC creates **new ALBs** for the Gateway resources (one per Gateway object)
+- LBC creates new Target Groups pointing to the **same** Services/Pods
+- Both your existing Ingress ALBs and the new Gateway ALBs now route to the same backend Pods
+- Existing Ingress ALBs continue working as before — no disruption
+
+!!! note "Service reuse"
+    Gateway API HTTPRoute `backendRefs` point directly to your existing Kubernetes Services. No new Services, Deployments, or Pods are created. Both sets of ALBs register the same pod IPs.
+
+---
+
+## Step 4: Verify Gateway ALBs
+
+Before shifting traffic, confirm the new Gateway ALBs are healthy and correctly configured.
+
+### Check Gateway status
+
+```bash
+kubectl get gateway <GATEWAY_NAME> -n <NAMESPACE>
+```
+
+Look for:
+
+- `Programmed: True` condition — the ALB is fully provisioned
+- `status.addresses` — contains the new ALB DNS name
+
+### Verify target group health
+
+```bash
+# Get the ALB ARN from Gateway status or AWS console
+aws elbv2 describe-target-health --target-group-arn <TG_ARN>
+```
+
+All targets should show `healthy`.
+
+### Verify ALB configuration
+
+In the AWS Console or via CLI, confirm:
+
+- Listeners match expected ports and protocols
+- Security groups are correct
+- SSL certificates are attached
+- WAF/Shield settings are in place (if applicable)
+- Tags are correct
+
+### Monitor metrics
+
+Check CloudWatch metrics for the new ALBs:
+
+- `HealthyHostCount` — all targets registered and healthy
+- `HTTPCode_ELB_5XX_Count` — no unexpected 5xx errors
+- `TargetResponseTime` — latency within expected range
+
+### Test directly
+
+```bash
+# Get Gateway ALB DNS
+GATEWAY_ALB=$(kubectl get gateway <GATEWAY_NAME> -n <NAMESPACE> \
+  -o jsonpath='{.status.addresses[0].value}')
+
+# Test a request
+curl -H "Host: your-app.example.com" http://$GATEWAY_ALB/health
+```
+
+!!! warning "Do not skip verification"
+    Confirm the new ALBs serve correct responses and all configurations look right before shifting any production traffic.
+
+---
+
+## Step 5: Shift Traffic
+
+Choose a traffic migration strategy based on your requirements. For each Ingress being migrated, you'll shift traffic from the Ingress ALB to the corresponding Gateway ALB.
+
+![Traffic migration strategies](assets/migration/traffic_strategies.png)
+
+| Strategy | Gradual | Requires Domain | Extra Cost | Risk Level |
+|----------|---------|-----------------|------------|------------|
+| **A: Sudden Cutover** | No | No | None | HIGH (dev/test only) |
+| **B: Route 53 Weighted** | Yes | Yes (Route 53) | None | LOW |
+| **C: Global Accelerator** | Yes | No | **Yes** ([AGA pricing](https://aws.amazon.com/global-accelerator/pricing/)) | LOW |
+
+### Option A: Sudden Cutover
+
+**Best for:** Dev/test environments where downtime is acceptable.
+
+If you have a custom domain, update DNS to point to the new ALB:
+
+```bash
+# Get the Gateway ALB DNS
+GATEWAY_ALB=$(kubectl get gateway <GATEWAY_NAME> -n <NAMESPACE> \
+  -o jsonpath='{.status.addresses[0].value}')
+
+# Update Route 53 (or your DNS provider)
+aws route53 change-resource-record-sets --hosted-zone-id <ZONE_ID> --change-batch '{
+  "Changes": [{
+    "Action": "UPSERT",
+    "ResourceRecordSet": {
+      "Name": "api.example.com",
+      "Type": "CNAME",
+      "TTL": 60,
+      "ResourceRecords": [{"Value": "'$GATEWAY_ALB'"}]
+    }
+  }]
+}'
+```
+
+If clients access the ALB DNS directly (no custom domain), update all clients to use the new Gateway ALB DNS name.
+
+### Option B: Route 53 Weighted Routing
+
+**Best for:** Production workloads with a custom domain in Route 53.
+
+Gradually shift traffic using weighted DNS records:
+
+```bash
+INGRESS_ALB="k8s-default-myingress-abc123.us-west-2.elb.amazonaws.com"
+GATEWAY_ALB=$(kubectl get gateway <GATEWAY_NAME> -n <NAMESPACE> \
+  -o jsonpath='{.status.addresses[0].value}')
+
+# Start: 90% Ingress, 10% Gateway
+aws route53 change-resource-record-sets --hosted-zone-id <ZONE_ID> --change-batch '{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.example.com",
+        "Type": "A",
+        "SetIdentifier": "ingress-legacy",
+        "Weight": 90,
+        "AliasTarget": {
+          "HostedZoneId": "<ALB_ZONE_ID>",
+          "DNSName": "'$INGRESS_ALB'",
+          "EvaluateTargetHealth": true
         }
       }
     },
-    "AWS::ElasticLoadBalancingV2::Listener": {
-      "443": {
-        "spec": {
-          "port": 443,
-          "protocol": "HTTPS",
-          "sslPolicy": "ELBSecurityPolicy-TLS-1-2-2017-01",
-          "certificates": [
-            {"certificateARN": "arn:aws:acm:us-west-2:123:cert/abc"}
-          ]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::TargetGroup": {
-      "default-api-service-8080": {
-        "spec": {
-          "name": "k8s-default-apisvc-xyz789",
-          "targetType": "ip",
-          "port": 8080,
-          "protocol": "HTTP",
-          "healthCheckConfig": {
-            "path": "/health",
-            "intervalSeconds": 15
-          }
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "api.example.com",
+        "Type": "A",
+        "SetIdentifier": "gateway-new",
+        "Weight": 10,
+        "AliasTarget": {
+          "HostedZoneId": "<ALB_ZONE_ID>",
+          "DNSName": "'$GATEWAY_ALB'",
+          "EvaluateTargetHealth": true
         }
       }
     }
-  }
-}
+  ]
+}'
 ```
 
-Confirm no AWS resources were created:
+Gradually increase the Gateway weight: 10% → 25% → 50% → 100%. Monitor error rates and latency at each step.
+
+!!! note "DNS TTL"
+    Route 53 weighted routing splits traffic at the DNS query level, not per-request. Set a low TTL (e.g., 60s) so changes take effect quickly. Rollback speed is limited by TTL propagation.
+
+### Option C: Global Accelerator
+
+**Best for:** Production workloads without a custom domain, or when you need per-request traffic splitting.
+
+!!! warning "Cost"
+    Global Accelerator incurs additional AWS charges (per-accelerator hourly fee + data transfer premium). Review [AWS Global Accelerator pricing](https://aws.amazon.com/global-accelerator/pricing/) before choosing this option. After migration is complete, update DNS to point directly to the Gateway ALB, then delete the accelerator to stop charges.
+
+This uses the LBC Global Accelerator CRD as a temporary traffic splitter. The GA sits between DNS and the ALBs, allowing per-request weight-based routing with instant rollback.
+
+**Step 1: Create the Global Accelerator** (100% to Ingress, 0% to Gateway):
+
+```yaml
+apiVersion: aga.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+  name: migration-aga
+  namespace: <NAMESPACE>
+spec:
+  name: "ingress-gateway-migration"
+  ipAddressType: IPV4
+  listeners:
+    - protocol: TCP
+      portRanges:
+        - fromPort: 80
+          toPort: 80
+        - fromPort: 443
+          toPort: 443
+      endpointGroups:
+        - endpoints:
+            - type: Ingress
+              name: <INGRESS_NAME>
+              namespace: <NAMESPACE>
+              weight: 100
+            - type: Gateway
+              name: <GATEWAY_NAME>
+              namespace: <NAMESPACE>
+              weight: 0
+```
+
+At this point, GA routes 100% of traffic to the Ingress ALB (same as before).
+
+**Step 2: Change DNS to point to the GA endpoint.**
+
+Traffic flow becomes: Client → GA → ALB-1 (Ingress). No downtime because GA is forwarding everything to the old ALB.
+
+**Step 3: Gradually shift weights in GA:**
+
+```
+Ingress: 90,  Gateway: 10    ← start small, monitor
+Ingress: 50,  Gateway: 50    ← equal split, monitor
+Ingress: 0,   Gateway: 100   ← fully migrated
+```
+
+Monitor error rates and latency at each step. Rollback is instant — just set Ingress weight back to 100.
+
+See the [Global Accelerator documentation](../globalaccelerator/aga-controller.md) for installation and prerequisites.
+
+---
+
+## Step 6: Cleanup
+
+After 100% traffic is on the Gateway ALBs and has been stable for your desired monitoring period:
+
+### Delete the Ingress
 
 ```bash
-aws elbv2 describe-load-balancers --names k8s-default-mygatew-abc123
-# → "LoadBalancer not found" (expected: dry-run did not deploy)
+kubectl delete ingress <INGRESS_NAME> -n <NAMESPACE>
 ```
 
-### Troubleshooting
+This triggers LBC to delete the Ingress ALB and its associated Target Groups.
 
-If the `gateway.k8s.aws/dry-run-plan` annotation is empty after applying the Gateway, the
-model build failed before reaching the dry-run step. Debug with:
+### Remove the Global Accelerator (if used)
 
-1. Check Gateway events for build errors
-
-2. Check Gateway status conditions for validation errors
-
-3. Check controller logs for detailed errors
-
-### Deploying after review
-
-When the plan looks correct, remove the dry-run annotation to let LBC create the actual AWS
-resources. The trailing `-` on the annotation key is `kubectl annotate` syntax for removing
-an annotation:
+First, update DNS to point directly to the Gateway ALB (bypassing GA). Once DNS has propagated, delete the accelerator:
 
 ```bash
-# The trailing `-` tells kubectl to remove (not set) the annotation.
-kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run- 
+kubectl delete globalaccelerator migration-aga -n <NAMESPACE>
 ```
 
-This triggers a normal reconciliation:
+### Disable the feature gate
 
-- The `gateway.k8s.aws/dry-run-plan` annotation is cleared.
-- LBC creates the ALB, listeners, target groups, and attaches routes.
-- Once the ALB is active, the `Programmed` condition is set to `True` and the ALB DNS appears
-  in `status.addresses`.
+Remove `IngressPlanAnnotation=true` from the controller's feature gates if no other migrations are in progress.
 
-### What dry-run does NOT do
+### Clean up DNS (if using Option B)
 
-Dry-run is only effective on Gateways that have not yet been deployed. If the Gateway already
-has AWS resources (indicated by the presence of a controller finalizer), the
-`gateway.k8s.aws/dry-run` annotation is ignored and normal reconciliation proceeds.
-This prevents accidentally freezing a live or provisioning ALB by adding the dry-run annotation
-after deployment.
+Remove the old weighted record set:
 
-Dry-run intentionally skips every action that would touch AWS or cluster state beyond the
-Gateway annotation/status it owns:
+```bash
+aws route53 change-resource-record-sets --hosted-zone-id <ZONE_ID> --change-batch '{
+  "Changes": [{
+    "Action": "DELETE",
+    "ResourceRecordSet": {
+      "Name": "api.example.com",
+      "Type": "A",
+      "SetIdentifier": "ingress-legacy",
+      "Weight": 90,
+      "AliasTarget": {
+        "HostedZoneId": "<ALB_ZONE_ID>",
+        "DNSName": "'$INGRESS_ALB'",
+        "EvaluateTargetHealth": true
+      }
+    }
+  }]
+}'
+```
 
-- No AWS resources are created, updated, or deleted.
-- No finalizer is added to the Gateway.
-- No backend security group is allocated or released.
-- No Kubernetes Secrets are monitored for certificate rotation.
-- No add-on state (WAF, Shield) is persisted.
-- No `serviceReferenceCounter` relations are updated.
+Update the remaining Gateway record to a standard (non-weighted) record.
 
-### Annotation reference
+---
 
-| Annotation                              | Set by     | Description                                                                 |
-| --------------------------------------- | ---------- | --------------------------------------------------------------------------- |
-| `gateway.k8s.aws/dry-run`               | User       | Set to `"true"` to enable dry-run mode on a Gateway.                        |
-| `gateway.k8s.aws/dry-run-plan`          | Controller | Serialized stack JSON written by LBC when dry-run is enabled. Do not edit. |
+## Troubleshooting
+
+For troubleshooting dry-run issues, see [Dry-Run Mode](lbc_migrate_reference.md#dry-run-mode). For console-specific issues, see [Migration Console — Troubleshooting](in_cluster_console.md#troubleshooting).
+
+---
+
+## Further Reading
+
+- **[Migration Tool (lbc-migrate)](lbc_migrate_reference.md)** — full flag reference, annotation support table, output format details
+- **[Migration Console](in_cluster_console.md)** — UI walkthrough, diff classification, export, RBAC
+- **[Gateway API Overview](gateway.md)** — LBC's Gateway API support documentation
+- **[Global Accelerator](../globalaccelerator/aga-controller.md)** — AGA CRD for traffic splitting
