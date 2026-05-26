@@ -1009,7 +1009,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = tf.K8sClient.Delete(ctx, ingZ) }()
 
-			ExpectOneLBProvisionedForIngress(ctx, tf, ingZ)
+			lbARN1, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ingZ)
 
 			By("creating ingress 'ing-a' which sorts before 'ing-z' — forces rule reordering (triggers SetRulePriorities)")
 			ingA := manifest.NewIngressBuilder().
@@ -1020,7 +1020,8 @@ var _ = Describe("vanilla ingress tests", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { _ = tf.K8sClient.Delete(ctx, ingA) }()
 
-			ExpectOneLBProvisionedForIngress(ctx, tf, ingA)
+			lbARN2, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ingA)
+			Expect(lbARN2).To(Equal(lbARN1), "both ingresses should share the same ALB via IngressGroup")
 
 			By("checking for FailedDeployModel errors indicating permission gaps")
 			eventList := &corev1.EventList{}
