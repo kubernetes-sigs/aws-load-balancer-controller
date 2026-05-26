@@ -77,4 +77,14 @@ const (
 	WarnCrossNamespaceGroupFormat = "WARNING: IngressGroup %q has members in different namespaces. " +
 		"The generated Gateway uses allowedRoutes with From: All, which permits HTTPRoutes from any namespace " +
 		"to attach. To restrict this, change From: All to From: Selector with a namespace label selector.\n"
+
+	// Resource type keys used in the LBC stack JSON. These are the keys under
+	// stackJSON.Resources — shared by the console's classifier, correlator, and
+	// discovery helpers so the string lives in one place.
+	StackResTypeLoadBalancer       = "AWS::ElasticLoadBalancingV2::LoadBalancer"
+	StackResTypeListener           = "AWS::ElasticLoadBalancingV2::Listener"
+	StackResTypeListenerRule       = "AWS::ElasticLoadBalancingV2::ListenerRule"
+	StackResTypeTargetGroup        = "AWS::ElasticLoadBalancingV2::TargetGroup"
+	StackResTypeSecurityGroup      = "AWS::EC2::SecurityGroup"
+	StackResTypeTargetGroupBinding = "K8S::ElasticLoadBalancingV2::TargetGroupBinding"
 )
