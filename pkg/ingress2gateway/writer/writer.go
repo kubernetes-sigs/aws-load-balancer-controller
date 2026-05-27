@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/printers"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
 )
 
 const (

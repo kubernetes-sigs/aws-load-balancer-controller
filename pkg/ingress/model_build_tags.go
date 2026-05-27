@@ -3,9 +3,9 @@ package ingress
 import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 )
 
 // buildIngressGroupResourceTags builds the AWS Tags used for a group of Ingress. e.g. LoadBalancer, SecurityGroup, Listener

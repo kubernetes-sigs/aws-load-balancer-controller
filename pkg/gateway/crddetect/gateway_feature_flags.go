@@ -3,8 +3,8 @@ package crddetect
 import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

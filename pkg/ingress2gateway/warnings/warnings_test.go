@@ -10,8 +10,8 @@ import (
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/reader"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/reader"
 )
 
 func TestCheckMissingResources(t *testing.T) {

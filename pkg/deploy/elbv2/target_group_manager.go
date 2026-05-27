@@ -10,10 +10,10 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
 )
 
 const (

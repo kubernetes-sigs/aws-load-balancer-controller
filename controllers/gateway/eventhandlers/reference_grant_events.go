@@ -7,7 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"

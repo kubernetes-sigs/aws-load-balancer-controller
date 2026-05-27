@@ -11,10 +11,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

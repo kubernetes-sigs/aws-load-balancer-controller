@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	networking "k8s.io/api/networking/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )

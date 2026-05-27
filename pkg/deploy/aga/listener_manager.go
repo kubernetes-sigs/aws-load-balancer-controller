@@ -9,8 +9,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 // ListenerManager is responsible for managing AWS Global Accelerator listeners.

@@ -9,8 +9,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 )
 
 // NodeInfoProvider is responsible for providing nodeInfo for nodes.

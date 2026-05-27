@@ -10,12 +10,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

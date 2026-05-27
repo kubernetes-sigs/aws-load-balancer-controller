@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
 	"github.com/golang/mock/gomock"
-	pkgaga "sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	pkgaga "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sort"
 	"testing"
 
@@ -13,8 +13,8 @@ import (
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 )
 
 func Test_listenerSynthesizer_hasPortRangeConflict(t *testing.T) {

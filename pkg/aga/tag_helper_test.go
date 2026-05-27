@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
 )
 
 func Test_tagHelperImpl_getAcceleratorTags(t *testing.T) {

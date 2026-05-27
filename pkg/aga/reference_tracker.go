@@ -7,8 +7,8 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 )
 
 // ResourceKey uniquely identifies a resource by its type and name
