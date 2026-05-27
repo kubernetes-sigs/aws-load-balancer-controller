@@ -1007,7 +1007,6 @@ var _ = Describe("vanilla ingress tests", func() {
 				Build(sandboxNS.Name, "ing-z")
 			err = tf.K8sClient.Create(ctx, ingZ)
 			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = tf.K8sClient.Delete(ctx, ingZ) }()
 
 			lbARN1, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ingZ)
 
@@ -1018,7 +1017,6 @@ var _ = Describe("vanilla ingress tests", func() {
 				Build(sandboxNS.Name, "ing-a")
 			err = tf.K8sClient.Create(ctx, ingA)
 			Expect(err).NotTo(HaveOccurred())
-			defer func() { _ = tf.K8sClient.Delete(ctx, ingA) }()
 
 			lbARN2, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ingA)
 			Expect(lbARN2).To(Equal(lbARN1), "both ingresses should share the same ALB via IngressGroup")
@@ -1034,6 +1032,16 @@ var _ = Describe("vanilla ingress tests", func() {
 				}
 			}
 			Expect(failedEvents).To(BeEmpty(), "expected no FailedDeployModel errors, got:\n%s", strings.Join(failedEvents, "\n"))
+
+			By("cleaning up ingresses before IngressClass deletion")
+			err = tf.K8sClient.Delete(ctx, ingA)
+			Expect(err).NotTo(HaveOccurred())
+			err = tf.K8sClient.Delete(ctx, ingZ)
+			Expect(err).NotTo(HaveOccurred())
+			err = tf.INGManager.WaitUntilIngressDeleted(ctx, ingA)
+			Expect(err).NotTo(HaveOccurred())
+			err = tf.INGManager.WaitUntilIngressDeleted(ctx, ingZ)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
