@@ -234,150 +234,21 @@ curl -H "Host: your-app.example.com" http://$GATEWAY_ALB/health
 
 ## Step 5: Shift Traffic
 
-Choose a traffic migration strategy based on your requirements. For each Ingress being migrated, you'll shift traffic from the Ingress ALB to the corresponding Gateway ALB.
+After verifying the new Gateway ALBs, shift production traffic from the Ingress ALBs to the Gateway ALBs.
 
-![Traffic migration strategies](assets/migration/traffic_strategies.png)
+!!! warning "Understand the traffic path before shifting"
+    Before changing anything, identify how clients reach the Ingress ALB:
 
-| Strategy | Gradual | Requires Domain | Extra Cost | Risk Level |
-|----------|---------|-----------------|------------|------------|
-| **A: Sudden Cutover** | No | No | None | HIGH (dev/test only) |
-| **B: Route 53 Weighted** | Yes | Yes (Route 53) | None | LOW |
-| **C: Global Accelerator** | Yes | No | **Yes** ([AGA pricing](https://aws.amazon.com/global-accelerator/pricing/)) | LOW |
+    - Through a custom domain (e.g., `api.example.com`) backed by Route 53 or another DNS provider
+    - Directly via the ALB DNS name (e.g., `k8s-default-myingress-abc123...elb.amazonaws.com`)
 
-### Option A: Sudden Cutover
+    If clients use the ALB DNS directly, traffic cannot be shifted without updating every client. Plan accordingly.
 
-**Best for:** Dev/test environments where downtime is acceptable.
+The exact mechanism depends on your environment — DNS providers, load balancing services, and client configurations vary. Common considerations include the ability to roll back quickly if issues arise and whether gradual shifting is required for risk management.
 
-If you have a custom domain, update DNS to point to the new ALB:
+For one example of CRD-based traffic management, see the LBC [Global Accelerator](../globalaccelerator/aga-controller.md) documentation.
 
-```bash
-# Get the Gateway ALB DNS
-GATEWAY_ALB=$(kubectl get gateway <GATEWAY_NAME> -n <NAMESPACE> \
-  -o jsonpath='{.status.addresses[0].value}')
-
-# Update Route 53 (or your DNS provider)
-aws route53 change-resource-record-sets --hosted-zone-id <ZONE_ID> --change-batch '{
-  "Changes": [{
-    "Action": "UPSERT",
-    "ResourceRecordSet": {
-      "Name": "api.example.com",
-      "Type": "CNAME",
-      "TTL": 60,
-      "ResourceRecords": [{"Value": "'$GATEWAY_ALB'"}]
-    }
-  }]
-}'
-```
-
-If clients access the ALB DNS directly (no custom domain), update all clients to use the new Gateway ALB DNS name.
-
-### Option B: Route 53 Weighted Routing
-
-**Best for:** Production workloads with a custom domain in Route 53.
-
-Gradually shift traffic using weighted DNS records:
-
-```bash
-INGRESS_ALB="k8s-default-myingress-abc123.us-west-2.elb.amazonaws.com"
-GATEWAY_ALB=$(kubectl get gateway <GATEWAY_NAME> -n <NAMESPACE> \
-  -o jsonpath='{.status.addresses[0].value}')
-
-# Start: 90% Ingress, 10% Gateway
-aws route53 change-resource-record-sets --hosted-zone-id <ZONE_ID> --change-batch '{
-  "Changes": [
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "api.example.com",
-        "Type": "A",
-        "SetIdentifier": "ingress-legacy",
-        "Weight": 90,
-        "AliasTarget": {
-          "HostedZoneId": "<ALB_ZONE_ID>",
-          "DNSName": "'$INGRESS_ALB'",
-          "EvaluateTargetHealth": true
-        }
-      }
-    },
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "api.example.com",
-        "Type": "A",
-        "SetIdentifier": "gateway-new",
-        "Weight": 10,
-        "AliasTarget": {
-          "HostedZoneId": "<ALB_ZONE_ID>",
-          "DNSName": "'$GATEWAY_ALB'",
-          "EvaluateTargetHealth": true
-        }
-      }
-    }
-  ]
-}'
-```
-
-Gradually increase the Gateway weight: 10% → 25% → 50% → 100%. Monitor error rates and latency at each step.
-
-!!! note "DNS TTL"
-    Route 53 weighted routing splits traffic at the DNS query level, not per-request. Set a low TTL (e.g., 60s) so changes take effect quickly. Rollback speed is limited by TTL propagation.
-
-### Option C: Global Accelerator
-
-**Best for:** Production workloads without a custom domain, or when you need per-request traffic splitting.
-
-!!! warning "Cost"
-    Global Accelerator incurs additional AWS charges (per-accelerator hourly fee + data transfer premium). Review [AWS Global Accelerator pricing](https://aws.amazon.com/global-accelerator/pricing/) before choosing this option. After migration is complete, update DNS to point directly to the Gateway ALB, then delete the accelerator to stop charges.
-
-This uses the LBC Global Accelerator CRD as a temporary traffic splitter. The GA sits between DNS and the ALBs, allowing per-request weight-based routing with instant rollback.
-
-**Step 1: Create the Global Accelerator** (100% to Ingress, 0% to Gateway):
-
-```yaml
-apiVersion: aga.k8s.aws/v1beta1
-kind: GlobalAccelerator
-metadata:
-  name: migration-aga
-  namespace: <NAMESPACE>
-spec:
-  name: "ingress-gateway-migration"
-  ipAddressType: IPV4
-  listeners:
-    - protocol: TCP
-      portRanges:
-        - fromPort: 80
-          toPort: 80
-        - fromPort: 443
-          toPort: 443
-      endpointGroups:
-        - endpoints:
-            - type: Ingress
-              name: <INGRESS_NAME>
-              namespace: <NAMESPACE>
-              weight: 100
-            - type: Gateway
-              name: <GATEWAY_NAME>
-              namespace: <NAMESPACE>
-              weight: 0
-```
-
-At this point, GA routes 100% of traffic to the Ingress ALB (same as before).
-
-**Step 2: Change DNS to point to the GA endpoint.**
-
-Traffic flow becomes: Client → GA → ALB-1 (Ingress). No downtime because GA is forwarding everything to the old ALB.
-
-**Step 3: Gradually shift weights in GA:**
-
-```
-Ingress: 90,  Gateway: 10    ← start small, monitor
-Ingress: 50,  Gateway: 50    ← equal split, monitor
-Ingress: 0,   Gateway: 100   ← fully migrated
-```
-
-Monitor error rates and latency at each step. Rollback is instant — just set Ingress weight back to 100.
-
-See the [Global Accelerator documentation](../globalaccelerator/aga-controller.md) for installation and prerequisites.
+Refer to your DNS provider or traffic management tooling for specifics.
 
 ---
 
@@ -393,42 +264,13 @@ kubectl delete ingress <INGRESS_NAME> -n <NAMESPACE>
 
 This triggers LBC to delete the Ingress ALB and its associated Target Groups.
 
-### Remove the Global Accelerator (if used)
-
-First, update DNS to point directly to the Gateway ALB (bypassing GA). Once DNS has propagated, delete the accelerator:
-
-```bash
-kubectl delete globalaccelerator migration-aga -n <NAMESPACE>
-```
-
 ### Disable the feature gate
 
 Remove `IngressPlanAnnotation=true` from the controller's feature gates if no other migrations are in progress.
 
-### Clean up DNS (if using Option B)
+### Clean up traffic management resources
 
-Remove the old weighted record set:
-
-```bash
-aws route53 change-resource-record-sets --hosted-zone-id <ZONE_ID> --change-batch '{
-  "Changes": [{
-    "Action": "DELETE",
-    "ResourceRecordSet": {
-      "Name": "api.example.com",
-      "Type": "A",
-      "SetIdentifier": "ingress-legacy",
-      "Weight": 90,
-      "AliasTarget": {
-        "HostedZoneId": "<ALB_ZONE_ID>",
-        "DNSName": "'$INGRESS_ALB'",
-        "EvaluateTargetHealth": true
-      }
-    }
-  }]
-}'
-```
-
-Update the remaining Gateway record to a standard (non-weighted) record.
+Remove any resources created during Step 5 once they are no longer needed.
 
 ---
 
