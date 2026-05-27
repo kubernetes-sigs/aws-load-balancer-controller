@@ -6,9 +6,9 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/albtargetcontrol"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/inject/albtargetcontrol"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )

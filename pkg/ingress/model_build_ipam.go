@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 )
 
 func (t *defaultModelBuildTask) buildIPv4IPAMPoolID() (*string, error) {

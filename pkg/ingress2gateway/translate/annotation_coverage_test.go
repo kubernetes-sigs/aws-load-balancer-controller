@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 )
 
 // Resource type categories for annotation mapping.

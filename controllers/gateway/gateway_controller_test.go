@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

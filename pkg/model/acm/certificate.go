@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 
 	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 )

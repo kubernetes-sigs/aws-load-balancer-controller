@@ -8,12 +8,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/nlb_tests"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/alb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/nlb_tests"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )

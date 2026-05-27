@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/controller"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/controller"
 )
 
 const (

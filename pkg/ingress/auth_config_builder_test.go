@@ -3,7 +3,7 @@ package ingress
 import (
 	"context"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"testing"
 )
 

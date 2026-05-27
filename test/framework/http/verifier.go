@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	gohttp "net/http"
 
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 // URLOptions contains options for HTTP/HTTPS requests

@@ -13,16 +13,16 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
 	networking "k8s.io/api/networking/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
 
 	"github.com/gavv/httpexpect/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/fixture"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/fixture"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/manifest"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 var _ = Describe("certificate management ingress tests", func() {
@@ -180,7 +180,7 @@ var _ = Describe("certificate management ingress tests", func() {
 			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
-			
+
 			ing := ingBuilder.
 				AddHTTPRoute("example.com", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithIngressClassName(ingClass.Name).

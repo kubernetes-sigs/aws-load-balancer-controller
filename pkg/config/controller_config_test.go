@@ -3,7 +3,7 @@ package config
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	"testing"
 )
 

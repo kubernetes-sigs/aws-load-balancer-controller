@@ -3,7 +3,7 @@ package ctrlerrors
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	"testing"
 )
 

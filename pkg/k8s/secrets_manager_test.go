@@ -4,7 +4,7 @@ import (
 	"context"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 

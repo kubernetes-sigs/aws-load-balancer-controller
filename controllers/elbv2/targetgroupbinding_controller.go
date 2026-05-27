@@ -32,21 +32,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/controllers/elbv2/eventhandlers"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/go-logr/logr"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	metricsutil "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/util"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	metricsutil "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/util"
 )
 
 const (

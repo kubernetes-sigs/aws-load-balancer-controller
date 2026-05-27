@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 )
 
 // Migrate is the top-level orchestrator that reads input resources,

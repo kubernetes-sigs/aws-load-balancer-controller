@@ -3,7 +3,7 @@ package runtime
 import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

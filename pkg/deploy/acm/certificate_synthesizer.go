@@ -10,11 +10,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
 )
 
 const (
