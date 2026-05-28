@@ -79,6 +79,60 @@ func Test_CompareOptionForRuleConditions(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "equal - regex path pattern with AWS-mirrored top-level RegexValues",
+			desiredRuleCondition: []types.RuleCondition{
+				{
+					Field: awssdk.String("host-header"),
+					HostHeaderConfig: &types.HostHeaderConditionConfig{
+						Values: []string{"example.com"},
+					},
+				},
+				{
+					Field: awssdk.String("path-pattern"),
+					PathPatternConfig: &types.PathPatternConditionConfig{
+						RegexValues: []string{"^/api/v1/.*"},
+					},
+				},
+			},
+			actualRuleCondition: []types.RuleCondition{
+				{
+					Field: awssdk.String("host-header"),
+					HostHeaderConfig: &types.HostHeaderConditionConfig{
+						Values: []string{"example.com"},
+					},
+				},
+				{
+					Field: awssdk.String("path-pattern"),
+					PathPatternConfig: &types.PathPatternConditionConfig{
+						RegexValues: []string{"^/api/v1/.*"},
+					},
+					RegexValues: []string{"^/api/v1/.*"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "not equal - different regex path pattern",
+			desiredRuleCondition: []types.RuleCondition{
+				{
+					Field: awssdk.String("path-pattern"),
+					PathPatternConfig: &types.PathPatternConditionConfig{
+						RegexValues: []string{"^/api/v1/.*"},
+					},
+				},
+			},
+			actualRuleCondition: []types.RuleCondition{
+				{
+					Field: awssdk.String("path-pattern"),
+					PathPatternConfig: &types.PathPatternConditionConfig{
+						RegexValues: []string{"^/api/v2/.*"},
+					},
+					RegexValues: []string{"^/api/v2/.*"},
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tc := range testCase {
