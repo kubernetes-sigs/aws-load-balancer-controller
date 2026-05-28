@@ -38,6 +38,15 @@ The migration follows six steps. Each step is safe to pause at — you can stop 
 - `lbc-migrate` binary built (see [Installation](lbc_migrate_reference.md#installation))
 - The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations.
 
+### Before you start
+
+Before running `lbc-migrate`, scan your cluster for known limitations and read the relevant reference sections so you don't hit a silent blocker mid-migration:
+
+- **Annotation support** — open the [Annotation Support table](lbc_migrate_reference.md#annotation-support) and confirm none of your in-use annotations are listed as **Not supported** (in particular WAF Classic `waf-acl-id` / `web-acl-id`, and all `frontend-nlb-*`). If they are, resolve them before starting (e.g., migrate WAF Classic to WAFv2).
+- **Known differences from Ingress** — review [Known Differences from Ingress](lbc_migrate_reference.md#known-differences-from-ingress), which covers `group.order` priority handling, ALB rule count/priority differences, external Target Group references in `actions.*`, and limited support for some annotations.
+- **Cross-namespace IngressGroups** — if any IngressGroup spans multiple namespaces, see [IngressGroup Support](lbc_migrate_reference.md#ingressgroup-support). You must use `--all-namespaces` or list every namespace the group spans; otherwise the tool produces incomplete output.
+- **Console RBAC** — ensure the kubeconfig context you will run the migration console with has cluster-wide `list` permission on Gateways and Ingresses. See [Migration Console — RBAC](in_cluster_console.md#rbac).
+
 ---
 
 ## Step 1: Translate Manifests
@@ -88,13 +97,24 @@ Before creating any AWS resources, verify that the generated Gateway manifests w
 
 ### 2a. Enable the Ingress plan annotation
 
-On the AWS Load Balancer Controller, enable the feature gate:
+The `IngressPlanAnnotation` feature gate makes the ingress controller publish its built model stack to each reconciled Ingress as `alb.ingress.kubernetes.io/dry-run-plan`. The in-cluster console reads this annotation. Turn it on by adding the gate to the controller's `--feature-gates` argument:
 
 ```
 --feature-gates=IngressPlanAnnotation=true
 ```
 
-Once enabled, the ingress controller writes its built model stack to each reconciled Ingress as `alb.ingress.kubernetes.io/dry-run-plan`.
+If you installed LBC with the official Helm chart, set it through `controllerConfig.featureGates` (the chart converts the map into the `--feature-gates` flag automatically):
+
+```bash
+helm upgrade aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --reuse-values \
+  --set controllerConfig.featureGates.IngressPlanAnnotation=true
+```
+
+The Helm upgrade restarts the controller pods automatically. For non-Helm installs (raw manifests, GitOps, etc.) edit the controller Deployment's args and roll the pods. See [Configurations — Feature Gates](../../deploy/configurations.md#feature-gates) for the full feature-gate reference.
+
+Once the controller is running with the gate enabled, the ingress controller writes its built model stack to each reconciled Ingress as `alb.ingress.kubernetes.io/dry-run-plan`.
 
 !!! note "IngressGroup behavior"
     For an IngressGroup, all members share one plan. The controller writes the annotation only to the primary member (lowest `group.order`, tie-broken by lexical `namespace/name`).
@@ -142,7 +162,9 @@ kubectl get gateway my-gateway \
 
 ## Step 3: Apply Gateway Manifests
 
-Once you've confirmed the dry-run plan matches, regenerate the manifests without dry-run and apply:
+Once you've confirmed the dry-run plan matches, you have two equivalent paths to switch the Gateway from dry-run to live. Pick one based on how you manage manifests:
+
+**Option A — regenerate without dry-run (recommended for GitOps).** Produces a clean source-controlled manifest with no `dry-run` annotation:
 
 ```bash
 # Regenerate without dry-run
@@ -152,11 +174,14 @@ lbc-migrate --from-cluster --namespaces production --output-dir ./gw/ --dry-run=
 kubectl apply -f ./gw/gateway-resources.yaml
 ```
 
-Alternatively, remove the dry-run annotation from the existing Gateway:
+**Option B — remove the dry-run annotation in place.** Faster, but the cluster state diverges from your source-controlled YAML until you regenerate:
 
 ```bash
 kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run-
 ```
+
+!!! warning "External Target Groups conflict"
+    If your Ingress uses `actions.*` annotations that reference an external Target Group, the Gateway ALB cannot attach the same external TG that the Ingress ALB is currently using — only one ALB can own an external TG at a time. See [External Target Group References in Actions](lbc_migrate_reference.md#external-target-group-references-in-actions) for the resolution options before you apply.
 
 **What happens:**
 
@@ -164,6 +189,9 @@ kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run-
 - LBC creates new Target Groups pointing to the **same** Services/Pods
 - Both your existing Ingress ALBs and the new Gateway ALBs now route to the same backend Pods
 - Existing Ingress ALBs continue working as before — no disruption
+
+!!! note "Duplicate ALB cost during the migration window"
+    Both the original Ingress ALBs and the new Gateway ALBs run in parallel for the duration of Steps 3–5. Expect duplicate ALB-hours and LCU-hours on your AWS bill until you complete cleanup in Step 6.
 
 !!! note "Service reuse"
     Gateway API HTTPRoute `backendRefs` point directly to your existing Kubernetes Services. No new Services, Deployments, or Pods are created. Both sets of ALBs register the same pod IPs.
@@ -260,13 +288,29 @@ kubectl delete ingress <INGRESS_NAME> -n <NAMESPACE>
 
 This triggers LBC to delete the Ingress ALB and its associated Target Groups.
 
-### Disable the feature gate
+### Delete leftover dry-run Gateways
 
-Remove `IngressPlanAnnotation=true` from the controller's feature gates if no other migrations are in progress.
+If in Step 3 you used **Option A** (regenerated without dry-run and applied a fresh manifest), the original dry-run Gateway from Step 2 may still exist alongside the live Gateway. Delete it:
+
+
+If you used **Option B** (`kubectl annotate` to remove the `dry-run` annotation in place), the same Gateway object is now live — there is nothing extra to delete.
+
+### Disable the `IngressPlanAnnotation` feature gate
+
+If no other migrations are in progress, turn the gate off so the ingress controller cleans up the `dry-run-plan` annotation. With the official Helm chart:
+
+```bash
+helm upgrade aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --reuse-values \
+  --set controllerConfig.featureGates.IngressPlanAnnotation=false
+```
+
+For non-Helm installs, drop `IngressPlanAnnotation=true` from the controller's `--feature-gates` argument and roll the pods.
 
 ### Clean up traffic management resources
 
-Remove any resources created during Step 5 once they are no longer needed.
+Remove any resources you created in Step 5 to route traffic between the Ingress and Gateway ALBs once they are no longer needed. 
 
 ---
 

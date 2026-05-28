@@ -350,6 +350,6 @@ The tool translates the following Ingress annotations to Gateway API equivalents
 | `alb.ingress.kubernetes.io/auth-session-timeout` | `ListenerRuleConfiguration.spec.authConfig.sessionTimeout` | Supported |
 | `alb.ingress.kubernetes.io/auth-on-unauthenticated-request` | `ListenerRuleConfiguration.spec.authConfig.onUnauthenticatedRequest` | Supported |
 | `alb.ingress.kubernetes.io/jwt-validation` | `ListenerRuleConfiguration.spec.authConfig.jwtValidation` | Supported |
-| `alb.ingress.kubernetes.io/waf-acl-id` | WAF Classic — deprecated. Use WAFv2 (`wafv2-acl-arn`) instead. | Not supported |
-| `alb.ingress.kubernetes.io/web-acl-id` | Deprecated alias of `waf-acl-id` | Not supported |
+| `alb.ingress.kubernetes.io/waf-acl-id` | WAF Classic is **not supported** by the migration tool. Migrate to WAFv2 (`alb.ingress.kubernetes.io/wafv2-acl-arn`) on the source Ingress **before** running `lbc-migrate` — Ingresses still on WAF Classic when the tool runs will produce Gateway manifests with no WAF protection. | Not supported |
+| `alb.ingress.kubernetes.io/web-acl-id` | Deprecated alias of `waf-acl-id`. switch to WAFv2 first before running `lbc-migrate`. | Not supported |
 | `alb.ingress.kubernetes.io/frontend-nlb-*` | All Frontend NLB annotations (`enable-frontend-nlb`, `frontend-nlb-scheme`, `frontend-nlb-subnets`, etc.) are not yet supported in the migration tool. | Not supported |

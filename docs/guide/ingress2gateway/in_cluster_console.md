@@ -212,6 +212,12 @@ The `Hide known changes` toggle filters out the following known-artifact cases:
   `spec.healthCheckConfig.unhealthyThresholdCount`, and
   `spec.healthCheckConfig.matcher.httpCode`. The ingress controller defaults
   to 2 / 2 / 200; the gateway controller defaults to 3 / 3 / 200–399.
+  To preserve the Ingress-side health-check behavior on the gateway side
+  (e.g., for services with tight health-check requirements), set explicit
+  values in `TargetGroupConfiguration.spec.healthCheck.*` on the generated
+  `TargetGroupConfiguration`. See
+  [TargetGroupConfiguration](../gateway/targetgroupconfig.md) for the full
+  field reference.
 - **`spec.actions` array change on ListenerRule** — when the entire `spec.actions`
   field differs only because of different `targetGroupARN.$ref` strings (naming
   artifact) and an added `weight` field (gateway controller always emits
