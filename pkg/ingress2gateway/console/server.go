@@ -89,7 +89,7 @@ func (s *ConsoleServer) handleGateways(w http.ResponseWriter, r *http.Request) {
 			inTree, err1 := ParseStack(gw.IngressPlan)
 			gwTree, err2 := ParseStack(gw.GatewayPlan)
 			if err1 == nil && err2 == nil {
-				userSpecified := buildUserSpecifiedFields(gw.IngressAnnotations)
+				userSpecified := BuildUserSpecifiedFields(gw.IngressAnnotations)
 				diff := Diff(inTree, gwTree, userSpecified)
 				item.Summary = diff.Summary
 			}
@@ -135,7 +135,7 @@ func (s *ConsoleServer) handleDiff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userSpecified := buildUserSpecifiedFields(info.IngressAnnotations)
+	userSpecified := BuildUserSpecifiedFields(info.IngressAnnotations)
 	diff := Diff(inTree, gwTree, userSpecified)
 
 	writeJSON(w, diff)

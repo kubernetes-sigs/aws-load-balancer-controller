@@ -375,6 +375,7 @@ func assembleRoutes(namespace, ingName string, parentRefs []gwv1.ParentReference
 				},
 			},
 		}
+		t.buildLRCForTags(defaultRule, defaultBackend.Service.Name)
 	}
 
 	// When no hostnames, the default backend can live in the same route.

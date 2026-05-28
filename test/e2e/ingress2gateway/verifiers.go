@@ -9,11 +9,45 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/console"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	frameworkhttp "sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+// serviceSpec describes a backend service to create for an e2e test.
+type serviceSpec struct {
+	Namespace   string
+	Name        string
+	Annotations map[string]string
+}
+
+// createServicesAndWait creates a Deployment+Service for each spec and blocks
+// until every Deployment is ready.
+func createServicesAndWait(ctx context.Context, tf *framework.Framework, specs []serviceSpec) {
+	appBuilder := manifest.NewFixedResponseServiceBuilder()
+	for _, s := range specs {
+		dp, svc := appBuilder.WithHTTPBody(s.Name).Build(s.Namespace, s.Name, tf.Options.TestImageRegistry)
+		if len(s.Annotations) > 0 {
+			svc.Annotations = s.Annotations
+		}
+		Expect(tf.K8sClient.Create(ctx, dp)).To(Succeed())
+		Expect(tf.K8sClient.Create(ctx, svc)).To(Succeed())
+		_, err := tf.DPManager.WaitUntilDeploymentReady(ctx, dp)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+// findGatewayByName fetches a Gateway by name. Returns nil if not found.
+func findGatewayByName(ctx context.Context, tf *framework.Framework, namespace, name string) *gwv1.Gateway {
+	gw := &gwv1.Gateway{}
+	if err := tf.K8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, gw); err != nil {
+		return nil
+	}
+	return gw
+}
 
 // compareALBConfigurations fetches listeners once for both ALBs and compares listeners, rules, target groups.
 func compareALBConfigurations(ctx context.Context, tf *framework.Framework, ingressLBARN, gatewayLBARN string) {
@@ -305,4 +339,37 @@ func verifyResourceCounts(ctx context.Context, tf *framework.Framework, namespac
 	lrcList := &elbv2gw.ListenerRuleConfigurationList{}
 	Expect(tf.K8sClient.List(ctx, lrcList, client.InNamespace(namespace))).To(Succeed())
 	Expect(lrcList.Items).To(HaveLen(expected.listenerRuleConfigurations), "ListenerRuleConfiguration count mismatch")
+}
+
+// assertPlansEquivalent parses both plans, runs the console differ, and asserts
+// that all non-"Known" entries are StatusSame.
+func assertPlansEquivalent(ingressPlanJSON, gatewayPlanJSON string, userSpecified console.UserSpecifiedFields) {
+	ingressTree, err := console.ParseStack(ingressPlanJSON)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse ingress plan")
+
+	gatewayTree, err := console.ParseStack(gatewayPlanJSON)
+	Expect(err).NotTo(HaveOccurred(), "failed to parse gateway plan")
+
+	result := console.Diff(ingressTree, gatewayTree, userSpecified)
+
+	var unexpected []console.DiffEntry
+	for _, e := range result.Entries {
+		if e.Status == console.StatusSame || e.Known {
+			continue
+		}
+		unexpected = append(unexpected, e)
+	}
+
+	Expect(unexpected).To(BeEmpty(),
+		"unexpected differences between ingress and gateway plans:\n%s",
+		formatUnexpectedDiffs(unexpected))
+}
+
+func formatUnexpectedDiffs(entries []console.DiffEntry) string {
+	var result string
+	for _, e := range entries {
+		result += fmt.Sprintf("[%s] %s/%s field=%s ingress=%v gateway=%v\n",
+			e.Status, e.ResourceType, e.CorrelationID, e.Field, e.Ingress, e.Gateway)
+	}
+	return result
 }
