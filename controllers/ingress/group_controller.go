@@ -248,6 +248,12 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 				r.logger.Error(err, "failed to clear stale dry-run plan annotation", "ingress", k8s.NamespacedName(m.Ing))
 			}
 		}
+	} else if !r.featureGates.Enabled(config.IngressPlanAnnotation) && len(ingGroup.Members) > 0 {
+		for _, m := range ingGroup.Members {
+			if err := clearDryRunPlanAnnotation(ctx, r.k8sClient, m.Ing); err != nil {
+				r.logger.Error(err, "failed to clear dry-run plan annotation after feature disable", "ingress", k8s.NamespacedName(m.Ing))
+			}
+		}
 	}
 
 	deployModelFn := func() {
