@@ -1,9 +1,5 @@
 # Migrate from Ingress to Gateway API
 
-!!! warning "Under Development"
-    This tool is under active development.
-    Features may change, and not all annotation translations are implemented yet.
-
 This guide covers migrating AWS Load Balancer Controller (LBC) Ingress resources to Gateway API, step by step. The migration is designed to be safe and non-disruptive — new ALBs are created alongside existing ones, so current workloads stay running throughout the process.
 
 Two tools are provided to help:
@@ -38,7 +34,7 @@ The migration follows six steps. Each step is safe to pause at — you can stop 
 ## Prerequisites
 
 - AWS Load Balancer Controller installed in the cluster with Gateway API support enabled
-- The [Gateway API CRDs](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) installed at a compatible version (see [Gateway API documentation](gateway.md))
+- The [Gateway API CRDs](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) installed at a compatible version (see [Gateway API documentation](../gateway/gateway.md))
 - `lbc-migrate` binary built (see [Installation](lbc_migrate_reference.md#installation))
 - The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations.
 
@@ -284,5 +280,5 @@ For troubleshooting dry-run issues, see [Dry-Run Mode](lbc_migrate_reference.md#
 
 - **[Migration Tool (lbc-migrate)](lbc_migrate_reference.md)** — full flag reference, annotation support table, output format details
 - **[Migration Console](in_cluster_console.md)** — UI walkthrough, diff classification, export, RBAC
-- **[Gateway API Overview](gateway.md)** — LBC's Gateway API support documentation
+- **[Gateway API Overview](../gateway/gateway.md)** — LBC's Gateway API support documentation
 - **[Global Accelerator](../globalaccelerator/aga-controller.md)** — AGA CRD for traffic splitting

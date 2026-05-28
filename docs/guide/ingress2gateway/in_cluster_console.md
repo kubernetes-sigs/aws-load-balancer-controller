@@ -22,23 +22,25 @@ Captured images:
        Comparison view with segmented filter control, Hide known changes
        toggle, Export buttons, and split columns showing resource cards.
 
-  4. console/diff-list.png
-       Same comparison view with the "Changed" filter active, showing
-       status tags next to each resource ID.
-
-  5. console/detail-drawer.png
+  4. console/detail-drawer.png
        Field-level drawer opened for a LoadBalancer showing the per-field
        diff table with status and Known Cause columns.
 -->
 
-!!! warning "Under Development"
-    The migration tool and its console are under active development.
-    Features may change.
-
 The migration console is a local web UI bundled into the `lbc-migrate` binary.
 It compares the ingress controller's dry-run plan against the gateway controller's
 dry-run plan side by side, field by field, so you can confirm the generated
-Gateway manifests will create same AWS resources as the current Ingres before switching traffic.
+Gateway manifests will create the same AWS resources as the current Ingress before
+switching traffic.
+
+A **dry-run plan** is a JSON snapshot of the AWS resource stack a controller
+would build (LoadBalancer, Listeners, ListenerRules, TargetGroups,
+TargetGroupBindings, SecurityGroups). The plan is written back to the source
+Kubernetes resource as an annotation — `alb.ingress.kubernetes.io/dry-run-plan`
+on the Ingress (when the `IngressPlanAnnotation` feature gate is on) and
+`gateway.k8s.aws/dry-run-plan` on the Gateway (when it carries the
+`gateway.k8s.aws/dry-run: "true"` annotation). The console reads both plans
+and diffs them — no AWS resources are created.
 
 The console is read-only. It connects to your Kubernetes cluster using the
 current kubeconfig context (the same config used by `kubectl`). It reads Gateway
@@ -56,9 +58,13 @@ deletes cluster or AWS resources.
 - **Side-by-side comparison** with field-level diff and status filtering.
 - **Field-level diff** with four statuses: `same`, `changed`, `added`, `removed`.
   Slice fields (e.g. SecurityGroup ingress rules) are compared as multisets.
-- **Known-change filtering** that hides known migration artifacts (migrated-from
-  tag, controller-generated names, health-check default drift, forward weights,
-  `targetGroupARN.$ref` pointer churn) so genuine user-visible changes stand out.
+- **Known-change filtering** that hides expected migration artifacts so real
+  drift between the two plans stands out. A *known change* is a diff the
+  console can attribute to a known structural difference between the two
+  controllers — for example, the `migrated-from` tag the migration tool
+  stamps on every generated resource, controller-generated resource names,
+  health-check default drift, and `targetGroupARN.$ref` pointer churn. See
+  [How diffs are classified](#how-diffs-are-classified) for the full list.
 - **Resource correlation across controllers**: `TargetGroup` and
   `TargetGroupBinding` are keyed by `serviceRef.name:port` so the same backing
   service shows as one correlated row instead of a removed+added pair, even
@@ -77,6 +83,17 @@ What it does not do:
   require cluster-wide list permission on Ingresses and Gateways.
 - It does not modify any Kubernetes or AWS resource.
 
+!!! note "The controllers do write annotations"
+    The console itself is read-only, but the controllers it reads from are
+    not. While the `IngressPlanAnnotation` feature gate is enabled, the
+    ingress controller writes an
+    `alb.ingress.kubernetes.io/dry-run-plan` annotation on Ingress; 
+    the gateway controller writes a `gateway.k8s.aws/dry-run-plan`
+    annotation on each Gateway that carries `gateway.k8s.aws/dry-run: "true"`.
+    These annotations are the data the console reads. Disable the feature
+    gate and remove the dry-run Gateways once migration is complete to stop
+    further annotation writes.
+
 ## How to launch
 
 The console is part of the dry-run verification workflow (Step 2 of the
@@ -84,7 +101,7 @@ The console is part of the dry-run verification workflow (Step 2 of the
 summary:
 
 1. Enable `IngressPlanAnnotation=true` feature gate on the controller
-2. Generate Gateway manifests with `lbc-migrate` (dry-run is on by default)
+2. Generate Gateway resource manifests with `lbc-migrate` (dry-run is on by default)
 3. Apply the manifests — both controllers write their plans as annotations
 4. Launch the console to compare them
 
@@ -118,8 +135,7 @@ Click a namespace to see its gateways.
 ### Gateway list
 
 After selecting a namespace, the console lists all Gateways with dry-run plans
-in that namespace. Each gateway row shows a summary of its diff status (how
-many fields are same, changed, removed, or added).
+in that namespace. Each gateway row shows a summary of its diff status (how many fields are same, changed, removed, or added) and maps to its source Ingress or IngressGroup.
 
 ![Gateway list showing summary pills per gateway](assets/console/gateway-list.png)
 
@@ -145,8 +161,6 @@ organized into these regions:
 - **Ingress model** (left) and **Gateway model** (right) — each resource in the
   stack appears as a card. When a status filter is active, each card shows a
   status tag next to the resource ID for accessibility.
-
-![Resource cards with Changed filter active showing status tags](assets/console/diff-list.png)
 
 Click a card to open the detail drawer. The drawer lists every field with its
 ingress-side value, gateway-side value, and status. It carries its own
@@ -212,8 +226,7 @@ The `Hide known changes` toggle filters out the following known-artifact cases:
   so the string always differs. Real target-group differences surface on the
   correlated `TargetGroup` row.
 
-Everything not matching these rules is shown as-is, so genuine user-visible
-changes are never silently hidden.
+Everything not matching these rules is shown as-is, so genuine drifts between actual and expected changes are never silently hidden.
 
 ### Exporting results
 

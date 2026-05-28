@@ -1,9 +1,5 @@
 # Migration Tool (lbc-migrate)
 
-!!! warning "Under Development"
-    This tool is under active development.
-    Features may change, and not all annotation translations are implemented yet.
-
 `lbc-migrate` is a CLI tool that translates AWS Load Balancer Controller (LBC) Ingress resources to Gateway API equivalents. It reads Ingress, Service, IngressClass, and IngressClassParams resources from YAML/JSON files or a live Kubernetes cluster, translates annotations to Gateway API CRD fields, and writes the output manifests.
 
 For the end-to-end migration workflow, see **[Migrate from Ingress to Gateway API](migrate_from_ingress.md)**.
@@ -160,7 +156,7 @@ If you have user-created TGBs that register pods into externally-managed AWS Tar
 
 ### External Target Group References in Actions
 
-If your Ingress uses `actions.*` annotations that reference external target groups (via `targetGroupARN` or `targetGroupName`), the migration tool translates these to Gateway API `backendRefs` with `kind: TargetGroupName`. When the original annotation uses an ARN, the tool extracts the target group name from it. See [Specify out-of-band Target Groups](gateway.md#specify-out-of-band-target-groups) for how the gateway controller handles these references.
+If your Ingress uses `actions.*` annotations that reference external target groups (via `targetGroupARN` or `targetGroupName`), the migration tool translates these to Gateway API `backendRefs` with `kind: TargetGroupName`. When the original annotation uses an ARN, the tool extracts the target group name from it. See [Specify out-of-band Target Groups](../gateway/gateway.md#specify-out-of-band-target-groups) for how the gateway controller handles these references.
 
 Note: external target groups can only be associated with one ALB at a time. During side-by-side migration (Step 3-5), the Gateway ALB cannot attach the same external TG that the Ingress ALB is using. You must either delete the Ingress rules referencing the external TG before applying Gateway manifests (cutover), or create a duplicate TG and update the generated manifest to use the new name.
 
