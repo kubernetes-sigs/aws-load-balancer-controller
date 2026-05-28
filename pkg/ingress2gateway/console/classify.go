@@ -157,9 +157,9 @@ func isTargetGroupRef(s string) bool {
 	return strings.HasPrefix(s, "#/resources/"+utils.StackResTypeTargetGroup+"/")
 }
 
-// buildUserSpecifiedFields scans Ingress annotations and returns the set of
+// BuildUserSpecifiedFields scans Ingress annotations and returns the set of
 // model field paths that were explicitly configured by the user.
-func buildUserSpecifiedFields(ingressAnnotations map[string]string) UserSpecifiedFields {
+func BuildUserSpecifiedFields(ingressAnnotations map[string]string) UserSpecifiedFields {
 	usf := make(UserSpecifiedFields)
 	for suffix, fieldPath := range annotationToFieldPath {
 		key := annotations.AnnotationPrefixIngress + "/" + suffix

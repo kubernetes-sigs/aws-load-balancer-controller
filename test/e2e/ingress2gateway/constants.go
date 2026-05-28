@@ -14,6 +14,7 @@ const (
 	annotationHealthCheckInterval = "alb.ingress.kubernetes.io/healthcheck-interval-seconds"
 	annotationIPAddressType       = "alb.ingress.kubernetes.io/ip-address-type"
 	annotationDryRunPlan          = "alb.ingress.kubernetes.io/dry-run-plan"
+	annotationListenPorts         = "alb.ingress.kubernetes.io/listen-ports"
 
 	gwDryRunAnnotation = "gateway.k8s.aws/dry-run"
 	gwDryRunPlan       = "gateway.k8s.aws/dry-run-plan"
@@ -21,6 +22,7 @@ const (
 
 	hostAdmin = "admin.example.com"
 	hostApp   = "app.example.com"
+	hostAPI   = "api.example.com"
 
 	pathRoot   = "/"
 	pathAPI    = "/api"
