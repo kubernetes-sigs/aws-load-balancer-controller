@@ -17,7 +17,7 @@ func CompareOptionForRuleCondition() cmp.Option {
 		cmpopts.IgnoreUnexported(elbv2types.QueryStringConditionConfig{}),
 		cmpopts.IgnoreUnexported(elbv2types.QueryStringKeyValuePair{}),
 		cmpopts.IgnoreUnexported(elbv2types.SourceIpConditionConfig{}),
-		cmpopts.IgnoreFields(elbv2types.RuleCondition{}, "Values"),
+		cmpopts.IgnoreFields(elbv2types.RuleCondition{}, "Values", "RegexValues"),
 	}
 }
 
