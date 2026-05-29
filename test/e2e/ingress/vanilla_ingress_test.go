@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("vanilla ingress tests", func() {
@@ -940,6 +942,106 @@ var _ = Describe("vanilla ingress tests", func() {
 			nlbHttpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
+		})
+	})
+
+	Context("with ALB listener rule priority reordering", func() {
+		It("[rule-priority] adding a second ingress that sorts before the first triggers SetRulePriorities", func() {
+			prefix := networking.PathTypePrefix
+
+			By("creating IngressClassParams with a shared group")
+			icpName := sandboxNS.Name + "-shared"
+			scheme := elbv2api.LoadBalancerSchemeInternetFacing
+			ipAddrType := elbv2api.IPAddressTypeIPV4
+			if tf.Options.IPFamily == framework.IPv6 {
+				ipAddrType = elbv2api.IPAddressTypeDualStack
+			}
+			icp := &elbv2api.IngressClassParams{
+				ObjectMeta: metav1.ObjectMeta{Name: icpName},
+				Spec: elbv2api.IngressClassParamsSpec{
+					Group:         &elbv2api.IngressGroup{Name: sandboxNS.Name + "-group"},
+					Scheme:        &scheme,
+					IPAddressType: &ipAddrType,
+				},
+			}
+			err := tf.K8sClient.Create(ctx, icp)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() { _ = tf.K8sClient.Delete(ctx, icp) }()
+
+			By("creating IngressClass referencing IngressClassParams")
+			apiGroup := "elbv2.k8s.aws"
+			ingClass := &networking.IngressClass{
+				ObjectMeta: metav1.ObjectMeta{Name: icpName},
+				Spec: networking.IngressClassSpec{
+					Controller: "ingress.k8s.aws/alb",
+					Parameters: &networking.IngressClassParametersReference{
+						APIGroup: &apiGroup,
+						Kind:     "IngressClassParams",
+						Name:     icpName,
+					},
+				},
+			}
+			err = tf.K8sClient.Create(ctx, ingClass)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() { _ = tf.K8sClient.Delete(ctx, ingClass) }()
+
+			By("creating backend deployment and service")
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc)
+			err = resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			defer resStack.TearDown(ctx)
+
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{Number: 80},
+				},
+			}
+
+			By("creating ingress 'ing-z' with path /z to establish ALB with rule at priority 1")
+			ingZ := manifest.NewIngressBuilder().
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/z", PathType: &prefix, Backend: ingBackend}).
+				WithIngressClassName(ingClass.Name).
+				Build(sandboxNS.Name, "ing-z")
+			err = tf.K8sClient.Create(ctx, ingZ)
+			Expect(err).NotTo(HaveOccurred())
+
+			lbARN1, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ingZ)
+
+			By("creating ingress 'ing-a' which sorts before 'ing-z' — forces rule reordering (triggers SetRulePriorities)")
+			ingA := manifest.NewIngressBuilder().
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/a", PathType: &prefix, Backend: ingBackend}).
+				WithIngressClassName(ingClass.Name).
+				Build(sandboxNS.Name, "ing-a")
+			err = tf.K8sClient.Create(ctx, ingA)
+			Expect(err).NotTo(HaveOccurred())
+
+			lbARN2, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ingA)
+			Expect(lbARN2).To(Equal(lbARN1), "both ingresses should share the same ALB via IngressGroup")
+
+			By("checking for FailedDeployModel errors indicating permission gaps")
+			eventList := &corev1.EventList{}
+			err = tf.K8sClient.List(ctx, eventList, &client.ListOptions{Namespace: sandboxNS.Name})
+			Expect(err).NotTo(HaveOccurred())
+			var failedEvents []string
+			for _, event := range eventList.Items {
+				if event.Reason == "FailedDeployModel" {
+					failedEvents = append(failedEvents, fmt.Sprintf("%s: %s", event.InvolvedObject.Name, event.Message))
+				}
+			}
+			Expect(failedEvents).To(BeEmpty(), "expected no FailedDeployModel errors, got:\n%s", strings.Join(failedEvents, "\n"))
+
+			By("cleaning up ingresses before IngressClass deletion")
+			err = tf.K8sClient.Delete(ctx, ingA)
+			Expect(err).NotTo(HaveOccurred())
+			err = tf.K8sClient.Delete(ctx, ingZ)
+			Expect(err).NotTo(HaveOccurred())
+			err = tf.INGManager.WaitUntilIngressDeleted(ctx, ingA)
+			Expect(err).NotTo(HaveOccurred())
+			err = tf.INGManager.WaitUntilIngressDeleted(ctx, ingZ)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
