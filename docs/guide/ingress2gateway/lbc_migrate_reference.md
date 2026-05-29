@@ -1,15 +1,8 @@
-# Migrate from Ingress
+# Migration Tool (lbc-migrate)
 
-!!! warning "Under Development"
-    This tool is under active development.
-    Features may change, and not all annotation translations are implemented yet.
+`lbc-migrate` is a CLI tool that translates AWS Load Balancer Controller (LBC) Ingress resources to Gateway API equivalents. It reads Ingress, Service, IngressClass, and IngressClassParams resources from YAML/JSON files or a live Kubernetes cluster, translates annotations to Gateway API CRD fields, and writes the output manifests.
 
-`lbc-migrate` is a CLI tool that helps migrate AWS Load Balancer Controller (LBC) Ingress resources to Gateway API equivalents. It reads Ingress, Service, IngressClass, and IngressClassParams resources from YAML/JSON files or a live Kubernetes cluster, translates annotations to Gateway API CRD fields, and writes the output manifests.
-
-## Prerequisites
-
-- The Gateway API CRDs must be installed in your cluster at a compatible version before applying the generated manifests. See the [Gateway API installation guide](https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api) and the [AWS LBC Gateway API documentation](gateway.md) for supported versions.
-- The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations or enforce the same constraints as the ingress controller (e.g., ALB rule limits, mutually exclusive annotation combinations). If an Ingress has invalid or conflicting annotations, the output may be incorrect or incomplete without warning.
+For the end-to-end migration workflow, see **[Migrate from Ingress to Gateway API](migrate_from_ingress.md)**.
 
 ## Installation
 
@@ -76,7 +69,9 @@ You can combine `-f` and `--input-dir`, but `--from-cluster` cannot be used with
 | `--output-dir` | Optional | Directory to write output manifests | `./gateway-output` |
 | `--output-format` | Optional | Output format: `yaml` or `json` | `yaml` |
 | `--split` | Optional | Split output layout. Empty (default) writes one combined file; `namespace` writes one file per namespace plus a `gatewayclass` file for cluster-scoped resources | `""` |
-| `--dry-run` | Optional | Add `gateway.k8s.aws/dry-run` annotation to generated Gateway manifests so LBC previews the plan without creating AWS resources | `false` |
+| `--dry-run` | Optional | Add `gateway.k8s.aws/dry-run` annotation to generated Gateway manifests so LBC previews the plan without creating AWS resources. Pass `--dry-run=false` to generate live Gateway manifests. | `true` |
+| `--console` | Optional | Launch the migration console web UI to compare ingress and gateway dry-run models | `false` |
+| `--port` | Optional | Local port for the console web server (only with `--console`) | `8080` |
 
 ## Output Resources
 
@@ -118,11 +113,11 @@ kubectl apply -R -f ./gw/
 
 For cross-namespace IngressGroups (Ingresses in different namespaces sharing a `group.name`), the generated resources naturally split across namespace directories: the shared `Gateway` and `LoadBalancerConfiguration` land in the primary member's namespace (determined by `group.order`, then lexical `namespace/name`), while each member's `HTTPRoute` lands in its own namespace. No `ReferenceGrant` is required because HTTPRoutes only reference backends in their own namespace and the generated Gateway sets `allowedRoutes.namespaces.from: All`.
 
-### Default Backend Handling
+## Default Backend Handling
 
 Gateway API has no `defaultBackend` equivalent ([upstream docs](https://gateway-api.sigs.k8s.io/guides/getting-started/migrating-from-ingress/#default-backend)). When an Ingress has both a `defaultBackend` and host-based rules, the tool generates a separate catch-all HTTPRoute with no hostnames or match conditions. This results in one additional ALB listener rule compared to the original Ingress, which is the expected Gateway API behavior. Additionally, the gateway controller scopes target groups per route, so the separate default-backend HTTPRoute creates its own target group even if it points to the same service as other rules. This means the migrated setup may have one extra target group compared to the Ingress setup, where a single target group is shared across all rules for the same service.
 
-### IngressGroup Support
+## IngressGroup Support
 
 The migration tool detects `alb.ingress.kubernetes.io/group.name` and produces one shared Gateway + LoadBalancerConfiguration per group, with separate HTTPRoutes per member Ingress (preserving team ownership).
 
@@ -137,10 +132,9 @@ For cross-namespace groups, use `--namespaces ns-a,ns-b` (listing all namespaces
 !!! warning "Security consideration"
     `From: All` allows HTTPRoutes from any namespace to attach to the Gateway. If you need tighter scoping, you can manually change `From: All` to `From: Selector` with a label selector after generation.
 
+## Known Differences from Ingress
 
-### Known Differences from Ingress
-
-#### Rule Priority and `group.order`
+### Rule Priority and `group.order`
 
 The `alb.ingress.kubernetes.io/group.order` annotation has no equivalent in Gateway API. In the Ingress model, `group.order` gives explicit control over ALB listener rule priority — rules from a lower-order Ingress always get lower priority numbers (higher precedence). In Gateway API, rule precedence is determined by the [Gateway API specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule): hostname specificity, path match type, path length, header/query param count, route creation timestamp, and route name (alphabetical) etc. There is no annotation or field to override this ordering.
 
@@ -148,41 +142,31 @@ For most configurations — where grouped Ingresses have non-overlapping hosts o
 
 The migration tool emits a warning when `group.order` is detected.
 
-#### ALB Listener Rule Count and Priority Order
+### ALB Listener Rule Count and Priority Order
 
 The migrated Gateway API manifests may produce more ALB listener rules than the original Ingress. This happens because ALB supports OR within a single condition (e.g., one `http-request-method` condition with values `[GET, HEAD]`), while Gateway API represents OR as separate `HTTPRouteMatch` entries — each becoming its own ALB rule. The routing behavior is functionally equivalent, but the rule count and priority numbers may differ. This affects conditions with multiple values for `path-pattern`, `http-request-method`, and `query-string`.
 
-Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path tyoe, path length, reation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
+Additionally, ALB listener rule priority order may differ between Ingress and Gateway. The Ingress controller assigns priorities based on Ingress spec rule ordering, while the gateway controller follows the [Gateway API precedence specification](https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteRule) (path type, path length, creation timestamp etc). For most configurations this produces equivalent behavior, but users with overlapping rules that depend on specific priority ordering should verify after migration.
 
-#### TargetGroupBinding
+### TargetGroupBinding
 
 AWS Load Balancer Controller uses `TargetGroupBinding` (TGB) internally to register pod targets for Ingress, Service, and Gateway resources. These controller-managed TGBs are created and deleted automatically — when you delete an Ingress, its TGBs are cleaned up, and the Gateway controller creates new ones when it reconciles. You do not need to migrate these.
 
 If you have user-created TGBs that register pods into externally-managed AWS Target Groups (see [TargetGroupBinding documentation](../targetgroupbinding/targetgroupbinding.md)), these are independent of Ingress and Gateway resources. They are reconciled by the TargetGroupBinding controller regardless of how traffic is routed. No changes needed during migration.
 
-#### External Target Group References in Actions
+### External Target Group References in Actions
 
-If your Ingress uses `actions.*` annotations that reference external target groups (via `targetGroupARN` or `targetGroupName`), the migration tool translates these to Gateway API `backendRefs` with `kind: TargetGroupName`. When the original annotation uses an ARN, the tool extracts the target group name from it. See [Specify out-of-band Target Groups](gateway.md#specify-out-of-band-target-groups) for how the gateway controller handles these references.
+If your Ingress uses `actions.*` annotations that reference external target groups (via `targetGroupARN` or `targetGroupName`), the migration tool translates these to Gateway API `backendRefs` with `kind: TargetGroupName`. When the original annotation uses an ARN, the tool extracts the target group name from it. See [Specify out-of-band Target Groups](../gateway/gateway.md#specify-out-of-band-target-groups) for how the gateway controller handles these references.
 
-Note: external target groups can only be associated with one ALB at a time. During side-by-side migration (Phase 3-5), the Gateway ALB cannot attach the same external TG that the Ingress ALB is using. You must either delete the Ingress rules referencing the external TG before applying Gateway manifests (cutover), or create a duplicate TG and update the generated manifest to use the new name.
+Note: external target groups can only be associated with one ALB at a time. During side-by-side migration (Step 3-5), the Gateway ALB cannot attach the same external TG that the Ingress ALB is using. You must either delete the Ingress rules referencing the external TG before applying Gateway manifests (cutover), or create a duplicate TG and update the generated manifest to use the new name.
 
-#### Limited Support for Certain Ingress Annotations
-The following Ingress annotation types have limited support in the migration tool and Gatewaty API:
+### Limited Support for Certain Ingress Annotations
+The following Ingress annotation types have limited support in the migration tool and Gateway API:
 
 - `host-header` conditions — values are passed through to Gateway API hostnames. Since hostnames are route-level in Gateway API (not per-rule), rules with host-header conditions are split into separate HTTPRoutes with their own hostnames. Complex wildcards (e.g., `www.*.example.com`) or regex values that don't conform to Gateway API hostname format will be rejected by the K8s API server when the manifest is applied.
 - `url-rewrite` and `host-header-rewrite` transforms with regex capture group references (e.g., `replace: "/$1"` or `replace: "$1.example.org"`) — Gateway API's `URLRewrite` filter only supports static replacements (`ReplaceFullPath` for paths, `PreciseHostname` for hostnames). Transforms with static replacements (no `$N` references) are translated; transforms with capture group references are skipped. Additionally, the original Ingress transform regex is discarded during migration — the gateway controller generates its own fixed regex from the Gateway API filter type (`^([^?]*)` for path rewrites, `.*` for hostname rewrites). This means the ALB transform will always match all paths or all hostnames for the rule, regardless of what the original Ingress regex was. This is functionally equivalent because the ALB rule's conditions (from the HTTPRoute match) already narrow the traffic before the transform is applied. Verify the generated output if your Ingress uses transforms.
 
-!!! important "What changes and what stays the same"
-    The generated output **replaces only your Ingress resource**. Everything else stays untouched:
-
-    - **Namespace** — already exists, no changes needed.
-    - **Deployment** — unchanged, continues running your application pods.
-    - **Service** — unchanged, the new HTTPRoute `backendRefs` reference it by name.
-
-    Once equivalent gateway manifest is generated from ingress manifests, apply the generated Gateway API manifest alongside your existing workload.
-
-
-### Annotation Priority Chain
+## Annotation Priority Chain
 
 LBC resolves annotations with a priority chain (highest wins):
 
@@ -242,39 +226,27 @@ Tip: Use --from-cluster to automatically read all referenced resources,
 
 These warnings are informational — the tool still generates output. For the most accurate results, use `--from-cluster` which automatically fetches all referenced resources.
 
-## Preview Gateway resources with Dry-Run
-
-Before applying the generated Gateway manifests to create real AWS resources, you can use
-dry-run mode to preview exactly what the AWS Load Balancer Controller would create. When a
-Gateway is annotated with `gateway.k8s.aws/dry-run: "true"`, LBC builds its internal model
-stack and writes the serialized plan back to the Gateway as an annotation — **without
-creating any AWS resources**.
+## Dry-Run Mode
 
 ### How it works
 
-1. Apply a Gateway with the `gateway.k8s.aws/dry-run: "true"` annotation.
-2. LBC resolves the GatewayClass, LoadBalancerConfiguration, and attached routes as usual.
-3. LBC builds the internal resource model (LoadBalancer, Listeners, ListenerRules,
-   TargetGroups, and all their configuration including tags, health checks, attributes,
-   and security groups).
-4. Instead of calling AWS to create resources, LBC marshals the model to JSON and writes it to
-   the Gateway's `gateway.k8s.aws/dry-run-plan` annotation.
-5. When you remove the `gateway.k8s.aws/dry-run` annotation, LBC cleans up the `dry-run-plan`
-   annotation, then proceeds with normal reconciliation (creating the ALB).
+When a Gateway is annotated with `gateway.k8s.aws/dry-run: "true"`, LBC builds its built model stack and writes the serialized plan back to the Gateway as an annotation — **without creating any AWS resources**.
 
-### Enabling dry-run on a Gateway
-
-Use the `--dry-run` flag when running `lbc-migrate` to automatically add the annotation to
-the generated Gateway manifests:
+`lbc-migrate` adds this annotation by default, so the first apply always previews the plan:
 
 ```bash
-lbc-migrate -f ingress.yaml --output-dir ./gw/ --dry-run
-# or from a live cluster
-lbc-migrate --from-cluster --namespaces production --output-dir ./gw/ --dry-run
+lbc-migrate -f ingress.yaml --output-dir ./gw/
 ```
 
-Alternatively, add the `gateway.k8s.aws/dry-run: "true"` annotation manually to any Gateway
-manifest:
+To generate manifests for live deployment:
+
+```bash
+lbc-migrate -f ingress.yaml --output-dir ./gw/ --dry-run=false
+```
+
+### Manual dry-run annotation
+
+You can add the annotation manually to any Gateway manifest:
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -295,118 +267,28 @@ spec:
           - name: tls-secret
 ```
 
-Apply it:
-
-```bash
-kubectl apply -f my-gateway.yaml
-```
-
-### Viewing the dry-run plan
-
-Check that the dry-run plan annotation is populated:
+### Viewing the plan
 
 ```bash
 kubectl get gateway my-gateway \
   -o jsonpath='{.metadata.annotations.gateway\.k8s\.aws/dry-run-plan}' | jq .
 ```
 
-Example output:
-
-```json
-{
-  "id": "default/my-gateway",
-  "resources": {
-    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
-      "LoadBalancer": {
-        "spec": {
-          "name": "k8s-default-mygatew-abc123",
-          "type": "application",
-          "scheme": "internet-facing",
-          "ipAddressType": "ipv4",
-          "subnetMapping": [
-            {"subnetID": "subnet-aaa"},
-            {"subnetID": "subnet-bbb"}
-          ],
-          "securityGroups": ["sg-xxx"]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::Listener": {
-      "443": {
-        "spec": {
-          "port": 443,
-          "protocol": "HTTPS",
-          "sslPolicy": "ELBSecurityPolicy-TLS-1-2-2017-01",
-          "certificates": [
-            {"certificateARN": "arn:aws:acm:us-west-2:123:cert/abc"}
-          ]
-        }
-      }
-    },
-    "AWS::ElasticLoadBalancingV2::TargetGroup": {
-      "default-api-service-8080": {
-        "spec": {
-          "name": "k8s-default-apisvc-xyz789",
-          "targetType": "ip",
-          "port": 8080,
-          "protocol": "HTTP",
-          "healthCheckConfig": {
-            "path": "/health",
-            "intervalSeconds": 15
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-Confirm no AWS resources were created:
-
-```bash
-aws elbv2 describe-load-balancers --names k8s-default-mygatew-abc123
-# → "LoadBalancer not found" (expected: dry-run did not deploy)
-```
-
-### Troubleshooting
-
-If the `gateway.k8s.aws/dry-run-plan` annotation is empty after applying the Gateway, the
-model build failed before reaching the dry-run step. Debug with:
-
-1. Check Gateway events for build errors
-
-2. Check Gateway status conditions for validation errors
-
-3. Check controller logs for detailed errors
-
 ### Deploying after review
 
-When the plan looks correct, remove the dry-run annotation to let LBC create the actual AWS
-resources. The trailing `-` on the annotation key is `kubectl annotate` syntax for removing
-an annotation:
+Remove the dry-run annotation to let LBC create the actual AWS resources:
 
 ```bash
-# The trailing `-` tells kubectl to remove (not set) the annotation.
-kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run- 
+kubectl annotate -n <NAMESPACE> gateway <GATEWAY_NAME> gateway.k8s.aws/dry-run-
 ```
 
-This triggers a normal reconciliation:
-
-- The `gateway.k8s.aws/dry-run-plan` annotation is cleared.
-- LBC creates the ALB, listeners, target groups, and attaches routes.
-- Once the ALB is active, the `Programmed` condition is set to `True` and the ALB DNS appears
-  in `status.addresses`.
+This triggers normal reconciliation: LBC creates the ALB, listeners, target groups, and attaches routes.
 
 ### What dry-run does NOT do
 
-Dry-run is only effective on Gateways that have not yet been deployed. If the Gateway already
-has AWS resources (indicated by the presence of a controller finalizer), the
-`gateway.k8s.aws/dry-run` annotation is ignored and normal reconciliation proceeds.
-This prevents accidentally freezing a live or provisioning ALB by adding the dry-run annotation
-after deployment.
+Dry-run is only effective on Gateways that have not yet been deployed. If the Gateway already has AWS resources (indicated by the presence of a controller finalizer), the `gateway.k8s.aws/dry-run` annotation is ignored and normal reconciliation proceeds.
 
-Dry-run intentionally skips every action that would touch AWS or cluster state beyond the
-Gateway annotation/status it owns:
+Dry-run intentionally skips every action that would touch AWS or cluster state beyond the Gateway annotation/status it owns:
 
 - No AWS resources are created, updated, or deleted.
 - No finalizer is added to the Gateway.
@@ -421,3 +303,53 @@ Gateway annotation/status it owns:
 | --------------------------------------- | ---------- | --------------------------------------------------------------------------- |
 | `gateway.k8s.aws/dry-run`               | User       | Set to `"true"` to enable dry-run mode on a Gateway.                        |
 | `gateway.k8s.aws/dry-run-plan`          | Controller | Serialized stack JSON written by LBC when dry-run is enabled. Do not edit. |
+
+## Annotation Support
+
+The tool translates the following Ingress annotations to Gateway API equivalents. Annotations not listed here are not yet supported.
+
+| Ingress Annotation | Gateway API Equivalent | Status |
+|---|---|---|
+| `alb.ingress.kubernetes.io/scheme` | `LoadBalancerConfiguration.spec.scheme` | Supported |
+| `alb.ingress.kubernetes.io/ip-address-type` | `LoadBalancerConfiguration.spec.ipAddressType` | Supported |
+| `alb.ingress.kubernetes.io/subnets` | `LoadBalancerConfiguration.spec.subnetMappings` | Supported |
+| `alb.ingress.kubernetes.io/security-groups` | `LoadBalancerConfiguration.spec.securityGroups` | Supported |
+| `alb.ingress.kubernetes.io/certificate-arn` | `Gateway.spec.listeners[].tls.certificateRefs` | Supported |
+| `alb.ingress.kubernetes.io/listen-ports` | `Gateway.spec.listeners[]` | Supported |
+| `alb.ingress.kubernetes.io/ssl-policy` | `LoadBalancerConfiguration.spec.listenerConfigs[].sslPolicy` | Supported |
+| `alb.ingress.kubernetes.io/ssl-redirect` | Redirect HTTPRoute | Supported |
+| `alb.ingress.kubernetes.io/group.name` | Shared Gateway per group | Supported |
+| `alb.ingress.kubernetes.io/group.order` | Used to determine primary group member (Gateway placement) and sort order. No Gateway API equivalent for ALB rule priority — a warning is emitted. See [Rule Priority and group.order](#rule-priority-and-grouporder). | No equivalent (priority) |
+| `alb.ingress.kubernetes.io/target-type` | `TargetGroupConfiguration.spec.targetType` | Supported |
+| `alb.ingress.kubernetes.io/backend-protocol` | `TargetGroupConfiguration.spec.protocolVersion` | Supported |
+| `alb.ingress.kubernetes.io/healthcheck-*` | `TargetGroupConfiguration.spec.healthCheck.*` | Supported |
+| `alb.ingress.kubernetes.io/tags` | `LoadBalancerConfiguration.spec.tags` | Supported |
+| `alb.ingress.kubernetes.io/load-balancer-attributes` | `LoadBalancerConfiguration.spec.loadBalancerAttributes` | Supported |
+| `alb.ingress.kubernetes.io/target-group-attributes` | `TargetGroupConfiguration.spec.targetGroupAttributes` | Supported |
+| `alb.ingress.kubernetes.io/actions.*` | HTTPRoute filters / `ListenerRuleConfiguration` | Supported |
+| `alb.ingress.kubernetes.io/conditions.*` | HTTPRoute matches / `ListenerRuleConfiguration` | Supported |
+| `alb.ingress.kubernetes.io/auth-type` | `ListenerRuleConfiguration.spec.authConfig` | Supported |
+| `alb.ingress.kubernetes.io/auth-idp-*` | `ListenerRuleConfiguration.spec.authConfig` | Supported |
+| `alb.ingress.kubernetes.io/wafv2-acl-arn` | `LoadBalancerConfiguration.spec.wafv2ACLArn` | Supported |
+| `alb.ingress.kubernetes.io/wafv2-acl-name` | `LoadBalancerConfiguration.spec.wafv2ACLName` | Supported |
+| `alb.ingress.kubernetes.io/shield-advanced-protection` | `LoadBalancerConfiguration.spec.shieldAdvancedProtection` | Supported |
+| `alb.ingress.kubernetes.io/mutual-authentication` | `LoadBalancerConfiguration.spec.mutualAuthentication` | Supported |
+| `alb.ingress.kubernetes.io/load-balancer-name` | `LoadBalancerConfiguration.spec.name` | Supported |
+| `alb.ingress.kubernetes.io/customer-owned-ipv4-pool` | `LoadBalancerConfiguration.spec.customerOwnedIPv4Pool` | Supported |
+| `alb.ingress.kubernetes.io/ipam-ipv4-pool-id` | `LoadBalancerConfiguration.spec.ipamIPv4PoolId` | Supported |
+| `alb.ingress.kubernetes.io/manage-security-group-rules` | `LoadBalancerConfiguration.spec.manageSecurityGroupRules` | Supported |
+| `alb.ingress.kubernetes.io/inbound-cidrs` | `LoadBalancerConfiguration.spec.inboundCIDRs` | Supported |
+| `alb.ingress.kubernetes.io/security-group-prefix-lists` | `LoadBalancerConfiguration.spec.securityGroupPrefixLists` | Supported |
+| `alb.ingress.kubernetes.io/load-balancer-capacity-reservation` | `LoadBalancerConfiguration.spec.capacityReservation` | Supported |
+| `alb.ingress.kubernetes.io/backend-protocol-version` | `TargetGroupConfiguration.spec.protocolVersion` | Supported |
+| `alb.ingress.kubernetes.io/target-node-labels` | `TargetGroupConfiguration.spec.targetNodeLabels` | Supported |
+| `alb.ingress.kubernetes.io/target-control-port` | `TargetGroupConfiguration.spec.targetControlPort` | Supported |
+| `alb.ingress.kubernetes.io/use-regex-path-match` | HTTPRoute path match type (`RegularExpression`) | Supported |
+| `alb.ingress.kubernetes.io/auth-scope` | `ListenerRuleConfiguration.spec.authConfig.scope` | Supported |
+| `alb.ingress.kubernetes.io/auth-session-cookie` | `ListenerRuleConfiguration.spec.authConfig.sessionCookieName` | Supported |
+| `alb.ingress.kubernetes.io/auth-session-timeout` | `ListenerRuleConfiguration.spec.authConfig.sessionTimeout` | Supported |
+| `alb.ingress.kubernetes.io/auth-on-unauthenticated-request` | `ListenerRuleConfiguration.spec.authConfig.onUnauthenticatedRequest` | Supported |
+| `alb.ingress.kubernetes.io/jwt-validation` | `ListenerRuleConfiguration.spec.authConfig.jwtValidation` | Supported |
+| `alb.ingress.kubernetes.io/waf-acl-id` | WAF Classic is **not supported** by the migration tool. Migrate to WAFv2 (`alb.ingress.kubernetes.io/wafv2-acl-arn`) on the source Ingress **before** running `lbc-migrate` — Ingresses still on WAF Classic when the tool runs will produce Gateway manifests with no WAF protection. | Not supported |
+| `alb.ingress.kubernetes.io/web-acl-id` | Deprecated alias of `waf-acl-id`. switch to WAFv2 first before running `lbc-migrate`. | Not supported |
+| `alb.ingress.kubernetes.io/frontend-nlb-*` | All Frontend NLB annotations (`enable-frontend-nlb`, `frontend-nlb-scheme`, `frontend-nlb-subnets`, etc.) are not yet supported in the migration tool. | Not supported |
