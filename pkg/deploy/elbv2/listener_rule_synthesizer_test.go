@@ -26,8 +26,9 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 		args    args
 		want    []resAndSDKListenerRulePair
 		want1   []resAndSDKListenerRulePair
-		want2   []*elbv2model.ListenerRule
-		want3   []ListenerRuleWithTags
+		want2   []resAndSDKListenerRulePair
+		want3   []*elbv2model.ListenerRule
+		want4   []ListenerRuleWithTags
 		wantErr error
 	}{
 		{
@@ -194,10 +195,174 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 					},
 				},
 			},
-			want:    nil,
-			want1:   nil,
-			want2:   nil,
+			want:  nil,
+			want1: nil,
+			want2: []resAndSDKListenerRulePair{
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 1,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-1"),
+							Priority: awssdk.String("1"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 2,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-2"),
+							Priority: awssdk.String("2"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 3,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo3-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo3"},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-3"),
+							Priority: awssdk.String("3"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo3-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo3"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			want3:   nil,
+			want4:   nil,
 			wantErr: nil,
 		},
 		{
@@ -474,10 +639,66 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 					},
 				},
 			},
-			want1:   nil,
-			want2:   nil,
-			want3:   nil,
+			want1: nil,
+			want2: []resAndSDKListenerRulePair{
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 2,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-2"),
+							Priority: awssdk.String("2"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			wantErr: nil,
+			want3:   nil,
+			want4:   nil,
 		},
 		{
 			name: "all listener rules settings including transforms has match but not priority",
@@ -883,9 +1104,91 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 					},
 				},
 			},
-			want1:   nil,
-			want2:   nil,
+			want1: nil,
+			want2: []resAndSDKListenerRulePair{
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 2,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+							Transforms: []elbv2model.Transform{
+								{
+									Type: elbv2model.TransformTypeUrlRewrite,
+									UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+										Rewrites: []elbv2model.RewriteConfig{
+											{
+												Regex:   "/path2/(.*)",
+												Replace: "/newpath2/$1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-2"),
+							Priority: awssdk.String("2"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+							Transforms: []elbv2types.RuleTransform{
+								{
+									Type: elbv2types.TransformTypeEnumUrlRewrite,
+									UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+										Rewrites: []elbv2types.RewriteConfig{
+											{
+												Regex:   awssdk.String("/path2/(.*)"),
+												Replace: awssdk.String("/newpath2/$1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			want3:   nil,
+			want4:   nil,
 			wantErr: nil,
 		},
 		{
@@ -1220,6 +1523,7 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 			},
 			want2:   nil,
 			want3:   nil,
+			want4:   nil,
 			wantErr: nil,
 		},
 		{
@@ -1602,7 +1906,117 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 					},
 				},
 			},
-			want2: []*elbv2model.ListenerRule{
+			want2: []resAndSDKListenerRulePair{
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 1,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-1"),
+							Priority: awssdk.String("1"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 2,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-2"),
+							Priority: awssdk.String("2"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want3: []*elbv2model.ListenerRule{
 				{
 					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
 					Spec: elbv2model.ListenerRuleSpec{
@@ -1630,7 +2044,7 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 					},
 				},
 			},
-			want3: []ListenerRuleWithTags{
+			want4: []ListenerRuleWithTags{
 				{
 					ListenerRule: &elbv2types.Rule{
 						RuleArn:  awssdk.String("arn-5"),
@@ -1676,7 +2090,7 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 				resLRDesiredRuleConfig, _ := buildResLRDesiredRuleConfig(resLR, featureGates)
 				resLRDesiredRuleConfigs[resLR] = resLRDesiredRuleConfig
 			}
-			got, got1, got2, got3, err := s.matchResAndSDKListenerRules(tt.args.resLRs, tt.args.sdkLRs, resLRDesiredRuleConfigs)
+			got, got1, got2, got3, got4, err := s.matchResAndSDKListenerRules(tt.args.resLRs, tt.args.sdkLRs, resLRDesiredRuleConfigs)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1685,6 +2099,7 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 				assert.Equal(t, tt.want1, got1)
 				assert.Equal(t, tt.want2, got2)
 				assert.Equal(t, tt.want3, got3)
+				assert.Equal(t, tt.want4, got4)
 			}
 		})
 	}
@@ -1695,6 +2110,8 @@ type mockLROperation int
 const (
 	createLR mockLROperation = iota
 	deleteLR
+	updateRulesLR
+	updateRulesTagsLR
 )
 
 type mockLRCall struct {
@@ -2082,16 +2499,183 @@ func (m *mockListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerRule
 }
 
 func (m *mockListenerRuleManager) UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error) {
-	//TODO implement me
-	panic("implement me")
+	m.calls = append(m.calls, mockLRCall{
+		arn: *sdkLR.ListenerRule.RuleArn,
+		op:  updateRulesLR,
+	})
+	return elbv2model.ListenerRuleStatus{RuleARN: *sdkLR.ListenerRule.RuleArn}, nil
 }
 
 func (m *mockListenerRuleManager) UpdateRulesTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
-	//TODO implement me
-	panic("implement me")
+	m.calls = append(m.calls, mockLRCall{
+		arn: *sdkLR.ListenerRule.RuleArn,
+		op:  updateRulesTagsLR,
+	})
+	return elbv2model.ListenerRuleStatus{RuleARN: *sdkLR.ListenerRule.RuleArn}, nil
 }
 
 func (m *mockListenerRuleManager) SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
+}
+
+func Test_synthesizeListenerRulesOnListener_TagsUpdatedForAllBuckets(t *testing.T) {
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+	featureGates := config.NewFeatureGates()
+
+	testCases := []struct {
+		name          string
+		resLRs        []*elbv2model.ListenerRule
+		sdkLRs        []ListenerRuleWithTags
+		expectedCalls []mockLRCall
+	}{
+		{
+			name: "tags-only change on fully matched rule triggers UpdateRulesTags",
+			resLRs: []*elbv2model.ListenerRule{
+				{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+					Spec: elbv2model.ListenerRuleSpec{
+						Priority: 1,
+						Actions: []elbv2model.Action{
+							{
+								Type: "forward",
+								ForwardConfig: &elbv2model.ForwardActionConfig{
+									TargetGroups: []elbv2model.TargetGroupTuple{
+										{
+											TargetGroupARN: core.LiteralStringToken("tg-1"),
+										},
+									},
+								},
+							},
+						},
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: "path-pattern",
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/app"},
+								},
+							},
+						},
+					},
+				},
+			},
+			sdkLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn:  awssdk.String("arn:rule-1"),
+						Priority: awssdk.String("1"),
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnumForward,
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String("tg-1"),
+										},
+									},
+								},
+							},
+						},
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String("path-pattern"),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{"/app"},
+								},
+							},
+						},
+					},
+					Tags: map[string]string{"env": "old-value"},
+				},
+			},
+			expectedCalls: []mockLRCall{
+				{arn: "arn:rule-1", op: updateRulesTagsLR},
+			},
+		},
+		{
+			name: "priority-matched rule with different actions also gets UpdateRulesTags",
+			resLRs: []*elbv2model.ListenerRule{
+				{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+					Spec: elbv2model.ListenerRuleSpec{
+						Priority: 1,
+						Actions: []elbv2model.Action{
+							{
+								Type: "forward",
+								ForwardConfig: &elbv2model.ForwardActionConfig{
+									TargetGroups: []elbv2model.TargetGroupTuple{
+										{
+											TargetGroupARN: core.LiteralStringToken("tg-new"),
+										},
+									},
+								},
+							},
+						},
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: "path-pattern",
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/app"},
+								},
+							},
+						},
+					},
+				},
+			},
+			sdkLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn:  awssdk.String("arn:rule-1"),
+						Priority: awssdk.String("1"),
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnumForward,
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String("tg-old"),
+										},
+									},
+								},
+							},
+						},
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String("path-pattern"),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{"/app"},
+								},
+							},
+						},
+					},
+					Tags: map[string]string{"env": "old-value"},
+				},
+			},
+			expectedCalls: []mockLRCall{
+				{arn: "arn:rule-1", op: updateRulesLR},
+				{arn: "arn:rule-1", op: updateRulesTagsLR},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockTaggingManager := NewMockTaggingManager(ctrl)
+			mockTaggingManager.EXPECT().ListListenerRules(gomock.Any(), "arn:listener-1").Return(tc.sdkLRs, nil)
+
+			mLRManager := &mockListenerRuleManager{
+				maxRuleCount: 100,
+			}
+			s := &listenerRuleSynthesizer{
+				lrManager:      mLRManager,
+				taggingManager: mockTaggingManager,
+				featureGates:   featureGates,
+			}
+			err := s.synthesizeListenerRulesOnListener(context.Background(), "arn:listener-1", tc.resLRs)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedCalls, mLRManager.calls)
+		})
+	}
 }
