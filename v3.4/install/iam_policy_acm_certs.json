@@ -1,0 +1,49 @@
+{
+    "Statement": [
+        {
+            "Action": [
+                "acm:ListTagsForCertificate",
+                "route53:ListHostedZones",
+                "route53:ListHostedZonesByName",
+                "route53:ChangeResourceRecordSets",
+                "acm:AddTagsToCertificate"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        },
+        {
+            "Action": [
+                "acm:RequestCertificate"
+            ],
+            "Effect": "Allow",
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Action": [
+                "acm:DeleteCertificate"
+            ],
+            "Effect": "Allow",
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Action": [
+                "acm-pca:IssueCertificate",
+                "acm-pca:GetCertificate",
+                "acm-pca:ListPermissions"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ],
+    "Version": "2012-10-17"
+}

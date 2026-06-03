@@ -1,0 +1,67 @@
+#gh-announcements {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff3e0;
+  border-bottom: 2px solid #ff9800;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #4e342e;
+}
+
+[data-md-color-scheme="slate"] #gh-announcements {
+  background: #3e2723;
+  border-bottom-color: #ff9800;
+  color: #ffe0b2;
+}
+
+.gh-announcement-details {
+  max-width: 61rem;
+  margin: 0 auto;
+  padding: 6px 24px;
+}
+
+.gh-announcement-summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 2px 0;
+  list-style: none;
+  user-select: none;
+}
+
+.gh-announcement-summary::-webkit-details-marker {
+  display: none;
+}
+
+.gh-announcement-summary::before {
+  content: "▸ ";
+}
+
+.gh-announcement-details[open] > .gh-announcement-summary::before {
+  content: "▾ ";
+}
+
+.gh-announcement-body {
+  padding: 4px 0 2px;
+}
+
+.gh-announcement-list {
+  margin: 0;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.gh-announcement-item {
+  padding: 1px 0;
+}
+
+.gh-announcement-item a {
+  color: #e65100;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+[data-md-color-scheme="slate"] .gh-announcement-item a {
+  color: #ffb74d;
+}
