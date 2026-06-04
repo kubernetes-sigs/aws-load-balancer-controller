@@ -172,7 +172,8 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
-	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port)
+	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port,
+		tgbTargetIPAddressType(tgb))
 
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
@@ -945,4 +946,12 @@ func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod
 	m.nodeAZCacheMutex.Unlock()
 
 	return &az, nil
+}
+
+// tgbTargetIPAddressType returns the TGB's IP address type, defaulting to IPv4 when unset.
+func tgbTargetIPAddressType(tgb *elbv2api.TargetGroupBinding) elbv2api.TargetGroupIPAddressType {
+	if tgb.Spec.IPAddressType == nil {
+		return elbv2api.TargetGroupIPAddressTypeIPv4
+	}
+	return *tgb.Spec.IPAddressType
 }

@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -12,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -22,7 +24,9 @@ var ErrNotFound = errors.New("backend not found")
 type EndpointResolver interface {
 	// ResolvePodEndpoints will resolve endpoints backed by pods directly,
 	// returns resolved podEndpoints.
-	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) ([]PodEndpoint, error)
+	// targetIPAddressType filters EndpointSlices by AddressType. Pass empty to disable filtering.
+	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
+		targetIPAddressType elbv2api.TargetGroupIPAddressType) ([]PodEndpoint, error)
 
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
 	ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
@@ -54,12 +58,12 @@ type defaultEndpointResolver struct {
 	logger               logr.Logger
 }
 
-func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) ([]PodEndpoint, error) {
+func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, targetIPAddressType elbv2api.TargetGroupIPAddressType) ([]PodEndpoint, error) {
 	_, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
 	if err != nil {
 		return nil, err
 	}
-	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey)
+	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey, targetIPAddressType)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +111,7 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 	return endpoints, nil
 }
 
-func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Context, svcKey types.NamespacedName) ([]EndpointsData, error) {
+func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Context, svcKey types.NamespacedName, targetIPAddressType elbv2api.TargetGroupIPAddressType) ([]EndpointsData, error) {
 	var endpointsDataList []EndpointsData
 	if r.endpointSliceEnabled {
 		epSliceList := &discovery.EndpointSliceList{}
@@ -116,7 +120,7 @@ func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Contex
 			client.MatchingLabels{discovery.LabelServiceName: svcKey.Name}); err != nil {
 			return nil, err
 		}
-		endpointsDataList = buildEndpointsDataFromEndpointSliceList(epSliceList)
+		endpointsDataList = buildEndpointsDataFromEndpointSliceList(epSliceList, targetIPAddressType)
 	} else {
 		eps := &corev1.Endpoints{}
 		if err := r.k8sClient.Get(ctx, svcKey, eps); err != nil {
@@ -262,9 +266,13 @@ func buildEndpointsDataFromEndpoints(eps *corev1.Endpoints) []EndpointsData {
 	return endpointsDataList
 }
 
-func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceList) []EndpointsData {
+func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceList, targetIPAddressType elbv2api.TargetGroupIPAddressType) []EndpointsData {
 	var endpointsDataList []EndpointsData
 	for _, epSlice := range epsList.Items {
+		// TargetGroupIPAddressType is "ipv4"/"ipv6"; EndpointSlice.AddressType is "IPv4"/"IPv6".
+		if targetIPAddressType != "" && !strings.EqualFold(string(epSlice.AddressType), string(targetIPAddressType)) {
+			continue
+		}
 		endpointsDataList = append(endpointsDataList, EndpointsData{
 			Ports:     epSlice.Ports,
 			Endpoints: epSlice.Endpoints,
