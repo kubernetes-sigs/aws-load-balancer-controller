@@ -1306,7 +1306,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				endpointSliceEnabled: tt.fields.endpointSliceEnabled,
 				logger:               logr.New(&log.NullLogSink{}),
 			}
-			got, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port)
+			got, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, "")
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1928,7 +1928,7 @@ func Test_defaultEndpointResolver_computeServiceEndpointsData(t *testing.T) {
 				k8sClient:            k8sClient,
 				endpointSliceEnabled: tt.fields.endpointSliceEnabled,
 			}
-			got, err := r.computeServiceEndpointsData(context.Background(), tt.args.svcKey)
+			got, err := r.computeServiceEndpointsData(context.Background(), tt.args.svcKey, "")
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -2449,7 +2449,8 @@ func Test_buildEndpointsDataFromEndpoints(t *testing.T) {
 
 func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 	type args struct {
-		epsList *discovery.EndpointSliceList
+		epsList     *discovery.EndpointSliceList
+		addressType discovery.AddressType
 	}
 	tests := []struct {
 		name string
@@ -2554,10 +2555,132 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "ipv6 target group filters out IPv4 slices",
+			args: args{
+				addressType: discovery.AddressTypeIPv6,
+				epsList: &discovery.EndpointSliceList{
+					Items: []discovery.EndpointSlice{
+						{
+							AddressType: discovery.AddressTypeIPv4,
+							Ports: []discovery.EndpointPort{
+								{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+							},
+							Endpoints: []discovery.Endpoint{
+								{Addresses: []string{"10.0.0.1"}},
+							},
+						},
+						{
+							AddressType: discovery.AddressTypeIPv6,
+							Ports: []discovery.EndpointPort{
+								{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+							},
+							Endpoints: []discovery.Endpoint{
+								{Addresses: []string{"2600::1"}},
+							},
+						},
+					},
+				},
+			},
+			want: []EndpointsData{
+				{
+					Ports: []discovery.EndpointPort{
+						{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+					},
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"2600::1"}},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv4 target group filters out IPv6 slices",
+			args: args{
+				addressType: discovery.AddressTypeIPv4,
+				epsList: &discovery.EndpointSliceList{
+					Items: []discovery.EndpointSlice{
+						{
+							AddressType: discovery.AddressTypeIPv4,
+							Ports: []discovery.EndpointPort{
+								{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+							},
+							Endpoints: []discovery.Endpoint{
+								{Addresses: []string{"10.0.0.1"}},
+							},
+						},
+						{
+							AddressType: discovery.AddressTypeIPv6,
+							Ports: []discovery.EndpointPort{
+								{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+							},
+							Endpoints: []discovery.Endpoint{
+								{Addresses: []string{"2600::1"}},
+							},
+						},
+					},
+				},
+			},
+			want: []EndpointsData{
+				{
+					Ports: []discovery.EndpointPort{
+						{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+					},
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"10.0.0.1"}},
+					},
+				},
+			},
+		},
+		{
+			name: "empty address type preserves legacy unfiltered behavior",
+			args: args{
+				addressType: "",
+				epsList: &discovery.EndpointSliceList{
+					Items: []discovery.EndpointSlice{
+						{
+							AddressType: discovery.AddressTypeIPv4,
+							Ports: []discovery.EndpointPort{
+								{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+							},
+							Endpoints: []discovery.Endpoint{
+								{Addresses: []string{"10.0.0.1"}},
+							},
+						},
+						{
+							AddressType: discovery.AddressTypeIPv6,
+							Ports: []discovery.EndpointPort{
+								{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+							},
+							Endpoints: []discovery.Endpoint{
+								{Addresses: []string{"2600::1"}},
+							},
+						},
+					},
+				},
+			},
+			want: []EndpointsData{
+				{
+					Ports: []discovery.EndpointPort{
+						{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+					},
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"10.0.0.1"}},
+					},
+				},
+				{
+					Ports: []discovery.EndpointPort{
+						{Name: awssdk.String("http"), Port: awssdk.Int32(80)},
+					},
+					Endpoints: []discovery.Endpoint{
+						{Addresses: []string{"2600::1"}},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildEndpointsDataFromEndpointSliceList(tt.args.epsList)
+			got := buildEndpointsDataFromEndpointSliceList(tt.args.epsList, tt.args.addressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}

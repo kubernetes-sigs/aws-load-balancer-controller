@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -172,7 +173,8 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
-	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port)
+	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port,
+		endpointSliceAddressType(tgb))
 
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
@@ -945,4 +947,13 @@ func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod
 	m.nodeAZCacheMutex.Unlock()
 
 	return &az, nil
+}
+
+// endpointSliceAddressType returns the EndpointSlice AddressType matching the TGB's IP family,
+// defaulting to IPv4 when the TGB's ipAddressType is unset.
+func endpointSliceAddressType(tgb *elbv2api.TargetGroupBinding) discovery.AddressType {
+	if tgb.Spec.IPAddressType != nil && *tgb.Spec.IPAddressType == elbv2api.TargetGroupIPAddressTypeIPv6 {
+		return discovery.AddressTypeIPv6
+	}
+	return discovery.AddressTypeIPv4
 }

@@ -22,7 +22,9 @@ var ErrNotFound = errors.New("backend not found")
 type EndpointResolver interface {
 	// ResolvePodEndpoints will resolve endpoints backed by pods directly,
 	// returns resolved podEndpoints.
-	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) ([]PodEndpoint, error)
+	// addressType filters EndpointSlices by AddressType. Pass empty to disable filtering.
+	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
+		addressType discovery.AddressType) ([]PodEndpoint, error)
 
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
 	ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
@@ -54,12 +56,12 @@ type defaultEndpointResolver struct {
 	logger               logr.Logger
 }
 
-func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) ([]PodEndpoint, error) {
+func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, addressType discovery.AddressType) ([]PodEndpoint, error) {
 	_, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
 	if err != nil {
 		return nil, err
 	}
-	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey)
+	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey, addressType)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +109,7 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 	return endpoints, nil
 }
 
-func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Context, svcKey types.NamespacedName) ([]EndpointsData, error) {
+func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Context, svcKey types.NamespacedName, addressType discovery.AddressType) ([]EndpointsData, error) {
 	var endpointsDataList []EndpointsData
 	if r.endpointSliceEnabled {
 		epSliceList := &discovery.EndpointSliceList{}
@@ -116,7 +118,7 @@ func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Contex
 			client.MatchingLabels{discovery.LabelServiceName: svcKey.Name}); err != nil {
 			return nil, err
 		}
-		endpointsDataList = buildEndpointsDataFromEndpointSliceList(epSliceList)
+		endpointsDataList = buildEndpointsDataFromEndpointSliceList(epSliceList, addressType)
 	} else {
 		eps := &corev1.Endpoints{}
 		if err := r.k8sClient.Get(ctx, svcKey, eps); err != nil {
@@ -262,9 +264,13 @@ func buildEndpointsDataFromEndpoints(eps *corev1.Endpoints) []EndpointsData {
 	return endpointsDataList
 }
 
-func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceList) []EndpointsData {
+func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceList, addressType discovery.AddressType) []EndpointsData {
 	var endpointsDataList []EndpointsData
 	for _, epSlice := range epsList.Items {
+		// Empty addressType disables filtering; otherwise only include slices of the requested IP family.
+		if addressType != "" && epSlice.AddressType != addressType {
+			continue
+		}
 		endpointsDataList = append(endpointsDataList, EndpointsData{
 			Ports:     epSlice.Ports,
 			Endpoints: epSlice.Endpoints,
