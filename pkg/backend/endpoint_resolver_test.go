@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -2450,8 +2449,8 @@ func Test_buildEndpointsDataFromEndpoints(t *testing.T) {
 
 func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 	type args struct {
-		epsList             *discovery.EndpointSliceList
-		targetIPAddressType elbv2api.TargetGroupIPAddressType
+		epsList     *discovery.EndpointSliceList
+		addressType discovery.AddressType
 	}
 	tests := []struct {
 		name string
@@ -2559,7 +2558,7 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 		{
 			name: "ipv6 target group filters out IPv4 slices",
 			args: args{
-				targetIPAddressType: elbv2api.TargetGroupIPAddressTypeIPv6,
+				addressType: discovery.AddressTypeIPv6,
 				epsList: &discovery.EndpointSliceList{
 					Items: []discovery.EndpointSlice{
 						{
@@ -2597,7 +2596,7 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 		{
 			name: "ipv4 target group filters out IPv6 slices",
 			args: args{
-				targetIPAddressType: elbv2api.TargetGroupIPAddressTypeIPv4,
+				addressType: discovery.AddressTypeIPv4,
 				epsList: &discovery.EndpointSliceList{
 					Items: []discovery.EndpointSlice{
 						{
@@ -2633,9 +2632,9 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 			},
 		},
 		{
-			name: "empty target ip address type preserves legacy unfiltered behavior",
+			name: "empty address type preserves legacy unfiltered behavior",
 			args: args{
-				targetIPAddressType: "",
+				addressType: "",
 				epsList: &discovery.EndpointSliceList{
 					Items: []discovery.EndpointSlice{
 						{
@@ -2681,7 +2680,7 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildEndpointsDataFromEndpointSliceList(tt.args.epsList, tt.args.targetIPAddressType)
+			got := buildEndpointsDataFromEndpointSliceList(tt.args.epsList, tt.args.addressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}
