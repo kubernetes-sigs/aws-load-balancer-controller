@@ -67,10 +67,19 @@ func (t *defaultModelBuildTask) buildCertificateSpec(ctx context.Context, ing *C
 		certType = acmtypes.CertificateTypeAmazonIssued
 	}
 
+	// DomainName feeds the resourceID tag, which rejects '*'; prefer a non-wildcard host.
+	domainName := hosts[0]
+	for _, h := range hosts {
+		if !strings.HasPrefix(h, "*.") {
+			domainName = h
+			break
+		}
+	}
+
 	return &acmModel.CertificateSpec{
 		Type:                    certType,
 		CertificateAuthorityARN: caArn,
-		DomainName:              hosts[0],
+		DomainName:              domainName,
 		SubjectAlternativeNames: hosts,
 		ValidationMethod:        acmtypes.ValidationMethodDns, // currently we only support DNS based validation for AMAZON_ISSUED certificates
 		Tags:                    tags,

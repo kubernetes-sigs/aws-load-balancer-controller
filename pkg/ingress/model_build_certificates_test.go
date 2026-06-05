@@ -108,6 +108,35 @@ func Test_buildACMCertificates(t *testing.T) {
 			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com", "otherexample.com", "yetanotherexample.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
 		},
 		{
+			name: "Build certificate prefers a non-wildcard DomainName",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-wild",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":    `[{"HTTP": 80}, {"HTTPS": 443}]`,
+										"alb.ingress.kubernetes.io/create-acm-cert": `true`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "*.app.example.com"},
+										{Host: "app.example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "app.example.com", SubjectAlternativeNames: []string{"*.app.example.com", "app.example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+		},
+		{
 			name: "Build certificate for certificate-arn pinned ingress",
 			fields: fields{
 				ingGroup: Group{
