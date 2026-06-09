@@ -94,7 +94,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating LB config and TG config", func() {
-				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(tf, lbcSpec)
 				lbc.Namespace = ns.Name
 				err := test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
@@ -304,7 +304,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating LB config and TG config", func() {
-				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(tf, lbcSpec)
 				lbc.Namespace = ns.Name
 				err := test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
@@ -486,7 +486,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 			})
 
 			By("creating LB config and TG config", func() {
-				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(tf, lbcSpec)
 				lbc.Namespace = ns.Name
 				err := test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())
@@ -687,7 +687,7 @@ var _ = Describe("test k8s alb gateway with ListenerSet", func() {
 				err = test_resources.CreateServices(ctx, tf, []*corev1.Service{svc})
 				Expect(err).NotTo(HaveOccurred())
 
-				lbc := test_resources.BuildLoadBalancerConfig(lbcSpec)
+				lbc := test_resources.BuildLoadBalancerConfig(tf, lbcSpec)
 				lbc.Namespace = ns.Name
 				err = test_resources.CreateLoadBalancerConfig(ctx, tf, lbc)
 				Expect(err).NotTo(HaveOccurred())

@@ -278,7 +278,12 @@ func BuildGatewayClassSpec(controllerName string) *gwv1.GatewayClass {
 	return gwc
 }
 
-func BuildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2gw.LoadBalancerConfiguration {
+func BuildLoadBalancerConfig(f *framework.Framework, spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2gw.LoadBalancerConfiguration {
+
+	if f.Options.IPFamily == framework.IPv6 {
+		spec.IpAddressType = new(elbv2gw.LoadBalancerIpAddressTypeDualstack)
+	}
+
 	lbc := &elbv2gw.LoadBalancerConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultLbConfigName,

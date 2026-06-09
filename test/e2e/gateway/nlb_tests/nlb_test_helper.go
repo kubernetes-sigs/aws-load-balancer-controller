@@ -32,11 +32,6 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	svcUDP := test_resources.BuildUDPServiceSpec()
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
 
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
-
 	listeners := []gwv1.Listener{
 		{
 			Name:     "port80",
@@ -79,7 +74,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
 
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcTCP := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svcTCP)
 	tgcUDP := test_resources.BuildTargetGroupConfig(test_resources.UDPDefaultTgConfigName, tgConfSpec, svcUDP)
 	udpr := test_resources.BuildUDPRoute("port8080")
@@ -97,11 +92,6 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 	svcTCP2.Name = svcTCP2.Name + "-2"
 
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
-
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
 
 	listeners := []gwv1.Listener{
 		{
@@ -154,7 +144,7 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
 
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcTCP1 := test_resources.BuildTargetGroupConfig(svcTCP1.Name, tgConfSpec, svcTCP1)
 	tgcTCP2 := test_resources.BuildTargetGroupConfig(svcTCP2.Name, tgConfSpec, svcTCP2)
 
@@ -167,11 +157,6 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 	dpUDP := test_resources.BuildUDPDeploymentSpec()
 	svcUDP := test_resources.BuildUDPServiceSpec()
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
-
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
 
 	listeners := []gwv1.Listener{
 		{
@@ -190,7 +175,7 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
 
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcUDP := test_resources.BuildTargetGroupConfig(test_resources.UDPDefaultTgConfigName, tgConfSpec, svcUDP)
 	udpr := test_resources.BuildUDPRoute("port80udp")
 
@@ -207,11 +192,6 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 	dpUDP.Spec.Template.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"] = "app"
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
 
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
-
 	gw := test_resources.BuildBasicGatewaySpec(gwc, []gwv1.Listener{
 		{
 			Name:     "udp-listener",
@@ -220,7 +200,7 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 		},
 	})
 
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcUDP := test_resources.BuildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
 
 	udpr := test_resources.BuildUDPRoute("udp-listener")
@@ -253,7 +233,7 @@ func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framewor
 		},
 	})
 
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcUDP := test_resources.BuildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
 
 	udpr := test_resources.BuildUDPRoute("udp-listener")
@@ -267,10 +247,6 @@ func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framewor
 // DeployWithDefaultTGC deploys an NLB stack with a gateway-level default TGC referenced by the LBC,
 // plus two services: svc1 inherits defaults, svc2 has a service-level TGC override.
 func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, defaultTGC *elbv2gw.TargetGroupConfiguration, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
 
 	listeners := []gwv1.Listener{
 		{
@@ -304,7 +280,7 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 
 	s.Resources = newNLBResourceStack(
 		[]*appsv1.Deployment{dpTCP},
@@ -319,11 +295,6 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 
 func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests.ALBTestStack, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, hasTLS bool, readinessGateEnabled bool) error {
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
-
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
 
 	listeners := []gwv1.Listener{
 		{
@@ -348,7 +319,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests
 
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
 
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 
 	s.Resources = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
 
@@ -640,11 +611,6 @@ func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.
 	svcTCP := test_resources.BuildServiceSpec(map[string]string{})
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/nlb")
 
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
-
 	listeners := []gwv1.Listener{
 		{
 			Name:     "listener-exists",
@@ -660,7 +626,7 @@ func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.
 
 	tcprs := []*gwalpha2.TCPRoute{test_resources.BuildTCPRouteWithMismatchedParentRefs()}
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcTCP := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svcTCP)
 
 	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))

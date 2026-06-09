@@ -33,11 +33,6 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *test_reso
 		httprs = append(httprs, test_resources.BuildOtherNsRefHttpRoute("other-ns", auxiliaryStack.Ns))
 	}
 
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
-
 	svc := test_resources.BuildServiceSpec(map[string]string{})
 	tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svc)
 	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{test_resources.BuildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
@@ -66,11 +61,6 @@ func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, g
 // DeployHTTPWithDefaultTGC deploys an ALB stack with a gateway-level default TGC referenced by the LBC,
 // plus two services: svc1 inherits defaults, svc2 has a service-level TGC override.
 func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, defaultTGC *elbv2gw.TargetGroupConfiguration, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
-
 	gwListeners := []gwv1.Listener{
 		{
 			Name:     "http80",
@@ -120,7 +110,7 @@ func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framewor
 func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
 	gw := test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	lrc := test_resources.BuildListenerRuleConfig(test_resources.DefaultLRConfigName, lrConfSpec)
 
 	namespaceLabels := test_resources.GetNamespaceLabels(readinessGateEnabled)
