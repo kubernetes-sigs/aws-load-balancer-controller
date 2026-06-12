@@ -59,20 +59,21 @@ func (c *route53Client) GetHostedZoneID(ctx context.Context, domain string) (*st
 
 	recParts := strings.Split(domain, ".")
 
-	// try first if we have an apex record
+	var bestID *string
+	bestLen := -1
 	for _, zone := range zones {
 		zoneParts := strings.Split(strings.TrimRight(*zone.Name, "."), ".")
-		if slices.Equal(recParts, zoneParts) {
-			return zone.Id, nil
+		if len(zoneParts) > len(recParts) {
+			continue
+		}
+		if slices.Equal(recParts[len(recParts)-len(zoneParts):], zoneParts) && len(zoneParts) > bestLen {
+			bestLen = len(zoneParts)
+			bestID = zone.Id
 		}
 	}
 
-	// otherwise trim the leftmost part of the domain
-	for _, zone := range zones {
-		zoneParts := strings.Split(strings.TrimRight(*zone.Name, "."), ".")
-		if slices.Equal(recParts[1:], zoneParts) {
-			return zone.Id, nil
-		}
+	if bestID != nil {
+		return bestID, nil
 	}
 
 	return nil, fmt.Errorf("no hosted zone found for validation records")
