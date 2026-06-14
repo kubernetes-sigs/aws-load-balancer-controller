@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -127,8 +128,9 @@ func (f *defaultFeatureGates) Disable(feature Feature) {
 func (f *defaultFeatureGates) String() string {
 	var featureSettings []string
 	for feature, enabled := range f.featureState {
-		featureSettings = append(featureSettings, fmt.Sprintf("%v=%v", feature, enabled))
+		featureSettings = append(featureSettings, fmt.Sprintf("%v=%v", feature, enabled.Enabled))
 	}
+	sort.Strings(featureSettings)
 	return strings.Join(featureSettings, ",")
 }
 
