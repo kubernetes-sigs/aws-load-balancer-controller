@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	"strings"
 	"time"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/onsi/ginkgo/v2"
@@ -143,8 +144,9 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				}
 
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:   "network",
-					Scheme: "internet-facing",
+					Type:              "network",
+					Scheme:            "internet-facing",
+					NumSecurityGroups: 2,
 					Listeners: map[string]string{
 						"80": "TCP",
 					},

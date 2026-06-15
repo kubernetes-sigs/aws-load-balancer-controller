@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -81,10 +82,11 @@ var _ = Describe("test k8s service using instance target reconciled by the aws l
 				}
 
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:         "network",
-					Scheme:       "internet-facing",
-					Listeners:    stack.resourceStack.getListenersPortMap(),
-					TargetGroups: expectedTargetGroups,
+					Type:              "network",
+					Scheme:            "internet-facing",
+					NumSecurityGroups: 2, // One shared backend security group, one managed security group
+					Listeners:         stack.resourceStack.getListenersPortMap(),
+					TargetGroups:      expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
