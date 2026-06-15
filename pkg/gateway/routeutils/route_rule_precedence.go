@@ -183,7 +183,11 @@ func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) i
 			return precedence
 		}
 	}
-	// can not complete tie breaking at hostname level
+	if len(hostnameListOne) < len(hostnameListTwo) {
+		return -1
+	} else if len(hostnameListOne) > len(hostnameListTwo) {
+		return 1
+	}
 	return 0
 }
 
