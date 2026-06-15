@@ -490,9 +490,9 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				httpRouteThreeDotsHost, // a.b.c.com (3 dots)
 			},
 			output: []RulePrecedence{
-				makeRulePrecedenceForRouteDescription(httpRouteNoHost, nil),        // no hostname
 				makeRulePrecedenceForRouteDescription(httpRouteThreeDotsHost, nil), // a.b.c.com (3 dots)
 				makeRulePrecedenceForRouteDescription(httpRouteOneDotHost, nil),    // zzz.com (1 dot)
+				makeRulePrecedenceForRouteDescription(httpRouteNoHost, nil),        // no hostname
 			},
 		},
 		{
@@ -503,9 +503,9 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				httpRouteOneDotHost,    // zzz.com (1 dot)
 			},
 			output: []RulePrecedence{
-				makeRulePrecedenceForRouteDescription(httpRouteNoHost, nil),        // no hostname
 				makeRulePrecedenceForRouteDescription(httpRouteThreeDotsHost, nil), // a.b.c.com (3 dots)
 				makeRulePrecedenceForRouteDescription(httpRouteOneDotHost, nil),    // zzz.com (1 dot)
+				makeRulePrecedenceForRouteDescription(httpRouteNoHost, nil),        // no hostname
 			},
 		},
 		{

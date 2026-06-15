@@ -183,11 +183,7 @@ func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) i
 			return precedence
 		}
 	}
-	if len(hostnameListOne) < len(hostnameListTwo) {
-		return -1
-	} else if len(hostnameListOne) > len(hostnameListTwo) {
-		return 1
-	}
+	// can not complete tie breaking at hostname level
 	return 0
 }
 
@@ -216,6 +212,9 @@ func compareHttpRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) b
 	// compare query param count
 	if ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount != ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount {
 		return ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount > ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount
+	}
+	if len(ruleOne.CommonRulePrecedence.Hostnames) != len(ruleTwo.CommonRulePrecedence.Hostnames) {
+		return len(ruleOne.CommonRulePrecedence.Hostnames) > len(ruleTwo.CommonRulePrecedence.Hostnames)
 	}
 	return compareCommonTieBreakers(ruleOne, ruleTwo)
 }
