@@ -590,6 +590,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 						TargetType: &instanceTargetType,
 					},
 				}
+
 				By("deploying stack", func() {
 					err := stack.DeployTCP_UDP(ctx, tf, lbcSpec, tgSpec, false)
 					Expect(err).NotTo(HaveOccurred())

@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/alb_tests"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -708,4 +709,19 @@ func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStac
 			},
 		},
 	})
+}
+
+func configureIPv6SourceNAT(ctx context.Context, tf *framework.Framework, lbcSpec *elbv2gw.LoadBalancerConfigurationSpec) {
+	// To support UDP over IPv6, we must set the source ipv6 value.
+	// For simplicity, we just let the ELB control plane to assign it.
+	if tf.Options.IPFamily == framework.IPv6 {
+		// We need the # of zones, as we must configure source nat prefix for each lb zone.
+		zones, err := utils.GetClusterZones(ctx, tf.K8sClient)
+		Expect(err).NotTo(HaveOccurred())
+		subnetConfigs := make([]elbv2gw.SubnetConfiguration, len(zones))
+		for i := range subnetConfigs {
+			subnetConfigs[i].SourceNatIPv6Prefix = new("auto_assigned")
+		}
+		lbcSpec.LoadBalancerSubnets = &subnetConfigs
+	}
 }
