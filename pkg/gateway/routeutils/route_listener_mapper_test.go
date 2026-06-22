@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -41,7 +40,7 @@ func mockAttachmentKey(parentRef gwv1.ParentReference, listener gwv1.Listener, r
 	return fmt.Sprintf("%s-%s-%s-%s-%d-%s-%s-%s", kind, parentRef.Name, parentRefNamespace, listener.Name, listener.Port, nsn.Name, nsn.Namespace, route.GetRouteKind())
 }
 
-func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(_ context.Context, _ string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference, _ map[int32]sets.Set[gwv1.Hostname], _ map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
+func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(_ context.Context, _ string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference) ([]gwv1.Hostname, *RouteData, error) {
 	key := mockAttachmentKey(matchedParentRef, listener, route)
 	if result, ok := m.results[key]; ok {
 		return result.compatibleHostnames, result.failedRouteData, result.err
