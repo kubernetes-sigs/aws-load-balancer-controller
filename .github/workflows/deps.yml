@@ -41,8 +41,13 @@ jobs:
           show-progress: false
       - name: Setup Go Version
         run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
-      - id: govulncheck
-        uses: golang/govulncheck-action@31f7c5463448f83528bd771c2d978d940080c9fd
+      - name: Setup Go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5
         with:
-          go-version-input: ${{ env.GO_VERSION }}
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run govulncheck
+        # Pin to v1.3.0 due to v1.4.0 panic with Go 1.26+
+        # See: https://github.com/golang/go/issues/80059
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+          govulncheck ./...
