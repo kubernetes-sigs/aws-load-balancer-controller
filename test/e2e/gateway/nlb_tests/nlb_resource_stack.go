@@ -33,6 +33,12 @@ type NLBResourceStack struct {
 }
 
 func (s *NLBResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
+	for _, l := range s.CommonStack.Gw.Spec.Listeners {
+		if l.Protocol == gwv1.UDPProtocolType {
+			configureIPv6SourceNAT(ctx, f, &s.CommonStack.Lbc.Spec)
+			break
+		}
+	}
 	return s.CommonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
 
 		for _, v := range s.Tcprs {
