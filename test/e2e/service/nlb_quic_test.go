@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
@@ -27,6 +28,9 @@ var _ = Describe("NLB QUIC support", func() {
 	)
 
 	BeforeEach(func() {
+		if tf.Options.IPFamily == framework.IPv6 {
+			Skip("QUIC does not support IPv6")
+		}
 		ctx = context.Background()
 		numReplicas = 2
 		stack = NLBIPTestStack{}
@@ -72,6 +76,9 @@ var _ = Describe("NLB QUIC support", func() {
 	})
 
 	AfterEach(func() {
+		if tf.Options.IPFamily == framework.IPv6 {
+			return
+		}
 		err := stack.Cleanup(ctx, tf)
 		Expect(err).NotTo(HaveOccurred())
 	})
