@@ -493,11 +493,77 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 				},
 				{
 					IPProtocol: "icmp",
-					FromPort:   awssdk.Int32(2),
-					ToPort:     awssdk.Int32(3),
+					FromPort:   awssdk.Int32(3),
+					ToPort:     awssdk.Int32(4),
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "dualstack - udp - with source range - icmp enabled",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+						"2001:db8::/32",
+					},
+					EnableICMP: awssdk.Bool(true),
+				},
+			},
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "udp",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmp",
+					FromPort:   awssdk.Int32(3),
+					ToPort:     awssdk.Int32(4),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmpv6",
+					FromPort:   awssdk.Int32(2),
+					ToPort:     awssdk.Int32(0),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
 						},
 					},
 				},
