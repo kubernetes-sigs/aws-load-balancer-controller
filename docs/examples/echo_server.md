@@ -338,7 +338,7 @@ follow below steps if you want to use kube2iam to provide the AWS credentials
     The new role will have a similar arn:
 
     ```
-    arn:aws:iam:::XXXXXXXXXXXX:role/k8s-lb-controller
+    arn:aws:iam::XXXXXXXXXXXX:role/k8s-lb-controller
     ```
 
 1.  update the alb-load-balancer-controller deployment
@@ -360,5 +360,5 @@ follow below steps if you want to use kube2iam to provide the AWS credentials
     template:
       metadata:
         annotations:
-          iam.amazonaws.com/role: arn:aws:iam:::XXXXXXXXXXXX:role/k8s-lb-controller
+          iam.amazonaws.com/role: arn:aws:iam::XXXXXXXXXXXX:role/k8s-lb-controller
     ```

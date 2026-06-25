@@ -19,7 +19,7 @@ Please ensure that you have [properly installed Go][install-go].
 [install-go]: https://golang.org/doc/install
 
 !!! note "Go version"
-    We recommend to use a Go version of `1.14` or above for development.
+    Use the Go version declared by the repository (see `.go-version` / `go.mod`).
 
 ## Fork upstream repository
 
@@ -34,7 +34,7 @@ Make sure in your `$GOPATH/src` that you have directories for the
 `sigs.k8s.io` organization:
 
 ```bash
-mkdir -p $GOPATH/src/github.com/sigs.k8s.io
+mkdir -p $GOPATH/src/sigs.k8s.io
 ```
 
 
@@ -50,10 +50,10 @@ You can use this script to do this for you:
 ```bash
 GITHUB_ID="your GH username"
 
-cd $GOPATH/src/github.com/sigs.k8s.io
-git clone git@github.com:$GITHUB_ID/aws-load-balancer-controller
+cd $GOPATH/src/sigs.k8s.io
+git clone git@github.com:$GITHUB_ID/aws-load-balancer-controller.git
 cd aws-load-balancer-controller/
-git remote add upstream git@github.com:kubernetes-sigs/aws-load-balancer-controller
+git remote add upstream git@github.com:kubernetes-sigs/aws-load-balancer-controller.git
 git fetch --all
 
 ```
