@@ -102,7 +102,7 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueImpactedObject(
 			return
 		}
 
-		impactedRoutes := getImpactedTCPRoutes(tcpRouteList, tgconfig)
+		impactedRoutes := GetImpactedTCPRoutes(tcpRouteList, tgconfig)
 		for i := range impactedRoutes {
 			h.tcpRouteEventChan <- event.TypedGenericEvent[*gwv1.TCPRoute]{
 				Object: impactedRoutes[i],
@@ -140,7 +140,8 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueGatewaysReferen
 	}
 }
 
-func getImpactedTCPRoutes(list *gwv1.TCPRouteList, tgconfig *elbv2gw.TargetGroupConfiguration) []*gwv1.TCPRoute {
+// GetImpactedTCPRoutes returns routes referencing the target Gateway once each.
+func GetImpactedTCPRoutes(list *gwv1.TCPRouteList, tgconfig *elbv2gw.TargetGroupConfiguration) []*gwv1.TCPRoute {
 	seen := sets.Set[types.NamespacedName]{}
 	res := make([]*gwv1.TCPRoute, 0)
 
