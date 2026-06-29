@@ -422,6 +422,8 @@ func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultA
 
 // buildSDKCertificates builds the certificate list for listener.
 // returns the default certificates and extra certificates.
+// All certs are included in the extra list to ensure the default cert remains
+// attached as an additional cert for auto-discovery (e.g., ECDSA/RSA selection).
 func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Certificate, []elbv2types.Certificate) {
 	if len(modelCerts) == 0 {
 		return nil, nil
@@ -430,7 +432,7 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Cer
 	var defaultSDKCerts []elbv2types.Certificate
 	var extraSDKCerts []elbv2types.Certificate
 	defaultSDKCerts = append(defaultSDKCerts, buildSDKCertificate(modelCerts[0]))
-	for _, cert := range modelCerts[1:] {
+	for _, cert := range modelCerts {
 		extraSDKCerts = append(extraSDKCerts, buildSDKCertificate(cert))
 	}
 	return defaultSDKCerts, extraSDKCerts
