@@ -1955,6 +1955,139 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			})
 		})
 	})
+	Context("with ALB ip target configuration with an HTTPRoute and a GRPCRoute sharing a hostname", func() {
+		It("should accept both routes and serve HTTP and gRPC on the same ALB", func() {
+			if len(tf.Options.CertificateARNs) == 0 {
+				Skip("Skipping tests, certificates not specified")
+			}
+
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+			lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
+				{
+					ProtocolPort:       "HTTPS:443",
+					DefaultCertificate: &cert,
+				},
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
+			// An HTTPS listener allows both HTTPRoute and GRPCRoute by default.
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "test-listener",
+					Port:     443,
+					Protocol: gwv1.HTTPSProtocolType,
+				},
+			}
+
+			exactPath := gwv1.PathMatchExact
+			httpRouteRules := []gwv1.HTTPRouteRule{
+				{
+					Matches: []gwv1.HTTPRouteMatch{
+						{Path: &gwv1.HTTPPathMatch{Type: &exactPath, Value: awssdk.String("/")}},
+					},
+					BackendRefs: test_resources.DefaultHttpRouteRuleBackendRefs,
+				},
+			}
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, httpRouteRules, &gwListeners[0].Name)
+			grpcr := test_resources.BuildGRPCRoute([]string{test_resources.TestHostname}, []gwv1.GRPCRouteRule{}, &gwListeners[0].Name)
+
+			By("deploying stack", func() {
+				err := stack.DeployHTTPAndGRPC(ctx, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, []*gwv1.GRPCRoute{grpcr}, lbcSpec, tgSpec, lrcSpec, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				time.Sleep(2 * time.Minute)
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("confirming both the HTTPRoute and GRPCRoute are accepted", func() {
+				validateOverlappingRoutesStatus(tf, stack)
+			})
+
+			By("verifying AWS loadbalancer resources", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:      "HTTP",
+						Port:          80,
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas),
+						TargetType:    "ip",
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC,
+					},
+					{
+						Protocol:      "HTTP",
+						Port:          50051,
+						NumTargets:    int(*stack.Resources.CommonStack.Dps[1].Spec.Replicas),
+						TargetType:    "ip",
+						TargetGroupHC: test_resources.DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
+					},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.Resources.GetListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending https request to the HTTP backend on the shared hostname", func() {
+				url := fmt.Sprintf("https://%v/", dnsName)
+				urlOptions := http.URLOptions{
+					InsecureSkipVerify: true,
+					HostHeader:         test_resources.TestHostname,
+				}
+				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending grpc request to the gRPC backend on the shared hostname", func() {
+				// The gRPC route matches on the shared hostname, so the client's :authority must match it.
+				// TestHostname is a wildcard that never matches the real ALB DNS name, so override :authority
+				// with a concrete host that matches the wildcard (mirrors the HTTP check's HostHeader=TestHostname).
+				grpcAuthority := strings.Replace(test_resources.TestHostname, "*", "grpc", 1)
+				conn, err := grpc.NewClient(
+					fmt.Sprintf("%s:443", dnsName),
+					grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})),
+					grpc.WithAuthority(grpcAuthority),
+				)
+				Expect(err).NotTo(HaveOccurred())
+				c := echo2.NewEchoServiceClient(conn)
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				response, err := c.Echo(mdCtx, &echo2.EchoRequest{Message: "Hello from overlap E2E test"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(response.Message).To(Equal("Hello from overlap E2E test"))
+			})
+		})
+	})
+
 	Context("with ALB ip target configuration with HTTPRoute path match types (Exact, Prefix, RegularExpression)", func() {
 		BeforeEach(func() {})
 		It("should create listener rules with correct path-pattern condition types on the ALB", func() {
