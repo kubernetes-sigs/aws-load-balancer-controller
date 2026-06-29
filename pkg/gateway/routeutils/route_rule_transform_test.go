@@ -4,6 +4,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"regexp"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
@@ -485,6 +486,120 @@ func Test_generateHostHeaderRewriteTransform(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := generateHostHeaderRewriteTransform(tc.hostname)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_BuildListenerRuleConfigTransforms(t *testing.T) {
+	testCases := []struct {
+		name     string
+		rule     RulePrecedence
+		expected []elbv2.Transform
+	}{
+		{
+			name: "nil listener rule config",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: convertHTTPRouteRule(&gwv1.HTTPRouteRule{}, nil, nil),
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "empty transforms in listener rule config",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: convertHTTPRouteRule(&gwv1.HTTPRouteRule{}, nil, &elbv2gw.ListenerRuleConfiguration{
+						Spec: elbv2gw.ListenerRuleConfigurationSpec{
+							Transforms: []elbv2gw.ListenerRuleTransform{},
+						},
+					}),
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "host header rewrite transform from CRD",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: convertHTTPRouteRule(&gwv1.HTTPRouteRule{}, nil, &elbv2gw.ListenerRuleConfiguration{
+						Spec: elbv2gw.ListenerRuleConfigurationSpec{
+							Transforms: []elbv2gw.ListenerRuleTransform{
+								{
+									Type: elbv2gw.ListenerRuleTransformTypeHostHeaderRewrite,
+									HostHeaderRewriteConfig: &elbv2gw.ListenerRuleHostHeaderRewriteConfig{
+										Rewrites: []elbv2gw.ListenerRuleRewriteConfig{
+											{
+												Regex:   ".*",
+												Replace: "tenant.example.com",
+											},
+										},
+									},
+								},
+							},
+						},
+					}),
+				},
+			},
+			expected: []elbv2.Transform{
+				{
+					Type: elbv2.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2.RewriteConfigObject{
+						Rewrites: []elbv2.RewriteConfig{
+							{
+								Regex:   ".*",
+								Replace: "tenant.example.com",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "host header rewrite with source header from CRD",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: convertHTTPRouteRule(&gwv1.HTTPRouteRule{}, nil, &elbv2gw.ListenerRuleConfiguration{
+						Spec: elbv2gw.ListenerRuleConfigurationSpec{
+							Transforms: []elbv2gw.ListenerRuleTransform{
+								{
+									Type: elbv2gw.ListenerRuleTransformTypeHostHeaderRewrite,
+									HostHeaderRewriteConfig: &elbv2gw.ListenerRuleHostHeaderRewriteConfig{
+										Rewrites: []elbv2gw.ListenerRuleRewriteConfig{
+											{
+												Regex:   ".*",
+												Replace: "$0",
+											},
+										},
+										SourceHeader: awssdk.String("X-School-Domain"),
+									},
+								},
+							},
+						},
+					}),
+				},
+			},
+			expected: []elbv2.Transform{
+				{
+					Type: elbv2.TransformTypeHostHeaderRewrite,
+					HostHeaderRewriteConfig: &elbv2.RewriteConfigObject{
+						Rewrites: []elbv2.RewriteConfig{
+							{
+								Regex:   ".*",
+								Replace: "$0",
+							},
+						},
+						SourceHeader: awssdk.String("X-School-Domain"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := BuildListenerRuleConfigTransforms(tc.rule)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
