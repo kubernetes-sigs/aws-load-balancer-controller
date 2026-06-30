@@ -1,0 +1,6 @@
+{{- if .Values.crds.gatewayAPI.standard.enabled }}
+{{ .Files.Get "files/standard-gatewayapi-crds.yaml" }}
+{{- end }}
+{{- if .Values.crds.gatewayAPI.experimental.enabled }}
+{{ .Files.Get "files/experimental-gatewayapi-crds.yaml" }}
+{{- end }}
