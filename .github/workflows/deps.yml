@@ -45,9 +45,35 @@ jobs:
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5
         with:
           go-version: ${{ env.GO_VERSION }}
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Run govulncheck
-        # Pin to v1.3.0 due to v1.4.0 panic with Go 1.26+
-        # See: https://github.com/golang/go/issues/80059
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
-          govulncheck ./...
+          set -euo pipefail
+          # govulncheck has no native suppression, so we filter its JSON output: fail on
+          # any "called" vuln not in IGNORE.
+          #
+          # IGNORE: containerd CRI checkpoint/restore advisories. Fix exists only in the
+          # containerd v2 module; we get v1.7.x transitively via the Helm SDK (e2e tests
+          # only, not linked into the controller binary), so it shows "Fixed in: N/A" and
+          # can't be bumped until Helm moves to containerd/v2. Remove once that happens.
+          #   GO-2026-5338 https://github.com/containerd/containerd/security/advisories/GHSA-cvxm-645q-p574
+          #   GO-2026-5064 https://github.com/containerd/containerd/security/advisories/GHSA-33vj-92qq-66hc
+          #   GO-2026-5622 https://github.com/containerd/containerd/security/advisories/GHSA-rgh6-rfwx-v388
+          IGNORE="GO-2026-5338 GO-2026-5064 GO-2026-5622"
+          govulncheck -format json ./... > govulncheck.json
+          # "called" vulns are findings whose leading trace frame resolves to a function.
+          called="$(jq -r 'select(.finding != null) | .finding | select(.trace[0].function != null) | .osv' govulncheck.json | sort -u)"
+          unexpected=""
+          for id in ${called}; do
+            case " ${IGNORE} " in
+              *" ${id} "*) ;;
+              *) unexpected="${unexpected} ${id}" ;;
+            esac
+          done
+          if [ -n "${unexpected}" ]; then
+            echo "::error::govulncheck found vulnerabilities not in the ignore list:${unexpected}"
+            govulncheck ./... || true
+            exit 1
+          fi
+          echo "govulncheck OK. Ignored (no fix available) called vulns: ${called:-none}"

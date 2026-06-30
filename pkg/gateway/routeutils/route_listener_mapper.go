@@ -22,8 +22,6 @@ type listenerRouteMapResult struct {
 // attachmentState groups the mutable accumulator maps threaded through the attachment methods.
 type attachmentState struct {
 	compatibleHostnamesByPort map[int32]map[string]sets.Set[gwv1.Hostname]
-	hostnamesFromHttpRoutes   map[int32]sets.Set[gwv1.Hostname]
-	hostnamesFromGrpcRoutes   map[int32]sets.Set[gwv1.Hostname]
 	matchedParentRefs         map[string][]gwv1.ParentReference
 }
 
@@ -114,8 +112,6 @@ func (ltr *listenerToRouteMapperImpl) mapListenersAndRoutes(ctx context.Context,
 
 	state := &attachmentState{
 		compatibleHostnamesByPort: make(map[int32]map[string]sets.Set[gwv1.Hostname]),
-		hostnamesFromHttpRoutes:   make(map[int32]sets.Set[gwv1.Hostname]),
-		hostnamesFromGrpcRoutes:   make(map[int32]sets.Set[gwv1.Hostname]),
 		matchedParentRefs:         make(map[string][]gwv1.ParentReference),
 	}
 
@@ -278,7 +274,7 @@ func (ltr *listenerToRouteMapperImpl) attemptListenerRouteAttachment(ctx context
 }
 
 func (ltr *listenerToRouteMapperImpl) attemptRouteSectionAttachment(ctx context.Context, parentNamespace string, targetListener gwv1.Listener, refTuple routeParentRefTuple, acceptedRouteMap map[gwv1.SectionName][]routeParentRefTuple, state *attachmentState) (*RouteData, error) {
-	compatibleHostnames, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, parentNamespace, targetListener, refTuple.route, refTuple.parentRef, state.hostnamesFromHttpRoutes, state.hostnamesFromGrpcRoutes)
+	compatibleHostnames, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, parentNamespace, targetListener, refTuple.route, refTuple.parentRef)
 	if err != nil {
 		return nil, err
 	}
