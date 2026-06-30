@@ -5,12 +5,16 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/shield"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )
 
@@ -716,4 +720,158 @@ func Test_isLoadBalancerInProvisioningState(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_loadBalancerSynthesizer_Synthesize_cleansUpManagedShieldProtectionForDeletedALB(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taggingManager := NewMockTaggingManager(ctrl)
+	shieldProtectionManager := shield.NewMockProtectionManager(ctrl)
+
+	lbARN := "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test/123"
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "ns", Name: "ing"})
+	trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", "cluster")
+	sdkLB := LoadBalancerWithTags{
+		LoadBalancer: &elbv2types.LoadBalancer{
+			LoadBalancerArn: awssdk.String(lbARN),
+			Type:            elbv2types.LoadBalancerTypeEnumApplication,
+		},
+		Tags: map[string]string{
+			trackingProvider.ResourceIDTagKey(): "LoadBalancer",
+		},
+	}
+	taggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).Return([]LoadBalancerWithTags{sdkLB}, nil)
+	shieldProtectionManager.EXPECT().GetProtection(gomock.Any(), lbARN).Return(&shield.ProtectionInfo{
+		Name: shield.ProtectionNameManaged,
+		ID:   "protection-id",
+	}, nil)
+	shieldProtectionManager.EXPECT().DeleteProtection(gomock.Any(), lbARN, "protection-id").Return(nil)
+
+	lbManager := &stubLoadBalancerManager{}
+	s := &loadBalancerSynthesizer{
+		trackingProvider:               trackingProvider,
+		taggingManager:                 taggingManager,
+		lbManager:                      lbManager,
+		logger:                         logr.New(&log.NullLogSink{}),
+		shieldProtectionManager:        shieldProtectionManager,
+		shieldProtectionCleanupEnabled: true,
+		stack:                          stack,
+	}
+
+	err := s.Synthesize(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, []string{lbARN}, lbManager.deletedLbarns)
+}
+
+func Test_loadBalancerSynthesizer_deleteManagedShieldProtection(t *testing.T) {
+	type fields struct {
+		shieldCleanupEnabled bool
+		lbType               elbv2types.LoadBalancerTypeEnum
+		getProtectionInfo    *shield.ProtectionInfo
+		getProtectionErr     error
+		deleteProtectionErr  error
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr string
+	}{
+		{
+			name: "cleanup disabled",
+			fields: fields{
+				shieldCleanupEnabled: false,
+				lbType:               elbv2types.LoadBalancerTypeEnumApplication,
+			},
+		},
+		{
+			name: "non ALB",
+			fields: fields{
+				shieldCleanupEnabled: true,
+				lbType:               elbv2types.LoadBalancerTypeEnumNetwork,
+			},
+		},
+		{
+			name: "unmanaged protection",
+			fields: fields{
+				shieldCleanupEnabled: true,
+				lbType:               elbv2types.LoadBalancerTypeEnumApplication,
+				getProtectionInfo: &shield.ProtectionInfo{
+					Name: "external manager",
+					ID:   "protection-id",
+				},
+			},
+		},
+		{
+			name: "get protection failed",
+			fields: fields{
+				shieldCleanupEnabled: true,
+				lbType:               elbv2types.LoadBalancerTypeEnumApplication,
+				getProtectionErr:     errors.New("boom"),
+			},
+			wantErr: "failed to get shield protection on LoadBalancer: boom",
+		},
+		{
+			name: "delete protection failed",
+			fields: fields{
+				shieldCleanupEnabled: true,
+				lbType:               elbv2types.LoadBalancerTypeEnumApplication,
+				getProtectionInfo: &shield.ProtectionInfo{
+					Name: shield.ProtectionNameManaged,
+					ID:   "protection-id",
+				},
+				deleteProtectionErr: errors.New("boom"),
+			},
+			wantErr: "failed to delete shield protection on LoadBalancer: boom",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			shieldProtectionManager := shield.NewMockProtectionManager(ctrl)
+			lbARN := "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test/123"
+			sdkLB := LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn: awssdk.String(lbARN),
+					Type:            tt.fields.lbType,
+				},
+			}
+			if tt.fields.shieldCleanupEnabled && tt.fields.lbType == elbv2types.LoadBalancerTypeEnumApplication {
+				shieldProtectionManager.EXPECT().GetProtection(gomock.Any(), lbARN).Return(tt.fields.getProtectionInfo, tt.fields.getProtectionErr)
+				if tt.fields.getProtectionErr == nil && tt.fields.getProtectionInfo != nil && shield.IsManagedProtectionName(tt.fields.getProtectionInfo.Name) {
+					shieldProtectionManager.EXPECT().DeleteProtection(gomock.Any(), lbARN, tt.fields.getProtectionInfo.ID).Return(tt.fields.deleteProtectionErr)
+				}
+			}
+
+			s := &loadBalancerSynthesizer{
+				logger:                         logr.New(&log.NullLogSink{}),
+				shieldProtectionManager:        shieldProtectionManager,
+				shieldProtectionCleanupEnabled: tt.fields.shieldCleanupEnabled,
+			}
+			err := s.deleteManagedShieldProtection(context.Background(), sdkLB)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+type stubLoadBalancerManager struct {
+	deletedLbarns []string
+}
+
+func (m *stubLoadBalancerManager) Create(_ context.Context, _ *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, LoadBalancerWithTags, error) {
+	return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, errors.New("unexpected Create call")
+}
+
+func (m *stubLoadBalancerManager) Update(_ context.Context, _ *elbv2model.LoadBalancer, _ LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error) {
+	return elbv2model.LoadBalancerStatus{}, errors.New("unexpected Update call")
+}
+
+func (m *stubLoadBalancerManager) Delete(_ context.Context, sdkLB LoadBalancerWithTags) error {
+	m.deletedLbarns = append(m.deletedLbarns, awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
+	return nil
 }
