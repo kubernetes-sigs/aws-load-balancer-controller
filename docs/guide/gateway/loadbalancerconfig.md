@@ -284,25 +284,6 @@ An optional list of CIDRs that are allowed to access the LB.
 
 **Default** Empty list
 
-
-#### VpcId
-
-`vpcId`
-
-```
-apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  vpcId: vpc-1234
-```
-
-The VPC ID of LoadBalancer
-
-**Default** Autodetect VPC from Cluster VPC
-
 #### LoadBalancerAttributes
 
 `loadBalancerAttributes`

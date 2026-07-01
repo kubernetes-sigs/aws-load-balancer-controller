@@ -472,7 +472,6 @@ _Appears in:_
 | `securityGroups` _string_ | securityGroups an optional list of security group ids or names to apply to the LB |  |  |
 | `securityGroupPrefixes` _string_ | securityGroupPrefixes an optional list of prefixes that are allowed to access the LB. |  |  |
 | `sourceRanges` _string_ | sourceRanges an optional list of CIDRs that are allowed to access the LB. |  |  |
-| `vpcId` _string_ | vpcId is the ID of the VPC for the load balancer. |  |  |
 | `loadBalancerAttributes` _[LoadBalancerAttribute](#loadbalancerattribute) array_ | LoadBalancerAttributes defines the attribute of LB |  |  |
 | `tags` _map[string]string_ | Tags the AWS Tags on all related resources to the gateway. |  |  |
 | `enableICMP` _boolean_ | EnableICMP [Network LoadBalancer]<br />enables the creation of security group rules to the managed security group<br />to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs |  |  |
