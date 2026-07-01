@@ -202,6 +202,9 @@ spec:
         {{- if .Values.maxTargetsPerTargetGroup }}
         - --max-targets-per-target-group={{ .Values.maxTargetsPerTargetGroup }}
         {{- end }}
+        {{- if .Values.certManagement.defaultPCAARN }}
+        - --default-pca-arn={{ .Values.certManagement.defaultPCAARN }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}

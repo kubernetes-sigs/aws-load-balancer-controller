@@ -434,6 +434,11 @@ controllerConfig:
   # ALBTargetControlAgent: false
   # EnableCertificateManagement: false
 
+# see https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/certificate_management/
+certManagement: {}
+  # Default PCA ARN that will be applied to all Ingresses that do not have a PCA ARN set but added the cerate-acm-cert annotation
+  # defaultPCAARN: ""
+
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
 
