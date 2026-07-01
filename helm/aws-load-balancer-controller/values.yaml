@@ -388,7 +388,7 @@ podDisruptionBudget: {}
 # externalManagedTags is the list of tag keys on AWS resources that will be managed externally
 externalManagedTags: []
 
-# enableEndpointSlices enables k8s EndpointSlices for IP targets instead of Endpoints (default false)
+# enableEndpointSlices enables k8s EndpointSlices for IP targets instead of Endpoints (default true)
 enableEndpointSlices:
 
 # enableBackendSecurityGroup enables shared security group for backend traffic (default true)
