@@ -26,6 +26,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+)
+
+const (
+	targetReferenceKindService = "Service"
+	targetReferenceKindGateway = "Gateway"
 )
 
 // NewTargetGroupConfigurationReconciler constructs a reconciler that responds to targetgroup configuration changes
@@ -126,6 +132,26 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
 	}
 
+	targetKind := targetReferenceKindService
+	if tgConf.Spec.TargetReference.Kind != nil {
+		targetKind = *tgConf.Spec.TargetReference.Kind
+	}
+
+	if targetKind == targetReferenceKindGateway {
+		inUseRoutes, err := r.isGatewayTargetTGCInUse(context.Background(), tgConf)
+		if err != nil {
+			return err
+		}
+		if inUseRoutes != "" {
+			return fmt.Errorf("targetgroup configuration [%+v] is still in use by TCPRoutes [%s]", k8s.NamespacedName(tgConf), inUseRoutes)
+		}
+		return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
+	}
+
+	if targetKind != targetReferenceKindService {
+		return fmt.Errorf("targetgroup configuration [%+v] has unsupported targetReference kind %q", k8s.NamespacedName(tgConf), targetKind)
+	}
+
 	svcReference := types.NamespacedName{
 		Namespace: tgConf.Namespace,
 		Name:      tgConf.Spec.TargetReference.Name,
@@ -180,6 +206,40 @@ func (r *targetgroupConfigurationReconciler) isDefaultTGCInUse(ctx context.Conte
 	}
 	if len(inUseLBCs) > 0 {
 		return strings.Join(inUseLBCs, ", "), nil
+	}
+	return "", nil
+}
+
+func (r *targetgroupConfigurationReconciler) isGatewayTargetTGCInUse(ctx context.Context, tgConf *elbv2gw.TargetGroupConfiguration) (string, error) {
+	tcpRouteList := &gwalpha2.TCPRouteList{}
+	if err := r.k8sClient.List(ctx, tcpRouteList); err != nil {
+		return "", err
+	}
+
+	var inUseRoutes []string
+	for i := range tcpRouteList.Items {
+		route := &tcpRouteList.Items[i]
+		for _, rule := range route.Spec.Rules {
+			for _, beRef := range rule.BackendRefs {
+				if beRef.Kind == nil || *beRef.Kind != targetReferenceKindGateway {
+					continue
+				}
+
+				routeTargetNamespace := route.Namespace
+				if beRef.Namespace != nil {
+					routeTargetNamespace = string(*beRef.Namespace)
+				}
+
+				if routeTargetNamespace == tgConf.Namespace && string(beRef.Name) == tgConf.Spec.TargetReference.Name {
+					inUseRoutes = append(inUseRoutes, k8s.NamespacedName(route).String())
+					break
+				}
+			}
+		}
+	}
+
+	if len(inUseRoutes) > 0 {
+		return strings.Join(inUseRoutes, ", "), nil
 	}
 	return "", nil
 }
