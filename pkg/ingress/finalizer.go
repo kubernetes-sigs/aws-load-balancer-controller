@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	networking "k8s.io/api/networking/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 // FinalizerManager manages finalizer for ingresses.

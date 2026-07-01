@@ -3,7 +3,7 @@ package test_resources
 import (
 	"fmt"
 
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 // GenerateOIDCCredentials Helper function to generate random OIDC credentials

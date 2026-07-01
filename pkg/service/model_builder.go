@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	"strconv"
 	"sync"
 
@@ -13,17 +13,17 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 )
 
 const (

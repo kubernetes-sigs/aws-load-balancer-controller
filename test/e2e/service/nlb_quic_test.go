@@ -10,9 +10,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 )
 
 var _ = Describe("NLB QUIC support", func() {

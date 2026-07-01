@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	networking "k8s.io/api/networking/v1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
-	k8s "sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
+	k8s "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

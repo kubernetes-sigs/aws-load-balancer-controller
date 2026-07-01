@@ -2,10 +2,10 @@ package model
 
 import (
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

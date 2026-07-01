@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
 )
 
 func mergeTags(highPriority *map[string]string, lowPriority *map[string]string) *map[string]string {

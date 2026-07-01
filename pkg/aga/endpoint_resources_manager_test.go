@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	fakegwclientset "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 )

@@ -3,13 +3,13 @@ package networking
 import (
 	"context"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 )
 
 // SecurityGroupResolver is responsible for resolving the frontend security groups from the names or IDs

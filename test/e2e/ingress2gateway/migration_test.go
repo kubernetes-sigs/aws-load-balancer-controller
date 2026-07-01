@@ -13,12 +13,12 @@ import (
 	networking "k8s.io/api/networking/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/console"
-	i2gutils "sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/console"
+	i2gutils "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/manifest"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

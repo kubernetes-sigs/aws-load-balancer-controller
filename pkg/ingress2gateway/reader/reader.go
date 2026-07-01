@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
 )
 
 // Read reads InputResources based on the provided MigrateOptions.

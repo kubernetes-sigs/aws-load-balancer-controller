@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 // SortModelPortRanges sorts port ranges by FromPort and then by ToPort

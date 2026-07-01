@@ -8,9 +8,9 @@ import (
 
 	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 )
 
 func (t *defaultModelBuildTask) buildACMCertificates(ctx context.Context, ing *ClassifiedIngress) (*acmModel.Certificate, error) {

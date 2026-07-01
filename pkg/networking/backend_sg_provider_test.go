@@ -8,14 +8,14 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -23,7 +23,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

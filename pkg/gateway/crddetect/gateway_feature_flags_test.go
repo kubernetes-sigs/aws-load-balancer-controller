@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
 )
 
 func TestApplyGatewayFeatureFlags(t *testing.T) {

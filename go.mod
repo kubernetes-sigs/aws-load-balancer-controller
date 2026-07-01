@@ -1,4 +1,4 @@
-module sigs.k8s.io/aws-load-balancer-controller
+module sigs.k8s.io/aws-load-balancer-controller/v3
 
 go 1.26.4
 

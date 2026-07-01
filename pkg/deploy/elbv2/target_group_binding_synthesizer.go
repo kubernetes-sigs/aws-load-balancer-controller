@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

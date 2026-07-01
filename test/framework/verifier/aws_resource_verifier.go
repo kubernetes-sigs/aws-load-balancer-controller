@@ -9,14 +9,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 )
 
 type TargetGroupHC struct {

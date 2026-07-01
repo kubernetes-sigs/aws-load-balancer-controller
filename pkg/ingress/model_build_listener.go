@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 
 	"k8s.io/utils/strings/slices"
 
@@ -17,13 +17,13 @@ import (
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int32, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {

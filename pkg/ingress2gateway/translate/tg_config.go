@@ -5,10 +5,10 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
-	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
+	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 // buildTargetGroupConfig builds a TargetGroupConfiguration for a given service from annotations.

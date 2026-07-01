@@ -4,7 +4,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
 	"k8s.io/apimachinery/pkg/types"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
 )
 
 // ResourceType defines the type of resource that can be referenced by a GlobalAccelerator
