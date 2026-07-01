@@ -151,6 +151,95 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 			},
 		},
 	}
+
+	httpRouteOneDotHost := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{Name: "a-host", Namespace: "ns"},
+			Spec:       gwv1.HTTPRouteSpec{Hostnames: []gwv1.Hostname{"zzz.com"}},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{rule: &gwv1.HTTPRouteRule{
+				Matches: []gwv1.HTTPRouteMatch{{
+					Path: &gwv1.HTTPPathMatch{Value: new("/"), Type: new(gwv1.PathMatchPathPrefix)},
+				}},
+			}},
+		},
+	}
+
+	httpRouteNoHost := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{Name: "b-nohost", Namespace: "ns"},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{rule: &gwv1.HTTPRouteRule{
+				Matches: []gwv1.HTTPRouteMatch{{
+					Path: &gwv1.HTTPPathMatch{Value: new("/"), Type: new(gwv1.PathMatchPathPrefix)},
+				}},
+			}},
+		},
+	}
+
+	httpRouteThreeDotsHost := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{Name: "c-host", Namespace: "ns"},
+			Spec:       gwv1.HTTPRouteSpec{Hostnames: []gwv1.Hostname{"a.b.c.com"}},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{rule: &gwv1.HTTPRouteRule{
+				Matches: []gwv1.HTTPRouteMatch{{
+					Path: &gwv1.HTTPPathMatch{Value: new("/"), Type: new(gwv1.PathMatchPathPrefix)},
+				}},
+			}},
+		},
+	}
+
+	httpRouteNoHostWithPost := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{Name: "b-nohost", Namespace: "ns"},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{rule: &gwv1.HTTPRouteRule{
+				Matches: []gwv1.HTTPRouteMatch{
+					{
+						Method: new(gwv1.HTTPMethodPost),
+						Path:   &gwv1.HTTPPathMatch{Value: new("/"), Type: new(gwv1.PathMatchPathPrefix)},
+					},
+				},
+			}},
+		},
+	}
+
+	makeRulePrecedenceForRouteDescription := func(desc *httpRouteDescription, fn func(*RulePrecedence)) RulePrecedence {
+		rule := RulePrecedence{
+			CommonRulePrecedence: CommonRulePrecedence{
+				RouteNamespacedName: desc.route.Namespace + "/" + desc.route.Name,
+				Hostnames: func() []string {
+					hostnames := make([]string, len(desc.route.Spec.Hostnames))
+					for i := range desc.route.Spec.Hostnames {
+						hostnames[i] = string(desc.route.Spec.Hostnames[i])
+					}
+					return hostnames
+				}(),
+				RouteDescriptor:      desc,
+				Rule:                 desc.rules[0],
+				RuleIndexInRoute:     0,
+				MatchIndexInRule:     0,
+				RouteCreateTimestamp: desc.GetRouteCreateTimestamp(),
+			},
+			HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+				PathType:   2,
+				PathLength: 1,
+			},
+			HTTPMatch: &gwv1.HTTPRouteMatch{
+				Path: &gwv1.HTTPPathMatch{Value: new("/"), Type: new(gwv1.PathMatchPathPrefix)},
+			},
+		}
+		if fn != nil {
+			fn(&rule)
+		}
+		return rule
+	}
+
 	testCases := []struct {
 		name   string
 		input  []RouteDescriptor
@@ -391,6 +480,64 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 						},
 					},
 				},
+			},
+		},
+		{
+			name: "input order independent result for mixed hostname and no-hostname rules - input order A",
+			input: []RouteDescriptor{
+				httpRouteOneDotHost,    // zzz.com (1 dot)
+				httpRouteNoHost,        // no hostname
+				httpRouteThreeDotsHost, // a.b.c.com (3 dots)
+			},
+			output: []RulePrecedence{
+				makeRulePrecedenceForRouteDescription(httpRouteThreeDotsHost, nil), // a.b.c.com (3 dots)
+				makeRulePrecedenceForRouteDescription(httpRouteOneDotHost, nil),    // zzz.com (1 dot)
+				makeRulePrecedenceForRouteDescription(httpRouteNoHost, nil),        // no hostname
+			},
+		},
+		{
+			name: "input order independent result for mixed hostname and no-hostname rules - input order B",
+			input: []RouteDescriptor{
+				httpRouteThreeDotsHost, // a.b.c.com (3 dots)
+				httpRouteNoHost,        // no hostname
+				httpRouteOneDotHost,    // zzz.com (1 dot)
+			},
+			output: []RulePrecedence{
+				makeRulePrecedenceForRouteDescription(httpRouteThreeDotsHost, nil), // a.b.c.com (3 dots)
+				makeRulePrecedenceForRouteDescription(httpRouteOneDotHost, nil),    // zzz.com (1 dot)
+				makeRulePrecedenceForRouteDescription(httpRouteNoHost, nil),        // no hostname
+			},
+		},
+		{
+			name: "input order independent result for mixed hostname and no-hostname rules, with method - input order A",
+			input: []RouteDescriptor{
+				httpRouteOneDotHost,     // zzz.com (1 dot)
+				httpRouteNoHostWithPost, // no hostname with POST
+				httpRouteThreeDotsHost,  // a.b.c.com (3 dots)
+			},
+			output: []RulePrecedence{
+				makeRulePrecedenceForRouteDescription(httpRouteNoHostWithPost, func(r *RulePrecedence) { // no hostname with POST
+					r.HTTPMatch.Method = new(gwv1.HTTPMethodPost)
+					r.HttpSpecificRulePrecedenceFactor.HasMethod = true
+				}),
+				makeRulePrecedenceForRouteDescription(httpRouteThreeDotsHost, nil), // a.b.c.com (3 dots)
+				makeRulePrecedenceForRouteDescription(httpRouteOneDotHost, nil),    // zzz.com (1 dot)
+			},
+		},
+		{
+			name: "input order independent result for mixed hostname and no-hostname rules, with method - input order B",
+			input: []RouteDescriptor{
+				httpRouteThreeDotsHost,  // a.b.c.com (3 dots)
+				httpRouteNoHostWithPost, // no hostname with POST
+				httpRouteOneDotHost,     // zzz.com (1 dot)
+			},
+			output: []RulePrecedence{
+				makeRulePrecedenceForRouteDescription(httpRouteNoHostWithPost, func(r *RulePrecedence) { // no hostname with POST
+					r.HTTPMatch.Method = new(gwv1.HTTPMethodPost)
+					r.HttpSpecificRulePrecedenceFactor.HasMethod = true
+				}),
+				makeRulePrecedenceForRouteDescription(httpRouteThreeDotsHost, nil), // a.b.c.com (3 dots)
+				makeRulePrecedenceForRouteDescription(httpRouteOneDotHost, nil),    // zzz.com (1 dot)
 			},
 		},
 	}

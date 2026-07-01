@@ -213,6 +213,9 @@ func compareHttpRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) b
 	if ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount != ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount {
 		return ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount > ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount
 	}
+	if len(ruleOne.CommonRulePrecedence.Hostnames) != len(ruleTwo.CommonRulePrecedence.Hostnames) {
+		return len(ruleOne.CommonRulePrecedence.Hostnames) > len(ruleTwo.CommonRulePrecedence.Hostnames)
+	}
 	return compareCommonTieBreakers(ruleOne, ruleTwo)
 }
 
