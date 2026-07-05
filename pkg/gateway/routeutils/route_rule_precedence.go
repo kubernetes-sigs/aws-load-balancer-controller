@@ -183,7 +183,19 @@ func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) i
 			return precedence
 		}
 	}
-	// can not complete tie breaking at hostname level
+	// All compared hostnames tie up to the shorter list's length. A shorter list
+	// (in the extreme, an empty list as used by a catch-all route) constrains
+	// fewer hostnames and is therefore less specific, so it must have lower
+	// precedence. Without this, an empty hostname list returns 0 ("equal") and
+	// precedence falls through to path length / creation timestamp, mixing
+	// incompatible criteria and making the comparator non-transitive.
+	if len(hostnameListOne) != len(hostnameListTwo) {
+		if len(hostnameListOne) > len(hostnameListTwo) {
+			return -1 // one is more specific (more hostnames)
+		}
+		return 1 // two is more specific
+	}
+	// genuinely equal at hostname level
 	return 0
 }
 
