@@ -4,6 +4,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -27,6 +28,16 @@ func HandleReconcileError(inputErr error, log logr.Logger) (ctrl.Result, error) 
 	}
 
 	return ctrl.Result{}, inputErr
+}
+
+// HandleReconcileErrorWithCondition records the reconcile condition of the reconciled resource as
+// failing when inputErr is a genuine failure (requeues are expected retries, not failures), then
+// handles the error like HandleReconcileError.
+func HandleReconcileErrorWithCondition(inputErr error, controller string, req ctrl.Request, metricsCollector lbcmetrics.MetricCollector, log logr.Logger) (ctrl.Result, error) {
+	if inputErr != nil && !IsRequeueError(inputErr) {
+		metricsCollector.ObserveControllerReconcileCondition(controller, req.Namespace, req.Name, false)
+	}
+	return HandleReconcileError(inputErr, log)
 }
 
 // IsRequeueError returns true when err indicates a requeue (expected retry).

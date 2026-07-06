@@ -26,6 +26,14 @@ type MockHistogramMetric struct {
 	duration  time.Duration
 }
 
+type MockGaugeMetric struct {
+	labelController string
+	labelNamespace  string
+	labelName       string
+	value           bool
+	deleted         bool
+}
+
 type MockCounterMetric struct {
 	labelController    string
 	labelErrorCategory string
@@ -51,6 +59,24 @@ func (m *MockCollector) ObserveControllerReconcileError(controller string, error
 	m.Invocations[MetricControllerReconcileErrors] = append(m.Invocations[MetricControllerReconcileErrors], MockCounterMetric{
 		labelController:    controller,
 		labelErrorCategory: errorCategory,
+	})
+}
+
+func (m *MockCollector) ObserveControllerReconcileCondition(controller string, namespace string, name string, reconciled bool) {
+	m.Invocations[MetricControllerReconcileCondition] = append(m.Invocations[MetricControllerReconcileCondition], MockGaugeMetric{
+		labelController: controller,
+		labelNamespace:  namespace,
+		labelName:       name,
+		value:           reconciled,
+	})
+}
+
+func (m *MockCollector) DeleteControllerReconcileCondition(controller string, namespace string, name string) {
+	m.Invocations[MetricControllerReconcileCondition] = append(m.Invocations[MetricControllerReconcileCondition], MockGaugeMetric{
+		labelController: controller,
+		labelNamespace:  namespace,
+		labelName:       name,
+		deleted:         true,
 	})
 }
 
@@ -166,6 +192,7 @@ func NewMockCollector() MetricCollector {
 	mockInvocations[MetricWebhookMutationFailure] = make([]interface{}, 0)
 	mockInvocations[MetricControllerCacheObjectCount] = make([]interface{}, 0)
 	mockInvocations[MetricControllerTopTalkers] = make([]interface{}, 0)
+	mockInvocations[MetricControllerReconcileCondition] = make([]interface{}, 0)
 
 	return &MockCollector{
 		Invocations: mockInvocations,

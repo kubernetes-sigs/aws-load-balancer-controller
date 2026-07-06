@@ -52,6 +52,10 @@ func (m *mockMetricCollector) ObservePodReadinessGateReady(namespace string, tgb
 func (m *mockMetricCollector) ObserveQUICTargetMissingServerId(namespace string, tgbName string) {}
 func (m *mockMetricCollector) ObserveControllerReconcileError(controller string, errorType string) {
 }
+func (m *mockMetricCollector) ObserveControllerReconcileCondition(controller string, namespace string, name string, reconciled bool) {
+}
+func (m *mockMetricCollector) DeleteControllerReconcileCondition(controller string, namespace string, name string) {
+}
 func (m *mockMetricCollector) ObserveControllerReconcileLatency(controller string, stage string, fn func()) {
 	fn()
 }
