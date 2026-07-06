@@ -65,11 +65,14 @@ type mockMetricsCollector struct{}
 func (m *mockMetricsCollector) ObservePodReadinessGateReady(_ string, _ string, _ time.Duration) {}
 func (m *mockMetricsCollector) ObserveQUICTargetMissingServerId(_ string, _ string)              {}
 func (m *mockMetricsCollector) ObserveControllerReconcileError(_ string, _ string)               {}
-func (m *mockMetricsCollector) ObserveControllerReconcileLatency(_ string, _ string, fn func())  { fn() }
-func (m *mockMetricsCollector) ObserveWebhookValidationError(_ string, _ string)                 {}
-func (m *mockMetricsCollector) ObserveWebhookMutationError(_ string, _ string)                   {}
-func (m *mockMetricsCollector) StartCollectTopTalkers(_ context.Context)                         {}
-func (m *mockMetricsCollector) StartCollectCacheSize(_ context.Context)                          {}
+func (m *mockMetricsCollector) ObserveControllerReconcileCondition(_ string, _ string, _ string, _ bool) {
+}
+func (m *mockMetricsCollector) DeleteControllerReconcileCondition(_ string, _ string, _ string) {}
+func (m *mockMetricsCollector) ObserveControllerReconcileLatency(_ string, _ string, fn func()) { fn() }
+func (m *mockMetricsCollector) ObserveWebhookValidationError(_ string, _ string)                {}
+func (m *mockMetricsCollector) ObserveWebhookMutationError(_ string, _ string)                  {}
+func (m *mockMetricsCollector) StartCollectTopTalkers(_ context.Context)                        {}
+func (m *mockMetricsCollector) StartCollectCacheSize(_ context.Context)                         {}
 
 // buildTestReconciler wires up a serviceReconciler with the given mocks and a real fake k8s client
 // pre-populated with svc.
