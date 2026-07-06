@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -191,8 +192,7 @@ type globalAcceleratorReconciler struct {
 func (r *globalAcceleratorReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
 	r.logger.V(1).Info("Reconcile request", "name", req.Name)
-	err := r.reconcile(ctx, req)
-	return runtime.HandleReconcileError(err, r.logger)
+	return runtime.HandleReconcileErrorWithCondition(r.reconcile(ctx, req), controllerName, req, r.metricsCollector, r.logger)
 }
 
 func (r *globalAcceleratorReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
@@ -203,11 +203,19 @@ func (r *globalAcceleratorReconciler) reconcile(ctx context.Context, req reconci
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageFetchGlobalAccelerator, fetchGlobalAcceleratorFn)
 	if err != nil {
-		return client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			r.metricsCollector.DeleteControllerReconcileCondition(controllerName, req.Namespace, req.Name)
+			return nil
+		}
+		return err
 	}
 
 	if ga.DeletionTimestamp != nil && !ga.DeletionTimestamp.IsZero() {
-		return r.cleanupGlobalAccelerator(ctx, ga)
+		if err := r.cleanupGlobalAccelerator(ctx, ga); err != nil {
+			return err
+		}
+		r.metricsCollector.DeleteControllerReconcileCondition(controllerName, ga.Namespace, ga.Name)
+		return nil
 	}
 	return r.reconcileGlobalAccelerator(ctx, ga)
 }
@@ -368,6 +376,7 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	}
 
 	r.eventRecorder.Event(ga, corev1.EventTypeNormal, k8s.GlobalAcceleratorEventReasonSuccessfullyReconciled, "Successfully reconciled")
+	r.metricsCollector.ObserveControllerReconcileCondition(controllerName, ga.Namespace, ga.Name, true)
 
 	return nil
 }
