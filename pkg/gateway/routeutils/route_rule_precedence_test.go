@@ -496,6 +496,79 @@ func Test_compareHttpRulePrecedence(t *testing.T) {
 			want:   true,
 			reason: "rule with method has higher precedence",
 		},
+		{
+			name: "host-specific vs catch-all (empty hostname) - equal path, catch-all older",
+			ruleOne: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames:            defaultHostname,
+					RouteCreateTimestamp: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+				},
+				HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+					PathType:   2,
+					PathLength: 1,
+				},
+			},
+			ruleTwo: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames:            []string{},
+					RouteCreateTimestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				},
+				HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+					PathType:   2,
+					PathLength: 1,
+				},
+			},
+			want:   true,
+			reason: "host-specific rule outranks catch-all even when the catch-all is older and paths are equal",
+		},
+		{
+			name: "catch-all (empty hostname) vs host-specific - equal path, catch-all older",
+			ruleOne: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames:            []string{},
+					RouteCreateTimestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+				},
+				HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+					PathType:   2,
+					PathLength: 1,
+				},
+			},
+			ruleTwo: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames:            defaultHostname,
+					RouteCreateTimestamp: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
+				},
+				HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+					PathType:   2,
+					PathLength: 1,
+				},
+			},
+			want:   false,
+			reason: "catch-all with an empty hostname list is least specific and must not outrank a host-specific rule",
+		},
+		{
+			name: "host-specific (short path) vs catch-all (empty hostname, long path)",
+			ruleOne: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames: defaultHostname,
+				},
+				HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+					PathType:   2,
+					PathLength: 1,
+				},
+			},
+			ruleTwo: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames: []string{},
+				},
+				HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+					PathType:   2,
+					PathLength: 20,
+				},
+			},
+			want:   true,
+			reason: "host-specific rule outranks catch-all even when the catch-all has a longer path",
+		},
 	}
 
 	for _, tt := range tests {
