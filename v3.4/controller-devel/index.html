@@ -2309,7 +2309,7 @@ happy.</p>
 <p>Please ensure that you have <a href="https://golang.org/doc/install">properly installed Go</a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Go version</p>
-<p>We recommend to use a Go version of <code>1.14</code> or above for development.</p>
+<p>Use the Go version declared by the repository (see <code>.go-version</code> / <code>go.mod</code>).</p>
 </div>
 <h2 id="fork-upstream-repository">Fork upstream repository<a class="headerlink" href="#fork-upstream-repository" title="Permanent link">&para;</a></h2>
 <p>The first step in setting up your AWS Load Balancer controller development
@@ -2318,7 +2318,7 @@ personal Github account.</p>
 <h2 id="ensure-source-code-organization-directories-exist">Ensure source code organization directories exist<a class="headerlink" href="#ensure-source-code-organization-directories-exist" title="Permanent link">&para;</a></h2>
 <p>Make sure in your <code>$GOPATH/src</code> that you have directories for the
 <code>sigs.k8s.io</code> organization:</p>
-<div class="highlight"><pre><span></span><code>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$GOPATH</span>/src/github.com/sigs.k8s.io
+<div class="highlight"><pre><span></span><code>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$GOPATH</span>/src/sigs.k8s.io
 </code></pre></div>
 <h2 id="git-clone-forked-repository-and-add-upstream-remote"><code>git clone</code> forked repository and add upstream remote<a class="headerlink" href="#git-clone-forked-repository-and-add-upstream-remote" title="Permanent link">&para;</a></h2>
 <p>For the forked repository, you will <code>git clone</code> the repository into
@@ -2328,10 +2328,10 @@ at your forked repository location in your personal Github space).</p>
 <p>You can use this script to do this for you:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">GITHUB_ID</span><span class="o">=</span><span class="s2">&quot;your GH username&quot;</span>
 
-<span class="nb">cd</span><span class="w"> </span><span class="nv">$GOPATH</span>/src/github.com/sigs.k8s.io
-git<span class="w"> </span>clone<span class="w"> </span>git@github.com:<span class="nv">$GITHUB_ID</span>/aws-load-balancer-controller
+<span class="nb">cd</span><span class="w"> </span><span class="nv">$GOPATH</span>/src/sigs.k8s.io
+git<span class="w"> </span>clone<span class="w"> </span>git@github.com:<span class="nv">$GITHUB_ID</span>/aws-load-balancer-controller.git
 <span class="nb">cd</span><span class="w"> </span>aws-load-balancer-controller/
-git<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>upstream<span class="w"> </span>git@github.com:kubernetes-sigs/aws-load-balancer-controller
+git<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>upstream<span class="w"> </span>git@github.com:kubernetes-sigs/aws-load-balancer-controller.git
 git<span class="w"> </span>fetch<span class="w"> </span>--all
 </code></pre></div>
 <h2 id="create-your-local-branch">Create your local branch<a class="headerlink" href="#create-your-local-branch" title="Permanent link">&para;</a></h2>

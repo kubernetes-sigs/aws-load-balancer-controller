@@ -3078,6 +3078,10 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 <p>We'll add more fine-grained access-control in future versions.</p>
 </div>
 <div class="admonition note">
+<p class="admonition-title">Exclusive Annotations</p>
+<p>Resource-level annotations with <strong>Exclusive</strong> merge semantics allow only one value across all Ingresses in an IngressGroup. If two Ingresses in the same IngressGroup specify conflicting values for an Exclusive annotation, the controller will fail with an error for the <strong>entire IngressGroup</strong> until the conflict is resolved — no updates will be applied to any member of the group. See the <a href="#annotations">Annotations table</a> for which annotations use Exclusive vs Merge semantics.</p>
+</div>
+<div class="admonition note">
 <p class="admonition-title">Rename behavior</p>
 <p>The ALB for an IngressGroup is found by searching for an AWS tag <code>ingress.k8s.aws/stack</code> tag with the name of the IngressGroup as its value. For an implicit IngressGroup, the value is <code>namespace/ingressname</code>.</p>
 <p>When the groupName of an IngressGroup for an Ingress is changed, the Ingress will be moved to a new IngressGroup and be supported by the ALB for the new IngressGroup. If the ALB for the new IngressGroup doesn't exist, a new ALB will be created.</p>
@@ -4260,6 +4264,10 @@ Target Groups shared with multiple clusters, it's recommended to use an out-of-b
 <div class="admonition warning">
 <p>Only Regional WAF Classic is supported.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">Security Risk</p>
+<p>Any Kubernetes user with RBAC permission to create/modify Ingress resources in the same IngressGroup can set the WAF Classic ACL for the entire shared ALB. Only use IngressGroup when all members are within your trust boundary. To mitigate, restrict group membership via <code>IngressClassParams.Spec.NamespaceSelector</code> or set <code>--disable-ingress-group-name-annotation</code> to prevent annotation-based group joining. See <a href="#group.name">IngressGroup Security Risk</a> for details.</p>
+</div>
 <div class="admonition note">
 <p>When this annotation is absent or empty, the controller will keep LoadBalancer WAF Classic settings unchanged.
 To disable WAF Classic, explicitly set the annotation value to 'none'.</p>
@@ -4278,6 +4286,10 @@ To disable WAF Classic, explicitly set the annotation value to 'none'.</p>
 <p><a name="wafv2-acl-arn"><code>alb.ingress.kubernetes.io/wafv2-acl-arn</code></a> specifies ARN for the Amazon WAFv2 web ACL.</p>
 <div class="admonition warning">
 <p>Only Regional WAFv2 is supported.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Security Risk</p>
+<p>Any Kubernetes user with RBAC permission to create/modify Ingress resources in the same IngressGroup can set the WAFv2 ACL for the entire shared ALB. Only use IngressGroup when all members are within your trust boundary. To mitigate, pin WAF configuration via <code>IngressClassParams.Spec.WAFv2ACLArn</code>, restrict group membership via <code>IngressClassParams.Spec.NamespaceSelector</code>, or set <code>--disable-ingress-group-name-annotation</code> to prevent annotation-based group joining. See <a href="#group.name">IngressGroup Security Risk</a> for details.</p>
 </div>
 <div class="admonition note">
 <p>When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged.
@@ -4303,6 +4315,10 @@ To disable WAFv2, explicitly set the annotation value to 'none'.</p>
 </div>
 <div class="admonition warning">
 <p>Only Regional WAFv2 is supported.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Security Risk</p>
+<p>Any Kubernetes user with RBAC permission to create/modify Ingress resources in the same IngressGroup can set the WAFv2 ACL for the entire shared ALB. Only use IngressGroup when all members are within your trust boundary. To mitigate, pin WAF configuration via <code>IngressClassParams.Spec.WAFv2ACLArn</code>, restrict group membership via <code>IngressClassParams.Spec.NamespaceSelector</code>, or set <code>--disable-ingress-group-name-annotation</code> to prevent annotation-based group joining. See <a href="#group.name">IngressGroup Security Risk</a> for details.</p>
 </div>
 <div class="admonition note">
 <p>When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged.

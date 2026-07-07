@@ -2954,8 +2954,9 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <h3 id="lb-stabilization-monitor-interval">lb-stabilization-monitor-interval<a class="headerlink" href="#lb-stabilization-monitor-interval" title="Permanent link">&para;</a></h3>
 <p><code>--lb-stabilization-monitor-interval</code> defines a fixed interval for the controller to monitor the state of load balancer after the creation for stabilization, default to 2m. It monitors the load balancer state so that once it becomes active it can make the required updates like capacity reservation for the active load balancer. It calls DescribeLoadBalancer API at a fixed interval to monitor the state. Please be mindful that lower value will result into frequent calls which may incur unnecessary AWS API usage.</p>
 <h3 id="waf-addons">waf-addons<a class="headerlink" href="#waf-addons" title="Permanent link">&para;</a></h3>
-<p>By default, the controller assumes sole ownership of the WAF addons associated to the provisioned ALBs, via the flag <code>--enable-waf</code> and <code>--enable-wafv2</code>.
-And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
+<p>By default, the controller manages the WAF addons associated to the provisioned ALBs, via the flag <code>--enable-waf</code> and <code>--enable-wafv2</code>.
+Any WAF associations made outside the controller (e.g. via AWS CLI, Firewall Manager, or other tools) will be reverted by the controller on the next reconcile cycle.
+Users should disable these flags accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
 Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.</p>
 <h3 id="throttle-config">throttle config<a class="headerlink" href="#throttle-config" title="Permanent link">&para;</a></h3>
 <p>Controller uses the following default throttle config:</p>
