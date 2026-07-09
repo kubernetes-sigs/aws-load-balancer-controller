@@ -965,3 +965,68 @@ func VerifyTargetsHaveQUICServerIDs(ctx context.Context, f *framework.Framework,
 	}, utils.PollTimeoutLong, utils.PollIntervalLong).Should(BeTrue())
 	return nil
 }
+
+// RulePrecedenceExpectation describes the expected priority ordering between
+// two listener rules identified by their path patterns.
+type RulePrecedenceExpectation struct {
+	// MoreSpecificPath should have a lower priority number (evaluated first by ALB).
+	MoreSpecificPath string
+	// LessSpecificPath should have a higher priority number (evaluated later).
+	LessSpecificPath string
+}
+
+// VerifyListenerRulePrecedence verifies that on the HTTPS listener (port 443),
+// the rule matching MoreSpecificPath has a lower ALB priority number than the
+// rule matching LessSpecificPath. This ensures more specific routes are evaluated
+// first by the ALB, preventing catch-all rules from intercepting specific traffic.
+func VerifyListenerRulePrecedence(ctx context.Context, f *framework.Framework, lbARN string, expectation RulePrecedenceExpectation) error {
+	lsARN := GetLoadBalancerListenerARN(ctx, f, lbARN, "443")
+	if lsARN == "" {
+		return errors.Errorf("no HTTPS listener found on port 443")
+	}
+
+	rules, err := f.LBManager.GetLoadBalancerListenerRules(ctx, lsARN)
+	if err != nil {
+		return err
+	}
+
+	var moreSpecificPriority, lessSpecificPriority int
+	var foundMore, foundLess bool
+
+	for _, rule := range rules {
+		if awssdk.ToBool(rule.IsDefault) {
+			continue
+		}
+		priority, _ := strconv.Atoi(awssdk.ToString(rule.Priority))
+		for _, cond := range rule.Conditions {
+			if awssdk.ToString(cond.Field) != string(elbv2model.RuleConditionFieldPathPattern) {
+				continue
+			}
+			if cond.PathPatternConfig == nil {
+				continue
+			}
+			for _, v := range cond.PathPatternConfig.Values {
+				if strings.Contains(v, expectation.MoreSpecificPath) {
+					moreSpecificPriority = priority
+					foundMore = true
+				}
+				if v == expectation.LessSpecificPath {
+					lessSpecificPriority = priority
+					foundLess = true
+				}
+			}
+		}
+	}
+
+	if !foundMore {
+		return errors.Errorf("could not find listener rule with path containing %q", expectation.MoreSpecificPath)
+	}
+	if !foundLess {
+		return errors.Errorf("could not find listener rule with path %q", expectation.LessSpecificPath)
+	}
+	if moreSpecificPriority >= lessSpecificPriority {
+		return errors.Errorf("cross-kind precedence violation: specific path %q has priority %d but catch-all %q has priority %d (lower number = evaluated first, so specific path should have lower priority number)",
+			expectation.MoreSpecificPath, moreSpecificPriority, expectation.LessSpecificPath, lessSpecificPriority)
+	}
+	return nil
+}

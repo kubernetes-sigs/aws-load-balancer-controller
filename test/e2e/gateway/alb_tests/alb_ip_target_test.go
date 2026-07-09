@@ -2088,6 +2088,138 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 		})
 	})
 
+	Context("with ALB ip target: catch-all HTTPRoute must NOT take priority over specific GRPCRoute (cross-kind precedence)", func() {
+		It("should route gRPC requests to the GRPCRoute backend even when a catch-all HTTPRoute exists", func() {
+			if len(tf.Options.CertificateARNs) == 0 {
+				Skip("Skipping tests, certificates not specified")
+			}
+
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+			lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
+				{
+					ProtocolPort:       "HTTPS:443",
+					DefaultCertificate: &cert,
+				},
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "test-listener",
+					Port:     443,
+					Protocol: gwv1.HTTPSProtocolType,
+				},
+			}
+
+			// The attacker scenario: HTTPRoute with PathPrefix "/" (catch-all /*) on shared hostname.
+			prefixPath := gwv1.PathMatchPathPrefix
+			httpRouteRules := []gwv1.HTTPRouteRule{
+				{
+					Matches: []gwv1.HTTPRouteMatch{
+						{Path: &gwv1.HTTPPathMatch{Type: &prefixPath, Value: awssdk.String("/")}},
+					},
+					BackendRefs: test_resources.DefaultHttpRouteRuleBackendRefs,
+				},
+			}
+			httpr := test_resources.BuildHTTPRoute([]string{test_resources.TestHostname}, httpRouteRules, &gwListeners[0].Name)
+
+			// The victim scenario: GRPCRoute with specific method on the same hostname.
+			grpcExact := gwv1.GRPCMethodMatchExact
+			grpcr := test_resources.BuildGRPCRoute([]string{test_resources.TestHostname}, []gwv1.GRPCRouteRule{
+				{
+					Matches: []gwv1.GRPCRouteMatch{
+						{
+							Method: &gwv1.GRPCMethodMatch{
+								Type:    &grpcExact,
+								Service: awssdk.String("grpc.testing.EchoService"),
+								Method:  awssdk.String("Echo"),
+							},
+						},
+					},
+					BackendRefs: test_resources.DefaultGrpcRouteRuleBackendRefs,
+				},
+			}, &gwListeners[0].Name)
+
+			By("deploying stack with catch-all HTTPRoute and specific GRPCRoute on same hostname", func() {
+				err := stack.DeployHTTPAndGRPC(ctx, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, []*gwv1.GRPCRoute{grpcr}, lbcSpec, tgSpec, lrcSpec, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				time.Sleep(2 * time.Minute)
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("confirming both routes are accepted", func() {
+				validateOverlappingRoutesStatus(tf, stack)
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.Resources.CommonStack.Dps[0].Spec.Replicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending gRPC request to verify it reaches gRPC backend (not intercepted by catch-all HTTPRoute)", func() {
+				// This is the crux of the cross-kind precedence fix:
+				// The GRPCRoute (exact method match) must get a LOWER ALB priority number than
+				// the HTTPRoute (catch-all prefix /), so the gRPC request reaches the gRPC backend.
+				grpcAuthority := strings.Replace(test_resources.TestHostname, "*", "grpc", 1)
+				conn, err := grpc.NewClient(
+					fmt.Sprintf("%s:443", dnsName),
+					grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})),
+					grpc.WithAuthority(grpcAuthority),
+				)
+				Expect(err).NotTo(HaveOccurred())
+				c := echo2.NewEchoServiceClient(conn)
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				response, err := c.Echo(mdCtx, &echo2.EchoRequest{Message: "cross-kind precedence test"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(response.Message).To(Equal("cross-kind precedence test"))
+			})
+
+			By("sending HTTP request to verify catch-all still works for non-gRPC traffic", func() {
+				url := fmt.Sprintf("https://%v/some-http-path", dnsName)
+				urlOptions := http.URLOptions{
+					InsecureSkipVerify: true,
+					HostHeader:         strings.Replace(test_resources.TestHostname, "*", "http", 1),
+				}
+				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying ALB listener rules have correct priority ordering (GRPCRoute rule < HTTPRoute rule)", func() {
+				err := verifier.VerifyListenerRulePrecedence(ctx, tf, lbARN, verifier.RulePrecedenceExpectation{
+					// GRPCRoute's specific path should have lower priority number (evaluated first)
+					MoreSpecificPath: "/grpc.testing.EchoService/Echo",
+					LessSpecificPath: "/*",
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
 	Context("with ALB ip target configuration with HTTPRoute path match types (Exact, Prefix, RegularExpression)", func() {
 		BeforeEach(func() {})
 		It("should create listener rules with correct path-pattern condition types on the ALB", func() {
