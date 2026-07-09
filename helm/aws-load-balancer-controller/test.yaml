@@ -351,6 +351,9 @@ serviceMutatorWebhookConfig:
     #   - <value>
     matchLabels: {}
       # key: value
+  # matchConditions:
+  # - name: <key>
+  #   expression: <value>
   # which operations trigger the webhook
   operations:
   - CREATE
