@@ -2211,7 +2211,6 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 			By("verifying ALB listener rules have correct priority ordering (GRPCRoute rule < HTTPRoute rule)", func() {
 				err := verifier.VerifyListenerRulePrecedence(ctx, tf, lbARN, verifier.RulePrecedenceExpectation{
-					// GRPCRoute's specific path should have lower priority number (evaluated first)
 					MoreSpecificPath: "/echo.EchoService/Echo",
 					LessSpecificPath: "/*",
 				})
