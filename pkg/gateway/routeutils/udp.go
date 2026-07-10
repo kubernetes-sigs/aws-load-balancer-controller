@@ -6,6 +6,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -22,15 +23,15 @@ UDP specific features of the route.
 
 var _ RouteRule = &convertedUDPRouteRule{}
 
-var defaultUDPRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](commonBackendLoader, listenerRuleConfigLoader)
+var defaultUDPRuleAccumulator = newAttachedRuleAccumulator[gwv1.UDPRouteRule](commonBackendLoader, listenerRuleConfigLoader)
 
 type convertedUDPRouteRule struct {
-	rule               *gwalpha2.UDPRouteRule
+	rule               *gwv1.UDPRouteRule
 	backends           []Backend
 	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
-func convertUDPRouteRule(rule *gwalpha2.UDPRouteRule, backends []Backend) RouteRule {
+func convertUDPRouteRule(rule *gwv1.UDPRouteRule, backends []Backend) RouteRule {
 	return &convertedUDPRouteRule{
 		rule:               rule,
 		backends:           backends,
@@ -53,9 +54,9 @@ func (t *convertedUDPRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCon
 /* Route Description */
 
 type udpRouteDescription struct {
-	route                     *gwalpha2.UDPRoute
+	route                     *gwv1.UDPRoute
 	rules                     []RouteRule
-	ruleAccumulator           attachedRuleAccumulator[gwalpha2.UDPRouteRule]
+	ruleAccumulator           attachedRuleAccumulator[gwv1.UDPRouteRule]
 	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
@@ -64,11 +65,11 @@ func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
 }
 
 func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (RouteDescriptor, []routeLoadError) {
-	convertedRules, allErrors := udpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, udpRoute, udpRoute.route.Spec.Rules, func(rule gwalpha2.UDPRouteRule) []gwv1.BackendRef {
+	convertedRules, allErrors := udpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, udpRoute, udpRoute.route.Spec.Rules, func(rule gwv1.UDPRouteRule) []gwv1.BackendRef {
 		return rule.BackendRefs
-	}, func(rule gwalpha2.UDPRouteRule) []gwv1.LocalObjectReference {
+	}, func(rule gwv1.UDPRouteRule) []gwv1.LocalObjectReference {
 		return []gwv1.LocalObjectReference{}
-	}, func(urr *gwalpha2.UDPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
+	}, func(urr *gwv1.UDPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertUDPRouteRule(urr, backends)
 	}, gatewayDefaultTGConfig)
 
@@ -92,7 +93,7 @@ func (udpRoute *udpRouteDescription) GetRouteGeneration() int64 {
 	return udpRoute.route.Generation
 }
 
-func convertUDPRoute(r gwalpha2.UDPRoute) *udpRouteDescription {
+func convertUDPRoute(r gwv1.UDPRoute) *udpRouteDescription {
 	return &udpRouteDescription{route: &r, ruleAccumulator: defaultUDPRuleAccumulator}
 }
 
@@ -135,18 +136,42 @@ func (udpRoute *udpRouteDescription) setCompatibleHostnamesByPort(hostnamesByPor
 
 var _ RouteDescriptor = &udpRouteDescription{}
 
-func ListUDPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
-	routeList := &gwalpha2.UDPRouteList{}
-	err := k8sClient.List(context, routeList, opts...)
+// ListUDPRoutes lists UDPRoutes using the group version resolved at startup
+// and returns them as preLoadRouteDescriptors over the v1 representation.
+func ListUDPRoutes(context context.Context, versions crddetect.RouteVersions, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
+	routes, err := listRawUDPRoutes(context, versions, k8sClient, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]preLoadRouteDescriptor, 0)
+	result := make([]preLoadRouteDescriptor, 0, len(routes))
 
-	for _, item := range routeList.Items {
+	for _, item := range routes {
 		result = append(result, convertUDPRoute(item))
 	}
 
 	return result, nil
+}
+
+// listRawUDPRoutes lists UDPRoutes in their v1 representation, querying the
+// API server at the group version resolved at startup. On clusters serving
+// only v1alpha2 (Gateway API < 1.6) the items are converted at this boundary.
+func listRawUDPRoutes(context context.Context, versions crddetect.RouteVersions, k8sClient client.Client, opts ...client.ListOption) ([]gwv1.UDPRoute, error) {
+	if versions.IsUDPRouteV1() {
+		routeList := &gwv1.UDPRouteList{}
+		if err := k8sClient.List(context, routeList, opts...); err != nil {
+			return nil, err
+		}
+		return routeList.Items, nil
+	}
+
+	alphaRouteList := &gwalpha2.UDPRouteList{}
+	if err := k8sClient.List(context, alphaRouteList, opts...); err != nil {
+		return nil, err
+	}
+	items := make([]gwv1.UDPRoute, 0, len(alphaRouteList.Items))
+	for i := range alphaRouteList.Items {
+		items = append(items, *ConvertAlpha2UDPRouteToV1(&alphaRouteList.Items[i]))
+	}
+	return items, nil
 }

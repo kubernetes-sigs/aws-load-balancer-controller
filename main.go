@@ -121,6 +121,7 @@ type gatewayControllerConfig struct {
 	targetGroupARNMapper     shared_utils.TargetGroupARNMapper
 	certDiscovery            certs.CertDiscovery
 	listenerSetStatusUpdater gateway.ListenerSetStatusSubmitter
+	routeVersions            crddetect.RouteVersions
 }
 
 func main() {
@@ -184,8 +185,6 @@ func main() {
 		setupLog.Error(err, "unable to obtain CRD information")
 		os.Exit(1)
 	}
-	_ = routeVersions // threaded to controllers in the migration commit (Task 5)
-
 	nlbGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI)
 	albGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI)
 	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), controllerCFG.RuntimeConfig.WatchNamespace, controllerCFG.ServerIDInjectionConfig.EnvironmentVariableName, ctrl.Log)
@@ -286,7 +285,7 @@ func main() {
 			listenerSetStatusUpdater = &gateway.NoopListenerSetStatusSubmitter{}
 		}
 
-		routeReconciler := gateway.NewRouteReconciler(routeReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
+		routeReconciler := gateway.NewRouteReconciler(routeReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"), routeVersions)
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
 		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, false, ctrl.Log.WithName("gateway-cert-discovery"))
 
@@ -310,12 +309,13 @@ func main() {
 			targetGroupARNMapper:     tgArnMapper,
 			certDiscovery:            certDiscovery,
 			listenerSetStatusUpdater: listenerSetStatusUpdater,
+			routeVersions:            routeVersions,
 		}
 
 		enabledControllers := sets.Set[string]{}
 
 		routeLoaderCreator := sync.OnceValue(func() routeutils.Loader {
-			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, controllerCFG.FeatureGates, mgr.GetLogger().WithName("gateway-route-loader"))
+			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, controllerCFG.FeatureGates, routeVersions, mgr.GetLogger().WithName("gateway-route-loader"))
 		})
 
 		// Setup NLB Gateway controller if enabled
@@ -534,6 +534,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.certDiscovery,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
+			cfg.routeVersions,
 			cfg.finalizerManager,
 			cfg.networkingManager,
 			cfg.sgReconciler,
@@ -559,6 +560,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.serviceReferenceCounter,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
+			cfg.routeVersions,
 			cfg.finalizerManager,
 			cfg.networkingManager,
 			cfg.sgReconciler,

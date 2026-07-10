@@ -17,9 +17,9 @@ import (
 
 func Test_ConvertUDPRuleToRouteRule(t *testing.T) {
 
-	rule := &gwalpha2.UDPRouteRule{
+	rule := &gwv1.UDPRouteRule{
 		Name:        (*gwv1.SectionName)(awssdk.String("my-name")),
-		BackendRefs: []gwalpha2.BackendRef{},
+		BackendRefs: []gwv1.BackendRef{},
 	}
 
 	backends := []Backend{
@@ -29,27 +29,27 @@ func Test_ConvertUDPRuleToRouteRule(t *testing.T) {
 	result := convertUDPRouteRule(rule, backends)
 
 	assert.Equal(t, backends, result.GetBackends())
-	assert.Equal(t, rule, result.GetRawRouteRule().(*gwalpha2.UDPRouteRule))
+	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.UDPRouteRule))
 }
 
 func Test_ListUDPRoutes(t *testing.T) {
 	k8sClient := testutils.GenerateTestClient()
 
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+	k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo1",
 			Namespace: "bar1",
 		},
-		Spec: gwalpha2.UDPRouteSpec{
-			Rules: []gwalpha2.UDPRouteRule{
+		Spec: gwv1.UDPRouteSpec{
+			Rules: []gwv1.UDPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 						{},
@@ -57,30 +57,30 @@ func Test_ListUDPRoutes(t *testing.T) {
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{},
+					BackendRefs: []gwv1.BackendRef{},
 				},
 			},
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+	k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo2",
 			Namespace: "bar2",
 		},
-		Spec: gwalpha2.UDPRouteSpec{
+		Spec: gwv1.UDPRouteSpec{
 			Rules: nil,
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+	k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo3",
 			Namespace: "bar3",
 		},
 	})
 
-	result, err := ListUDPRoutes(context.Background(), k8sClient)
+	result, err := ListUDPRoutes(context.Background(), v1RouteVersions, k8sClient)
 
 	assert.NoError(t, err)
 
@@ -109,6 +109,41 @@ func Test_ListUDPRoutes(t *testing.T) {
 	assert.Equal(t, "foo3", itemMap["bar3"])
 }
 
+// Test_ListUDPRoutes_Alpha2Fallback exercises the v1alpha2 fallback path
+// (Gateway API < 1.6): v1alpha2 UDPRoutes are listed and converted to their v1
+// representation at the list boundary.
+func Test_ListUDPRoutes_Alpha2Fallback(t *testing.T) {
+	k8sClient := testutils.GenerateTestClient()
+
+	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo1",
+			Namespace: "bar1",
+		},
+		Spec: gwalpha2.UDPRouteSpec{
+			Rules: []gwalpha2.UDPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{},
+						{},
+					},
+				},
+			},
+		},
+	})
+
+	result, err := ListUDPRoutes(context.Background(), alpha2RouteVersions, k8sClient)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(result))
+	assert.Equal(t, UDPRouteKind, result[0].GetRouteKind())
+	assert.Equal(t, "foo1", result[0].GetRouteNamespacedName().Name)
+	assert.Equal(t, "bar1", result[0].GetRouteNamespacedName().Namespace)
+	assert.Equal(t, 2, len(result[0].GetBackendRefs()))
+	// The raw route is the v1 representation even though the source was v1alpha2.
+	_, ok := result[0].GetRawRoute().(*gwv1.UDPRoute)
+	assert.True(t, ok)
+}
+
 func Test_UDP_LoadAttachedRules(t *testing.T) {
 	weight := 0
 	mockLoader := func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind, gatewayDefaultTGConfig *elbv2gw.TargetGroupConfiguration) (*Backend, error, error) {
@@ -122,16 +157,16 @@ func Test_UDP_LoadAttachedRules(t *testing.T) {
 	}
 
 	routeDescription := udpRouteDescription{
-		route: &gwalpha2.UDPRoute{
-			Spec: gwalpha2.UDPRouteSpec{Rules: []gwalpha2.UDPRouteRule{
+		route: &gwv1.UDPRoute{
+			Spec: gwv1.UDPRouteSpec{Rules: []gwv1.UDPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 						{},
@@ -139,12 +174,12 @@ func Test_UDP_LoadAttachedRules(t *testing.T) {
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{},
+					BackendRefs: []gwv1.BackendRef{},
 				},
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](mockLoader, mockListenerRuleConfigLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.UDPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil, nil)

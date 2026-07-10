@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
@@ -102,12 +103,14 @@ func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k
 func Test_ListL4Routes(t *testing.T) {
 	tests := []struct {
 		name           string
+		versions       crddetect.RouteVersions
 		mockSetup      func(*gomock.Controller) client.Client
 		expectedRoutes int
 		expectedErr    error
 	}{
 		{
-			name: "Successfully lists all L4 routes",
+			name:     "Successfully lists all L4 routes (v1alpha2 fallback)",
+			versions: alpha2RouteVersions,
 			mockSetup: func(ctrl *gomock.Controller) client.Client {
 				k8sClient := testutils.GenerateTestClient()
 				k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
@@ -199,7 +202,8 @@ func Test_ListL4Routes(t *testing.T) {
 			expectedRoutes: 3,
 		},
 		{
-			name: "Handles error in TCP routes",
+			name:     "Handles error in TCP routes",
+			versions: alpha2RouteVersions,
 			mockSetup: func(ctrl *gomock.Controller) client.Client {
 				mockClient := mock_client.NewMockClient(ctrl)
 				// Setup mock responses for TCP, UDP, and TLS routes
@@ -211,6 +215,55 @@ func Test_ListL4Routes(t *testing.T) {
 			expectedRoutes: 0,
 			expectedErr:    fmt.Errorf("failed to list L4 routes, [TCPRoute]"),
 		},
+		{
+			name:     "Successfully lists all L4 routes (v1)",
+			versions: v1RouteVersions,
+			mockSetup: func(ctrl *gomock.Controller) client.Client {
+				k8sClient := testutils.GenerateTestClient()
+				k8sClient.Create(context.Background(), &gwv1.TCPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo1",
+						Namespace: "bar1",
+					},
+					Spec: gwv1.TCPRouteSpec{
+						Rules: []gwv1.TCPRouteRule{
+							{
+								BackendRefs: []gwv1.BackendRef{{}, {}},
+							},
+						},
+					},
+				})
+				k8sClient.Create(context.Background(), &gwv1.UDPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo1",
+						Namespace: "bar1",
+					},
+					Spec: gwv1.UDPRouteSpec{
+						Rules: []gwv1.UDPRouteRule{
+							{
+								BackendRefs: []gwv1.BackendRef{{}, {}},
+							},
+						},
+					},
+				})
+				k8sClient.Create(context.Background(), &gwv1.TLSRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo1",
+						Namespace: "bar1",
+					},
+					Spec: gwv1.TLSRouteSpec{
+						Hostnames: []gwv1.Hostname{"host1"},
+						Rules: []gwv1.TLSRouteRule{
+							{
+								BackendRefs: []gwv1.BackendRef{{}, {}},
+							},
+						},
+					},
+				})
+				return k8sClient
+			},
+			expectedRoutes: 3,
+		},
 	}
 
 	for _, tt := range tests {
@@ -219,7 +272,7 @@ func Test_ListL4Routes(t *testing.T) {
 			defer ctrl.Finish()
 
 			client := tt.mockSetup(ctrl)
-			routes, err := ListL4Routes(context.Background(), client)
+			routes, err := ListL4Routes(context.Background(), tt.versions, client)
 
 			if tt.expectedErr == nil {
 				assert.NoError(t, err)

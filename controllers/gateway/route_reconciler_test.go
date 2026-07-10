@@ -12,6 +12,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -25,12 +26,18 @@ func TestDeferredReconcilerConstructor(t *testing.T) {
 	k8sClient := testclient.NewClientBuilder().Build()
 	logger := logr.New(&log.NullLogSink{})
 
-	d := NewRouteReconciler(dq, k8sClient, logger)
+	routeVersions := crddetect.RouteVersions{
+		TCPRouteGroupVersion: crddetect.GatewayV1GroupVersion,
+		UDPRouteGroupVersion: crddetect.GatewayV1GroupVersion,
+	}
+
+	d := NewRouteReconciler(dq, k8sClient, logger, routeVersions)
 
 	deferredReconciler := d.(*routeReconcilerImpl)
 	assert.Equal(t, dq, deferredReconciler.queue)
 	assert.Equal(t, k8sClient, deferredReconciler.k8sClient)
 	assert.Equal(t, logger, deferredReconciler.logger)
+	assert.Equal(t, routeVersions, deferredReconciler.routeVersions)
 }
 
 func Test_isRouteStatusIdentical(t *testing.T) {
