@@ -152,7 +152,7 @@ This lets you integrate or migrate legacy applications that are already
 registered with an AWS Target Group outside the controller's lifecycle.
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
   name: tcproute

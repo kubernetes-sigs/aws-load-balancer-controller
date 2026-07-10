@@ -21,6 +21,8 @@ The LBC instances dedicated to L4 routing monitor the following Gateway API reso
 NOTE: When using TLSRoute, you can specify additional certificates for use during the SNI handshake.
 However, AWS NLB does not support SNI-based routing; therefore, these routes effectively behave like a TCPRoute.
 
+NOTE: TCPRoute and UDPRoute are served under `gateway.networking.k8s.io/v1` when Gateway API >= 1.6 experimental-channel CRDs are installed. The controller automatically detects the served version at startup and falls back to `v1alpha2` on clusters running Gateway API < 1.6.
+
 ### The Reconciliation Loop
 
 The LBC operates on a continuous **reconciliation loop** within your cluster to maintain the desired state of AWS Load Balancer resources:
@@ -67,7 +69,7 @@ spec:
           from: Same
 ---
 # my-tcproute.yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
   name: my-tcp-app-route
@@ -126,7 +128,7 @@ spec:
       port: 80
       protocol: UDP
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: UDPRoute
 metadata:
   name: my-udp-app-route
