@@ -70,6 +70,18 @@ spec:
                 name: blue-green
                 port:
                   name: use-annotation
+
+## Migrating between services without downtime
+
+If you need to switch an Ingress backend from one Service to another (for example, during a service rename or consolidation), directly changing the `service.name` in the Ingress spec causes the controller to delete the existing target group and create a new one. Since this delete happens immediately, any active connections are dropped without respecting `deregistration_delay.timeout_seconds`.
+
+To migrate without dropping connections, use the weighted target group pattern described above instead of changing the backend service directly:
+
+1. Define both the old and new services as weighted target groups in the `actions.*` annotation, starting with 100% weight on the old service and 0% on the new one.
+2. Gradually shift the weight toward the new service over time (for example, 80/20, then 50/50, then 0/100).
+3. Once traffic is fully shifted to the new service, remove the old service from the annotation.
+
+Since both target groups stay registered with the ALB throughout the migration, connections drain naturally and no traffic is dropped.
 ```
 
 
