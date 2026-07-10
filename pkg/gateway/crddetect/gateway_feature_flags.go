@@ -21,7 +21,14 @@ var (
 	lbcGatewayKinds = []string{"TargetGroupConfiguration", "LoadBalancerConfiguration", "ListenerRuleConfiguration"}
 
 	albKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
-	nlbKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, GatewayV1Alpha2GroupVersion: {"TCPRoute", "UDPRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
+	nlbKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
+	// nlbMultiVersionKinds are kinds that may be served under any one of several
+	// group versions. TCPRoute and UDPRoute graduated to v1 in Gateway API 1.6;
+	// v1alpha2 remains supported for older installs.
+	nlbMultiVersionKinds = []multiVersionKind{
+		{kind: "TCPRoute", groupVersions: []string{GatewayV1GroupVersion, GatewayV1Alpha2GroupVersion}},
+		{kind: "UDPRoute", groupVersions: []string{GatewayV1GroupVersion, GatewayV1Alpha2GroupVersion}},
+	}
 	listenerSetKinds = map[string][]string{GatewayV1GroupVersion: {"ListenerSet"}}
 )
 
@@ -29,24 +36,29 @@ var (
 // disables the corresponding feature flags when required CRDs are missing.
 // It is called from main() after the k8s client is ready and before any
 // controller reads the feature flags.
-func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.FeatureGates, logger logr.Logger) error {
+func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.FeatureGates, logger logr.Logger) (RouteVersions, error) {
+
+	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1Alpha2GroupVersion, GatewayV1GroupVersion, LBCGatewayGroupVersion))
+	if err != nil {
+		return RouteVersions{}, err
+	}
+
+	routeVersions := resolveRouteVersions(availableResources)
+	logger.Info("Resolved Gateway API route group versions",
+		"TCPRoute", routeVersions.TCPRouteGroupVersion,
+		"UDPRoute", routeVersions.UDPRouteGroupVersion)
 
 	allDefaulted := featureGates.GetFeatureStatus(config.ALBGatewayAPI).IsDefaulted ||
 		featureGates.GetFeatureStatus(config.NLBGatewayAPI).IsDefaulted ||
 		featureGates.GetFeatureStatus(config.GatewayListenerSet).IsDefaulted
 
 	if !allDefaulted {
-		// User set all flags directly, do nothing.
-		return nil
-	}
-
-	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1Alpha2GroupVersion, GatewayV1GroupVersion, LBCGatewayGroupVersion))
-	if err != nil {
-		return err
+		// User set all flags directly, don't touch feature flags.
+		return routeVersions, nil
 	}
 
 	applyGatewayFeatureFlags(availableResources, featureGates, logger)
-	return nil
+	return routeVersions, nil
 }
 
 func applyGatewayFeatureFlags(availableResources map[string]sets.Set[string], featureGates config.FeatureGates, logger logr.Logger) {
@@ -58,7 +70,7 @@ func applyGatewayFeatureFlags(availableResources map[string]sets.Set[string], fe
 		featureGates.Disable(config.ALBGatewayAPI)
 	}
 
-	nlbMissingKinds := missingKinds(nlbKinds, availableResources)
+	nlbMissingKinds := append(missingKinds(nlbKinds, availableResources), missingMultiVersionKinds(nlbMultiVersionKinds, availableResources)...)
 	if len(nlbMissingKinds) > 0 && featureGates.GetFeatureStatus(config.NLBGatewayAPI).IsDefaulted {
 		logger.Info("Disabling NLBGatewayAPI: missing required CRDs",
 			"missing", nlbMissingKinds)
@@ -70,6 +82,29 @@ func applyGatewayFeatureFlags(availableResources map[string]sets.Set[string], fe
 		logger.Info("Disabling GatewayListenerSet: missing required CRDs", "missing", listenerSetMissing)
 		featureGates.Disable(config.GatewayListenerSet)
 	}
+}
+
+type multiVersionKind struct {
+	kind          string
+	groupVersions []string
+}
+
+// missingMultiVersionKinds returns the kinds not served under any of their listed group versions.
+func missingMultiVersionKinds(desired []multiVersionKind, availableResources map[string]sets.Set[string]) []string {
+	missing := make([]string, 0)
+	for _, mvk := range desired {
+		found := false
+		for _, gv := range mvk.groupVersions {
+			if kinds, ok := availableResources[gv]; ok && kinds.Has(mvk.kind) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missing = append(missing, mvk.kind)
+		}
+	}
+	return missing
 }
 
 func missingKinds(desiredKinds map[string][]string, availableResources map[string]sets.Set[string]) []string {
