@@ -16,12 +16,12 @@ import (
 )
 
 type recordingTCPRouteHandler struct {
-	created []*gwv1.TCPRoute
-	updated []*gwv1.TCPRoute
-	updatedOld []*gwv1.TCPRoute
-	deleted []*gwv1.TCPRoute
+	created             []*gwv1.TCPRoute
+	updated             []*gwv1.TCPRoute
+	updatedOld          []*gwv1.TCPRoute
+	deleted             []*gwv1.TCPRoute
 	deletedStateUnknown []bool
-	generic []*gwv1.TCPRoute
+	generic             []*gwv1.TCPRoute
 }
 
 func (r *recordingTCPRouteHandler) Create(_ context.Context, e event.TypedCreateEvent[*gwv1.TCPRoute], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {

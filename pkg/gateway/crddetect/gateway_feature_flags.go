@@ -20,8 +20,8 @@ var (
 	// lbcGatewayKinds are the AWS vended CRDs required by both ALB and NLB gateway controllers.
 	lbcGatewayKinds = []string{"TargetGroupConfiguration", "LoadBalancerConfiguration", "ListenerRuleConfiguration"}
 
-	albKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
-	nlbKinds         = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
+	albKinds = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
+	nlbKinds = map[string][]string{GatewayV1GroupVersion: {"Gateway", "GatewayClass", "TLSRoute"}, LBCGatewayGroupVersion: lbcGatewayKinds}
 	// nlbMultiVersionKinds are kinds that may be served under any one of several
 	// group versions. TCPRoute and UDPRoute graduated to v1 in Gateway API 1.6;
 	// v1alpha2 remains supported for older installs.
