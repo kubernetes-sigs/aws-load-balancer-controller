@@ -2140,7 +2140,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 						{
 							Method: &gwv1.GRPCMethodMatch{
 								Type:    &grpcExact,
-								Service: awssdk.String("grpc.testing.EchoService"),
+								Service: awssdk.String("echo.EchoService"),
 								Method:  awssdk.String("Echo"),
 							},
 						},
@@ -2212,7 +2212,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			By("verifying ALB listener rules have correct priority ordering (GRPCRoute rule < HTTPRoute rule)", func() {
 				err := verifier.VerifyListenerRulePrecedence(ctx, tf, lbARN, verifier.RulePrecedenceExpectation{
 					// GRPCRoute's specific path should have lower priority number (evaluated first)
-					MoreSpecificPath: "/grpc.testing.EchoService/Echo",
+					MoreSpecificPath: "/echo.EchoService/Echo",
 					LessSpecificPath: "/*",
 				})
 				Expect(err).NotTo(HaveOccurred())
