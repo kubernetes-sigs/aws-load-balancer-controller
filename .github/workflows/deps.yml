@@ -60,7 +60,13 @@ jobs:
           #   GO-2026-5338 https://github.com/containerd/containerd/security/advisories/GHSA-cvxm-645q-p574
           #   GO-2026-5064 https://github.com/containerd/containerd/security/advisories/GHSA-33vj-92qq-66hc
           #   GO-2026-5622 https://github.com/containerd/containerd/security/advisories/GHSA-rgh6-rfwx-v388
-          IGNORE="GO-2026-5338 GO-2026-5064 GO-2026-5622"
+          #
+          # GO-2026-5932: golang.org/x/crypto/openpgp is deprecated with no fixed version.
+          # Pulled transitively via helm.sh/helm/v3 (pkg/provenance). Helm v4 migrated to
+          # github.com/ProtonMail/go-crypto but no v3 release includes it. Remove once we
+          # upgrade to Helm v4.
+          #   GO-2026-5932 https://pkg.go.dev/vuln/GO-2026-5932
+          IGNORE="GO-2026-5338 GO-2026-5064 GO-2026-5622 GO-2026-5932"
           govulncheck -format json ./... > govulncheck.json
           # "called" vulns are findings whose leading trace frame resolves to a function.
           called="$(jq -r 'select(.finding != null) | .finding | select(.trace[0].function != null) | .osv' govulncheck.json | sort -u)"
