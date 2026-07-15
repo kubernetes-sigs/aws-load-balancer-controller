@@ -12,13 +12,11 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func TestDeferredReconcilerConstructor(t *testing.T) {
@@ -27,18 +25,12 @@ func TestDeferredReconcilerConstructor(t *testing.T) {
 	k8sClient := testclient.NewClientBuilder().Build()
 	logger := logr.New(&log.NullLogSink{})
 
-	routeVersions := crddetect.RouteVersions{
-		TCPRouteGroupVersion: crddetect.GatewayV1GroupVersion,
-		UDPRouteGroupVersion: crddetect.GatewayV1GroupVersion,
-	}
-
-	d := NewRouteReconciler(dq, k8sClient, logger, routeVersions)
+	d := NewRouteReconciler(dq, k8sClient, logger)
 
 	deferredReconciler := d.(*routeReconcilerImpl)
 	assert.Equal(t, dq, deferredReconciler.queue)
 	assert.Equal(t, k8sClient, deferredReconciler.k8sClient)
 	assert.Equal(t, logger, deferredReconciler.logger)
-	assert.Equal(t, routeVersions, deferredReconciler.routeVersions)
 }
 
 func Test_isRouteStatusIdentical(t *testing.T) {
@@ -931,78 +923,6 @@ func Test_updateRouteStatus(t *testing.T) {
 				validateGw(udpRoute.Status.Parents[0], "test-gateway")
 			},
 		},
-		{
-			name: "update gwalpha2.TCPRoute status - condition accepted",
-			route: &gwalpha2.TCPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-tcp-route-alpha2",
-					Namespace: "test-namespace",
-				},
-				Spec: gwalpha2.TCPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      "test-gateway",
-								Namespace: &testNamespace,
-							},
-						},
-					},
-				},
-			},
-			routeData: routeutils.RouteData{
-				RouteStatusInfo: routeutils.RouteStatusInfo{
-					Accepted:     true,
-					ResolvedRefs: true,
-					Reason:       string(gwv1.RouteConditionAccepted),
-					Message:      "route accepted",
-				},
-				ParentRef: gwv1.ParentReference{
-					Name:      "test-gateway",
-					Namespace: &testNamespace,
-				},
-			},
-			validateResult: func(t *testing.T, route client.Object) {
-				tcpRoute := route.(*gwalpha2.TCPRoute)
-				assert.Len(t, tcpRoute.Status.Parents, 1)
-				validateGw(tcpRoute.Status.Parents[0], "test-gateway")
-			},
-		},
-		{
-			name: "update gwalpha2.UDPRoute status - condition accepted",
-			route: &gwalpha2.UDPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-udp-route-alpha2",
-					Namespace: "test-namespace",
-				},
-				Spec: gwalpha2.UDPRouteSpec{
-					CommonRouteSpec: gwv1.CommonRouteSpec{
-						ParentRefs: []gwv1.ParentReference{
-							{
-								Name:      "test-gateway",
-								Namespace: &testNamespace,
-							},
-						},
-					},
-				},
-			},
-			routeData: routeutils.RouteData{
-				RouteStatusInfo: routeutils.RouteStatusInfo{
-					Accepted:     true,
-					ResolvedRefs: true,
-					Reason:       string(gwv1.RouteConditionAccepted),
-					Message:      "route accepted",
-				},
-				ParentRef: gwv1.ParentReference{
-					Name:      "test-gateway",
-					Namespace: &testNamespace,
-				},
-			},
-			validateResult: func(t *testing.T, route client.Object) {
-				udpRoute := route.(*gwalpha2.UDPRoute)
-				assert.Len(t, udpRoute.Status.Parents, 1)
-				validateGw(udpRoute.Status.Parents[0], "test-gateway")
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -1011,7 +931,6 @@ func Test_updateRouteStatus(t *testing.T) {
 			scheme := runtime.NewScheme()
 			clientgoscheme.AddToScheme(scheme)
 			gwv1.Install(scheme)
-			gwalpha2.Install(scheme)
 
 			k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(tt.route).Build()
 			k8sClient.Create(context.Background(), &gwv1.Gateway{

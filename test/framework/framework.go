@@ -22,7 +22,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -60,7 +59,6 @@ func InitFramework() (*Framework, error) {
 	agav1beta1.AddToScheme(k8sSchema)
 	elbv2api.AddToScheme(k8sSchema)
 	gwv1.AddToScheme(k8sSchema)
-	gwalpha2.AddToScheme(k8sSchema)
 	elbv2gw.AddToScheme(k8sSchema)
 	gwbeta1.AddToScheme(k8sSchema)
 

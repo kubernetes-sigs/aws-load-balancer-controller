@@ -228,7 +228,7 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getImpactedTCPRoutes(tt.list.Items, tt.tgconfig)
+			got := getImpactedTCPRoutes(tt.list, tt.tgconfig)
 			res := make([]types.NamespacedName, 0)
 			for i := range got {
 				res = append(res, k8s.NamespacedName(got[i]))

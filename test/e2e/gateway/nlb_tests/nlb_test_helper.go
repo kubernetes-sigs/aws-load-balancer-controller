@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -62,7 +61,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 		})
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{test_resources.BuildTCPRoute([]gwv1.ParentReference{}, []gwv1.BackendRef{})}
+	tcprs := []*gwv1.TCPRoute{test_resources.BuildTCPRoute([]gwv1.ParentReference{}, []gwv1.BackendRef{})}
 	if auxiliaryStack != nil {
 		listeners = append(listeners, gwv1.Listener{
 			Name:     "other-ns",
@@ -80,7 +79,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	tgcUDP := test_resources.BuildTargetGroupConfig(test_resources.UDPDefaultTgConfigName, tgConfSpec, svcUDP)
 	udpr := test_resources.BuildUDPRoute("port8080")
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwv1.UDPRoute{udpr}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
 
 	return s.Resources.Deploy(ctx, f)
 }
@@ -124,19 +123,19 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 		}
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{test_resources.BuildTCPRoute([]gwv1.ParentReference{
+	tcprs := []*gwv1.TCPRoute{test_resources.BuildTCPRoute([]gwv1.ParentReference{
 		{
 			Name: test_resources.DefaultName,
 		},
 	}, []gwv1.BackendRef{
 		{
-			BackendObjectReference: gwalpha2.BackendObjectReference{
+			BackendObjectReference: gwv1.BackendObjectReference{
 				Name: gwv1.ObjectName(svcTCP1.Name),
 				Port: &svcTCP1.Spec.Ports[0].Port,
 			},
 		},
 		{
-			BackendObjectReference: gwalpha2.BackendObjectReference{
+			BackendObjectReference: gwv1.BackendObjectReference{
 				Name: gwv1.ObjectName(svcTCP2.Name),
 				Port: &svcTCP2.Spec.Ports[0].Port,
 			},
@@ -149,7 +148,7 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 	tgcTCP1 := test_resources.BuildTargetGroupConfig(svcTCP1.Name, tgConfSpec, svcTCP1)
 	tgcTCP2 := test_resources.BuildTargetGroupConfig(svcTCP2.Name, tgConfSpec, svcTCP2)
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwv1.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
 
 	return s.Resources.Deploy(ctx, f)
 }
@@ -172,7 +171,7 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 		},
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{}
+	tcprs := []*gwv1.TCPRoute{}
 
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
 
@@ -180,7 +179,7 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 	tgcUDP := test_resources.BuildTargetGroupConfig(test_resources.UDPDefaultTgConfigName, tgConfSpec, svcUDP)
 	udpr := test_resources.BuildUDPRoute("port80udp")
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwv1.UDPRoute{udpr}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
 
 	return s.Resources.Deploy(ctx, f)
 }
@@ -207,7 +206,7 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 	udpr := test_resources.BuildUDPRoute("udp-listener")
 	udpr.Name = "udp-route-quic"
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-quic-e2e", namespaceLabels)
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwv1.TCPRoute{}, []*gwv1.UDPRoute{udpr}, nil, "nlb-gateway-quic-e2e", namespaceLabels)
 
 	return s.Resources.Deploy(ctx, f)
 }
@@ -240,7 +239,7 @@ func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framewor
 	udpr := test_resources.BuildUDPRoute("udp-listener")
 	udpr.Name = "udp-route-quic"
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-tcp-udp-quic-e2e", namespaceLabels)
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwv1.TCPRoute{}, []*gwv1.UDPRoute{udpr}, nil, "nlb-gateway-tcp-udp-quic-e2e", namespaceLabels)
 
 	return s.Resources.Deploy(ctx, f)
 }
@@ -263,17 +262,17 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 	svcTCP2.Name = "echoserver-v2"
 	svcTgc := test_resources.BuildTargetGroupConfig("svc2-tgc", svcTgSpec, svcTCP2)
 
-	port := gwalpha2.PortNumber(80)
-	tcprs := []*gwalpha2.TCPRoute{test_resources.BuildTCPRoute([]gwv1.ParentReference{}, []gwalpha2.BackendRef{
+	port := gwv1.PortNumber(80)
+	tcprs := []*gwv1.TCPRoute{test_resources.BuildTCPRoute([]gwv1.ParentReference{}, []gwv1.BackendRef{
 		{
-			BackendObjectReference: gwalpha2.BackendObjectReference{
-				Name: gwalpha2.ObjectName(svcTCP1.Name),
+			BackendObjectReference: gwv1.BackendObjectReference{
+				Name: gwv1.ObjectName(svcTCP1.Name),
 				Port: &port,
 			},
 		},
 		{
-			BackendObjectReference: gwalpha2.BackendObjectReference{
-				Name: gwalpha2.ObjectName(svcTCP2.Name),
+			BackendObjectReference: gwv1.BackendObjectReference{
+				Name: gwv1.ObjectName(svcTCP2.Name),
 				Port: &port,
 			},
 		},
@@ -288,7 +287,7 @@ func (s *NLBTestStack) DeployWithDefaultTGC(ctx context.Context, f *framework.Fr
 		[]*corev1.Service{svcTCP1, svcTCP2},
 		gwc, gw, lbc,
 		[]*elbv2gw.TargetGroupConfiguration{defaultTGC, svcTgc},
-		tcprs, []*gwalpha2.UDPRoute{}, nil,
+		tcprs, []*gwv1.UDPRoute{}, nil,
 		"nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled),
 	)
 	return s.Resources.Deploy(ctx, f)
@@ -305,7 +304,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests
 		},
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{test_resources.BuildFENLBTCPRoute(albStack.Resources.CommonStack.Gw.Name, albStack.Resources.CommonStack.Gw.Namespace, gwalpha2.PortNumber(80))}
+	tcprs := []*gwv1.TCPRoute{test_resources.BuildFENLBTCPRoute(albStack.Resources.CommonStack.Gw.Name, albStack.Resources.CommonStack.Gw.Namespace, gwv1.PortNumber(80))}
 
 	if hasTLS {
 		listeners = append(listeners, gwv1.Listener{
@@ -313,7 +312,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests
 			Port:     443,
 			Protocol: gwv1.TCPProtocolType,
 		})
-		tcpForHTTPS := test_resources.BuildFENLBTCPRoute(albStack.Resources.CommonStack.Gw.Name, albStack.Resources.CommonStack.Gw.Namespace, gwalpha2.PortNumber(443))
+		tcpForHTTPS := test_resources.BuildFENLBTCPRoute(albStack.Resources.CommonStack.Gw.Name, albStack.Resources.CommonStack.Gw.Namespace, gwv1.PortNumber(443))
 		tcprs = append(tcprs, tcpForHTTPS)
 
 	}
@@ -322,7 +321,7 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests
 
 	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{}, []*corev1.Service{}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{}, tcprs, []*gwv1.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
 
 	err := s.Resources.Deploy(ctx, f)
 	if err != nil {
@@ -576,8 +575,8 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 }
 
 func tcpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
-	tcpR := i.(*gwalpha2.TCPRoute)
-	retrievedRoute := gwalpha2.TCPRoute{}
+	tcpR := i.(*gwv1.TCPRoute)
+	retrievedRoute := gwv1.TCPRoute{}
 	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(tcpR), &retrievedRoute)
 	if err != nil {
 		return gwv1.RouteStatus{}, types.NamespacedName{}, err
@@ -586,8 +585,8 @@ func tcpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Route
 }
 
 func udpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
-	udpR := i.(*gwalpha2.UDPRoute)
-	retrievedRoute := gwalpha2.UDPRoute{}
+	udpR := i.(*gwv1.UDPRoute)
+	retrievedRoute := gwv1.UDPRoute{}
 	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(udpR), &retrievedRoute)
 	if err != nil {
 		return gwv1.RouteStatus{}, types.NamespacedName{}, err
@@ -625,12 +624,12 @@ func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.
 		},
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{test_resources.BuildTCPRouteWithMismatchedParentRefs()}
+	tcprs := []*gwv1.TCPRoute{test_resources.BuildTCPRouteWithMismatchedParentRefs()}
 	gw := test_resources.BuildBasicGatewaySpec(gwc, listeners)
 	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	tgcTCP := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svcTCP)
 
-	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
+	s.Resources = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwv1.UDPRoute{}, nil, "nlb-gateway-e2e", test_resources.GetNamespaceLabels(readinessGateEnabled))
 
 	return s.Resources.Deploy(ctx, f)
 }

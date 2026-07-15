@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/inject/quic"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"k8s.io/client-go/util/workqueue"
@@ -94,7 +93,6 @@ func init() {
 	_ = elbv2api.AddToScheme(scheme)
 	_ = elbv2gw.AddToScheme(scheme)
 	_ = gwv1.AddToScheme(scheme)
-	_ = gwalpha2.AddToScheme(scheme)
 	_ = gwbeta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
@@ -121,7 +119,6 @@ type gatewayControllerConfig struct {
 	targetGroupARNMapper     shared_utils.TargetGroupARNMapper
 	certDiscovery            certs.CertDiscovery
 	listenerSetStatusUpdater gateway.ListenerSetStatusSubmitter
-	routeVersions            crddetect.RouteVersions
 }
 
 func main() {
@@ -180,11 +177,12 @@ func main() {
 
 	// Gateway API CRD auto-detection: check which CRDs are installed and disable
 	// feature flags for missing CRDs before any controller setup reads them.
-	routeVersions, err := crddetect.ApplyGatewayCRDDetection(clientSet.Discovery(), controllerCFG.FeatureGates, setupLog)
+	err = crddetect.ApplyGatewayCRDDetection(clientSet.Discovery(), controllerCFG.FeatureGates, setupLog)
 	if err != nil {
 		setupLog.Error(err, "unable to obtain CRD information")
 		os.Exit(1)
 	}
+
 	nlbGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI)
 	albGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI)
 	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), controllerCFG.RuntimeConfig.WatchNamespace, controllerCFG.ServerIDInjectionConfig.EnvironmentVariableName, ctrl.Log)
@@ -285,7 +283,7 @@ func main() {
 			listenerSetStatusUpdater = &gateway.NoopListenerSetStatusSubmitter{}
 		}
 
-		routeReconciler := gateway.NewRouteReconciler(routeReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"), routeVersions)
+		routeReconciler := gateway.NewRouteReconciler(routeReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
 		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, false, ctrl.Log.WithName("gateway-cert-discovery"))
 
@@ -309,13 +307,12 @@ func main() {
 			targetGroupARNMapper:     tgArnMapper,
 			certDiscovery:            certDiscovery,
 			listenerSetStatusUpdater: listenerSetStatusUpdater,
-			routeVersions:            routeVersions,
 		}
 
 		enabledControllers := sets.Set[string]{}
 
 		routeLoaderCreator := sync.OnceValue(func() routeutils.Loader {
-			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, controllerCFG.FeatureGates, routeVersions, mgr.GetLogger().WithName("gateway-route-loader"))
+			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, controllerCFG.FeatureGates, mgr.GetLogger().WithName("gateway-route-loader"))
 		})
 
 		// Setup NLB Gateway controller if enabled
@@ -534,7 +531,6 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.certDiscovery,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
-			cfg.routeVersions,
 			cfg.finalizerManager,
 			cfg.networkingManager,
 			cfg.sgReconciler,
@@ -560,7 +556,6 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.serviceReferenceCounter,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
-			cfg.routeVersions,
 			cfg.finalizerManager,
 			cfg.networkingManager,
 			cfg.sgReconciler,

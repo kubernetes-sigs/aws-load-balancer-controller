@@ -8,20 +8,19 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ListL4Routes retrieves all Layer 4 routes (TCP, UDP, TLS) from the cluster.
-func ListL4Routes(ctx context.Context, versions crddetect.RouteVersions, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 	l4Routes := make([]preLoadRouteDescriptor, 0)
 	var failedRoutes []RouteKind
-	tcpRoutes, err := ListTCPRoutes(ctx, versions, k8sClient)
+	tcpRoutes, err := ListTCPRoutes(ctx, k8sClient)
 	if err != nil {
 		failedRoutes = append(failedRoutes, TCPRouteKind)
 	}
 	l4Routes = append(l4Routes, tcpRoutes...)
-	udpRoutes, err := ListUDPRoutes(ctx, versions, k8sClient)
+	udpRoutes, err := ListUDPRoutes(ctx, k8sClient)
 	if err != nil {
 		failedRoutes = append(failedRoutes, UDPRouteKind)
 	}

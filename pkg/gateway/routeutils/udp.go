@@ -6,11 +6,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 /*
@@ -136,42 +134,18 @@ func (udpRoute *udpRouteDescription) setCompatibleHostnamesByPort(hostnamesByPor
 
 var _ RouteDescriptor = &udpRouteDescription{}
 
-// ListUDPRoutes lists UDPRoutes using the group version resolved at startup
-// and returns them as preLoadRouteDescriptors over the v1 representation.
-func ListUDPRoutes(context context.Context, versions crddetect.RouteVersions, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
-	routes, err := listRawUDPRoutes(context, versions, k8sClient, opts...)
+func ListUDPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
+	routeList := &gwv1.UDPRouteList{}
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]preLoadRouteDescriptor, 0, len(routes))
+	result := make([]preLoadRouteDescriptor, 0)
 
-	for _, item := range routes {
+	for _, item := range routeList.Items {
 		result = append(result, convertUDPRoute(item))
 	}
 
 	return result, nil
-}
-
-// listRawUDPRoutes lists UDPRoutes in their v1 representation, querying the
-// API server at the group version resolved at startup. On clusters serving
-// only v1alpha2 (Gateway API < 1.6) the items are converted at this boundary.
-func listRawUDPRoutes(context context.Context, versions crddetect.RouteVersions, k8sClient client.Client, opts ...client.ListOption) ([]gwv1.UDPRoute, error) {
-	if versions.IsUDPRouteV1() {
-		routeList := &gwv1.UDPRouteList{}
-		if err := k8sClient.List(context, routeList, opts...); err != nil {
-			return nil, err
-		}
-		return routeList.Items, nil
-	}
-
-	alphaRouteList := &gwalpha2.UDPRouteList{}
-	if err := k8sClient.List(context, alphaRouteList, opts...); err != nil {
-		return nil, err
-	}
-	items := make([]gwv1.UDPRoute, 0, len(alphaRouteList.Items))
-	for i := range alphaRouteList.Items {
-		items = append(items, *ConvertAlpha2UDPRouteToV1(&alphaRouteList.Items[i]))
-	}
-	return items, nil
 }

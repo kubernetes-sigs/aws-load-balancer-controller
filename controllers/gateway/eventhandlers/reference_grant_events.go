@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -23,7 +22,7 @@ func NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan chan<- event.Ty
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.UDPRoute],
 	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute],
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, routeVersions crddetect.RouteVersions) handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] {
 	return &enqueueRequestsForReferenceGrantEvent{
 		httpRouteEventChan: httpRouteEventChan,
 		grpcRouteEventChan: grpcRouteEventChan,
@@ -33,7 +32,6 @@ func NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan chan<- event.Ty
 		k8sClient:          k8sClient,
 		eventRecorder:      eventRecorder,
 		logger:             logger,
-		routeVersions:      routeVersions,
 	}
 }
 
@@ -49,7 +47,6 @@ type enqueueRequestsForReferenceGrantEvent struct {
 	k8sClient          client.Client
 	eventRecorder      record.EventRecorder
 	logger             logr.Logger
-	routeVersions      crddetect.RouteVersions
 }
 
 func (h *enqueueRequestsForReferenceGrantEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwbeta1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -127,7 +124,7 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 			if h.tcpRouteEventChan == nil {
 				continue
 			}
-			routes, err := routeutils.ListTCPRoutes(ctx, h.routeVersions, h.k8sClient, &client.ListOptions{Namespace: string(impactedFrom.Namespace)})
+			routes, err := routeutils.ListTCPRoutes(ctx, h.k8sClient, &client.ListOptions{Namespace: string(impactedFrom.Namespace)})
 			if err == nil {
 				for _, route := range routes {
 					h.tcpRouteEventChan <- event.TypedGenericEvent[*gatewayv1.TCPRoute]{
@@ -142,7 +139,7 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 			if h.udpRouteEventChan == nil {
 				continue
 			}
-			routes, err := routeutils.ListUDPRoutes(ctx, h.routeVersions, h.k8sClient, &client.ListOptions{Namespace: string(impactedFrom.Namespace)})
+			routes, err := routeutils.ListUDPRoutes(ctx, h.k8sClient, &client.ListOptions{Namespace: string(impactedFrom.Namespace)})
 			if err == nil {
 				for _, route := range routes {
 					h.udpRouteEventChan <- event.TypedGenericEvent[*gatewayv1.UDPRoute]{

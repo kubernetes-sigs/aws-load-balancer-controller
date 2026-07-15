@@ -9,26 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
-
-// v1RouteVersions resolves both TCPRoute and UDPRoute to the Gateway API v1
-// group version (Gateway API >= 1.6).
-var v1RouteVersions = crddetect.RouteVersions{
-	TCPRouteGroupVersion: crddetect.GatewayV1GroupVersion,
-	UDPRouteGroupVersion: crddetect.GatewayV1GroupVersion,
-}
-
-// alpha2RouteVersions resolves both TCPRoute and UDPRoute to the v1alpha2 group
-// version (Gateway API < 1.6, the fallback path).
-var alpha2RouteVersions = crddetect.RouteVersions{
-	TCPRouteGroupVersion: crddetect.GatewayV1Alpha2GroupVersion,
-	UDPRouteGroupVersion: crddetect.GatewayV1Alpha2GroupVersion,
-}
 
 func Test_ConvertTCPRuleToRouteRule(t *testing.T) {
 
@@ -95,7 +79,7 @@ func Test_ListTCPRoutes(t *testing.T) {
 		},
 	})
 
-	result, err := ListTCPRoutes(context.Background(), v1RouteVersions, k8sClient)
+	result, err := ListTCPRoutes(context.Background(), k8sClient)
 
 	assert.NoError(t, err)
 
@@ -122,41 +106,6 @@ func Test_ListTCPRoutes(t *testing.T) {
 	assert.Equal(t, "foo1", itemMap["bar1"])
 	assert.Equal(t, "foo2", itemMap["bar2"])
 	assert.Equal(t, "foo3", itemMap["bar3"])
-}
-
-// Test_ListTCPRoutes_Alpha2Fallback exercises the v1alpha2 fallback path
-// (Gateway API < 1.6): v1alpha2 TCPRoutes are listed and converted to their v1
-// representation at the list boundary.
-func Test_ListTCPRoutes_Alpha2Fallback(t *testing.T) {
-	k8sClient := testutils.GenerateTestClient()
-
-	k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo1",
-			Namespace: "bar1",
-		},
-		Spec: gwalpha2.TCPRouteSpec{
-			Rules: []gwalpha2.TCPRouteRule{
-				{
-					BackendRefs: []gwalpha2.BackendRef{
-						{},
-						{},
-					},
-				},
-			},
-		},
-	})
-
-	result, err := ListTCPRoutes(context.Background(), alpha2RouteVersions, k8sClient)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result))
-	assert.Equal(t, TCPRouteKind, result[0].GetRouteKind())
-	assert.Equal(t, "foo1", result[0].GetRouteNamespacedName().Name)
-	assert.Equal(t, "bar1", result[0].GetRouteNamespacedName().Namespace)
-	assert.Equal(t, 2, len(result[0].GetBackendRefs()))
-	// The raw route is the v1 representation even though the source was v1alpha2.
-	_, ok := result[0].GetRawRoute().(*gwv1.TCPRoute)
-	assert.True(t, ok)
 }
 
 func Test_TCP_LoadAttachedRules(t *testing.T) {

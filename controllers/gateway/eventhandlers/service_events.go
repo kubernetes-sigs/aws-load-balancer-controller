@@ -7,7 +7,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -22,7 +21,7 @@ func NewEnqueueRequestsForServiceEvent(httpRouteEventChan chan<- event.TypedGene
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute],
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.UDPRoute],
-	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute], k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string, routeVersions crddetect.RouteVersions) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
+	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute], k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &enqueueRequestsForServiceEvent{
 		httpRouteEventChan: httpRouteEventChan,
 		grpcRouteEventChan: grpcRouteEventChan,
@@ -33,7 +32,6 @@ func NewEnqueueRequestsForServiceEvent(httpRouteEventChan chan<- event.TypedGene
 		eventRecorder:      eventRecorder,
 		logger:             logger,
 		gwController:       gwController,
-		routeVersions:      routeVersions,
 	}
 }
 
@@ -49,7 +47,6 @@ type enqueueRequestsForServiceEvent struct {
 	eventRecorder      record.EventRecorder
 	logger             logr.Logger
 	gwController       string
-	routeVersions      crddetect.RouteVersions
 }
 
 func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Service], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -92,7 +89,7 @@ func (h *enqueueRequestsForServiceEvent) enqueueImpactedL4Routes(
 	ctx context.Context,
 	svc *corev1.Service,
 ) {
-	l4Routes, err := routeutils.ListL4Routes(ctx, h.routeVersions, h.k8sClient)
+	l4Routes, err := routeutils.ListL4Routes(ctx, h.k8sClient)
 	if err != nil {
 		h.logger.V(1).Info("ignoring to enqueue L4 impacted routes ", "error: ", err)
 	}

@@ -12,30 +12,26 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 // This route reconciler is currently used for route status update
 
 type routeReconcilerImpl struct {
-	queue         workqueue.DelayingInterface
-	k8sClient     client.Client
-	logger        logr.Logger
-	routeVersions crddetect.RouteVersions
+	queue     workqueue.DelayingInterface
+	k8sClient client.Client
+	logger    logr.Logger
 }
 
 // NewRouteReconciler
 // This is responsible for handling status update for Route resources
-func NewRouteReconciler(queue workqueue.DelayingInterface, k8sClient client.Client, logger logr.Logger, routeVersions crddetect.RouteVersions) routeutils.RouteReconciler {
+func NewRouteReconciler(queue workqueue.DelayingInterface, k8sClient client.Client, logger logr.Logger) routeutils.RouteReconciler {
 	return &routeReconcilerImpl{
-		logger:        logger,
-		queue:         queue,
-		k8sClient:     k8sClient,
-		routeVersions: routeVersions,
+		logger:    logger,
+		queue:     queue,
+		k8sClient: k8sClient,
 	}
 }
 
@@ -92,17 +88,9 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	case "GRPCRoute":
 		route = &gwv1.GRPCRoute{}
 	case "UDPRoute":
-		if d.routeVersions.IsUDPRouteV1() {
-			route = &gwv1.UDPRoute{}
-		} else {
-			route = &gwalpha2.UDPRoute{}
-		}
+		route = &gwv1.UDPRoute{}
 	case "TCPRoute":
-		if d.routeVersions.IsTCPRouteV1() {
-			route = &gwv1.TCPRoute{}
-		} else {
-			route = &gwalpha2.TCPRoute{}
-		}
+		route = &gwv1.TCPRoute{}
 	case "TLSRoute":
 		route = &gwv1.TLSRoute{}
 	}
@@ -155,19 +143,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 		originalRouteStatus = r.Status.Parents
 		ParentRefs = r.Spec.ParentRefs
-	case *gwalpha2.UDPRoute:
-		if r.Status.Parents == nil {
-			r.Status.Parents = []gwv1.RouteParentStatus{}
-		}
-		originalRouteStatus = r.Status.Parents
-		ParentRefs = r.Spec.ParentRefs
 	case *gwv1.TCPRoute:
-		if r.Status.Parents == nil {
-			r.Status.Parents = []gwv1.RouteParentStatus{}
-		}
-		originalRouteStatus = r.Status.Parents
-		ParentRefs = r.Spec.ParentRefs
-	case *gwalpha2.TCPRoute:
 		if r.Status.Parents == nil {
 			r.Status.Parents = []gwv1.RouteParentStatus{}
 		}
@@ -230,11 +206,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		r.Status.Parents = newRouteStatus
 	case *gwv1.UDPRoute:
 		r.Status.Parents = newRouteStatus
-	case *gwalpha2.UDPRoute:
-		r.Status.Parents = newRouteStatus
 	case *gwv1.TCPRoute:
-		r.Status.Parents = newRouteStatus
-	case *gwalpha2.TCPRoute:
 		r.Status.Parents = newRouteStatus
 	}
 	return nil
@@ -402,11 +374,7 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 		routeStatus = r.Status.Parents
 	case *gwv1.UDPRoute:
 		routeStatus = r.Status.Parents
-	case *gwalpha2.UDPRoute:
-		routeStatus = r.Status.Parents
 	case *gwv1.TCPRoute:
-		routeStatus = r.Status.Parents
-	case *gwalpha2.TCPRoute:
 		routeStatus = r.Status.Parents
 	}
 

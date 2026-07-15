@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -73,7 +72,7 @@ type loaderImpl struct {
 	allRouteLoaders map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error)
 }
 
-func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter, featureGates config.FeatureGates, routeVersions crddetect.RouteVersions, logger logr.Logger) Loader {
+func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter, featureGates config.FeatureGates, logger logr.Logger) Loader {
 	var lsLoader listenerSetLoader
 	if featureGates.Enabled(config.GatewayListenerSet) {
 		lsLoader = newListenerSetLoader(k8sClient, logger.WithName("listener-set-loader"))
@@ -86,7 +85,7 @@ func NewLoader(k8sClient client.Client, routeSubmitter RouteReconcilerSubmitter,
 		lsLoader:        lsLoader,
 		routeSubmitter:  routeSubmitter,
 		k8sClient:       k8sClient,
-		allRouteLoaders: routeLoaders(routeVersions),
+		allRouteLoaders: allRoutes,
 		logger:          logger,
 	}
 }

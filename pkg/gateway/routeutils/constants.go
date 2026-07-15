@@ -3,7 +3,6 @@ package routeutils
 import (
 	"context"
 
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -24,18 +23,12 @@ const (
 )
 
 // RouteKind to Route Loader. These functions will pull data directly from the kube api or local cache.
-func routeLoaders(versions crddetect.RouteVersions) map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
-	return map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error){
-		TCPRouteKind: func(ctx context.Context, c client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
-			return ListTCPRoutes(ctx, versions, c, opts...)
-		},
-		UDPRouteKind: func(ctx context.Context, c client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
-			return ListUDPRoutes(ctx, versions, c, opts...)
-		},
-		TLSRouteKind:  ListTLSRoutes,
-		HTTPRouteKind: ListHTTPRoutes,
-		GRPCRouteKind: ListGRPCRoutes,
-	}
+var allRoutes = map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error){
+	TCPRouteKind:  ListTCPRoutes,
+	UDPRouteKind:  ListUDPRoutes,
+	TLSRouteKind:  ListTLSRoutes,
+	HTTPRouteKind: ListHTTPRoutes,
+	GRPCRouteKind: ListGRPCRoutes,
 }
 
 // DefaultProtocolToRouteKindMap Default protocol map used to infer accepted route kinds when a listener doesn't specify the `allowedRoutes` field.

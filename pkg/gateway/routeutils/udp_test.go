@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_ConvertUDPRuleToRouteRule(t *testing.T) {
@@ -80,7 +79,7 @@ func Test_ListUDPRoutes(t *testing.T) {
 		},
 	})
 
-	result, err := ListUDPRoutes(context.Background(), v1RouteVersions, k8sClient)
+	result, err := ListUDPRoutes(context.Background(), k8sClient)
 
 	assert.NoError(t, err)
 
@@ -107,41 +106,6 @@ func Test_ListUDPRoutes(t *testing.T) {
 	assert.Equal(t, "foo1", itemMap["bar1"])
 	assert.Equal(t, "foo2", itemMap["bar2"])
 	assert.Equal(t, "foo3", itemMap["bar3"])
-}
-
-// Test_ListUDPRoutes_Alpha2Fallback exercises the v1alpha2 fallback path
-// (Gateway API < 1.6): v1alpha2 UDPRoutes are listed and converted to their v1
-// representation at the list boundary.
-func Test_ListUDPRoutes_Alpha2Fallback(t *testing.T) {
-	k8sClient := testutils.GenerateTestClient()
-
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo1",
-			Namespace: "bar1",
-		},
-		Spec: gwalpha2.UDPRouteSpec{
-			Rules: []gwalpha2.UDPRouteRule{
-				{
-					BackendRefs: []gwalpha2.BackendRef{
-						{},
-						{},
-					},
-				},
-			},
-		},
-	})
-
-	result, err := ListUDPRoutes(context.Background(), alpha2RouteVersions, k8sClient)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result))
-	assert.Equal(t, UDPRouteKind, result[0].GetRouteKind())
-	assert.Equal(t, "foo1", result[0].GetRouteNamespacedName().Name)
-	assert.Equal(t, "bar1", result[0].GetRouteNamespacedName().Namespace)
-	assert.Equal(t, 2, len(result[0].GetBackendRefs()))
-	// The raw route is the v1 representation even though the source was v1alpha2.
-	_, ok := result[0].GetRawRoute().(*gwv1.UDPRoute)
-	assert.True(t, ok)
 }
 
 func Test_UDP_LoadAttachedRules(t *testing.T) {
