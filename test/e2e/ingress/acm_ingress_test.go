@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm/types"
 	. "github.com/onsi/ginkgo/v2"
 
@@ -119,6 +120,72 @@ var _ = Describe("certificate management ingress tests", func() {
 			ExpectCertToBeInUse(ctx, certARN)
 
 			// test traffic (http)
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			httpsExp := httpexpect.WithConfig(httpexpect.Config{
+				Reporter: tf.LoggerReporter,
+				Client: &http.Client{
+					Transport: &http.Transport{
+						TLSClientConfig: &tls.Config{
+							// accept any certificate; for testing only! (the dns name of the LB doesn't match the domain we issued a cert for)
+							InsecureSkipVerify: true,
+						},
+					},
+				},
+				BaseURL: fmt.Sprintf("https://%s", lbDNS),
+			})
+			httpsExp.GET("/path").WithHeader("Host", tf.Options.Route53ValidationDomain).Expect().
+				Status(http.StatusOK).Body().Equal("Hello World!")
+		})
+
+		It("ingress fronted by a wildcard host", func() {
+			// The cert's DomainName is used in resourceID tag, and ACM rejects '*' in tag values,
+			// so the non-wildcard host must be the DomainName and the wildcard a SAN
+			wildcardHost := fmt.Sprintf("*.%s", tf.Options.Route53ValidationDomain)
+
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			ingClass := &networking.IngressClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sandboxNS.Name,
+				},
+				Spec: networking.IngressClassSpec{
+					Controller: "ingress.k8s.aws/alb",
+				},
+			}
+			annotation := map[string]string{
+				"alb.ingress.kubernetes.io/scheme":          "internet-facing",
+				"alb.ingress.kubernetes.io/target-type":     "ip",
+				"alb.ingress.kubernetes.io/listen-ports":    `[{"HTTP": 80}, {"HTTPS": 443}]`,
+				"alb.ingress.kubernetes.io/create-acm-cert": "true",
+			}
+			ing := ingBuilder.
+				AddHTTPRoute(wildcardHost, networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				AddHTTPRoute(tf.Options.Route53ValidationDomain, networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithIngressClassName(ingClass.Name).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ingClass, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			certARN, _ := ExpectOneCertProvisionedForIngress(ctx, tf, ing)
+			ExpectCertTypeToBe(ctx, certARN, types.CertificateTypeAmazonIssued)
+			ExpectCertDomainNameToBe(ctx, certARN, tf.Options.Route53ValidationDomain)
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+			ExpectCertToBeInStatus(ctx, certARN, types.CertificateStatusIssued)
+			ExpectCertToBeInUse(ctx, certARN)
+
+			// test traffic (https)
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
 			httpsExp := httpexpect.WithConfig(httpexpect.Config{
 				Reporter: tf.LoggerReporter,
@@ -251,4 +318,12 @@ func ExpectCertTypeToBe(ctx context.Context, certARN string, t types.Certificate
 	Expect(len(detail.Type)).ToNot(Equal(t))
 
 	tf.Logger.Info("Cert of expected type", "arn", certARN, "type", detail.Type)
+}
+
+func ExpectCertDomainNameToBe(ctx context.Context, certARN string, domainName string) {
+	detail, err := tf.CertManager.GetCertificateDetail(ctx, certARN)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(awssdk.ToString(detail.DomainName)).To(Equal(domainName))
+
+	tf.Logger.Info("Cert of expected domain name", "arn", certARN, "domainName", awssdk.ToString(detail.DomainName))
 }
