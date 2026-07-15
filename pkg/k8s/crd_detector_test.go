@@ -89,7 +89,7 @@ func TestDetectCRDs_v1_ignoreNotInInterestSet(t *testing.T) {
 	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GRPCRoute"))
 }
 
-func TestDetectCRDs_v1_alpha2(t *testing.T) {
+func TestDetectCRDs_multipleGroupVersions(t *testing.T) {
 	client := &mockDiscoveryClient{
 		resources: map[string]*metav1.APIResourceList{
 			"gateway.networking.k8s.io/v1": {
@@ -100,16 +100,16 @@ func TestDetectCRDs_v1_alpha2(t *testing.T) {
 					{Kind: "GRPCRoute"},
 				},
 			},
-			"gateway.networking.k8s.io/v1alpha2": {
+			"gateway.k8s.aws/v1beta1": {
 				APIResources: []metav1.APIResource{
-					{Kind: "TCPRoute"},
-					{Kind: "UDPRoute"},
+					{Kind: "TargetGroupConfiguration"},
+					{Kind: "LoadBalancerConfiguration"},
 				},
 			},
 		},
 	}
 
-	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1", "gateway.networking.k8s.io/v1alpha2"))
+	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1", "gateway.k8s.aws/v1beta1"))
 
 	assert.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestDetectCRDs_v1_alpha2(t *testing.T) {
 	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("HTTPRoute"))
 	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GRPCRoute"))
 
-	assert.Equal(t, len(result["gateway.networking.k8s.io/v1alpha2"]), 2)
-	assert.True(t, result["gateway.networking.k8s.io/v1alpha2"].Has("TCPRoute"))
-	assert.True(t, result["gateway.networking.k8s.io/v1alpha2"].Has("UDPRoute"))
+	assert.Equal(t, len(result["gateway.k8s.aws/v1beta1"]), 2)
+	assert.True(t, result["gateway.k8s.aws/v1beta1"].Has("TargetGroupConfiguration"))
+	assert.True(t, result["gateway.k8s.aws/v1beta1"].Has("LoadBalancerConfiguration"))
 }
