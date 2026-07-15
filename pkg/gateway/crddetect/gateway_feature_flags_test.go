@@ -48,9 +48,9 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 		{
 			name: "tcproute and udproute only under alpha2 - NLB disabled",
 			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:       sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
-				LBCGatewayGroupVersion:      lbcKinds,
+				GatewayV1GroupVersion:                sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
+				"gateway.networking.k8s.io/v1alpha2": sets.New[string]("TCPRoute", "UDPRoute"),
+				LBCGatewayGroupVersion:               lbcKinds,
 			},
 			albEnabled:         true,
 			nlbEnabled:         false,
@@ -59,7 +59,7 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 		{
 			name: "alpha2 present",
 			presentKinds: map[string]sets.Set[string]{
-				GatewayV1Alpha2GroupVersion: sets.New[string]("TCPRoute", "UDPRoute"),
+				"gateway.networking.k8s.io/v1alpha2": sets.New[string]("TCPRoute", "UDPRoute"),
 			},
 			albEnabled:         false,
 			nlbEnabled:         false,

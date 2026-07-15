@@ -10,8 +10,6 @@ import (
 const (
 	// GatewayV1GroupVersion is the stable Gateway API group version.
 	GatewayV1GroupVersion = "gateway.networking.k8s.io/v1"
-	// GatewayV1Alpha2GroupVersion is the experimental Gateway API group version.
-	GatewayV1Alpha2GroupVersion = "gateway.networking.k8s.io/v1alpha2"
 	// LBCGatewayGroupVersion is the LBC-specific Gateway CRD group version.
 	LBCGatewayGroupVersion = "gateway.k8s.aws/v1beta1"
 )
@@ -40,7 +38,7 @@ func ApplyGatewayCRDDetection(client k8s.DiscoveryClient, featureGates config.Fe
 		return nil
 	}
 
-	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1Alpha2GroupVersion, GatewayV1GroupVersion, LBCGatewayGroupVersion))
+	availableResources, err := k8s.DetectCRDs(client, sets.New(GatewayV1GroupVersion, LBCGatewayGroupVersion))
 	if err != nil {
 		return err
 	}
