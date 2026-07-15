@@ -10,7 +10,7 @@ import (
 const (
 	// GatewayV1GroupVersion is the stable Gateway API group version.
 	GatewayV1GroupVersion = "gateway.networking.k8s.io/v1"
-	// GatewayV1Alpha2GroupVersion is the legacy alpha Gateway API group version.
+	// GatewayV1Alpha2GroupVersion is the experimental Gateway API group version.
 	GatewayV1Alpha2GroupVersion = "gateway.networking.k8s.io/v1alpha2"
 	// LBCGatewayGroupVersion is the LBC-specific Gateway CRD group version.
 	LBCGatewayGroupVersion = "gateway.k8s.aws/v1beta1"
