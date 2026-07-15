@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
+	gwconstants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

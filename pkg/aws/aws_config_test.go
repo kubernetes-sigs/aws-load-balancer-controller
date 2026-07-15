@@ -14,7 +14,7 @@ import (
 	smithyendpoints "github.com/aws/smithy-go/endpoints"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/version"
 )
 
 // staticEC2EndpointResolver redirects all ec2 calls to a fixed URL.

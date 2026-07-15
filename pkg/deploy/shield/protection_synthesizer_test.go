@@ -6,8 +6,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/shield"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 )

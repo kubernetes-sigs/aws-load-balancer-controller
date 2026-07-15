@@ -19,7 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 // +kubebuilder:validation:Enum=instance;ip

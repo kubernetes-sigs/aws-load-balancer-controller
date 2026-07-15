@@ -4,7 +4,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/backend"
 	"testing"
 )
 

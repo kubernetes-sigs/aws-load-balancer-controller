@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/equality"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 

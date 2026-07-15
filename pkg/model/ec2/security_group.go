@@ -3,7 +3,7 @@ package ec2
 import (
 	"context"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 )
 
 var _ core.Resource = &SecurityGroup{}

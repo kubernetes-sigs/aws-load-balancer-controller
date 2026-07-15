@@ -5,9 +5,9 @@ import (
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )

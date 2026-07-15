@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	rgttypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/provider"
 )
 
 const (

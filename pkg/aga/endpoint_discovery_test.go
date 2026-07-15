@@ -4,8 +4,8 @@ import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -13,7 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )

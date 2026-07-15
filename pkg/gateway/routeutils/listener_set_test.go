@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

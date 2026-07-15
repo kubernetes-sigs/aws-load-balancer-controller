@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"

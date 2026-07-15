@@ -6,9 +6,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"testing"
 
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 func TestIsGlobalAcceleratorControllerEnabled(t *testing.T) {

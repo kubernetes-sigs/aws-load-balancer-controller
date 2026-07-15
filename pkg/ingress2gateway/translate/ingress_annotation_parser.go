@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
-	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress"
 )
 
 // ingressAnnotationParser is a package-level parser for Ingress annotations.

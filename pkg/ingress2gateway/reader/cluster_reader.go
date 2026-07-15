@@ -10,10 +10,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

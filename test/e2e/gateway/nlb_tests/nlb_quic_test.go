@@ -4,12 +4,12 @@ import (
 	"context"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 )
 
 var _ = Describe("test nlb gateway with QUIC protocol support", func() {

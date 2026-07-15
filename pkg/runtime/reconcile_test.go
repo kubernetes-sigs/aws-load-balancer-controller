@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
 	"testing"
 	"time"
 

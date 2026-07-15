@@ -7,9 +7,9 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 // createAGA creates a GlobalAccelerator resource with the specified configuration

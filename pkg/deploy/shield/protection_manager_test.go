@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

@@ -6,9 +6,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )

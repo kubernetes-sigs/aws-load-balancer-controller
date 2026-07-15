@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/throttle"
 )
 
 const (

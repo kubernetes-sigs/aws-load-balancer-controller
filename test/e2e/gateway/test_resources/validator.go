@@ -7,8 +7,8 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

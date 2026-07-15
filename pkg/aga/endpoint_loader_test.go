@@ -19,9 +19,9 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 )
 
 func TestNewEndpointLoader(t *testing.T) {

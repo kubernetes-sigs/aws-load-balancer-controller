@@ -3,7 +3,7 @@ package chained_gateway_tests
 import (
 	"testing"
 
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

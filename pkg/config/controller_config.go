@@ -4,15 +4,15 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/inject/pod_readiness"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/inject/quic"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 const (

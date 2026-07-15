@@ -5,7 +5,7 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/equality"
 	"sort"
 )
 

@@ -16,9 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 var scheme = runtime.NewScheme()

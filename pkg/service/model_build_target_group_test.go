@@ -7,23 +7,23 @@ import (
 	"strconv"
 	"testing"
 
-	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {

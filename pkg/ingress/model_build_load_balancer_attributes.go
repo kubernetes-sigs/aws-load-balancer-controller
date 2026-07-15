@@ -2,8 +2,8 @@ package ingress
 
 import (
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 )
 
 // buildIngressGroupLoadBalancerAttributes builds the LB attributes for a group of Ingresses.

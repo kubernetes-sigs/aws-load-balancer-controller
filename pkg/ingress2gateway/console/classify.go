@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 )
 
 // classification describes why a diff entry is considered a known migration artifact.

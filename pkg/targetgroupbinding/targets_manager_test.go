@@ -14,8 +14,8 @@ import (
 	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/cache"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

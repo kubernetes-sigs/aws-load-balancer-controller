@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress"
 )
 
 func TestParseActionAnnotation(t *testing.T) {

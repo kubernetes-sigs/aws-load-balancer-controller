@@ -13,9 +13,9 @@ import (
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 const (

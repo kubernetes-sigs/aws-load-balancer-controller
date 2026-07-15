@@ -8,8 +8,8 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 const (

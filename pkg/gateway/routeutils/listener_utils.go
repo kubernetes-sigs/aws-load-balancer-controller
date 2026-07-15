@@ -7,8 +7,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

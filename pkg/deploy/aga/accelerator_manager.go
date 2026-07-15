@@ -11,9 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 // AcceleratorManager is responsible for managing AWS Global Accelerator accelerators.

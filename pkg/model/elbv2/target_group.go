@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 )
 
 var _ core.Resource = &TargetGroup{}
