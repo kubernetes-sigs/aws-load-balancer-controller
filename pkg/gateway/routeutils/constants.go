@@ -3,7 +3,7 @@ package routeutils
 import (
 	"context"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
