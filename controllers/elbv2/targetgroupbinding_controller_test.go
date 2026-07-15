@@ -64,6 +64,30 @@ func (m *mockMetricCollector) ObserveWebhookMutationError(webhookName string, er
 func (m *mockMetricCollector) StartCollectTopTalkers(ctx context.Context)                         {}
 func (m *mockMetricCollector) StartCollectCacheSize(ctx context.Context)                          {}
 
+// recordedCondition captures the arguments of a reconcile-condition observation/deletion.
+type recordedCondition struct {
+	controller string
+	namespace  string
+	name       string
+	reconciled bool
+}
+
+// recordingMetricCollector records the reconcile-condition calls so tests can assert on the
+// per-resource condition metric, delegating every other method to mockMetricCollector.
+type recordingMetricCollector struct {
+	mockMetricCollector
+	conditions []recordedCondition
+	deletes    []recordedCondition
+}
+
+func (m *recordingMetricCollector) ObserveControllerReconcileCondition(controller string, namespace string, name string, reconciled bool) {
+	m.conditions = append(m.conditions, recordedCondition{controller, namespace, name, reconciled})
+}
+
+func (m *recordingMetricCollector) DeleteControllerReconcileCondition(controller string, namespace string, name string) {
+	m.deletes = append(m.deletes, recordedCondition{controller: controller, namespace: namespace, name: name})
+}
+
 // --- Test ---
 
 func TestTargetGroupBindingReconciler_Delete_Stuck(t *testing.T) {
@@ -230,6 +254,7 @@ func TestTargetGroupBindingReconciler_Reconcile_Success(t *testing.T) {
 
 	fakeRecorder := record.NewFakeRecorder(10)
 
+	metricsCollector := &recordingMetricCollector{}
 	reconciler := &targetGroupBindingReconciler{
 		k8sClient:                            k8sClient,
 		eventRecorder:                        fakeRecorder,
@@ -237,7 +262,7 @@ func TestTargetGroupBindingReconciler_Reconcile_Success(t *testing.T) {
 		tgbResourceManager:                   mockResMgr,
 		deferredTargetGroupBindingReconciler: &mockDeferredReconciler{},
 		logger:                               log.Log.WithName("controllers").WithName("TargetGroupBinding"),
-		metricsCollector:                     &mockMetricCollector{},
+		metricsCollector:                     metricsCollector,
 		reconcileCounters:                    metricsutil.NewReconcileCounters(),
 	}
 
@@ -262,4 +287,148 @@ func TestTargetGroupBindingReconciler_Reconcile_Success(t *testing.T) {
 	default:
 		t.Fatal("expected SuccessfullyReconciled event but none was emitted")
 	}
+
+	// a successful reconcile marks the resource's condition as healthy
+	assert.Equal(t, []recordedCondition{{controller: "targetGroupBinding", namespace: "default", name: "test-tgb", reconciled: true}}, metricsCollector.conditions)
+	assert.Empty(t, metricsCollector.deletes)
+}
+
+// TestTargetGroupBindingReconciler_Reconcile_NotFound covers the branch where the TGB has already
+// been deleted: the fetch returns NotFound and the reconcile drops the condition series.
+func TestTargetGroupBindingReconciler_Reconcile_NotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	elbv2api.AddToScheme(scheme)
+
+	// no TGB seeded into the client, so the Get returns NotFound
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).Build()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	metricsCollector := &recordingMetricCollector{}
+	reconciler := &targetGroupBindingReconciler{
+		k8sClient:                            k8sClient,
+		eventRecorder:                        record.NewFakeRecorder(10),
+		finalizerManager:                     k8s.NewMockFinalizerManager(ctrl),
+		tgbResourceManager:                   targetgroupbinding.NewMockResourceManager(ctrl),
+		deferredTargetGroupBindingReconciler: &mockDeferredReconciler{},
+		logger:                               log.Log.WithName("controllers").WithName("TargetGroupBinding"),
+		metricsCollector:                     metricsCollector,
+		reconcileCounters:                    metricsutil.NewReconcileCounters(),
+	}
+
+	req := reconcile.Request{
+		NamespacedName: client.ObjectKey{Namespace: "default", Name: "gone-tgb"},
+	}
+
+	_, err := reconciler.Reconcile(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Empty(t, metricsCollector.conditions)
+	assert.Equal(t, []recordedCondition{{controller: "targetGroupBinding", namespace: "default", name: "gone-tgb"}}, metricsCollector.deletes)
+}
+
+// TestTargetGroupBindingReconciler_Reconcile_CleanupSuccess covers a successful delete: after
+// cleanup the condition series must be removed.
+func TestTargetGroupBindingReconciler_Reconcile_CleanupSuccess(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	elbv2api.AddToScheme(scheme)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-tgb",
+			Namespace:         "default",
+			Finalizers:        []string{"elbv2.k8s.aws/resources"},
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/test/123",
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(tgb).WithRuntimeObjects(tgb).Build()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
+	mockFinalizerManager.EXPECT().RemoveFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	mockResMgr := targetgroupbinding.NewMockResourceManager(ctrl)
+	mockResMgr.EXPECT().Cleanup(gomock.Any(), gomock.Any()).Return(nil)
+
+	metricsCollector := &recordingMetricCollector{}
+	reconciler := &targetGroupBindingReconciler{
+		k8sClient:                            k8sClient,
+		eventRecorder:                        record.NewFakeRecorder(10),
+		finalizerManager:                     mockFinalizerManager,
+		tgbResourceManager:                   mockResMgr,
+		deferredTargetGroupBindingReconciler: &mockDeferredReconciler{},
+		logger:                               log.Log.WithName("controllers").WithName("TargetGroupBinding"),
+		metricsCollector:                     metricsCollector,
+		reconcileCounters:                    metricsutil.NewReconcileCounters(),
+	}
+
+	req := reconcile.Request{
+		NamespacedName: client.ObjectKey{Namespace: "default", Name: "test-tgb"},
+	}
+
+	_, err := reconciler.Reconcile(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Empty(t, metricsCollector.conditions)
+	assert.Equal(t, []recordedCondition{{controller: "targetGroupBinding", namespace: "default", name: "test-tgb"}}, metricsCollector.deletes)
+}
+
+// TestTargetGroupBindingReconciler_Reconcile_Deferred covers a deferred reconcile: the pass itself
+// did not fail, so the condition must be marked healthy even though the work is enqueued.
+func TestTargetGroupBindingReconciler_Reconcile_Deferred(t *testing.T) {
+	scheme := runtime.NewScheme()
+	clientgoscheme.AddToScheme(scheme)
+	elbv2api.AddToScheme(scheme)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-tgb",
+			Namespace: "default",
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/test/123",
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(tgb).WithRuntimeObjects(tgb).Build()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
+	mockFinalizerManager.EXPECT().AddFinalizers(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	mockResMgr := targetgroupbinding.NewMockResourceManager(ctrl)
+	mockResMgr.EXPECT().Reconcile(gomock.Any(), gomock.Any()).Return(true, nil)
+
+	metricsCollector := &recordingMetricCollector{}
+	reconciler := &targetGroupBindingReconciler{
+		k8sClient:                            k8sClient,
+		eventRecorder:                        record.NewFakeRecorder(10),
+		finalizerManager:                     mockFinalizerManager,
+		tgbResourceManager:                   mockResMgr,
+		deferredTargetGroupBindingReconciler: &mockDeferredReconciler{},
+		logger:                               log.Log.WithName("controllers").WithName("TargetGroupBinding"),
+		metricsCollector:                     metricsCollector,
+		reconcileCounters:                    metricsutil.NewReconcileCounters(),
+	}
+
+	req := reconcile.Request{
+		NamespacedName: client.ObjectKey{Namespace: "default", Name: "test-tgb"},
+	}
+
+	_, err := reconciler.Reconcile(context.Background(), req)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []recordedCondition{{controller: "targetGroupBinding", namespace: "default", name: "test-tgb", reconciled: true}}, metricsCollector.conditions)
+	assert.Empty(t, metricsCollector.deletes)
 }
