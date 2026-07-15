@@ -46,22 +46,12 @@ func TestApplyGatewayFeatureFlags(t *testing.T) {
 			listenerSetEnabled: false,
 		},
 		{
-			name: "tcproute and udproute only under alpha2 - NLB disabled",
+			name: "tcproute and udproute not served at v1 (gateway api < 1.6) - NLB disabled",
 			presentKinds: map[string]sets.Set[string]{
-				GatewayV1GroupVersion:                sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
-				"gateway.networking.k8s.io/v1alpha2": sets.New[string]("TCPRoute", "UDPRoute"),
-				LBCGatewayGroupVersion:               lbcKinds,
+				GatewayV1GroupVersion:  sets.New[string]("Gateway", "GatewayClass", "HTTPRoute", "GRPCRoute", "TLSRoute"),
+				LBCGatewayGroupVersion: lbcKinds,
 			},
 			albEnabled:         true,
-			nlbEnabled:         false,
-			listenerSetEnabled: false,
-		},
-		{
-			name: "alpha2 present",
-			presentKinds: map[string]sets.Set[string]{
-				"gateway.networking.k8s.io/v1alpha2": sets.New[string]("TCPRoute", "UDPRoute"),
-			},
-			albEnabled:         false,
 			nlbEnabled:         false,
 			listenerSetEnabled: false,
 		},
