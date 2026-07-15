@@ -10,9 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
-	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/throttle"
+	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/version"
 )
 
 const (

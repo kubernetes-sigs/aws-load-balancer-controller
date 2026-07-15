@@ -8,9 +8,9 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 var validMultiProtocolSet = sets.New(string(elbv2model.ProtocolTCP), string(elbv2model.ProtocolUDP))

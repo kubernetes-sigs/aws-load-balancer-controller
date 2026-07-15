@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	"sort"
 	"testing"
 
@@ -17,7 +17,7 @@ import (
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 func Test_defaultEndpointGroupManager_buildSDKPortOverrides(t *testing.T) {

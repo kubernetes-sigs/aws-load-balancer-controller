@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, backend EnhancedBackend) ([]elbv2model.Action, error) {

@@ -15,7 +15,7 @@ RUN --mount=type=bind,target=. \
 FROM base AS build
 ARG TARGETOS
 ARG TARGETARCH
-ENV VERSION_PKG=sigs.k8s.io/aws-load-balancer-controller/pkg/version
+ENV VERSION_PKG=sigs.k8s.io/aws-load-balancer-controller/v3/pkg/version
 RUN --mount=type=bind,target=. \
     --mount=type=cache,target=/root/.cache/go-build \
     GIT_VERSION=$(git describe --tags --dirty --always) && \

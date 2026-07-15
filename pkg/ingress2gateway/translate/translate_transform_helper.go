@@ -5,7 +5,7 @@ import (
 	"os"
 	"regexp"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

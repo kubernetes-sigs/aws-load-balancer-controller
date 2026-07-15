@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/route53"
 	"github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/provider"
 )
 
 const (

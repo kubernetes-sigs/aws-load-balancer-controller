@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
 )
 
 func TestValidateFlags(t *testing.T) {

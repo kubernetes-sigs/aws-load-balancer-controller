@@ -2,7 +2,7 @@ package ctrlerrors
 
 import (
 	"github.com/pkg/errors"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 )
 
 type ErrorWithMetrics struct {

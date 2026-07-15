@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

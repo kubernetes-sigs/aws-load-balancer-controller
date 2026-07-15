@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 type PortRangeExpectation struct {

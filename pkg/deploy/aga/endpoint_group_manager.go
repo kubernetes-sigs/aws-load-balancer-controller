@@ -9,8 +9,8 @@ import (
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 // EndpointGroupManager is responsible for managing AWS Global Accelerator endpoint groups.

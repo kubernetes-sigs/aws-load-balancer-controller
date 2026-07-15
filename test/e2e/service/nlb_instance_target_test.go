@@ -5,16 +5,16 @@ import (
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 var _ = Describe("test k8s service using instance target reconciled by the aws load balancer controller", func() {

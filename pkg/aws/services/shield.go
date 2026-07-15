@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	shieldsdk "github.com/aws/aws-sdk-go-v2/service/shield"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/provider"
 )
 
 type Shield interface {

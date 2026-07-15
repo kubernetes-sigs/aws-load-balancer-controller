@@ -9,14 +9,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 

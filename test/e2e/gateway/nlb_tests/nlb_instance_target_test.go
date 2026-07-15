@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 )
 
 var _ = Describe("test nlb gateway using instance targets reconciled by the aws load balancer controller", func() {

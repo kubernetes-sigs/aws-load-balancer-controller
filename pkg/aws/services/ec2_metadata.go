@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"io"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/endpoints"
 )
 
 type EC2Metadata interface {

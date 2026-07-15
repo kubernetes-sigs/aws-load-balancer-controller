@@ -8,16 +8,16 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/crddetect"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/crddetect"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )

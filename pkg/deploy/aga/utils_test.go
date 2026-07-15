@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/stretchr/testify/assert"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 )
 
 func TestSortModelPortRanges(t *testing.T) {

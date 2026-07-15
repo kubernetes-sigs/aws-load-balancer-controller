@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafregional"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/wafregional"
 )
 
 // NewWebACLAssociationSynthesizer constructs new webACLAssociationSynthesizer.

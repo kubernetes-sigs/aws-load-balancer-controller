@@ -16,14 +16,14 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
-	echo2 "sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources/grpc/echo"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
+	echo2 "sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources/grpc/echo"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -2140,7 +2140,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 						{
 							Method: &gwv1.GRPCMethodMatch{
 								Type:    &grpcExact,
-								Service: awssdk.String("grpc.testing.EchoService"),
+								Service: awssdk.String("echo.EchoService"),
 								Method:  awssdk.String("Echo"),
 							},
 						},
@@ -2211,8 +2211,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 			By("verifying ALB listener rules have correct priority ordering (GRPCRoute rule < HTTPRoute rule)", func() {
 				err := verifier.VerifyListenerRulePrecedence(ctx, tf, lbARN, verifier.RulePrecedenceExpectation{
-					// GRPCRoute's specific path should have lower priority number (evaluated first)
-					MoreSpecificPath: "/grpc.testing.EchoService/Echo",
+					MoreSpecificPath: "/echo.EchoService/Echo",
 					LessSpecificPath: "/*",
 				})
 				Expect(err).NotTo(HaveOccurred())

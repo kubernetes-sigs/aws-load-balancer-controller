@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/provider"
 )
 
 type GlobalAccelerator interface {

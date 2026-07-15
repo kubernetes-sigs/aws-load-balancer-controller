@@ -8,10 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/reader"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/translate"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/writer"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/reader"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/translate"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/writer"
 )
 
 func TestMigrate_VanillaIngress(t *testing.T) {

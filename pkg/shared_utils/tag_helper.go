@@ -3,7 +3,7 @@ package shared_utils
 import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
 )
 
 // TagProvider defines an interface for objects that can provide tags

@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 )
 
 func newTestScheme() *runtime.Scheme {

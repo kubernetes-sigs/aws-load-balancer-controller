@@ -4,12 +4,12 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
-	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafregional"
-	wafv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/shield"
+	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/wafregional"
+	wafv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/wafv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 const (

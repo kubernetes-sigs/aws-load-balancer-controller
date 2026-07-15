@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	"strings"
 	"time"
 
@@ -15,8 +15,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 )
 
 var _ = Describe("k8s service using ip target reconciled by the aws load balancer", func() {

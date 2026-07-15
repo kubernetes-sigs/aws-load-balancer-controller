@@ -7,9 +7,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

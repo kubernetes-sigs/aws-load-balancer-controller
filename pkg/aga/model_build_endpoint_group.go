@@ -5,9 +5,9 @@ import (
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 )
 
 // endpointGroupBuilder builds EndpointGroup model resources

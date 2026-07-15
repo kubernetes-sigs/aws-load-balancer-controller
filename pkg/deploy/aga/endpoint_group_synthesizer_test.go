@@ -12,9 +12,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 )
 
 // Helper function to create a test endpoint group with port overrides

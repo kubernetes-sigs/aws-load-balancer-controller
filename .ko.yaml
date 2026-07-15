@@ -7,7 +7,7 @@ builds:
   ldflags:
   - -s
   - -w
-  - -X sigs.k8s.io/aws-load-balancer-controller/pkg/version.GitVersion={{.Env.GIT_VERSION}}
-  - -X sigs.k8s.io/aws-load-balancer-controller/pkg/version.GitCommit={{.Env.GIT_COMMIT}}
-  - -X sigs.k8s.io/aws-load-balancer-controller/pkg/version.BuildDate={{.Env.BUILD_DATE}}
+  - -X sigs.k8s.io/aws-load-balancer-controller/v3/pkg/version.GitVersion={{.Env.GIT_VERSION}}
+  - -X sigs.k8s.io/aws-load-balancer-controller/v3/pkg/version.GitCommit={{.Env.GIT_COMMIT}}
+  - -X sigs.k8s.io/aws-load-balancer-controller/v3/pkg/version.BuildDate={{.Env.BUILD_DATE}}
 
