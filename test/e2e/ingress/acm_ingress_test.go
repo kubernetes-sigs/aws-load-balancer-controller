@@ -138,8 +138,10 @@ var _ = Describe("certificate management ingress tests", func() {
 		})
 
 		It("ingress fronted by a wildcard host", func() {
-			// The cert's DomainName is used in resourceID tag, and ACM rejects '*' in tag values,
-			// so the non-wildcard host must be the DomainName and the wildcard a SAN
+			// Hosts are a sorted set and '*' sorts ahead of alphanumerics, so the wildcard
+			// host becomes the cert DomainName. The DomainName feeds the resourceID tag value,
+			// which ACM rejects '*' in, so the '*' must be sanitized out of the resourceID
+			// (not the DomainName) for provisioning to succeed.
 			wildcardHost := fmt.Sprintf("*.%s", tf.Options.Route53ValidationDomain)
 
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
@@ -180,7 +182,7 @@ var _ = Describe("certificate management ingress tests", func() {
 
 			certARN, _ := ExpectOneCertProvisionedForIngress(ctx, tf, ing)
 			ExpectCertTypeToBe(ctx, certARN, types.CertificateTypeAmazonIssued)
-			ExpectCertDomainNameToBe(ctx, certARN, tf.Options.Route53ValidationDomain)
+			ExpectCertDomainNameToBe(ctx, certARN, wildcardHost)
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
 			ExpectCertToBeInStatus(ctx, certARN, types.CertificateStatusIssued)
 			ExpectCertToBeInUse(ctx, certARN)
