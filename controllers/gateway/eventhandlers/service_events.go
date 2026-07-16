@@ -13,15 +13,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 // NewenqueueRequestsForServiceEvent detects changes to TargetGroupConfiguration and enqueues all gateway classes and gateways that
 // would effected by a change in the TargetGroupConfiguration
 func NewEnqueueRequestsForServiceEvent(httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute],
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute],
-	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
-	udpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute],
+	tcpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TCPRoute],
+	udpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.UDPRoute],
 	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute], k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &enqueueRequestsForServiceEvent{
 		httpRouteEventChan: httpRouteEventChan,
@@ -41,8 +40,8 @@ var _ handler.TypedEventHandler[*corev1.Service, reconcile.Request] = (*enqueueR
 type enqueueRequestsForServiceEvent struct {
 	httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute]
 	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute]
-	tcpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
-	udpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute]
+	tcpRouteEventChan  chan<- event.TypedGenericEvent[*gatewayv1.TCPRoute]
+	udpRouteEventChan  chan<- event.TypedGenericEvent[*gatewayv1.UDPRoute]
 	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute]
 	k8sClient          client.Client
 	eventRecorder      record.EventRecorder
@@ -102,15 +101,15 @@ func (h *enqueueRequestsForServiceEvent) enqueueImpactedL4Routes(
 			h.logger.V(1).Info("enqueue tcproute for service event",
 				"service", svc.Name,
 				"tcproute", route.GetRouteNamespacedName())
-			h.tcpRouteEventChan <- event.TypedGenericEvent[*gwalpha2.TCPRoute]{
-				Object: route.GetRawRoute().(*gwalpha2.TCPRoute),
+			h.tcpRouteEventChan <- event.TypedGenericEvent[*gatewayv1.TCPRoute]{
+				Object: route.GetRawRoute().(*gatewayv1.TCPRoute),
 			}
 		case routeutils.UDPRouteKind:
 			h.logger.V(1).Info("enqueue updroute for service event",
 				"service", svc.Name,
 				"udproute", route.GetRouteNamespacedName())
-			h.udpRouteEventChan <- event.TypedGenericEvent[*gwalpha2.UDPRoute]{
-				Object: route.GetRawRoute().(*gwalpha2.UDPRoute),
+			h.udpRouteEventChan <- event.TypedGenericEvent[*gatewayv1.UDPRoute]{
+				Object: route.GetRawRoute().(*gatewayv1.UDPRoute),
 			}
 		case routeutils.TLSRouteKind:
 			h.logger.V(1).Info("enqueue tlsroute for service event",

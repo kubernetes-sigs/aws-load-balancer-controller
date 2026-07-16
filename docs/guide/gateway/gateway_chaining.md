@@ -148,7 +148,7 @@ spec:
   scheme: internet-facing
 ---
 # my-unsecure-tcproute.yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
   name: my-unsecure-app-route
@@ -166,7 +166,7 @@ spec:
       port: 80
 ---
 # my-secure-tcproute.yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
   name: my-secure-app-route

@@ -6,7 +6,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 const (
@@ -77,7 +76,7 @@ var ListenerConfigurationForHeaderModification = &[]elbv2gw.ListenerConfiguratio
 	},
 }
 
-var defaultPort = gwalpha2.PortNumber(80)
+var defaultPort = gwv1.PortNumber(80)
 var DefaultHttpRouteRuleBackendRefs = []gwv1.HTTPBackendRef{
 	{
 		BackendRef: gwv1.BackendRef{
@@ -89,7 +88,7 @@ var DefaultHttpRouteRuleBackendRefs = []gwv1.HTTPBackendRef{
 	},
 }
 
-var DefaultGrpcPort = gwalpha2.PortNumber(50051)
+var DefaultGrpcPort = gwv1.PortNumber(50051)
 var DefaultGrpcRouteRuleBackendRefs = []gwv1.GRPCBackendRef{
 	{
 		BackendRef: gwv1.BackendRef{
@@ -101,7 +100,7 @@ var DefaultGrpcRouteRuleBackendRefs = []gwv1.GRPCBackendRef{
 	},
 }
 
-var portNew = gwalpha2.PortNumber(8443)
+var portNew = gwv1.PortNumber(8443)
 var HTTPRouteRuleWithMatchesAndFilters = []gwv1.HTTPRouteRule{
 	{
 		Matches: []gwv1.HTTPRouteMatch{

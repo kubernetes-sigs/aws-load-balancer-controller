@@ -10,10 +10,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *NLBResourceStack {
+func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwv1.TCPRoute, udpr []*gwv1.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *NLBResourceStack {
 
 	CommonStack := test_resources.NewCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
 	return &NLBResourceStack{
@@ -27,8 +26,8 @@ func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *
 // NLBResourceStack containing the deployment and service resources
 type NLBResourceStack struct {
 	CommonStack *test_resources.CommonResourceStack
-	Tcprs       []*gwalpha2.TCPRoute
-	Udprs       []*gwalpha2.UDPRoute
+	Tcprs       []*gwv1.TCPRoute
+	Udprs       []*gwv1.UDPRoute
 	Tlsrs       []*gwv1.TLSRoute
 }
 

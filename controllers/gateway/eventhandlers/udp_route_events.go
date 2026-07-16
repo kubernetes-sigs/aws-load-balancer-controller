@@ -12,12 +12,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // NewEnqueueRequestsForUDPRouteEvent creates handler for UDPRoute resources
 func NewEnqueueRequestsForUDPRouteEvent(
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwalpha2.UDPRoute, reconcile.Request] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwv1.UDPRoute, reconcile.Request] {
 	return &enqueueRequestsForUDPRouteEvent{
 		k8sClient:     k8sClient,
 		eventRecorder: eventRecorder,
@@ -25,7 +25,7 @@ func NewEnqueueRequestsForUDPRouteEvent(
 	}
 }
 
-var _ handler.TypedEventHandler[*gwalpha2.UDPRoute, reconcile.Request] = (*enqueueRequestsForUDPRouteEvent)(nil)
+var _ handler.TypedEventHandler[*gwv1.UDPRoute, reconcile.Request] = (*enqueueRequestsForUDPRouteEvent)(nil)
 
 // enqueueRequestsForUDPRouteEvent handles UDPRoute events
 type enqueueRequestsForUDPRouteEvent struct {
@@ -34,31 +34,31 @@ type enqueueRequestsForUDPRouteEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForUDPRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwalpha2.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForUDPRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwv1.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	routeNew := e.Object
 	h.logger.V(1).Info("enqueue udproute create event", "udproute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)
 }
 
-func (h *enqueueRequestsForUDPRouteEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gwalpha2.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForUDPRouteEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gwv1.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	routeNew := e.ObjectNew
 	h.logger.V(1).Info("enqueue udproute update event", "udproute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)
 }
 
-func (h *enqueueRequestsForUDPRouteEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gwalpha2.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForUDPRouteEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gwv1.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	route := e.Object
 	h.logger.V(1).Info("enqueue udproute delete event", "udproute", route.Name)
 	h.enqueueImpactedGateways(ctx, route, queue)
 }
 
-func (h *enqueueRequestsForUDPRouteEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwalpha2.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForUDPRouteEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwv1.UDPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	route := e.Object
 	h.logger.V(1).Info("enqueue udproute generic event", "udproute", route.Name)
 	h.enqueueImpactedGateways(ctx, route, queue)
 }
 
-func (h *enqueueRequestsForUDPRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gwalpha2.UDPRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForUDPRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gwv1.UDPRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	gateways, err := gatewayutils.GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.NLBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "udproute", route.Name, "error", err)

@@ -39,7 +39,7 @@ const (
 	NLBGatewayTagPrefix = "gateway.k8s.aws.nlb"
 
 	// NLBRouteResourceGroupVersion the groupVersion used by TCPRoute and UDPRoute
-	NLBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1alpha2"
+	NLBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1"
 )
 
 /*

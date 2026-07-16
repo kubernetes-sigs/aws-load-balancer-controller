@@ -49,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -678,8 +677,8 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
 	loggerPrefix := r.logger.WithName("eventHandlers")
 	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
-	tcpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.TCPRoute])
-	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.UDPRoute])
+	tcpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.TCPRoute])
+	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.UDPRoute])
 	tlsRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.TLSRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, tcpRouteEventChan, r.lbcEventChan, r.k8sClient, r.eventRecorder,
@@ -718,10 +717,10 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, refGrantHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.TCPRoute{}, tcpRouteEventHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TCPRoute{}, tcpRouteEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.UDPRoute{}, udpRouteEventHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.UDPRoute{}, udpRouteEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TLSRoute{}, tlsRouteEventHandler)); err != nil {

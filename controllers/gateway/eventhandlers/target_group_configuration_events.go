@@ -15,11 +15,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // NewEnqueueRequestsForTargetGroupConfigurationEvent creates handler for TargetGroupConfiguration resources
-func NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan chan<- event.TypedGenericEvent[*corev1.Service], tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
+func NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan chan<- event.TypedGenericEvent[*corev1.Service], tcpRouteEventChan chan<- event.TypedGenericEvent[*gwv1.TCPRoute],
 	lbcEventChan chan<- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration],
 	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Request] {
 	return &enqueueRequestsForTargetGroupConfigurationEvent{
@@ -38,7 +38,7 @@ var _ handler.TypedEventHandler[*elbv2gw.TargetGroupConfiguration, reconcile.Req
 // enqueueRequestsForTargetGroupConfigurationEvent handles TargetGroupConfiguration events
 type enqueueRequestsForTargetGroupConfigurationEvent struct {
 	svcEventChan      chan<- event.TypedGenericEvent[*corev1.Service]
-	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
+	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwv1.TCPRoute]
 	lbcEventChan      chan<- event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration]
 	k8sClient         client.Client
 	eventRecorder     record.EventRecorder
@@ -95,7 +95,7 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueImpactedObject(
 
 	// TODO - We should probably use an indexer here, we have a task to do this.
 	if tgconfig.Spec.TargetReference.Kind != nil && *tgconfig.Spec.TargetReference.Kind == "Gateway" && h.tcpRouteEventChan != nil {
-		tcpRouteList := &gwalpha2.TCPRouteList{}
+		tcpRouteList := &gwv1.TCPRouteList{}
 
 		if err := h.k8sClient.List(ctx, tcpRouteList); err != nil {
 			h.logger.V(1).Info("failed to list tcp routes for target group configuration event", "targetgroupconfiguration", k8s.NamespacedName(tgconfig))
@@ -104,7 +104,7 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueImpactedObject(
 
 		impactedRoutes := getImpactedTCPRoutes(tcpRouteList, tgconfig)
 		for i := range impactedRoutes {
-			h.tcpRouteEventChan <- event.TypedGenericEvent[*gwalpha2.TCPRoute]{
+			h.tcpRouteEventChan <- event.TypedGenericEvent[*gwv1.TCPRoute]{
 				Object: impactedRoutes[i],
 			}
 		}
@@ -140,9 +140,9 @@ func (h *enqueueRequestsForTargetGroupConfigurationEvent) enqueueGatewaysReferen
 	}
 }
 
-func getImpactedTCPRoutes(list *gwalpha2.TCPRouteList, tgconfig *elbv2gw.TargetGroupConfiguration) []*gwalpha2.TCPRoute {
+func getImpactedTCPRoutes(list *gwv1.TCPRouteList, tgconfig *elbv2gw.TargetGroupConfiguration) []*gwv1.TCPRoute {
 	seen := sets.Set[types.NamespacedName]{}
-	res := make([]*gwalpha2.TCPRoute, 0)
+	res := make([]*gwv1.TCPRoute, 0)
 
 	for i, route := range list.Items {
 		nsn := k8s.NamespacedName(&route)

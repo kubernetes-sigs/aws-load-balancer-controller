@@ -851,6 +851,78 @@ func Test_updateRouteStatus(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "update gwv1.TCPRoute status - condition accepted",
+			route: &gwv1.TCPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-tcp-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.TCPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "test-gateway",
+								Namespace: &testNamespace,
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     true,
+					ResolvedRefs: true,
+					Reason:       string(gwv1.RouteConditionAccepted),
+					Message:      "route accepted",
+				},
+				ParentRef: gwv1.ParentReference{
+					Name:      "test-gateway",
+					Namespace: &testNamespace,
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				tcpRoute := route.(*gwv1.TCPRoute)
+				assert.Len(t, tcpRoute.Status.Parents, 1)
+				validateGw(tcpRoute.Status.Parents[0], "test-gateway")
+			},
+		},
+		{
+			name: "update gwv1.UDPRoute status - condition accepted",
+			route: &gwv1.UDPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-udp-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.UDPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "test-gateway",
+								Namespace: &testNamespace,
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     true,
+					ResolvedRefs: true,
+					Reason:       string(gwv1.RouteConditionAccepted),
+					Message:      "route accepted",
+				},
+				ParentRef: gwv1.ParentReference{
+					Name:      "test-gateway",
+					Namespace: &testNamespace,
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				udpRoute := route.(*gwv1.UDPRoute)
+				assert.Len(t, udpRoute.Status.Parents, 1)
+				validateGw(udpRoute.Status.Parents[0], "test-gateway")
+			},
+		},
 	}
 
 	for _, tt := range tests {
