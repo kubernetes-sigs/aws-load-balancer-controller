@@ -5,7 +5,7 @@ const (
 	GatewayClassName = "aws-alb"
 
 	// LBConfigAPIVersion is the APIVersion for gateway.k8s.aws CRDs (LoadBalancerConfiguration, TargetGroupConfiguration, etc).
-	LBConfigAPIVersion = "gateway.k8s.aws/v1beta1"
+	LBConfigAPIVersion = "gateway.k8s.aws/v1"
 
 	// TGConfigKind is the Kind for TargetGroupConfiguration.
 	TGConfigKind = "TargetGroupConfiguration"

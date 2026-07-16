@@ -1,4 +1,4 @@
-package v1beta1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -366,7 +366,7 @@ type ListenerRuleConfigurationStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:deprecatedversion:warning="gateway.k8s.aws/v1beta1 ListenerRuleConfiguration is deprecated; use gateway.k8s.aws/v1 instead"
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // ListenerRuleConfiguration is the Schema for the ListenerRuleConfiguration API
 type ListenerRuleConfiguration struct {

@@ -37,7 +37,7 @@ func httpRouteIn(ns, name string) gwv1.HTTPRoute {
 
 func tgcIn(ns, name string) gatewayv1beta1.TargetGroupConfiguration {
 	return gatewayv1beta1.TargetGroupConfiguration{
-		TypeMeta:   metav1.TypeMeta{APIVersion: "gateway.k8s.aws/v1beta1", Kind: "TargetGroupConfiguration"},
+		TypeMeta:   metav1.TypeMeta{APIVersion: "gateway.k8s.aws/v1", Kind: "TargetGroupConfiguration"},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 	}
 }

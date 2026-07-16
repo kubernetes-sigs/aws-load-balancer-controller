@@ -64,7 +64,7 @@ spec:
         from: Same
 ---
 # lbconfig.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: alb-lb-config
@@ -139,7 +139,7 @@ spec:
         from: Same
 ---
 # lbconfig.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: nlb-lb-config
@@ -184,7 +184,7 @@ spec:
           port: 443
 ---
 # tg-configuration.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: example-tg-config
@@ -222,7 +222,7 @@ this is required when forwarding traffic from the NLB to the ALB on listener por
 for health check traffic.
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: example-tg-config

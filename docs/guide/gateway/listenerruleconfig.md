@@ -7,7 +7,7 @@ ListenerRuleConfigurations may be attached to Routes within the same namespace o
 ### ForwardActionConfig
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: example-lrc-config
@@ -30,7 +30,7 @@ For more information, please see the [AWS documentation](https://docs.aws.amazon
 ### RedirectActionConfig
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: example-lrc-config
@@ -49,7 +49,7 @@ Use this configuration in conjunction with the Re-direct configuration in HTTPRo
 ### FixedResponseConfig
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: example-lrc-config
@@ -70,7 +70,7 @@ Configures the ALB to send a [fixed response](https://docs.aws.amazon.com/elasti
 ### AuthenticateCognitoActionConfig
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: example-lrc-config
@@ -92,7 +92,7 @@ Configures the ALB to authenticate users with [Cognito](https://docs.aws.amazon.
 ### AuthenticateOidcActionConfig
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: example-lrc-config
@@ -119,7 +119,7 @@ Configures the ALB to authenticate users with an [OIDC Provider](https://docs.aw
 ### JwtValidationActionConfig
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: example-lrc-config
@@ -154,7 +154,7 @@ Configures the ALB to validate JSON Web Tokens (JWTs) before forwarding requests
 
 ```yaml
 # source-ip-condition.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: custom-rule-config-source-ip
