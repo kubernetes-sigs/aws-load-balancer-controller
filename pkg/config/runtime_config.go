@@ -27,6 +27,7 @@ const (
 	flagEnableLeaderElection    = "enable-leader-election"
 	flagLeaderElectionID        = "leader-election-id"
 	flagLeaderElectionNamespace = "leader-election-namespace"
+	flagLeaderElectionLeaseDuration = "leader-election-lease-duration"
 	flagWatchNamespace          = "watch-namespace"
 	flagSyncPeriod              = "sync-period"
 	flagKubeconfig              = "kubeconfig"
@@ -64,6 +65,7 @@ type RuntimeConfig struct {
 	EnableLeaderElection    bool
 	LeaderElectionID        string
 	LeaderElectionNamespace string
+	LeaderElectionLeaseDuration time.Duration
 	WatchNamespace          string
 	SyncPeriod              time.Duration
 	WebhookCertDir          string
@@ -89,6 +91,8 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 		"Name of the leader election ID to use for this controller")
 	fs.StringVar(&c.LeaderElectionNamespace, flagLeaderElectionNamespace, defaultLeaderElectionNamespace,
 		"Name of the leader election ID to use for this controller")
+	fs.DurationVar(&c.LeaderElectionLeaseDuration, flagLeaderElectionLeaseDuration, 0,
+		"The duration that non-leader candidates will wait after observing a leadership renewal until attempting to acquire leadership of a led but unrenewed leader slot. This is effectively the maximum duration that a leader can be stopped before it is replaced by another candidate. This is only applicable if leader election is enabled.")
 	fs.StringVar(&c.WatchNamespace, flagWatchNamespace, defaultWatchNamespace,
 		"Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.")
 	fs.DurationVar(&c.SyncPeriod, flagSyncPeriod, defaultSyncPeriod,
@@ -179,6 +183,10 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) (ctrl.Opti
 			KeyName:  rtCfg.WebhookKeyName,
 			TLSOpts:  baseOpts,
 		}),
+	}
+
+	if rtCfg.LeaderElectionLeaseDuration > 0 {
+		opt.LeaseDuration = &rtCfg.LeaderElectionLeaseDuration
 	}
 
 	// cannot set DefaultNamespaces = corev1.NamespaceAll
