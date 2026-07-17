@@ -406,6 +406,16 @@ disableRestrictedSecurityGroupRules:
 # maxTargetsPerTargetGroup specifies the maximum number of targets that the controller will attempt to add to a given ELB instance
 maxTargetsPerTargetGroup:
 
+# route53ValidationRecordRoutingPolicy specifies the Route53 routing policy to use for ACM DNS
+# validation records this controller creates "simple" (default) or "weighted". Use "weighted"
+# to allow multiple independent controllers (e.g. blue/green clusters) to each create a validation
+# record for the same domain without conflicting.
+route53ValidationRecordRoutingPolicy:
+
+# route53ValidationRecordWeight specifies the weight to use for this controller's ACM DNS
+# validation records when route53ValidationRecordRoutingPolicy is "weighted". Defaults to 100.
+route53ValidationRecordWeight:
+
 # controllerConfig specifies controller configuration
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
