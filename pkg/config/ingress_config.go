@@ -27,7 +27,7 @@ const (
 	defaultRoute53ValidationRecordRoutingPolicy = Route53RoutingPolicySimple
 	defaultRoute53ValidationRecordWeight        = int64(100)
 
-	// Route53RoutingPolicySimple is the legacy behavior: one Simple record per validation CNAME.
+	// Route53RoutingPolicySimple creates one Simple record per validation CNAME.
 	// Only one controller can own the record for a given name at a time; a second controller
 	// creating a validation record for the same domain will fail.
 	Route53RoutingPolicySimple = "simple"
