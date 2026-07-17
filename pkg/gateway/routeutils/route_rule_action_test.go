@@ -14,6 +14,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -755,6 +756,9 @@ func (m *mockSecretsManager) GetSecret(ctx context.Context, k8sClient client.Cli
 		return nil, err
 	}
 	return secret, nil
+}
+
+func (m *mockSecretsManager) SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]) {
 }
 
 func Test_buildJwtValidationAction(t *testing.T) {
