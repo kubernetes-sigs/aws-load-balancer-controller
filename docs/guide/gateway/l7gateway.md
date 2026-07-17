@@ -75,7 +75,7 @@ spec:
           from: Same
 ---
 # lbconfig.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: test-gw-lbconfig-1
@@ -252,7 +252,7 @@ AWS ALB only allows [specific](https://docs.aws.amazon.com/elasticloadbalancing/
 ** Request header modification must be done using the LoadBalancerConfiguration, using [Listener Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-header-modification.html) **
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -357,7 +357,7 @@ AND
 ##### Source IP Condition
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: custom-rule-config-source-ip

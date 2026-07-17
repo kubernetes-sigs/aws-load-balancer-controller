@@ -13,7 +13,7 @@ For a comprehensive list of configurable parameters, please refer to the [LoadBa
 **Example:** To configure your Gateway to provision an `internet-facing` Load Balancer, define the following `LoadBalancerConfiguration` resource:
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: internet-facing-config
@@ -106,7 +106,7 @@ Service-level TGCs only need to specify the fields they want to override — all
 To configure the target groups for a specific service (e.g., `my-service`) to use `IP` mode and custom health checks across all routes referencing it, employ the following configuration:
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: custom-tg-config
@@ -129,7 +129,7 @@ Here, `my-service` is referenced within the `targetReference` of `custom-tg-conf
 Alternatively, specific target group settings can be applied based on the individual routes referencing a service. This allows for tailored configurations for different traffic flows.
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: route-specific-tg-config
@@ -196,7 +196,7 @@ a routing rule that only allows requests originating from the range 10.0.0.0/5 t
 
 ```
 # source-ip-condition.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: custom-rule-config-source-ip
@@ -240,7 +240,7 @@ To add granular rules, specify the index match:
 
 ```
 # source-ip-condition.yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: ListenerRuleConfiguration
 metadata:
   name: custom-rule-config-source-ip

@@ -5,7 +5,7 @@ metadata:
 spec:
   controllerName: gateway.k8s.aws/alb
 ---
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: vanilla-lb-confi-17d9f29244
@@ -59,7 +59,7 @@ spec:
         type: PathPrefix
         value: /web
 ---
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: svc-api-tg-confi-076740c021
@@ -72,7 +72,7 @@ spec:
   targetReference:
     name: svc-api
 ---
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: svc-web-tg-confi-72203f1b04

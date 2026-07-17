@@ -100,7 +100,7 @@ func TestDetectCRDs_multipleGroupVersions(t *testing.T) {
 					{Kind: "GRPCRoute"},
 				},
 			},
-			"gateway.k8s.aws/v1beta1": {
+			"gateway.k8s.aws/v1": {
 				APIResources: []metav1.APIResource{
 					{Kind: "TargetGroupConfiguration"},
 					{Kind: "LoadBalancerConfiguration"},
@@ -109,7 +109,7 @@ func TestDetectCRDs_multipleGroupVersions(t *testing.T) {
 		},
 	}
 
-	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1", "gateway.k8s.aws/v1beta1"))
+	result, err := DetectCRDs(client, sets.New("gateway.networking.k8s.io/v1", "gateway.k8s.aws/v1"))
 
 	assert.NoError(t, err)
 
@@ -120,7 +120,7 @@ func TestDetectCRDs_multipleGroupVersions(t *testing.T) {
 	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("HTTPRoute"))
 	assert.True(t, result["gateway.networking.k8s.io/v1"].Has("GRPCRoute"))
 
-	assert.Equal(t, len(result["gateway.k8s.aws/v1beta1"]), 2)
-	assert.True(t, result["gateway.k8s.aws/v1beta1"].Has("TargetGroupConfiguration"))
-	assert.True(t, result["gateway.k8s.aws/v1beta1"].Has("LoadBalancerConfiguration"))
+	assert.Equal(t, len(result["gateway.k8s.aws/v1"]), 2)
+	assert.True(t, result["gateway.k8s.aws/v1"].Has("TargetGroupConfiguration"))
+	assert.True(t, result["gateway.k8s.aws/v1"].Has("LoadBalancerConfiguration"))
 }

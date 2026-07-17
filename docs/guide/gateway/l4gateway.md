@@ -151,7 +151,7 @@ spec:
 To customize the target group created, it's no different from a single protocol
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: example-tg-config
@@ -168,7 +168,7 @@ spec:
 To customize the listener:
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: nlb-lb-config

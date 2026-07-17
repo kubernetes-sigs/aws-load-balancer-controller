@@ -1,4 +1,4 @@
-package v1beta1
+package v1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -255,7 +255,7 @@ type TargetGroupConfigurationStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:deprecatedversion:warning="gateway.k8s.aws/v1beta1 TargetGroupConfiguration is deprecated; use gateway.k8s.aws/v1 instead"
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="SERVICE-NAME",type="string",JSONPath=".spec.targetReference.name",description="The Kubernetes Service's name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // TargetGroupConfiguration is the Schema for defining TargetGroups with an AWS ELB Gateway

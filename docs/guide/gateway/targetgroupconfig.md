@@ -5,7 +5,7 @@
 `targetReference`
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: example-tg-config
@@ -57,7 +57,7 @@ The Gateway LBC's default TGC must be in the same namespace as the Gateway. If i
 
 Default TGC (platform team baseline):
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: gateway-defaults
@@ -76,7 +76,7 @@ spec:
 
 LoadBalancerConfiguration referencing the default TGC:
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: my-lb-config
@@ -109,7 +109,7 @@ spec:
 
 Service-level TGC (app team override — only sets what differs):
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: service-a-tgc
@@ -133,7 +133,7 @@ Cluster admins can set org-wide defaults by attaching a default TGC to the Gatew
 
 ```yaml
 # Admin's default TGC
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: org-defaults
@@ -143,7 +143,7 @@ spec:
     targetType: ip
 ---
 # GatewayClass LBC references it
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: org-lb-config
@@ -174,7 +174,7 @@ All Gateways in this class inherit `targetType: ip` unless they override via the
 `defaultConfiguration`
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: example-tg-config
@@ -198,7 +198,7 @@ See [TargetGroupProps](#targetgroupprops) for more details.
 `routeConfigurations`
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: TargetGroupConfiguration
 metadata:
   name: route-specific-config
