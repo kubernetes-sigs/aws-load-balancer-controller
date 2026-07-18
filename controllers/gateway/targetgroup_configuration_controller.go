@@ -82,10 +82,12 @@ func (r *targetgroupConfigurationReconciler) reconcile(ctx context.Context, req 
 }
 
 func (r *targetgroupConfigurationReconciler) handleUpdate(tgConf *elbv2gw.TargetGroupConfiguration) error {
-	if k8s.HasFinalizer(tgConf, shared_constants.TargetGroupConfigurationFinalizer) {
-		return nil
+	if !k8s.HasFinalizer(tgConf, shared_constants.TargetGroupConfigurationFinalizer) {
+		if err := r.finalizerManager.AddFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer); err != nil {
+			return err
+		}
 	}
-	return r.finalizerManager.AddFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
+	return r.updateStatus(context.Background(), tgConf)
 }
 
 func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.TargetGroupConfiguration) error {
@@ -152,6 +154,27 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		}
 	}
 	return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
+}
+
+// updateStatus updates the TargetGroupConfiguration status with the current observed generation
+func (r *targetgroupConfigurationReconciler) updateStatus(ctx context.Context, tgConf *elbv2gw.TargetGroupConfiguration) error {
+	// Check if status actually needs updating
+	if tgConf.Status.ObservedGeneration != nil &&
+		*tgConf.Status.ObservedGeneration == tgConf.Generation {
+		return nil // No update needed
+	}
+
+	tgConfOld := tgConf.DeepCopy()
+
+	// Update status fields
+	tgConf.Status.ObservedGeneration = &tgConf.Generation
+
+	// Patch the status
+	if err := r.k8sClient.Status().Patch(ctx, tgConf, client.MergeFrom(tgConfOld)); err != nil {
+		return fmt.Errorf("failed to update TargetGroupConfiguration status: %w", err)
+	}
+
+	return nil
 }
 
 // isDefaultTGCInUse checks if any LoadBalancerConfiguration in the same namespace references
