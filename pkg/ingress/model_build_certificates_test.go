@@ -285,11 +285,18 @@ func Test_buildCertificateResourceID(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Namespace: "awesome-ns", Name: "ing-wild"},
 		},
 	}
-	got := task.buildCertificateResourceID(&acmModel.CertificateSpec{
+	got1 := task.buildCertificateResourceID(&acmModel.CertificateSpec{
 		Type:       acmtypes.CertificateTypeAmazonIssued,
 		DomainName: "*.app.example.com",
 	}, ing)
+	assert.NotContains(t, got1, "*")
+	assert.Contains(t, got1, "wildcard.app.example.com")
 
-	assert.NotContains(t, got, "*")
-	assert.Contains(t, got, "wildcard.app.example.com")
+	// Case 2: Non-wildcard domain
+	got2 := task.buildCertificateResourceID(&acmModel.CertificateSpec{
+		Type:       acmtypes.CertificateTypeAmazonIssued,
+		DomainName: "app.example.com",
+	}, ing)
+	assert.NotContains(t, got2, "*")
+	assert.Contains(t, got2, "app.example.com")
 }
