@@ -7,7 +7,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"

@@ -6,7 +6,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 )
 
 // InputResources holds all Kubernetes resources parsed from input (files or cluster).
