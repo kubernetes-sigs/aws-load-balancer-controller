@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"

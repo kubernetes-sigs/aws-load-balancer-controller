@@ -7,7 +7,7 @@ import (
 	"reflect"
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"

@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"

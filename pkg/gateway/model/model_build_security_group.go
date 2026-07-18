@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/ec2"

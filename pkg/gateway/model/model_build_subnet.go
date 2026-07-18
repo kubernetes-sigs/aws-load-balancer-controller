@@ -6,7 +6,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/pkg/errors"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/model/subnet"

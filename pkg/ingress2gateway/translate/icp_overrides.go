@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 )

@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/model/subnet"
