@@ -1119,6 +1119,78 @@ func Test_defaultModelBuildTask_buildRuleConditions(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "host with catch-all prefix path omits redundant path-pattern condition",
+			ing:  MockIngress,
+			rule: networking.IngressRule{
+				Host: "example.com",
+			},
+			path: networking.HTTPIngressPath{
+				Path:     "/",
+				PathType: &pathTypePrefix,
+			},
+			backend: EnhancedBackend{
+				Conditions: []RuleCondition{},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{"example.com"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "catch-all prefix path without host keeps path-pattern condition",
+			ing:  MockIngress,
+			rule: networking.IngressRule{},
+			path: networking.HTTPIngressPath{
+				Path:     "/",
+				PathType: &pathTypePrefix,
+			},
+			backend: EnhancedBackend{
+				Conditions: []RuleCondition{},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{"/*"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "catch-all prefix path without host with source-ip omits redundant path-pattern condition",
+			ing:  MockIngress,
+			rule: networking.IngressRule{},
+			path: networking.HTTPIngressPath{
+				Path:     "/",
+				PathType: &pathTypePrefix,
+			},
+			backend: EnhancedBackend{
+				Conditions: []RuleCondition{
+					{
+						Field: RuleConditionFieldSourceIP,
+						SourceIPConfig: &SourceIPConditionConfig{
+							Values: []string{"192.168.0.0/16"},
+						},
+					},
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldSourceIP,
+					SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+						Values: []string{"192.168.0.0/16"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "host and host header condition (values)",
 			ing:  MockIngress,
 			rule: networking.IngressRule{
@@ -1286,6 +1358,41 @@ func Test_defaultModelBuildTask_buildRuleConditions(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func Test_isCatchAllPathPattern(t *testing.T) {
+	tests := []struct {
+		name            string
+		pathValues      []string
+		pathRegexValues []string
+		want            bool
+	}{
+		{
+			name:       "catch-all path pattern",
+			pathValues: []string{"/*"},
+			want:       true,
+		},
+		{
+			name:       "specific path pattern",
+			pathValues: []string{"/api"},
+			want:       false,
+		},
+		{
+			name:            "regex path pattern",
+			pathRegexValues: []string{"^/.*$"},
+			want:            false,
+		},
+		{
+			name:       "multiple path patterns",
+			pathValues: []string{"/*", "/api"},
+			want:       false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isCatchAllPathPattern(tt.pathValues, tt.pathRegexValues))
 		})
 	}
 }
