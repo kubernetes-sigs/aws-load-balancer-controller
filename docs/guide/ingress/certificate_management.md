@@ -35,7 +35,7 @@ This reconciliation might fail if there are no certificates present to autodisco
 ### Certificate Validation
 
 Amazon Issued certificates are currently validated using DNS Method and Route53 records. Validation can take [up to 30 minutes](https://docs.aws.amazon.com/acm/latest/userguide/dns-validation.html). 
-E-Mail validation is not supported due to significant higher delays between requesting a certificate and it's issuance. 
+E-Mail validation is not supported due to significant higher delays between requesting a certificate and its issuance. 
 When using a PCA, certificates don't have to be validated.
 
 Because ACM validates Amazon-issued certificates over **public** DNS, the controller writes the validation record into the nearest-ancestor **public** Route53 hosted zone. In split-horizon setups (a private zone that is a subdomain of a public zone), the private zone is skipped so the record lands where ACM can resolve it. If no public hosted zone matches the domain (private-only domain, or the public parent lives in an account the controller can't see), the controller fails fast. In that case, pre-create the certificate yourself and reference it with the [`certificate-arn`](annotations.md#certificate-arn) annotation.
