@@ -38,6 +38,8 @@ Amazon Issued certificates are currently validated using DNS Method and Route53 
 E-Mail validation is not supported due to significant higher delays between requesting a certificate and it's issuance. 
 When using a PCA, certificates don't have to be validated.
 
+Because ACM validates Amazon-issued certificates over **public** DNS, the controller writes the validation record into the nearest-ancestor **public** Route53 hosted zone. In split-horizon setups (a private zone that is a subdomain of a public zone), the private zone is skipped so the record lands where ACM can resolve it. If no public hosted zone matches the domain (private-only domain, or the public parent lives in an account the controller can't see), the controller fails fast. In that case, pre-create the certificate yourself and reference it with the [`certificate-arn`](annotations.md#certificate-arn) annotation.
+
 ## Ingress Group Behavior
 
 When using certificate management with [IngressGroups](ingress_class.md#specgroup), each ingress in the group gets its own certificate based on its own hostnames. All certificates are attached to the shared ALB's HTTPS listener.
