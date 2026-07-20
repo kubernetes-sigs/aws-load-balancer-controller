@@ -64,3 +64,18 @@ func (mr *MockRoute53MockRecorder) GetHostedZoneID(arg0, arg1 interface{}) *gomo
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHostedZoneID", reflect.TypeOf((*MockRoute53)(nil).GetHostedZoneID), arg0, arg1)
 }
+
+// GetPublicHostedZoneID mocks base method.
+func (m *MockRoute53) GetPublicHostedZoneID(arg0 context.Context, arg1 string) (*string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPublicHostedZoneID", arg0, arg1)
+	ret0, _ := ret[0].(*string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPublicHostedZoneID indicates an expected call of GetPublicHostedZoneID.
+func (mr *MockRoute53MockRecorder) GetPublicHostedZoneID(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPublicHostedZoneID", reflect.TypeOf((*MockRoute53)(nil).GetPublicHostedZoneID), arg0, arg1)
+}
