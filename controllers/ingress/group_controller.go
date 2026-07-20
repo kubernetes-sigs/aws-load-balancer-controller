@@ -56,7 +56,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	networkingManager networkingpkg.NetworkingManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
 	elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
-	sgResolver networkingpkg.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
+	sgResolver networkingpkg.SecurityGroupResolver, secretsManager k8s.SecretsManager, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
 	targetGroupCollector awsmetrics.TargetGroupCollector, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper,
 ) *groupReconciler {
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
@@ -71,7 +71,8 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, logger, metricsCollector, certDiscovery)
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, secretsManager, logger, metricsCollector,
+		certDiscovery)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
 		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector, true)
@@ -89,6 +90,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		stackMarshaller:   stackMarshaller,
 		stackDeployer:     stackDeployer,
 		backendSGProvider: backendSGProvider,
+		secretsManager:    secretsManager,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -402,6 +404,7 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	ingEventChan := make(chan event.TypedGenericEvent[*networking.Ingress])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	secretEventsChan := make(chan event.TypedGenericEvent[*corev1.Secret])
+	r.secretsManager.SetEventChannel(secretEventsChan)
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(r.groupLoader, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("ingress"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(ingEventChan, r.k8sClient, r.eventRecorder,
@@ -439,7 +442,6 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 			return err
 		}
 	}
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, ctrl.Log.WithName("secrets-manager"))
 	return nil
 }
 

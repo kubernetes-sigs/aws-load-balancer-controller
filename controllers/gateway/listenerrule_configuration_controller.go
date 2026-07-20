@@ -66,7 +66,7 @@ func (r *listenerRuleConfigurationReconciler) SetupWatches(_ context.Context, ct
 	if err := ctrl.Watch(source.Channel(secretEventsChan, secretToLRCHandler)); err != nil {
 		return err
 	}
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"), "", "")
 	return nil
 }
 

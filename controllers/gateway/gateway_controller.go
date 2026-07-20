@@ -670,7 +670,7 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		}
 	}
 
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"), "", "")
 	return nil
 }
 

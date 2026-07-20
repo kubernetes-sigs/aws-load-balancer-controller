@@ -214,9 +214,11 @@ func main() {
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, nlbGatewayEnabled || albGatewayEnabled, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
+	requiredLabelKey, requiredLabelValue := config.ParseRequiredSecretsLabel(controllerCFG.RequiredSecretsLabel)
+	secretsManager := k8s.NewSecretsManager(clientSet, nil, ctrl.Log.WithName("secrets-manager"), requiredLabelKey, requiredLabelValue)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, networkingManager, sgReconciler, subnetResolver, elbv2TaggingManager,
-		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"), lbcMetricsCollector, reconcileCounters,
+		controllerCFG, backendSGProvider, sgResolver, secretsManager, ctrl.Log.WithName("controllers").WithName("ingress"), lbcMetricsCollector, reconcileCounters,
 		targetGroupCollector, tgArnMapper)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, networkingManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
