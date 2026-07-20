@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/controllers/service/eventhandlers"
@@ -104,7 +105,7 @@ type serviceReconciler struct {
 
 func (r *serviceReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileCounters.IncrementService(req.NamespacedName)
-	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
+	return runtime.HandleReconcileErrorWithCondition(r.reconcile(ctx, req), controllerName, req, r.metricsCollector, r.logger)
 }
 
 func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
@@ -115,7 +116,11 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "fetch_service", fetchServiceFn)
 	if err != nil {
-		return client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			r.metricsCollector.DeleteControllerReconcileCondition(controllerName, req.Namespace, req.Name)
+			return nil
+		}
+		return err
 	}
 
 	var stack core.Stack
@@ -137,6 +142,7 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request
 		if err != nil {
 			return ctrlerrors.NewErrorWithMetrics(controllerName, "cleanup_load_balancer_error", err, r.metricsCollector)
 		}
+		r.metricsCollector.DeleteControllerReconcileCondition(controllerName, svc.Namespace, svc.Name)
 		return nil
 	}
 	return r.reconcileLoadBalancerResources(ctx, svc, stack, lb, backendSGRequired)
@@ -218,6 +224,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "update_status_error", err, r.metricsCollector)
 	}
 	r.eventRecorder.Event(svc, corev1.EventTypeNormal, k8s.ServiceEventReasonSuccessfullyReconciled, "Successfully reconciled")
+	r.metricsCollector.ObserveControllerReconcileCondition(controllerName, svc.Namespace, svc.Name, true)
 	return nil
 }
 
