@@ -1,6 +1,6 @@
 domain: k8s.aws
 multigroup: true
-repo: sigs.k8s.io/aws-load-balancer-controller
+repo: sigs.k8s.io/aws-load-balancer-controller/v3
 resources:
 - group: elbv2
   kind: TargetGroupBinding

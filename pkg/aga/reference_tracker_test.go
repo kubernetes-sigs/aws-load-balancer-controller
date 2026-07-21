@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
 )
 
 func TestNewReferenceTracker(t *testing.T) {

@@ -366,7 +366,7 @@ type ListenerRuleConfigurationStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion:warning="gateway.k8s.aws/v1beta1 ListenerRuleConfiguration is deprecated; use gateway.k8s.aws/v1 instead"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // ListenerRuleConfiguration is the Schema for the ListenerRuleConfiguration API
 type ListenerRuleConfiguration struct {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/certs"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
@@ -19,29 +19,29 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway/eventhandlers"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
-	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
-	metricsutil "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/util"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/controllers/gateway/eventhandlers"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/addon"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/model"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/referencecounter"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/aws"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
+	metricsutil "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/util"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -49,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -671,15 +670,15 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		}
 	}
 
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"), "", "")
 	return nil
 }
 
 func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
 	loggerPrefix := r.logger.WithName("eventHandlers")
 	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
-	tcpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.TCPRoute])
-	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.UDPRoute])
+	tcpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.TCPRoute])
+	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.UDPRoute])
 	tlsRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.TLSRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, tcpRouteEventChan, r.lbcEventChan, r.k8sClient, r.eventRecorder,
@@ -718,10 +717,10 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, refGrantHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.TCPRoute{}, tcpRouteEventHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TCPRoute{}, tcpRouteEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.UDPRoute{}, udpRouteEventHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.UDPRoute{}, udpRouteEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TLSRoute{}, tlsRouteEventHandler)); err != nil {

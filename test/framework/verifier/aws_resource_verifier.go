@@ -9,14 +9,14 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 )
 
 type TargetGroupHC struct {
@@ -190,24 +190,21 @@ func VerifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Fr
 	listenerCerts, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, awssdk.ToString(listeners[0].ListenerArn))
 	Expect(err).ToNot(HaveOccurred())
 
-	var observedCertArns []string
+	observedCertSet := sets.New[string]()
 	var defaultCert string
 	for _, cert := range listenerCerts {
 		if awssdk.ToBool(cert.IsDefault) {
 			defaultCert = awssdk.ToString(cert.CertificateArn)
 		}
-		observedCertArns = append(observedCertArns, awssdk.ToString(cert.CertificateArn))
+		observedCertSet.Insert(awssdk.ToString(cert.CertificateArn))
 	}
 	if defaultCert != expectedCertARNS[0] {
 		return errors.New("default cert does not match")
 	}
-	//Expect(defaultCert).To(Equal(expectedCertARNS[0]))
-	if len(expectedCertARNS) != len(observedCertArns) {
-		return errors.New("cert len mismatch")
+	expectedCertSet := sets.New[string](expectedCertARNS...)
+	if !observedCertSet.Equal(expectedCertSet) {
+		return errors.New("cert mismatch")
 	}
-	sort.Strings(observedCertArns)
-	sort.Strings(expectedCertARNS)
-	Expect(expectedCertARNS).To(Equal(observedCertArns))
 	return nil
 }
 
@@ -966,5 +963,70 @@ func VerifyTargetsHaveQUICServerIDs(ctx context.Context, f *framework.Framework,
 		}
 		return true
 	}, utils.PollTimeoutLong, utils.PollIntervalLong).Should(BeTrue())
+	return nil
+}
+
+// RulePrecedenceExpectation describes the expected priority ordering between
+// two listener rules identified by their path patterns.
+type RulePrecedenceExpectation struct {
+	// MoreSpecificPath should have a lower priority number (evaluated first by ALB).
+	MoreSpecificPath string
+	// LessSpecificPath should have a higher priority number (evaluated later).
+	LessSpecificPath string
+}
+
+// VerifyListenerRulePrecedence verifies that on the HTTPS listener (port 443),
+// the rule matching MoreSpecificPath has a lower ALB priority number than the
+// rule matching LessSpecificPath. This ensures more specific routes are evaluated
+// first by the ALB, preventing catch-all rules from intercepting specific traffic.
+func VerifyListenerRulePrecedence(ctx context.Context, f *framework.Framework, lbARN string, expectation RulePrecedenceExpectation) error {
+	lsARN := GetLoadBalancerListenerARN(ctx, f, lbARN, "443")
+	if lsARN == "" {
+		return errors.Errorf("no HTTPS listener found on port 443")
+	}
+
+	rules, err := f.LBManager.GetLoadBalancerListenerRules(ctx, lsARN)
+	if err != nil {
+		return err
+	}
+
+	var moreSpecificPriority, lessSpecificPriority int
+	var foundMore, foundLess bool
+
+	for _, rule := range rules {
+		if awssdk.ToBool(rule.IsDefault) {
+			continue
+		}
+		priority, _ := strconv.Atoi(awssdk.ToString(rule.Priority))
+		for _, cond := range rule.Conditions {
+			if awssdk.ToString(cond.Field) != string(elbv2model.RuleConditionFieldPathPattern) {
+				continue
+			}
+			if cond.PathPatternConfig == nil {
+				continue
+			}
+			for _, v := range cond.PathPatternConfig.Values {
+				if strings.Contains(v, expectation.MoreSpecificPath) {
+					moreSpecificPriority = priority
+					foundMore = true
+				}
+				if v == expectation.LessSpecificPath {
+					lessSpecificPriority = priority
+					foundLess = true
+				}
+			}
+		}
+	}
+
+	if !foundMore {
+		return errors.Errorf("could not find listener rule with path containing %q", expectation.MoreSpecificPath)
+	}
+	if !foundLess {
+		return errors.Errorf("could not find listener rule with path %q", expectation.LessSpecificPath)
+	}
+	if moreSpecificPriority >= lessSpecificPriority {
+		return errors.Errorf("cross-kind precedence violation: specific path %q has priority %d but catch-all %q has priority %d (lower number = evaluated first, so specific path should have lower priority number)",
+			expectation.MoreSpecificPath, moreSpecificPriority, expectation.LessSpecificPath, lessSpecificPriority)
+	}
 	return nil
 }

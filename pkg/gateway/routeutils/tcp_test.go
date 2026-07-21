@@ -8,18 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_ConvertTCPRuleToRouteRule(t *testing.T) {
 
-	rule := &gwalpha2.TCPRouteRule{
+	rule := &gwv1.TCPRouteRule{
 		Name:        (*gwv1.SectionName)(awssdk.String("my-name")),
-		BackendRefs: []gwalpha2.BackendRef{},
+		BackendRefs: []gwv1.BackendRef{},
 	}
 
 	backends := []Backend{
@@ -29,27 +28,27 @@ func Test_ConvertTCPRuleToRouteRule(t *testing.T) {
 	result := convertTCPRouteRule(rule, backends)
 
 	assert.Equal(t, backends, result.GetBackends())
-	assert.Equal(t, rule, result.GetRawRouteRule().(*gwalpha2.TCPRouteRule))
+	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.TCPRouteRule))
 }
 
 func Test_ListTCPRoutes(t *testing.T) {
 	k8sClient := testutils.GenerateTestClient()
 
-	k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
+	k8sClient.Create(context.Background(), &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo1",
 			Namespace: "bar1",
 		},
-		Spec: gwalpha2.TCPRouteSpec{
-			Rules: []gwalpha2.TCPRouteRule{
+		Spec: gwv1.TCPRouteSpec{
+			Rules: []gwv1.TCPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 						{},
@@ -57,23 +56,23 @@ func Test_ListTCPRoutes(t *testing.T) {
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{},
+					BackendRefs: []gwv1.BackendRef{},
 				},
 			},
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
+	k8sClient.Create(context.Background(), &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo2",
 			Namespace: "bar2",
 		},
-		Spec: gwalpha2.TCPRouteSpec{
+		Spec: gwv1.TCPRouteSpec{
 			Rules: nil,
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
+	k8sClient.Create(context.Background(), &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo3",
 			Namespace: "bar3",
@@ -122,16 +121,16 @@ func Test_TCP_LoadAttachedRules(t *testing.T) {
 	}
 
 	routeDescription := tcpRouteDescription{
-		route: &gwalpha2.TCPRoute{
-			Spec: gwalpha2.TCPRouteSpec{Rules: []gwalpha2.TCPRouteRule{
+		route: &gwv1.TCPRoute{
+			Spec: gwv1.TCPRouteSpec{Rules: []gwv1.TCPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 						{},
@@ -139,12 +138,12 @@ func Test_TCP_LoadAttachedRules(t *testing.T) {
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{},
+					BackendRefs: []gwv1.BackendRef{},
 				},
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.TCPRouteRule](mockLoader, mockListenerRuleConfigLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.TCPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil, nil)

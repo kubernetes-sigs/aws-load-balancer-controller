@@ -3,10 +3,10 @@ package ingress2gateway
 import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 )
 
 // InputResources holds all Kubernetes resources parsed from input (files or cluster).

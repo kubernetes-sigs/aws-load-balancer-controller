@@ -14,10 +14,10 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

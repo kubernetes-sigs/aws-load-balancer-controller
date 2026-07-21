@@ -115,19 +115,15 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 		}
 	}
 
-	// sort http rules based on precedence
-	sort.Slice(httpRoutes, func(i, j int) bool {
-		return compareHttpRulePrecedence(httpRoutes[i], httpRoutes[j])
-	})
-
-	// sort grpc rules based on precedence
-	sort.Slice(grpcRoutes, func(i, j int) bool {
-		return compareGrpcRulePrecedence(grpcRoutes[i], grpcRoutes[j])
-	})
-
-	// append with HTTP routes first since it is usually more specific
 	allRoutes = append(allRoutes, httpRoutes...)
 	allRoutes = append(allRoutes, grpcRoutes...)
+
+	// Sort all rules using a unified comparator that handles cross-kind
+	// precedence based on specificity rather than route kind.
+	sort.Slice(allRoutes, func(i, j int) bool {
+		return compareRulePrecedenceUnified(allRoutes[i], allRoutes[j])
+	})
+
 	return allRoutes
 }
 
@@ -183,7 +179,19 @@ func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) i
 			return precedence
 		}
 	}
-	// can not complete tie breaking at hostname level
+	// All compared hostnames tie up to the shorter list's length. A shorter list
+	// (in the extreme, an empty list as used by a catch-all route) constrains
+	// fewer hostnames and is therefore less specific, so it must have lower
+	// precedence. Without this, an empty hostname list returns 0 ("equal") and
+	// precedence falls through to path length / creation timestamp, mixing
+	// incompatible criteria and making the comparator non-transitive.
+	if len(hostnameListOne) != len(hostnameListTwo) {
+		if len(hostnameListOne) > len(hostnameListTwo) {
+			return -1 // one is more specific (more hostnames)
+		}
+		return 1 // two is more specific
+	}
+	// genuinely equal at hostname level
 	return 0
 }
 
@@ -337,4 +345,151 @@ func getGrpcRoutePathType(method *v1.GRPCMethodMatch) int {
 	default:
 		return 0
 	}
+}
+
+// compareRulePrecedenceUnified provides a single comparator that handles both
+// same-kind and cross-kind rule precedence. For same-kind comparisons it
+// delegates to the existing kind-specific comparators (which preserve
+// intra-kind semantics like GRPC's service > method ordering). For cross-kind
+// comparisons it normalizes both kinds to comparable specificity values.
+func compareRulePrecedenceUnified(ruleOne, ruleTwo RulePrecedence) bool {
+	oneIsHTTP := ruleOne.HttpSpecificRulePrecedenceFactor != nil
+	twoIsHTTP := ruleTwo.HttpSpecificRulePrecedenceFactor != nil
+
+	// Same kind: delegate to existing comparators to preserve intra-kind
+	// semantics (e.g. GRPC service length > method length ordering).
+	if oneIsHTTP && twoIsHTTP {
+		return compareHttpRulePrecedence(ruleOne, ruleTwo)
+	}
+	if !oneIsHTTP && !twoIsHTTP {
+		return compareGrpcRulePrecedence(ruleOne, ruleTwo)
+	}
+
+	// Cross-kind: use normalized specificity comparison.
+	return compareCrossKindRulePrecedence(ruleOne, ruleTwo)
+}
+
+// compareCrossKindRulePrecedence compares an HTTPRoute rule against a GRPCRoute
+// rule (or vice versa) using normalized specificity factors so that route kind
+// alone does not determine priority.
+//
+// Cross-kind precedence ordering (most significant first):
+//  1. Hostname specificity (exact > wildcard > none; more dots > fewer dots)
+//  2. Path type (exact=3 > prefix=2 > regex=1 > none=0)
+//  3. Effective path length (longer = more specific)
+//  4. HTTP method constraint (hasMethod=true > false; GRPC routes are treated
+//     as hasMethod=false since their method specificity is already captured in
+//     path length via ServiceLength + MethodLength)
+//  5. Header count (more headers = more specific)
+//  6. Additional conditions (query params)
+//  7. Common tiebreakers (creation timestamp, namespaced name, rule/match index)
+func compareCrossKindRulePrecedence(ruleOne, ruleTwo RulePrecedence) bool {
+	// 1. Hostname precedence
+	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
+	if precedence != 0 {
+		return precedence < 0
+	}
+
+	// 2. Path type
+	onePathType := ruleOne.normalizedPathType()
+	twoPathType := ruleTwo.normalizedPathType()
+	if onePathType != twoPathType {
+		return onePathType > twoPathType
+	}
+
+	// 3. Effective path length
+	onePathLen := ruleOne.effectivePathLength()
+	twoPathLen := ruleTwo.effectivePathLength()
+	if onePathLen != twoPathLen {
+		return onePathLen > twoPathLen
+	}
+
+	// 4. HTTP method constraint (hasMethod)
+	// GRPC routes have no equivalent of HTTP method matching (their method
+	// specificity is captured in path length), so they are treated as false.
+	oneHasMethod := ruleOne.normalizedHasMethod()
+	twoHasMethod := ruleTwo.normalizedHasMethod()
+	if oneHasMethod != twoHasMethod {
+		return oneHasMethod
+	}
+
+	// 5. Header count
+	oneHeaders := ruleOne.normalizedHeaderCount()
+	twoHeaders := ruleTwo.normalizedHeaderCount()
+	if oneHeaders != twoHeaders {
+		return oneHeaders > twoHeaders
+	}
+
+	// 6. Additional conditions (query params)
+	oneExtra := ruleOne.additionalConditionCount()
+	twoExtra := ruleTwo.additionalConditionCount()
+	if oneExtra != twoExtra {
+		return oneExtra > twoExtra
+	}
+
+	// 7. Common tiebreakers (timestamp, name, indices)
+	return compareCommonTieBreakers(ruleOne, ruleTwo)
+}
+
+// normalizedPathType returns a comparable path type value.
+// Scale: 3=exact, 2=prefix, 1=regex, 0=none/catch-all.
+func (r RulePrecedence) normalizedPathType() int {
+	if r.HttpSpecificRulePrecedenceFactor != nil {
+		return r.HttpSpecificRulePrecedenceFactor.PathType
+	}
+	if r.GrpcSpecificRulePrecedenceFactor != nil {
+		return r.GrpcSpecificRulePrecedenceFactor.PathType
+	}
+	return 0
+}
+
+// effectivePathLength returns the effective path length for cross-kind comparison.
+// HTTP: literal path length. GRPC: ServiceLength + MethodLength + separators.
+func (r RulePrecedence) effectivePathLength() int {
+	if r.HttpSpecificRulePrecedenceFactor != nil {
+		return r.HttpSpecificRulePrecedenceFactor.PathLength
+	}
+	if r.GrpcSpecificRulePrecedenceFactor != nil {
+		length := r.GrpcSpecificRulePrecedenceFactor.ServiceLength + r.GrpcSpecificRulePrecedenceFactor.MethodLength
+		if r.GrpcSpecificRulePrecedenceFactor.ServiceLength > 0 {
+			length++ // leading /
+		}
+		if r.GrpcSpecificRulePrecedenceFactor.MethodLength > 0 {
+			length++ // separator /
+		}
+		return length
+	}
+	return 0
+}
+
+// normalizedHeaderCount returns the header count for either route kind.
+func (r RulePrecedence) normalizedHeaderCount() int {
+	if r.HttpSpecificRulePrecedenceFactor != nil {
+		return r.HttpSpecificRulePrecedenceFactor.HeaderCount
+	}
+	if r.GrpcSpecificRulePrecedenceFactor != nil {
+		return r.GrpcSpecificRulePrecedenceFactor.HeaderCount
+	}
+	return 0
+}
+
+// normalizedHasMethod returns whether the rule has an HTTP method constraint.
+// GRPC routes have no equivalent of HTTP method matching — their method
+// specificity is already captured in the effective path length (ServiceLength +
+// MethodLength), so they always return false here.
+func (r RulePrecedence) normalizedHasMethod() bool {
+	if r.HttpSpecificRulePrecedenceFactor != nil {
+		return r.HttpSpecificRulePrecedenceFactor.HasMethod
+	}
+	return false
+}
+
+// additionalConditionCount returns extra specificity factors beyond path,
+// hasMethod, and headers. HTTP routes can constrain query params; GRPC routes
+// have no equivalent, so they return 0 (less specific on this axis).
+func (r RulePrecedence) additionalConditionCount() int {
+	if r.HttpSpecificRulePrecedenceFactor != nil {
+		return r.HttpSpecificRulePrecedenceFactor.QueryParamCount
+	}
+	return 0
 }

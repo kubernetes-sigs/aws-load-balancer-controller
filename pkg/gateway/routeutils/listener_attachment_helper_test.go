@@ -83,11 +83,9 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			attachmentHelper := listenerAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
-			hostnameFromHttpRoute := map[int32]sets.Set[gwv1.Hostname]{}
-			hostnameFromGrpcRoute := map[int32]sets.Set[gwv1.Hostname]{}
 			_, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), tc.gwNamespace, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route, matchedParentRef)
 			assert.NoError(t, err)
 			if tc.expectedStatusUpdate == nil {
 				assert.Nil(t, statusUpdate)
@@ -650,90 +648,51 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
-	targetPort := int32(80)
-	hostnames := []gwv1.Hostname{"example.com"}
-	namespace := "test-namespace"
-	httpRouteName := "http-route-name"
-	grpcRouteName := "grpc-route-name"
-	tests := []struct {
-		name                    string
-		route                   preLoadRouteDescriptor
-		hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname]
-		hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]
-		expected                bool
-	}{
-		{
-			name: "GRPC route only - should pass",
-			route: &mockRoute{
-				routeKind:      GRPCRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			expected:                true,
-		},
-		{
-			name: "HTTP route only - should pass",
-			route: &mockRoute{
-				routeKind:      HTTPRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: httpRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			expected:                true,
-		},
-		{
-			name: "GRPC route with overlapping HTTP route hostname - should fail",
-			route: &mockRoute{
-				routeKind:      GRPCRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{
-				targetPort: sets.New[gwv1.Hostname](hostnames...),
-			},
-			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			expected:                false,
-		},
-		{
-			name: "HTTP route with overlapping GRPC route hostname - should fail",
-			route: &mockRoute{
-				routeKind:      HTTPRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: httpRouteName, Namespace: namespace},
-			},
-			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{
-				targetPort: sets.New[gwv1.Hostname](hostnames...),
-			},
-			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			expected:                false,
-		},
-		{
-			name: "GRPC route with non-overlapping HTTP route hostname - should pass",
-			route: &mockRoute{
-				routeKind:      GRPCRouteKind,
-				hostnames:      []gwv1.Hostname{"grpc.example.com"},
-				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[int32]sets.Set[gwv1.Hostname]{
-				targetPort: sets.New[gwv1.Hostname]("http.example.com"),
-			},
-			hostnamesFromGrpcRoutes: map[int32]sets.Set[gwv1.Hostname]{},
-			expected:                true,
-		},
+func Test_listenerAllowsAttachment_OverlappingHttpAndGrpcHostname(t *testing.T) {
+	// Per GEP-1016 the controller no longer rejects an HTTPRoute and a GRPCRoute that share a hostname.
+	// This verifies that both route kinds attach to the same HTTPS listener/hostname without error or rejection.
+	const sharedNamespace = "ns1"
+	sharedHostname := gwv1.Hostname("example.com")
+
+	listener := gwv1.Listener{
+		Name:     "https",
+		Protocol: gwv1.HTTPSProtocolType,
+		Port:     443,
+		Hostname: &sharedHostname,
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			helper := &listenerAttachmentHelperImpl{
-				logger: logr.Discard(),
+	parentRef := gwv1.ParentReference{
+		Name:      "gw1",
+		Port:      new(gwv1.PortNumber(443)),
+		Namespace: (*gwv1.Namespace)(new(sharedNamespace)),
+	}
+
+	routes := []struct {
+		name      string
+		routeKind RouteKind
+	}{
+		{name: "http-route", routeKind: HTTPRouteKind},
+		{name: "grpc-route", routeKind: GRPCRouteKind},
+	}
+
+	attachmentHelper := listenerAttachmentHelperImpl{
+		namespaceSelector: &mockNamespaceSelector{},
+		logger:            logr.Discard(),
+	}
+
+	for _, r := range routes {
+		t.Run(string(r.routeKind), func(t *testing.T) {
+			route := &mockRoute{
+				namespacedName: types.NamespacedName{Name: r.name, Namespace: sharedNamespace},
+				routeKind:      r.routeKind,
+				hostnames:      []gwv1.Hostname{sharedHostname},
 			}
 
-			result := helper.crossServingHostnameUniquenessCheck(targetPort, tt.route, tt.hostnamesFromHttpRoutes, tt.hostnamesFromGrpcRoutes)
-			assert.Equal(t, tt.expected, result)
+			compatibleHostnames, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), sharedNamespace, listener, route, parentRef)
+
+			assert.NoError(t, err)
+			assert.Nil(t, statusUpdate, "overlapping HTTPRoute and GRPCRoute hostname should not be rejected")
+			assert.Equal(t, []gwv1.Hostname{sharedHostname}, compatibleHostnames)
 		})
 	}
 }

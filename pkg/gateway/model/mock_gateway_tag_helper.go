@@ -1,6 +1,6 @@
 package model
 
-import elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+import elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 
 type mockTagHelper struct {
 	tags map[string]string

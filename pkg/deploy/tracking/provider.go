@@ -2,9 +2,9 @@ package tracking
 
 import (
 	"fmt"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 // TODO(ztn) - Add Gateway documentation here?

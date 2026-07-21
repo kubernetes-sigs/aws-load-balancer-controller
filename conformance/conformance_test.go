@@ -26,7 +26,7 @@ func TestConformance(t *testing.T) {
 		"HTTPRouteServiceTypes",
 		"ListenerSetReferenceGrant",
 	}
-	options.SupportedFeatures = suite.ParseSupportedFeatures("Gateway,HTTPRoute,ReferenceGrant,HTTPRoutePortRedirect,HTTPRouteMethodMatching,HTTPRouteParentRefPort,HTTPRouteDestinationPortMatching,ListenerSet")
+	options.SupportedFeatures = suite.ParseSupportedFeaturesSlice("Gateway,HTTPRoute,ReferenceGrant,HTTPRoutePortRedirect,HTTPRouteMethodMatching,HTTPRouteParentRefPort,HTTPRouteDestinationPortMatching,ListenerSet")
 
 	// Configure timeout config
 	options.TimeoutConfig.GatewayStatusMustHaveListeners = 8 * time.Minute // we need to wait for LB to be provisioned before updating gateway listener status

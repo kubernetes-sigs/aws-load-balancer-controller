@@ -1,9 +1,9 @@
 package addons
 
 import (
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/shield"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 type shield struct {

@@ -9,14 +9,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	annotations "sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	gwconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress2gateway/utils"
-	k8s "sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	gwconstants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
+	k8s "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	sharedconstants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 // tgcEntry holds per-ingress data needed to build a TargetGroupConfiguration.

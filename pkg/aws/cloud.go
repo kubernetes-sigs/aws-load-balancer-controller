@@ -22,10 +22,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
-	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	aws_metrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
+	epresolver "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/provider"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	aws_metrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/aws"
 )
 
 const (

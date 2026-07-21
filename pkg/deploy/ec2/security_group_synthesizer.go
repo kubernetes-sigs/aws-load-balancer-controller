@@ -5,11 +5,11 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	ec2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/ec2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 )
 
 // NewSecurityGroupSynthesizer constructs new securityGroupSynthesizer.

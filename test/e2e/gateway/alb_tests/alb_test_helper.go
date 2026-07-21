@@ -10,11 +10,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources/grpc/echo"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources/grpc/echo"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -31,11 +31,6 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *test_reso
 		})
 
 		httprs = append(httprs, test_resources.BuildOtherNsRefHttpRoute("other-ns", auxiliaryStack.Ns))
-	}
-
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
 	}
 
 	svc := test_resources.BuildServiceSpec(map[string]string{})
@@ -63,14 +58,32 @@ func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, g
 	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{}, grpcrs, []*appsv1.Deployment{dp, dpOther}, []*corev1.Service{svc, svcOther}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc, tgcOther}, lrConfSpec, nil, readinessGateEnabled)
 }
 
+// DeployHTTPAndGRPC deploys an ALB stack with both an HTTP backend and a gRPC backend so that an
+// HTTPRoute and a GRPCRoute can attach to the same listener/hostname. This exercises the GEP-1016
+// behavior where HTTPRoute and GRPCRoute are allowed to share a hostname on an ALB Gateway.
+func (s *ALBTestStack) DeployHTTPAndGRPC(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, readinessGateEnabled bool) error {
+	httpSvc := test_resources.BuildServiceSpec(map[string]string{})
+	httpDp := test_resources.BuildDeploymentSpec(f.Options.TestImageRegistry)
+	httpTgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, httpSvc)
+
+	grpcLabels := map[string]string{
+		"app.kubernetes.io/instance": test_resources.GRPCDefaultName,
+	}
+	grpcSvc := test_resources.BuildGRPCServiceSpec(test_resources.GRPCDefaultName, grpcLabels)
+	grpcDp := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName, "Hello World", grpcLabels)
+	grpcTgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName+"-grpc", tgConfSpec, grpcSvc)
+
+	return s.deploy(ctx, f, gwListeners, httprs, grpcrs,
+		[]*appsv1.Deployment{httpDp, grpcDp},
+		[]*corev1.Service{httpSvc, grpcSvc},
+		lbConfSpec,
+		[]*elbv2gw.TargetGroupConfiguration{httpTgc, grpcTgc},
+		lrConfSpec, nil, readinessGateEnabled)
+}
+
 // DeployHTTPWithDefaultTGC deploys an ALB stack with a gateway-level default TGC referenced by the LBC,
 // plus two services: svc1 inherits defaults, svc2 has a service-level TGC override.
 func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, defaultTGC *elbv2gw.TargetGroupConfiguration, svcTgSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	if f.Options.IPFamily == framework.IPv6 {
-		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
-		lbConfSpec.IpAddressType = &v6
-	}
-
 	gwListeners := []gwv1.Listener{
 		{
 			Name:     "http80",
@@ -120,7 +133,7 @@ func (s *ALBTestStack) DeployHTTPWithDefaultTGC(ctx context.Context, f *framewor
 func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
 	gwc := test_resources.BuildGatewayClassSpec("gateway.k8s.aws/alb")
 	gw := test_resources.BuildBasicGatewaySpec(gwc, gwListeners)
-	lbc := test_resources.BuildLoadBalancerConfig(lbConfSpec)
+	lbc := test_resources.BuildLoadBalancerConfig(f, lbConfSpec)
 	lrc := test_resources.BuildListenerRuleConfig(test_resources.DefaultLRConfigName, lrConfSpec)
 
 	namespaceLabels := test_resources.GetNamespaceLabels(readinessGateEnabled)
@@ -254,6 +267,37 @@ func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
 		},
 	}
 	test_resources.ValidateRouteStatus(tf, stack.Resources.Grpcrs, grpcRouteStatusConverter, validationInfo)
+}
+
+// validateOverlappingRoutesStatus asserts that an HTTPRoute and a GRPCRoute sharing the same listener
+// and hostname are both Accepted.
+func validateOverlappingRoutesStatus(tf *framework.Framework, stack ALBTestStack) {
+	acceptedListenerInfo := []test_resources.ListenerValidationInfo{
+		{
+			ListenerName:       "test-listener",
+			ParentKind:         "Gateway",
+			ResolvedRefReason:  "ResolvedRefs",
+			ResolvedRefsStatus: "True",
+			AcceptedReason:     "Accepted",
+			AcceptedStatus:     "True",
+		},
+	}
+
+	httpInfo := map[string]test_resources.RouteValidationInfo{
+		k8s.NamespacedName(stack.Resources.Httprs[0]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
+			ListenerInfo:      acceptedListenerInfo,
+		},
+	}
+	test_resources.ValidateRouteStatus(tf, stack.Resources.Httprs, httpRouteStatusConverter, httpInfo)
+
+	grpcInfo := map[string]test_resources.RouteValidationInfo{
+		k8s.NamespacedName(stack.Resources.Grpcrs[0]).String(): {
+			ParentGatewayName: stack.Resources.CommonStack.Gw.Name,
+			ListenerInfo:      acceptedListenerInfo,
+		},
+	}
+	test_resources.ValidateRouteStatus(tf, stack.Resources.Grpcrs, grpcRouteStatusConverter, grpcInfo)
 }
 
 func httpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {

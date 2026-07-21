@@ -1,8 +1,8 @@
 package model
 
 import (
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 )
 
 // LoadBalancerConfigurationTagProvider adapts LoadBalancerConfiguration to implement TagProvider

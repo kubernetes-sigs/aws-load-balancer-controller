@@ -151,8 +151,9 @@ As best practice, we do not recommend users to manually modify the resources man
 `--lb-stabilization-monitor-interval` defines a fixed interval for the controller to monitor the state of load balancer after the creation for stabilization, default to 2m. It monitors the load balancer state so that once it becomes active it can make the required updates like capacity reservation for the active load balancer. It calls DescribeLoadBalancer API at a fixed interval to monitor the state. Please be mindful that lower value will result into frequent calls which may incur unnecessary AWS API usage.
 
 ### waf-addons
-By default, the controller assumes sole ownership of the WAF addons associated to the provisioned ALBs, via the flag `--enable-waf` and `--enable-wafv2`.
-And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
+By default, the controller manages the WAF addons associated to the provisioned ALBs, via the flag `--enable-waf` and `--enable-wafv2`.
+Any WAF associations made outside the controller (e.g. via AWS CLI, Firewall Manager, or other tools) will be reverted by the controller on the next reconcile cycle.
+Users should disable these flags accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
 Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.
 
 ### throttle config

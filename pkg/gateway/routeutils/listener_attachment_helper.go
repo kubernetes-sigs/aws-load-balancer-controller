@@ -15,7 +15,7 @@ import (
 // listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
 // a route to attach to it.
 type listenerAttachmentHelper interface {
-	listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error)
+	listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference) ([]gwv1.Hostname, *RouteData, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
@@ -36,7 +36,7 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between listener and route.
 // Returns: (compatibleHostnames, allowed, failedRouteData, error)
-func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) ([]gwv1.Hostname, *RouteData, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, parentNamespace string, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef gwv1.ParentReference) ([]gwv1.Hostname, *RouteData, error) {
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, parentNamespace, listener, route)
 	if err != nil {
 		return nil, nil, err
@@ -61,15 +61,6 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 		}
 		if !hostnameOK {
 			return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingListenerHostname), RouteStatusInfoRejectedMessageNoMatchingHostname, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), matchedParentRef)), nil
-		}
-	}
-
-	// check cross serving hostname uniqueness
-	if route.GetRouteKind() == HTTPRouteKind || route.GetRouteKind() == GRPCRouteKind {
-		hostnameUniquenessOK := attachmentHelper.crossServingHostnameUniquenessCheck(listener.Port, route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
-		if !hostnameUniquenessOK {
-			message := fmt.Sprintf("HTTPRoute and GRPCRoute have overlap hostname, attachment is rejected.")
-			return nil, new(GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), message, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), matchedParentRef)), nil
 		}
 	}
 
@@ -163,45 +154,4 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 
 	// Return computed compatible hostnames without storing in route
 	return compatibleHostnames, true, nil
-}
-
-func (attachmentHelper *listenerAttachmentHelperImpl) crossServingHostnameUniquenessCheck(listenerPort int32, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[int32]sets.Set[gwv1.Hostname], hostnamesFromGrpcRoutes map[int32]sets.Set[gwv1.Hostname]) bool {
-	routeKind := route.GetRouteKind()
-	var other sets.Set[gwv1.Hostname]
-	var hostnameSet sets.Set[gwv1.Hostname]
-	var ok bool
-
-	switch routeKind {
-	case GRPCRouteKind:
-		hostnameSet, ok = hostnamesFromGrpcRoutes[listenerPort]
-		if !ok {
-			hostnameSet = sets.New[gwv1.Hostname]()
-			hostnamesFromGrpcRoutes[listenerPort] = hostnameSet
-		}
-
-		for _, hostname := range route.GetHostnames() {
-			hostnameSet.Insert(hostname)
-		}
-		other = hostnamesFromHttpRoutes[listenerPort]
-	case HTTPRouteKind:
-		hostnameSet, ok = hostnamesFromHttpRoutes[listenerPort]
-		if !ok {
-			hostnameSet = sets.New[gwv1.Hostname]()
-			hostnamesFromHttpRoutes[listenerPort] = hostnameSet
-		}
-
-		for _, hostname := range route.GetHostnames() {
-			hostnameSet.Insert(hostname)
-		}
-		other = hostnamesFromGrpcRoutes[listenerPort]
-	}
-
-	for _, hostname := range hostnameSet.UnsortedList() {
-		for _, otherHostNames := range other.UnsortedList() {
-			if isHostnameCompatible(string(hostname), string(otherHostNames)) {
-				return false
-			}
-		}
-	}
-	return true
 }

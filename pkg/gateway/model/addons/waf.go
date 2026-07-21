@@ -1,9 +1,9 @@
 package addons
 
 import (
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	wafv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	wafv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/wafv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 type waf struct {

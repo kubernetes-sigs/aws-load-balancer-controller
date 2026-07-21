@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T) {

@@ -28,26 +28,39 @@ type SecretsManager interface {
 
 	// GetSecret retrieves from cache (if monitoring) or falls back to API
 	GetSecret(ctx context.Context, k8sClient client.Client, secretKey types.NamespacedName) (*corev1.Secret, error)
+
+	// SetEventChannel sets the event channel for secret updates
+	SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret])
 }
 
-func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret], logger logr.Logger) *defaultSecretsManager {
+func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret], logger logr.Logger, requiredLabelKey string, requiredLabelValue string) *defaultSecretsManager {
 	return &defaultSecretsManager{
-		mutex:            sync.Mutex{},
-		secretMap:        make(map[types.NamespacedName]*secretItem),
-		secretsEventChan: secretsEventChan,
-		clientSet:        clientSet,
-		logger:           logger,
+		mutex:              sync.Mutex{},
+		secretMap:          make(map[types.NamespacedName]*secretItem),
+		secretsEventChan:   secretsEventChan,
+		clientSet:          clientSet,
+		logger:             logger,
+		requiredLabelKey:   requiredLabelKey,
+		requiredLabelValue: requiredLabelValue,
 	}
+}
+
+func (m *defaultSecretsManager) SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.secretsEventChan = secretsEventChan
 }
 
 var _ SecretsManager = &defaultSecretsManager{}
 
 type defaultSecretsManager struct {
-	mutex            sync.Mutex
-	secretMap        map[types.NamespacedName]*secretItem
-	secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]
-	clientSet        kubernetes.Interface
-	logger           logr.Logger
+	mutex              sync.Mutex
+	secretMap          map[types.NamespacedName]*secretItem
+	secretsEventChan   chan<- event.TypedGenericEvent[*corev1.Secret]
+	clientSet          kubernetes.Interface
+	logger             logr.Logger
+	requiredLabelKey   string
+	requiredLabelValue string
 }
 
 type secretItem struct {
@@ -108,7 +121,7 @@ func (m *defaultSecretsManager) GetSecret(ctx context.Context, k8sClient client.
 		if exists {
 			if secret, ok := obj.(*corev1.Secret); ok {
 				m.logger.V(1).Info("Secret retrieved from cache", "secret", secretKey)
-				return secret.DeepCopy(), nil // Return copy to prevent mutations
+				return secret.DeepCopy(), nil
 			}
 		}
 		// Cache miss - secret might be deleted, fall through to API call
@@ -120,18 +133,39 @@ func (m *defaultSecretsManager) GetSecret(ctx context.Context, k8sClient client.
 	if err := k8sClient.Get(ctx, secretKey, secret); err != nil {
 		return nil, err
 	}
+	if err := m.validateSecretLabel(secret); err != nil {
+		return nil, err
+	}
 
 	return secret, nil
 }
 
+func (m *defaultSecretsManager) validateSecretLabel(secret *corev1.Secret) error {
+	if m.requiredLabelKey == "" {
+		return nil
+	}
+	val, ok := secret.Labels[m.requiredLabelKey]
+	if !ok || val != m.requiredLabelValue {
+		return fmt.Errorf("secret %s/%s is missing required label %s=%s; actual labels: %v",
+			secret.Namespace, secret.Name, m.requiredLabelKey, m.requiredLabelValue, secret.Labels)
+	}
+	return nil
+}
+
 func (m *defaultSecretsManager) newReflector(namespace, name string) *secretItem {
 	fieldSelector := fields.Set{"metadata.name": name}.AsSelector().String()
+	labelSelector := ""
+	if m.requiredLabelKey != "" {
+		labelSelector = fmt.Sprintf("%s=%s", m.requiredLabelKey, m.requiredLabelValue)
+	}
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		options.FieldSelector = fieldSelector
+		options.LabelSelector = labelSelector
 		return m.clientSet.CoreV1().Secrets(namespace).List(context.TODO(), options)
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 		options.FieldSelector = fieldSelector
+		options.LabelSelector = labelSelector
 		return m.clientSet.CoreV1().Secrets(namespace).Watch(context.TODO(), options)
 	}
 	store := m.newStore()

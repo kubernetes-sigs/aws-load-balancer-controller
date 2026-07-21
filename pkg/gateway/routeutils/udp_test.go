@@ -8,18 +8,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func Test_ConvertUDPRuleToRouteRule(t *testing.T) {
 
-	rule := &gwalpha2.UDPRouteRule{
+	rule := &gwv1.UDPRouteRule{
 		Name:        (*gwv1.SectionName)(awssdk.String("my-name")),
-		BackendRefs: []gwalpha2.BackendRef{},
+		BackendRefs: []gwv1.BackendRef{},
 	}
 
 	backends := []Backend{
@@ -29,27 +28,27 @@ func Test_ConvertUDPRuleToRouteRule(t *testing.T) {
 	result := convertUDPRouteRule(rule, backends)
 
 	assert.Equal(t, backends, result.GetBackends())
-	assert.Equal(t, rule, result.GetRawRouteRule().(*gwalpha2.UDPRouteRule))
+	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.UDPRouteRule))
 }
 
 func Test_ListUDPRoutes(t *testing.T) {
 	k8sClient := testutils.GenerateTestClient()
 
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+	k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo1",
 			Namespace: "bar1",
 		},
-		Spec: gwalpha2.UDPRouteSpec{
-			Rules: []gwalpha2.UDPRouteRule{
+		Spec: gwv1.UDPRouteSpec{
+			Rules: []gwv1.UDPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 						{},
@@ -57,23 +56,23 @@ func Test_ListUDPRoutes(t *testing.T) {
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{},
+					BackendRefs: []gwv1.BackendRef{},
 				},
 			},
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+	k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo2",
 			Namespace: "bar2",
 		},
-		Spec: gwalpha2.UDPRouteSpec{
+		Spec: gwv1.UDPRouteSpec{
 			Rules: nil,
 		},
 	})
 
-	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+	k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo3",
 			Namespace: "bar3",
@@ -122,16 +121,16 @@ func Test_UDP_LoadAttachedRules(t *testing.T) {
 	}
 
 	routeDescription := udpRouteDescription{
-		route: &gwalpha2.UDPRoute{
-			Spec: gwalpha2.UDPRouteSpec{Rules: []gwalpha2.UDPRouteRule{
+		route: &gwv1.UDPRoute{
+			Spec: gwv1.UDPRouteSpec{Rules: []gwv1.UDPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{},
 						{},
 						{},
@@ -139,12 +138,12 @@ func Test_UDP_LoadAttachedRules(t *testing.T) {
 					},
 				},
 				{
-					BackendRefs: []gwalpha2.BackendRef{},
+					BackendRefs: []gwv1.BackendRef{},
 				},
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](mockLoader, mockListenerRuleConfigLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.UDPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil, nil)

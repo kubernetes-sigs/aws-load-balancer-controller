@@ -15,13 +15,31 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 )
+
+type mockSecretsManager struct{}
+
+func (m *mockSecretsManager) MonitorSecrets(consumerID string, secrets []types.NamespacedName) {}
+
+func (m *mockSecretsManager) GetSecret(ctx context.Context, k8sClient client.Client, secretKey types.NamespacedName) (*corev1.Secret, error) {
+	secret := &corev1.Secret{}
+	if err := k8sClient.Get(ctx, secretKey, secret); err != nil {
+		return nil, err
+	}
+	return secret, nil
+}
+
+func (m *mockSecretsManager) SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]) {
+}
 
 func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 	type env struct {
@@ -300,7 +318,8 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 			}
 
 			task := &defaultModelBuildTask{
-				k8sClient: k8sClient,
+				k8sClient:      k8sClient,
+				secretsManager: &mockSecretsManager{},
 			}
 			got, err := task.buildAuthenticateOIDCAction(context.Background(), tt.args.namespace, tt.args.authCfg)
 			if tt.wantErr != nil {

@@ -41,8 +41,45 @@ jobs:
           show-progress: false
       - name: Setup Go Version
         run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
-      - id: govulncheck
-        uses: golang/govulncheck-action@31f7c5463448f83528bd771c2d978d940080c9fd
+      - name: Setup Go
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5
         with:
-          go-version-input: ${{ env.GO_VERSION }}
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run govulncheck
+        run: |
+          set -euo pipefail
+          # govulncheck has no native suppression, so we filter its JSON output: fail on
+          # any "called" vuln not in IGNORE.
+          #
+          # IGNORE: containerd CRI checkpoint/restore advisories. Fix exists only in the
+          # containerd v2 module; we get v1.7.x transitively via the Helm SDK (e2e tests
+          # only, not linked into the controller binary), so it shows "Fixed in: N/A" and
+          # can't be bumped until Helm moves to containerd/v2. Remove once that happens.
+          #   GO-2026-5338 https://github.com/containerd/containerd/security/advisories/GHSA-cvxm-645q-p574
+          #   GO-2026-5064 https://github.com/containerd/containerd/security/advisories/GHSA-33vj-92qq-66hc
+          #   GO-2026-5622 https://github.com/containerd/containerd/security/advisories/GHSA-rgh6-rfwx-v388
+          #
+          # GO-2026-5932: golang.org/x/crypto/openpgp is deprecated with no fixed version.
+          # Pulled transitively via helm.sh/helm/v3 (pkg/provenance). Helm v4 migrated to
+          # github.com/ProtonMail/go-crypto but no v3 release includes it. Remove once we
+          # upgrade to Helm v4.
+          #   GO-2026-5932 https://pkg.go.dev/vuln/GO-2026-5932
+          IGNORE="GO-2026-5338 GO-2026-5064 GO-2026-5622 GO-2026-5932"
+          govulncheck -format json ./... > govulncheck.json
+          # "called" vulns are findings whose leading trace frame resolves to a function.
+          called="$(jq -r 'select(.finding != null) | .finding | select(.trace[0].function != null) | .osv' govulncheck.json | sort -u)"
+          unexpected=""
+          for id in ${called}; do
+            case " ${IGNORE} " in
+              *" ${id} "*) ;;
+              *) unexpected="${unexpected} ${id}" ;;
+            esac
+          done
+          if [ -n "${unexpected}" ]; then
+            echo "::error::govulncheck found vulnerabilities not in the ignore list:${unexpected}"
+            govulncheck ./... || true
+            exit 1
+          fi
+          echo "govulncheck OK. Ignored (no fix available) called vulns: ${called:-none}"

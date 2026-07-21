@@ -42,6 +42,10 @@ nav:
               - Gateway Chaining: guide/gateway/gateway_chaining.md
               - ListenerSets: guide/gateway/listenersets.md
               - Specification: guide/gateway/spec.md
+      - Ingress To Gateway Migration (New):
+          - Migration Guide: guide/ingress2gateway/migrate_from_ingress.md
+          - Migration Tool (lbc-migrate): guide/ingress2gateway/lbc_migrate_reference.md
+          - Migration Console: guide/ingress2gateway/in_cluster_console.md
       - AWS Global Accelerator (New):
           - Overview: guide/globalaccelerator/aga-controller.md
           - Installation: guide/globalaccelerator/installation.md

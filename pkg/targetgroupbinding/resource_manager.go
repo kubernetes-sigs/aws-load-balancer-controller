@@ -16,18 +16,19 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/backend"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -172,7 +173,8 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
-	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port)
+	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port,
+		endpointSliceAddressType(tgb))
 
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
@@ -945,4 +947,13 @@ func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod
 	m.nodeAZCacheMutex.Unlock()
 
 	return &az, nil
+}
+
+// endpointSliceAddressType returns the EndpointSlice AddressType matching the TGB's IP family,
+// defaulting to IPv4 when the TGB's ipAddressType is unset.
+func endpointSliceAddressType(tgb *elbv2api.TargetGroupBinding) discovery.AddressType {
+	if tgb.Spec.IPAddressType != nil && *tgb.Spec.IPAddressType == elbv2api.TargetGroupIPAddressTypeIPv6 {
+		return discovery.AddressTypeIPv6
+	}
+	return discovery.AddressTypeIPv4
 }

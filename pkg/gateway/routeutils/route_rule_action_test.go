@@ -9,11 +9,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -755,6 +756,9 @@ func (m *mockSecretsManager) GetSecret(ctx context.Context, k8sClient client.Cli
 		return nil, err
 	}
 	return secret, nil
+}
+
+func (m *mockSecretsManager) SetEventChannel(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]) {
 }
 
 func Test_buildJwtValidationAction(t *testing.T) {

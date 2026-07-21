@@ -8,15 +8,14 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -110,21 +109,21 @@ func Test_ListL4Routes(t *testing.T) {
 			name: "Successfully lists all L4 routes",
 			mockSetup: func(ctrl *gomock.Controller) client.Client {
 				k8sClient := testutils.GenerateTestClient()
-				k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
+				k8sClient.Create(context.Background(), &gwv1.TCPRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "foo1",
 						Namespace: "bar1",
 					},
-					Spec: gwalpha2.TCPRouteSpec{
-						Rules: []gwalpha2.TCPRouteRule{
+					Spec: gwv1.TCPRouteSpec{
+						Rules: []gwv1.TCPRouteRule{
 							{
-								BackendRefs: []gwalpha2.BackendRef{
+								BackendRefs: []gwv1.BackendRef{
 									{},
 									{},
 								},
 							},
 							{
-								BackendRefs: []gwalpha2.BackendRef{
+								BackendRefs: []gwv1.BackendRef{
 									{},
 									{},
 									{},
@@ -132,26 +131,26 @@ func Test_ListL4Routes(t *testing.T) {
 								},
 							},
 							{
-								BackendRefs: []gwalpha2.BackendRef{},
+								BackendRefs: []gwv1.BackendRef{},
 							},
 						},
 					},
 				})
-				k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
+				k8sClient.Create(context.Background(), &gwv1.UDPRoute{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "foo1",
 						Namespace: "bar1",
 					},
-					Spec: gwalpha2.UDPRouteSpec{
-						Rules: []gwalpha2.UDPRouteRule{
+					Spec: gwv1.UDPRouteSpec{
+						Rules: []gwv1.UDPRouteRule{
 							{
-								BackendRefs: []gwalpha2.BackendRef{
+								BackendRefs: []gwv1.BackendRef{
 									{},
 									{},
 								},
 							},
 							{
-								BackendRefs: []gwalpha2.BackendRef{
+								BackendRefs: []gwv1.BackendRef{
 									{},
 									{},
 									{},
@@ -159,7 +158,7 @@ func Test_ListL4Routes(t *testing.T) {
 								},
 							},
 							{
-								BackendRefs: []gwalpha2.BackendRef{},
+								BackendRefs: []gwv1.BackendRef{},
 							},
 						},
 					},
@@ -175,13 +174,13 @@ func Test_ListL4Routes(t *testing.T) {
 						},
 						Rules: []gwv1.TLSRouteRule{
 							{
-								BackendRefs: []gwalpha2.BackendRef{
+								BackendRefs: []gwv1.BackendRef{
 									{},
 									{},
 								},
 							},
 							{
-								BackendRefs: []gwalpha2.BackendRef{
+								BackendRefs: []gwv1.BackendRef{
 									{},
 									{},
 									{},
@@ -189,7 +188,7 @@ func Test_ListL4Routes(t *testing.T) {
 								},
 							},
 							{
-								BackendRefs: []gwalpha2.BackendRef{},
+								BackendRefs: []gwv1.BackendRef{},
 							},
 						},
 					},
@@ -203,8 +202,8 @@ func Test_ListL4Routes(t *testing.T) {
 			mockSetup: func(ctrl *gomock.Controller) client.Client {
 				mockClient := mock_client.NewMockClient(ctrl)
 				// Setup mock responses for TCP, UDP, and TLS routes
-				mockClient.EXPECT().List(gomock.Any(), &gwalpha2.TCPRouteList{}).Return(fmt.Errorf("TCP error"))
-				mockClient.EXPECT().List(gomock.Any(), &gwalpha2.UDPRouteList{}).Return(nil)
+				mockClient.EXPECT().List(gomock.Any(), &gwv1.TCPRouteList{}).Return(fmt.Errorf("TCP error"))
+				mockClient.EXPECT().List(gomock.Any(), &gwv1.UDPRouteList{}).Return(nil)
 				mockClient.EXPECT().List(gomock.Any(), &gwv1.TLSRouteList{}).Return(nil)
 				return mockClient
 			},

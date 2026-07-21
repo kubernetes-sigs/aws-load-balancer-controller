@@ -1,8 +1,8 @@
 package aga
 
 import (
-	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 )
 
 // GlobalAcceleratorTagProvider adapts GlobalAccelerator to implement TagProvider

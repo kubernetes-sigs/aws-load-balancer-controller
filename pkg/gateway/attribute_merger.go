@@ -1,7 +1,7 @@
 package gateway
 
 import (
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sort"
 )
 
@@ -38,7 +38,7 @@ func mergeAttributes[T interface{}](highPriority, lowPriority []T, keyFn func(T)
 
 // Hack to work around this error..
 // /Users/nixozach/go/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
-// sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1:-: invalid type: interface{GetKey() string; GetValue() string}
+// sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1:-: invalid type: interface{GetKey() string; GetValue() string}
 // Error: not all generators ran successfully
 
 func loadBalancerAttributeConstructor(k, v string) elbv2gw.LoadBalancerAttribute {

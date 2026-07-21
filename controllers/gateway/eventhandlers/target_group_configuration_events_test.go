@@ -10,26 +10,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestGetImpactedTCPRoutes(t *testing.T) {
 	tests := []struct {
 		name     string
-		list     *gwalpha2.TCPRouteList
+		list     *gwv1.TCPRouteList
 		tgconfig *elbv2gw.TargetGroupConfiguration
 		want     []types.NamespacedName
 	}{
 		{
 			name: "no routes",
-			list: &gwalpha2.TCPRouteList{},
+			list: &gwv1.TCPRouteList{},
 			tgconfig: &elbv2gw.TargetGroupConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
 				Spec: elbv2gw.TargetGroupConfigurationSpec{
@@ -43,18 +43,18 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 		},
 		{
 			name: "matching gateway backend",
-			list: &gwalpha2.TCPRouteList{
-				Items: []gwalpha2.TCPRoute{
+			list: &gwv1.TCPRouteList{
+				Items: []gwv1.TCPRoute{
 					{
 						ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "test-ns"},
-						Spec: gwalpha2.TCPRouteSpec{
-							Rules: []gwalpha2.TCPRouteRule{
+						Spec: gwv1.TCPRouteSpec{
+							Rules: []gwv1.TCPRouteRule{
 								{
-									BackendRefs: []gwalpha2.BackendRef{
+									BackendRefs: []gwv1.BackendRef{
 										{
-											BackendObjectReference: gwalpha2.BackendObjectReference{
+											BackendObjectReference: gwv1.BackendObjectReference{
 												Name: "test-gateway",
-												Kind: (*gwalpha2.Kind)(awssdk.String("Gateway")),
+												Kind: (*gwv1.Kind)(awssdk.String("Gateway")),
 											},
 										},
 									},
@@ -79,18 +79,18 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 		},
 		{
 			name: "non-matching gateway name",
-			list: &gwalpha2.TCPRouteList{
-				Items: []gwalpha2.TCPRoute{
+			list: &gwv1.TCPRouteList{
+				Items: []gwv1.TCPRoute{
 					{
 						ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "test-ns"},
-						Spec: gwalpha2.TCPRouteSpec{
-							Rules: []gwalpha2.TCPRouteRule{
+						Spec: gwv1.TCPRouteSpec{
+							Rules: []gwv1.TCPRouteRule{
 								{
-									BackendRefs: []gwalpha2.BackendRef{
+									BackendRefs: []gwv1.BackendRef{
 										{
-											BackendObjectReference: gwalpha2.BackendObjectReference{
+											BackendObjectReference: gwv1.BackendObjectReference{
 												Name: "other-gateway",
-												Kind: (*gwalpha2.Kind)(awssdk.String("Gateway")),
+												Kind: (*gwv1.Kind)(awssdk.String("Gateway")),
 											},
 										},
 									},
@@ -113,18 +113,18 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 		},
 		{
 			name: "different namespace",
-			list: &gwalpha2.TCPRouteList{
-				Items: []gwalpha2.TCPRoute{
+			list: &gwv1.TCPRouteList{
+				Items: []gwv1.TCPRoute{
 					{
 						ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "other-ns"},
-						Spec: gwalpha2.TCPRouteSpec{
-							Rules: []gwalpha2.TCPRouteRule{
+						Spec: gwv1.TCPRouteSpec{
+							Rules: []gwv1.TCPRouteRule{
 								{
-									BackendRefs: []gwalpha2.BackendRef{
+									BackendRefs: []gwv1.BackendRef{
 										{
-											BackendObjectReference: gwalpha2.BackendObjectReference{
+											BackendObjectReference: gwv1.BackendObjectReference{
 												Name: "test-gateway",
-												Kind: (*gwalpha2.Kind)(awssdk.String("Gateway")),
+												Kind: (*gwv1.Kind)(awssdk.String("Gateway")),
 											},
 										},
 									},
@@ -147,19 +147,19 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 		},
 		{
 			name: "cross-namespace with explicit namespace",
-			list: &gwalpha2.TCPRouteList{
-				Items: []gwalpha2.TCPRoute{
+			list: &gwv1.TCPRouteList{
+				Items: []gwv1.TCPRoute{
 					{
 						ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "route-ns"},
-						Spec: gwalpha2.TCPRouteSpec{
-							Rules: []gwalpha2.TCPRouteRule{
+						Spec: gwv1.TCPRouteSpec{
+							Rules: []gwv1.TCPRouteRule{
 								{
-									BackendRefs: []gwalpha2.BackendRef{
+									BackendRefs: []gwv1.BackendRef{
 										{
-											BackendObjectReference: gwalpha2.BackendObjectReference{
+											BackendObjectReference: gwv1.BackendObjectReference{
 												Name:      "test-gateway",
-												Kind:      (*gwalpha2.Kind)(awssdk.String("Gateway")),
-												Namespace: (*gwalpha2.Namespace)(awssdk.String("test-ns")),
+												Kind:      (*gwv1.Kind)(awssdk.String("Gateway")),
+												Namespace: (*gwv1.Namespace)(awssdk.String("test-ns")),
 											},
 										},
 									},
@@ -184,24 +184,24 @@ func TestGetImpactedTCPRoutes(t *testing.T) {
 		},
 		{
 			name: "duplicate routes filtered",
-			list: &gwalpha2.TCPRouteList{
-				Items: []gwalpha2.TCPRoute{
+			list: &gwv1.TCPRouteList{
+				Items: []gwv1.TCPRoute{
 					{
 						ObjectMeta: metav1.ObjectMeta{Name: "route1", Namespace: "test-ns"},
-						Spec: gwalpha2.TCPRouteSpec{
-							Rules: []gwalpha2.TCPRouteRule{
+						Spec: gwv1.TCPRouteSpec{
+							Rules: []gwv1.TCPRouteRule{
 								{
-									BackendRefs: []gwalpha2.BackendRef{
+									BackendRefs: []gwv1.BackendRef{
 										{
-											BackendObjectReference: gwalpha2.BackendObjectReference{
+											BackendObjectReference: gwv1.BackendObjectReference{
 												Name: "test-gateway",
-												Kind: (*gwalpha2.Kind)(awssdk.String("Gateway")),
+												Kind: (*gwv1.Kind)(awssdk.String("Gateway")),
 											},
 										},
 										{
-											BackendObjectReference: gwalpha2.BackendObjectReference{
+											BackendObjectReference: gwv1.BackendObjectReference{
 												Name: "test-gateway",
-												Kind: (*gwalpha2.Kind)(awssdk.String("Gateway")),
+												Kind: (*gwv1.Kind)(awssdk.String("Gateway")),
 											},
 										},
 									},

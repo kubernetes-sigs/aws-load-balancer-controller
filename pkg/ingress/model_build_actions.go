@@ -8,11 +8,10 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 )
 
 func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, backend EnhancedBackend) ([]elbv2model.Action, error) {
@@ -189,8 +188,8 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 		Namespace: namespace,
 		Name:      authCfg.IDPConfigOIDC.SecretName,
 	}
-	secret := &corev1.Secret{}
-	if err := t.k8sClient.Get(ctx, secretKey, secret); err != nil {
+	secret, err := t.secretsManager.GetSecret(ctx, t.k8sClient, secretKey)
+	if err != nil {
 		return elbv2model.Action{}, err
 	}
 	rawClientID, ok := secret.Data[shared_constants.OIDCSecretKeyClientID]

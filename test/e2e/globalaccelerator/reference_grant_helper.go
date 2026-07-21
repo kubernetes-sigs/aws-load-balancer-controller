@@ -3,8 +3,8 @@ package globalaccelerator
 import (
 	"context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 

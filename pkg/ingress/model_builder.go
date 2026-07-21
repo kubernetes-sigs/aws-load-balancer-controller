@@ -12,9 +12,9 @@ import (
 	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
 	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
@@ -26,19 +26,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	certs "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/certs"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -61,7 +61,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
-	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
+	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, secretsManager k8s.SecretsManager, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
 	certDiscovery certs.CertDiscovery,
 ) *defaultModelBuilder {
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
@@ -69,6 +69,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		k8sClient:                  k8sClient,
 		eventRecorder:              eventRecorder,
 		acmClient:                  acmClient,
+		secretsManager:             secretsManager,
 		ec2Client:                  ec2Client,
 		elbv2Client:                elbv2Client,
 		vpcID:                      vpcID,
@@ -106,12 +107,13 @@ var _ ModelBuilder = &defaultModelBuilder{}
 
 // default implementation for ModelBuilder
 type defaultModelBuilder struct {
-	k8sClient     client.Client
-	eventRecorder record.EventRecorder
-	acmClient     services.ACM
-	ec2Client     services.EC2
-	elbv2Client   services.ELBV2
-	wafv2Client   services.WAFv2
+	k8sClient      client.Client
+	eventRecorder  record.EventRecorder
+	acmClient      services.ACM
+	secretsManager k8s.SecretsManager
+	ec2Client      services.EC2
+	elbv2Client    services.ELBV2
+	wafv2Client    services.WAFv2
 
 	vpcID       string
 	clusterName string
@@ -153,6 +155,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		k8sClient:                  b.k8sClient,
 		eventRecorder:              b.eventRecorder,
 		acmClient:                  b.acmClient,
+		secretsManager:             b.secretsManager,
 		ec2Client:                  b.ec2Client,
 		elbv2Client:                b.elbv2Client,
 		wafv2Client:                b.wafv2Client,
@@ -230,6 +233,7 @@ type defaultModelBuildTask struct {
 	k8sClient              client.Client
 	eventRecorder          record.EventRecorder
 	acmClient              services.ACM
+	secretsManager         k8s.SecretsManager
 	ec2Client              services.EC2
 	elbv2Client            services.ELBV2
 	wafv2Client            services.WAFv2

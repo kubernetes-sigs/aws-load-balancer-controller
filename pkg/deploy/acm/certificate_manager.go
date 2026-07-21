@@ -9,11 +9,11 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
 
-	acmModel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/acm"
+	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	acmsdk "github.com/aws/aws-sdk-go-v2/service/acm"

@@ -1,6 +1,6 @@
 package elbv2
 
-import "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+import "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 
 var _ core.Resource = &FrontendNlbTargetGroupDesiredState{}
 

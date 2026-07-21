@@ -3,8 +3,8 @@ package translate
 import (
 	"strings"
 
-	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 

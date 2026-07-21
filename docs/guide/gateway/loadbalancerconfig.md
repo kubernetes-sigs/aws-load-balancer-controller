@@ -7,7 +7,7 @@
 `mergingMode`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -29,7 +29,7 @@ Defines the merge behavior when both the Gateway and GatewayClass have a defined
 `loadBalancerName`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -47,7 +47,7 @@ Defines the name of the LB to provision. If unspecified, it will be automaticall
 `scheme`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -70,7 +70,7 @@ Defines the LoadBalancer Scheme.
 `ipAddressType`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -97,7 +97,7 @@ Define what IP Address Type to use.
 `enforceSecurityGroupInboundRulesOnPrivateLinkTraffic`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -119,7 +119,7 @@ Only applicable to NLB Gateways.
 `customerOwnedIpv4Pool`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -139,7 +139,7 @@ Only applicable to ALB Gateways.
 `ipv4IPAMPoolId`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -159,7 +159,7 @@ Only applicable to ALB Gateways.
 `loadBalancerSubnets`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -182,7 +182,7 @@ See [SubnetConfiguration](./loadbalancerconfig.md#subnetconfiguration) for more 
 `loadBalancerSubnetsSelector`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -206,7 +206,7 @@ The subnets in the load balancer's VPC where each tag specified in the map key c
 A list of Listener Configurations. See the [ListenerConfiguration](#listenerconfiguration)
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -226,7 +226,7 @@ spec:
 `securityGroups`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -249,7 +249,7 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 `securityGroupPrefixes`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -269,7 +269,7 @@ An optional list of prefixes that are allowed to access the LB.
 `sourceRanges`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -289,7 +289,7 @@ An optional list of CIDRs that are allowed to access the LB.
 `loadBalancerAttributes`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -312,7 +312,7 @@ See the [ELB documentation](https://docs.aws.amazon.com/elasticloadbalancing/lat
 `tags`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -332,7 +332,7 @@ The tags to apply to an LB.
 `enableICMP`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -352,7 +352,7 @@ Only applies to Network LoadBalancers.
 `manageBackendSecurityGroupRules`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -370,7 +370,7 @@ Specify whether you want the controller to configure security group rules on the
 `minimumLoadBalancerCapacity`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -387,7 +387,7 @@ Define the [capacity reservation](https://docs.aws.amazon.com/elasticloadbalanci
 ### ListenerConfiguration
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -465,7 +465,7 @@ Only applies to Network LoadBalancer Gateways.
 #### MutualAuthentication
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -498,7 +498,7 @@ Only applies to Application LoadBalancer Gateways.
 `listenerAttributes`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -535,7 +535,7 @@ An optional boolean that allows you to configure target group stickiness for wei
 `quicEnabled`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -564,7 +564,7 @@ This allows HTTP/3 traffic over QUIC for improved performance and reduced latenc
 ### MutualAuthenticationAttributes
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -624,7 +624,7 @@ The Name or ARN of the trust store.
 ### SubnetConfiguration
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -690,7 +690,7 @@ Only applies to Network LoadBalancer Gateways.
 ### WAFv2
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -711,7 +711,7 @@ Only applies to Application LoadBalancer Gateways.
 ### Shield
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -735,7 +735,7 @@ Only applies to Application LoadBalancer Gateways.
 `disableSecurityGroup`
 
 ```
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config
@@ -757,7 +757,7 @@ Only applies to Network LoadBalancer Gateways.
 `defaultTargetGroupConfiguration`
 
 ```yaml
-apiVersion: gateway.k8s.aws/v1beta1
+apiVersion: gateway.k8s.aws/v1
 kind: LoadBalancerConfiguration
 metadata:
   name: example-config

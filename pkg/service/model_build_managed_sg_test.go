@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	ec2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/ec2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
@@ -179,6 +179,120 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 					IPProtocol: "",
 					FromPort:   aws.Int32(80),
 					ToPort:     aws.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "::/0",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "IPv4 with ICMP for path MTU discovery",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery": "on",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeIPV4,
+			},
+			wantErr: false,
+			want: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmp",
+					FromPort:   aws.Int32(3),
+					ToPort:     aws.Int32(4),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "dualstack with ICMP for path MTU discovery",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery": "on",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeDualStack,
+			},
+			wantErr: false,
+			want: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmp",
+					FromPort:   aws.Int32(3),
+					ToPort:     aws.Int32(4),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "::/0",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmpv6",
+					FromPort:   aws.Int32(2),
+					ToPort:     aws.Int32(0),
 					IPv6Range: []ec2model.IPv6Range{
 						{
 							CIDRIPv6: "::/0",

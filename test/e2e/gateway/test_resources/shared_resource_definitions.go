@@ -10,14 +10,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 func BuildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
@@ -278,7 +277,12 @@ func BuildGatewayClassSpec(controllerName string) *gwv1.GatewayClass {
 	return gwc
 }
 
-func BuildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2gw.LoadBalancerConfiguration {
+func BuildLoadBalancerConfig(f *framework.Framework, spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2gw.LoadBalancerConfiguration {
+
+	if f.Options.IPFamily == framework.IPv6 {
+		spec.IpAddressType = new(elbv2gw.LoadBalancerIpAddressTypeDualstack)
+	}
+
 	lbc := &elbv2gw.LoadBalancerConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultLbConfigName,
@@ -344,13 +348,13 @@ func BuildBasicGatewaySpec(gwc *gwv1.GatewayClass, listeners []gwv1.Listener) *g
 	return gw
 }
 
-func BuildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.BackendRef) *gwalpha2.TCPRoute {
+func BuildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwv1.BackendRef) *gwv1.TCPRoute {
 
 	if len(backendRefs) == 0 {
-		port := gwalpha2.PortNumber(80)
-		backendRefs = []gwalpha2.BackendRef{
+		port := gwv1.PortNumber(80)
+		backendRefs = []gwv1.BackendRef{
 			{
-				BackendObjectReference: gwalpha2.BackendObjectReference{
+				BackendObjectReference: gwv1.BackendObjectReference{
 					Name: DefaultName,
 					Port: new(port),
 				},
@@ -359,7 +363,7 @@ func BuildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.Bac
 	}
 
 	if len(parentRefs) == 0 {
-		parentRefs = []gwalpha2.ParentReference{
+		parentRefs = []gwv1.ParentReference{
 			{
 				Name:        DefaultName,
 				SectionName: (*gwv1.SectionName)(awssdk.String("port80")),
@@ -370,15 +374,15 @@ func BuildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.Bac
 			},
 		}
 	}
-	tcpr := &gwalpha2.TCPRoute{
+	tcpr := &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultName,
 		},
-		Spec: gwalpha2.TCPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+		Spec: gwv1.TCPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: parentRefs,
 			},
-			Rules: []gwalpha2.TCPRouteRule{
+			Rules: []gwv1.TCPRouteRule{
 				{
 					BackendRefs: backendRefs,
 				},
@@ -388,13 +392,13 @@ func BuildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.Bac
 	return tcpr
 }
 
-func BuildFENLBTCPRoute(albGatewayName, albNamespace string, port gwalpha2.PortNumber) *gwalpha2.TCPRoute {
-	tcpr := &gwalpha2.TCPRoute{
+func BuildFENLBTCPRoute(albGatewayName, albNamespace string, port gwv1.PortNumber) *gwv1.TCPRoute {
+	tcpr := &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("fenlb-tcp-route-%d", port),
 		},
-		Spec: gwalpha2.TCPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+		Spec: gwv1.TCPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name: DefaultName,
@@ -402,11 +406,11 @@ func BuildFENLBTCPRoute(albGatewayName, albNamespace string, port gwalpha2.PortN
 					},
 				},
 			},
-			Rules: []gwalpha2.TCPRouteRule{
+			Rules: []gwv1.TCPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{
-							BackendObjectReference: gwalpha2.BackendObjectReference{
+							BackendObjectReference: gwv1.BackendObjectReference{
 								Name:      gwv1.ObjectName(albGatewayName),
 								Kind:      (*gwv1.Kind)(awssdk.String("Gateway")),
 								Namespace: (*gwv1.Namespace)(&albNamespace),
@@ -421,14 +425,14 @@ func BuildFENLBTCPRoute(albGatewayName, albNamespace string, port gwalpha2.PortN
 	return tcpr
 }
 
-func BuildUDPRoute(sectionName string) *gwalpha2.UDPRoute {
-	port := gwalpha2.PortNumber(8080)
-	udpr := &gwalpha2.UDPRoute{
+func BuildUDPRoute(sectionName string) *gwv1.UDPRoute {
+	port := gwv1.PortNumber(8080)
+	udpr := &gwv1.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultName,
 		},
-		Spec: gwalpha2.UDPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+		Spec: gwv1.UDPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        DefaultName,
@@ -436,11 +440,11 @@ func BuildUDPRoute(sectionName string) *gwalpha2.UDPRoute {
 					},
 				},
 			},
-			Rules: []gwalpha2.UDPRouteRule{
+			Rules: []gwv1.UDPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{
-							BackendObjectReference: gwalpha2.BackendObjectReference{
+							BackendObjectReference: gwv1.BackendObjectReference{
 								Name: UDPDefaultName,
 								Port: new(port),
 							},
@@ -460,7 +464,7 @@ func BuildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule, sectionName 
 			Name: routeName,
 		},
 		Spec: gwv1.HTTPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        DefaultName,
@@ -494,7 +498,7 @@ func BuildGRPCRoute(hostnames []string, rules []gwv1.GRPCRouteRule, sectionName 
 			Name: routeName,
 		},
 		Spec: gwv1.GRPCRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        DefaultName,
@@ -521,14 +525,14 @@ func BuildGRPCRoute(hostnames []string, rules []gwv1.GRPCRouteRule, sectionName 
 	return grcpr
 }
 
-func BuildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwalpha2.TCPRoute {
-	port := gwalpha2.PortNumber(80)
-	tcpr := &gwalpha2.TCPRoute{
+func BuildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwv1.TCPRoute {
+	port := gwv1.PortNumber(80)
+	tcpr := &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultName + "-otherns",
 		},
-		Spec: gwalpha2.TCPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+		Spec: gwv1.TCPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        DefaultName,
@@ -536,11 +540,11 @@ func BuildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwa
 					},
 				},
 			},
-			Rules: []gwalpha2.TCPRouteRule{
+			Rules: []gwv1.TCPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{
-							BackendObjectReference: gwalpha2.BackendObjectReference{
+							BackendObjectReference: gwv1.BackendObjectReference{
 								Name:      DefaultName,
 								Namespace: (*gwv1.Namespace)(&otherNs.Name),
 								Port:      &port,
@@ -555,13 +559,13 @@ func BuildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwa
 }
 
 func BuildOtherNsRefHttpRoute(sectionName string, otherNs *corev1.Namespace) *gwv1.HTTPRoute {
-	port := gwalpha2.PortNumber(80)
+	port := gwv1.PortNumber(80)
 	httpr := &gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultName + "-otherns",
 		},
 		Spec: gwv1.HTTPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        DefaultName,
@@ -625,15 +629,15 @@ func (b *BodyMatcher) Matches(resp http.Response) error {
 	return nil
 }
 
-func BuildTCPRouteWithMismatchedParentRefs() *gwalpha2.TCPRoute {
-	port := gwalpha2.PortNumber(80)
-	tcpr := &gwalpha2.TCPRoute{
+func BuildTCPRouteWithMismatchedParentRefs() *gwv1.TCPRoute {
+	port := gwv1.PortNumber(80)
+	tcpr := &gwv1.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: DefaultName,
 		},
-		Spec: gwalpha2.TCPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
-				ParentRefs: []gwalpha2.ParentReference{
+		Spec: gwv1.TCPRouteSpec{
+			CommonRouteSpec: gwv1.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        DefaultName,
 						SectionName: (*gwv1.SectionName)(awssdk.String("listener-exists")),
@@ -644,11 +648,11 @@ func BuildTCPRouteWithMismatchedParentRefs() *gwalpha2.TCPRoute {
 					},
 				},
 			},
-			Rules: []gwalpha2.TCPRouteRule{
+			Rules: []gwv1.TCPRouteRule{
 				{
-					BackendRefs: []gwalpha2.BackendRef{
+					BackendRefs: []gwv1.BackendRef{
 						{
-							BackendObjectReference: gwalpha2.BackendObjectReference{
+							BackendObjectReference: gwv1.BackendObjectReference{
 								Name: DefaultName,
 								Port: new(port),
 							},

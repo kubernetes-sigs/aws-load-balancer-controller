@@ -11,12 +11,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	coremodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	ec2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/ec2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -526,11 +526,77 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 				},
 				{
 					IPProtocol: "icmp",
-					FromPort:   awssdk.Int32(2),
-					ToPort:     awssdk.Int32(3),
+					FromPort:   awssdk.Int32(3),
+					ToPort:     awssdk.Int32(4),
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "dualstack - udp - with source range - icmp enabled",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+						"2001:db8::/32",
+					},
+					EnableICMP: awssdk.Bool(true),
+				},
+			},
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "udp",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmp",
+					FromPort:   awssdk.Int32(3),
+					ToPort:     awssdk.Int32(4),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmpv6",
+					FromPort:   awssdk.Int32(2),
+					ToPort:     awssdk.Int32(0),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
 						},
 					},
 				},

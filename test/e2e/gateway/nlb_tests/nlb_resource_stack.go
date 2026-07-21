@@ -5,15 +5,14 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/test_resources"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *NLBResourceStack {
+func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwv1.TCPRoute, udpr []*gwv1.UDPRoute, tlsr []*gwv1.TLSRoute, baseName string, namespaceLabels map[string]string) *NLBResourceStack {
 
 	CommonStack := test_resources.NewCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, namespaceLabels)
 	return &NLBResourceStack{
@@ -27,12 +26,18 @@ func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *
 // NLBResourceStack containing the deployment and service resources
 type NLBResourceStack struct {
 	CommonStack *test_resources.CommonResourceStack
-	Tcprs       []*gwalpha2.TCPRoute
-	Udprs       []*gwalpha2.UDPRoute
+	Tcprs       []*gwv1.TCPRoute
+	Udprs       []*gwv1.UDPRoute
 	Tlsrs       []*gwv1.TLSRoute
 }
 
 func (s *NLBResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
+	for _, l := range s.CommonStack.Gw.Spec.Listeners {
+		if l.Protocol == gwv1.UDPProtocolType {
+			configureIPv6SourceNAT(ctx, f, &s.CommonStack.Lbc.Spec)
+			break
+		}
+	}
 	return s.CommonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
 
 		for _, v := range s.Tcprs {
