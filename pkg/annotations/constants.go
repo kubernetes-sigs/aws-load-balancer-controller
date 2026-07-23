@@ -77,6 +77,7 @@ const (
 	IngressSuffixFrontendNlbHealthCheckSuccessCodes            = "frontend-nlb-healthcheck-success-codes"
 	IngressSuffixFrontendNlbAttributes                         = "frontend-nlb-attributes"
 	IngressSuffixFrontendNlbTags                               = "frontend-nlb-tags"
+	IngressSuffixFrontendNlbStatusOnly                         = "frontend-nlb-status-only"
 	IngressSuffixUseRegexPathMatch                             = "use-regex-path-match"
 	IngressSuffixTargetControlPort                             = "target-control-port"
 	IngressSuffixCreateCertificate                             = "create-acm-cert"

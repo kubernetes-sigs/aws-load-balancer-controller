@@ -89,6 +89,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/frontend-nlb-eip-allocations](#frontend-nlb-eip-allocations) | stringList                                     |200| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}](#target-control-port)                                       | integer                                    |N/A| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-attributes](#frontend-nlb-attributes) | stringList                                     |N/A| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-status-only](#frontend-nlb-status-only) | boolean                                    |false| Ingress | N/A           |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -1449,4 +1450,37 @@ When this option is set to true, the controller will automatically provision a N
         - enable client availability zone affinity
         ```
         alb.ingress.kubernetes.io/frontend-nlb-attributes: dns_record.client_routing_policy=availability_zone_affinity
+        ```
+
+- <a name="frontend-nlb-status-only">`alb.ingress.kubernetes.io/frontend-nlb-status-only`</a> controls whether only the frontend NLB hostname is written to `status.loadBalancer.ingress` instead of both the ALB and NLB hostnames.
+
+    By default, when a frontend NLB is enabled, both the ALB and NLB hostnames appear in the ingress status. When using [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) on AWS, only a DNS record for the first entry is created (see [external-dns#5661](https://github.com/kubernetes-sigs/external-dns/issues/5661)), which means the NLB does not get a DNS record. Setting this annotation to `"true"` restricts the status to only the NLB hostname, so ExternalDNS creates a DNS record pointing at the NLB.
+
+    !!!note
+        This annotation has no effect if `alb.ingress.kubernetes.io/enable-frontend-nlb` is not set, or if the NLB has not yet been provisioned. In those cases the ALB hostname is written to status as normal.
+
+    === "NLB only"
+        ```yaml
+        alb.ingress.kubernetes.io/enable-frontend-nlb: "true"
+        alb.ingress.kubernetes.io/frontend-nlb-status-only: "true"
+        ```
+        Resulting ingress status:
+        ```yaml
+        status:
+          loadBalancer:
+            ingress:
+              - hostname: nlb-xxxx.elb.amazonaws.com
+        ```
+
+    === "Both hostnames (default)"
+        ```yaml
+        alb.ingress.kubernetes.io/enable-frontend-nlb: "true"
+        ```
+        Resulting ingress status:
+        ```yaml
+        status:
+          loadBalancer:
+            ingress:
+              - hostname: alb-xxxx.elb.amazonaws.com
+              - hostname: nlb-xxxx.elb.amazonaws.com
         ```
