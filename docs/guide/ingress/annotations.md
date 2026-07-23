@@ -1454,7 +1454,7 @@ When this option is set to true, the controller will automatically provision a N
 
 - <a name="frontend-nlb-status-only">`alb.ingress.kubernetes.io/frontend-nlb-status-only`</a> controls whether only the frontend NLB hostname is written to `status.loadBalancer.ingress` instead of both the ALB and NLB hostnames.
 
-    By default, when a frontend NLB is enabled, both the ALB and NLB hostnames appear in the ingress status. Tools like [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) create DNS records for every hostname in the status, which means traffic would be split between the ALB and the NLB. Setting this annotation to `"true"` restricts the status to only the NLB hostname, so ExternalDNS and similar tools create records pointing exclusively at the NLB.
+    By default, when a frontend NLB is enabled, both the ALB and NLB hostnames appear in the ingress status. When using [ExternalDNS](https://github.com/kubernetes-sigs/external-dns) on AWS, only a DNS record for the first entry is created (see [external-dns#5661](https://github.com/kubernetes-sigs/external-dns/issues/5661)), which means the NLB does not get a DNS record. Setting this annotation to `"true"` restricts the status to only the NLB hostname, so ExternalDNS creates a DNS record pointing at the NLB.
 
     !!!note
         This annotation has no effect if `alb.ingress.kubernetes.io/enable-frontend-nlb` is not set, or if the NLB has not yet been provisioned. In those cases the ALB hostname is written to status as normal.
