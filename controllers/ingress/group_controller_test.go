@@ -1,9 +1,18 @@
 package ingress
 
 import (
-	"github.com/stretchr/testify/assert"
-	networking "k8s.io/api/networking/v1"
+	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	networking "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestIsIngressStatusEqual(t *testing.T) {
@@ -285,6 +294,97 @@ func TestIsIngressStatusEqual(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := isIngressStatusEqual(tc.statusA, tc.statusB)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_updateIngressStatus(t *testing.T) {
+	albDNS := "alb.example.com"
+	nlbDNS := "nlb.example.com"
+
+	tests := []struct {
+		name           string
+		annotations    map[string]string
+		lbDNS          string
+		frontendNlbDNS string
+		wantHostnames  []string
+	}{
+		{
+			name:           "no frontend NLB: only ALB in status",
+			lbDNS:          albDNS,
+			frontendNlbDNS: "",
+			wantHostnames:  []string{albDNS},
+		},
+		{
+			name:           "frontend NLB without annotation: ALB first then NLB",
+			lbDNS:          albDNS,
+			frontendNlbDNS: nlbDNS,
+			wantHostnames:  []string{albDNS, nlbDNS},
+		},
+		{
+			name: "frontend-nlb-status-only=true: only NLB in status",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/frontend-nlb-status-only": "true",
+			},
+			lbDNS:          albDNS,
+			frontendNlbDNS: nlbDNS,
+			wantHostnames:  []string{nlbDNS},
+		},
+		{
+			name: "frontend-nlb-status-only=true but no NLB DNS: falls back to ALB",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/frontend-nlb-status-only": "true",
+			},
+			lbDNS:          albDNS,
+			frontendNlbDNS: "",
+			wantHostnames:  []string{albDNS},
+		},
+		{
+			name: "frontend-nlb-status-only=false: ALB first then NLB",
+			annotations: map[string]string{
+				"alb.ingress.kubernetes.io/frontend-nlb-status-only": "false",
+			},
+			lbDNS:          albDNS,
+			frontendNlbDNS: nlbDNS,
+			wantHostnames:  []string{albDNS, nlbDNS},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ing := &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-ingress",
+					Namespace:   "default",
+					Annotations: tt.annotations,
+				},
+			}
+
+			scheme := runtime.NewScheme()
+			require.NoError(t, clientgoscheme.AddToScheme(scheme))
+
+			k8sClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithStatusSubresource(ing).
+				WithObjects(ing).
+				Build()
+
+			r := &groupReconciler{
+				k8sClient:        k8sClient,
+				annotationParser: annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
+			}
+
+			err := r.updateIngressStatus(context.Background(), tt.lbDNS, tt.frontendNlbDNS, ing, nil)
+			require.NoError(t, err)
+
+			updated := &networking.Ingress{}
+			require.NoError(t, k8sClient.Get(context.Background(), types.NamespacedName{Name: "test-ingress", Namespace: "default"}, updated))
+
+			var gotHostnames []string
+			for _, entry := range updated.Status.LoadBalancer.Ingress {
+				gotHostnames = append(gotHostnames, entry.Hostname)
+			}
+			assert.Equal(t, tt.wantHostnames, gotHostnames)
 		})
 	}
 }
