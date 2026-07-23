@@ -314,8 +314,9 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 
 	ingOld := ing.DeepCopy()
 	if frontendNlbStatusOnly && frontendNlbDNS != "" {
-		// Only write the NLB hostname so that tools like ExternalDNS create DNS
-		// records pointing at the NLB rather than both the ALB and the NLB.
+		// Only write the NLB hostname to status. When using ExternalDNS on AWS,
+		// only the first status entry gets a DNS record, which would be the ALB,
+		// not the NLB that clients should actually reach.
 		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
 			ing.Status.LoadBalancer.Ingress[0].Hostname != frontendNlbDNS {
 			ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
