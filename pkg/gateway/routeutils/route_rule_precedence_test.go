@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	defaultHostname = []string{"example.com"}
+	defaultHostname = "example.com"
 )
 
 func Test_SortAllRulesByPrecedence(t *testing.T) {
@@ -357,7 +357,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/httpOneRuleNoMatch",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      httpOneRuleNoMatch,
 						Rule:                 httpOneRuleNoMatch.rules[0],
 						RuleIndexInRoute:     0,
@@ -378,7 +377,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/httpOneRuleOneMatch",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      httpOneRuleOneMatch,
 						Rule:                 httpOneRuleOneMatch.rules[0],
 						RuleIndexInRoute:     0,
@@ -407,7 +405,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/httpOneRuleMultipleMatches",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      httpOneRuleMultipleMatches,
 						Rule:                 httpOneRuleMultipleMatches.rules[0],
 						RuleIndexInRoute:     0,
@@ -428,7 +425,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/httpOneRuleMultipleMatches",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      httpOneRuleMultipleMatches,
 						Rule:                 httpOneRuleMultipleMatches.rules[0],
 						RuleIndexInRoute:     0,
@@ -470,7 +466,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/grpcOneRuleNoMatch",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      grpcOneRuleNoMatch,
 						Rule:                 grpcOneRuleNoMatch.rules[0],
 						RuleIndexInRoute:     0,
@@ -491,7 +486,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/grpcOneRuleOneMatch",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      grpcOneRuleOneMatch,
 						Rule:                 grpcOneRuleOneMatch.rules[0],
 						RuleIndexInRoute:     0,
@@ -522,7 +516,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/grpcOneRuleMultipleMatches",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      grpcOneRuleMultipleMatches,
 						Rule:                 grpcOneRuleMultipleMatches.rules[0],
 						RuleIndexInRoute:     0,
@@ -545,7 +538,6 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 				{
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteNamespacedName:  "ns/grpcOneRuleMultipleMatches",
-						Hostnames:            make([]string, 0),
 						RouteDescriptor:      grpcOneRuleMultipleMatches,
 						Rule:                 grpcOneRuleMultipleMatches.rules[0],
 						RuleIndexInRoute:     0,
@@ -579,7 +571,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpUsers,
 						Rule:                 httpUsers.rules[0],
-						Hostnames:            []string{"app.example.com"},
+						Hostname:             "app.example.com",
 						RouteNamespacedName:  "ns/http-users",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -592,7 +584,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpAPI,
 						Rule:                 httpAPI.rules[0],
-						Hostnames:            []string{"app.example.com"},
+						Hostname:             "app.example.com",
 						RouteNamespacedName:  "ns/http-api",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -605,7 +597,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpCatchAll,
 						Rule:                 httpCatchAll.rules[0],
-						Hostnames:            []string{"app.example.com"},
+						Hostname:             "app.example.com",
 						RouteNamespacedName:  "ns/http-catchall",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -628,7 +620,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcLongSvc,
 						Rule:                 grpcLongSvc.rules[0],
-						Hostnames:            []string{"grpc.example.com"},
+						Hostname:             "grpc.example.com",
 						RouteNamespacedName:  "ns/grpc-long-svc",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -643,7 +635,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcShortSvc,
 						Rule:                 grpcShortSvc.rules[0],
-						Hostnames:            []string{"grpc.example.com"},
+						Hostname:             "grpc.example.com",
 						RouteNamespacedName:  "ns/grpc-specific",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -658,7 +650,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcCatchAll,
 						Rule:                 grpcCatchAll.rules[0],
-						Hostnames:            []string{"grpc.example.com"},
+						Hostname:             "grpc.example.com",
 						RouteNamespacedName:  "ns/grpc-catchall",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     math.MaxInt,
@@ -681,7 +673,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcEcho,
 						Rule:                 grpcEcho.rules[0],
-						Hostnames:            []string{"shared.example.com"},
+						Hostname:             "shared.example.com",
 						RouteNamespacedName:  "ns/grpc-echo",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -696,7 +688,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpStatus,
 						Rule:                 httpStatus.rules[0],
-						Hostnames:            []string{"shared.example.com"},
+						Hostname:             "shared.example.com",
 						RouteNamespacedName:  "ns/http-status",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -709,7 +701,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpRoot,
 						Rule:                 httpRoot.rules[0],
-						Hostnames:            []string{"shared.example.com"},
+						Hostname:             "shared.example.com",
 						RouteNamespacedName:  "ns/http-root",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -732,7 +724,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpWithMethod,
 						Rule:                 httpWithMethod.rules[0],
-						Hostnames:            []string{"mixed.example.com"},
+						Hostname:             "mixed.example.com",
 						RouteNamespacedName:  "ns/http-with-method",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -748,7 +740,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpNoMethod,
 						Rule:                 httpNoMethod.rules[0],
-						Hostnames:            []string{"mixed.example.com"},
+						Hostname:             "mixed.example.com",
 						RouteNamespacedName:  "ns/http-no-method",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -768,7 +760,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcWithHeaders,
 						Rule:                 grpcWithHeaders.rules[0],
-						Hostnames:            []string{"mixed.example.com"},
+						Hostname:             "mixed.example.com",
 						RouteNamespacedName:  "ns/grpc-with-headers",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -804,7 +796,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcExactLong,
 						Rule:                 grpcExactLong.rules[0],
-						Hostnames:            []string{"variety.example.com"},
+						Hostname:             "variety.example.com",
 						RouteNamespacedName:  "ns/grpc-exact-long",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -819,7 +811,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpExactWithQueryParams,
 						Rule:                 httpExactWithQueryParams.rules[0],
-						Hostnames:            []string{"variety.example.com"},
+						Hostname:             "variety.example.com",
 						RouteNamespacedName:  "ns/http-exact-qp",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -835,7 +827,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      httpPrefixAPI,
 						Rule:                 httpPrefixAPI.rules[0],
-						Hostnames:            []string{"variety.example.com"},
+						Hostname:             "variety.example.com",
 						RouteNamespacedName:  "ns/http-prefix-api",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -850,7 +842,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 					CommonRulePrecedence: CommonRulePrecedence{
 						RouteDescriptor:      grpcRegexRoute,
 						Rule:                 grpcRegexRoute.rules[0],
-						Hostnames:            []string{"variety.example.com"},
+						Hostname:             "variety.example.com",
 						RouteNamespacedName:  "ns/grpc-regex",
 						RuleIndexInRoute:     0,
 						MatchIndexInRule:     0,
@@ -885,12 +877,12 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "hostname - exact vs wildcard",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"api.example.com"},
+					Hostname: "api.example.com",
 				},
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"*.example.com"},
+					Hostname: "*.example.com",
 				},
 			},
 			want:   true,
@@ -900,7 +892,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "path type - exact vs prefix",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType: 3,
@@ -908,7 +900,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType: 1,
@@ -921,7 +913,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "path length precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -930,7 +922,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -944,7 +936,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "http route method precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -954,7 +946,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -969,7 +961,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "host-specific vs catch-all (empty hostname) - equal path, catch-all older",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            defaultHostname,
+					Hostname:             defaultHostname,
 					RouteCreateTimestamp: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -979,7 +971,6 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{},
 					RouteCreateTimestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -994,7 +985,6 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "catch-all (empty hostname) vs host-specific - equal path, catch-all older",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{},
 					RouteCreateTimestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1004,7 +994,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            defaultHostname,
+					Hostname:             defaultHostname,
 					RouteCreateTimestamp: time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC),
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1019,7 +1009,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			name: "host-specific (short path) vs catch-all (empty hostname, long path)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   2,
@@ -1027,9 +1017,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 				},
 			},
 			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{},
-				},
+				CommonRulePrecedence: CommonRulePrecedence{},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   2,
 					PathLength: 20,
@@ -1040,13 +1028,12 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 		},
 		{
 			// Regression for the HTTPRouteMatchingAcrossRoutes conformance test:
-			// a route with more hostnames and a short (catch-all) path must not
-			// outrank a route with fewer hostnames and a longer path, because the
-			// shared most-specific hostname (example.com) ties and path decides.
-			name: "fewer hostnames with longer path beats more hostnames with shorter path",
+			// With per-hostname splitting each unit carries a single hostname; when
+			// the hostname ties, the longer path wins.
+			name: "same hostname, longer path wins",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"example.com"},
+					Hostname: "example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   2, // prefix "/v2"
@@ -1055,7 +1042,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"example.com", "example.net"},
+					Hostname: "example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   2, // prefix "/"
@@ -1063,7 +1050,7 @@ func Test_compareRulePrecedence_HTTP(t *testing.T) {
 				},
 			},
 			want:   true,
-			reason: "hostname-list length must not dominate path; longer path wins when most-specific hostname ties",
+			reason: "longer path wins when the hostname ties",
 		},
 	}
 
@@ -1090,12 +1077,12 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "hostname - exact vs wildcard",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"api.example.com"},
+					Hostname: "api.example.com",
 				},
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"*.example.com"},
+					Hostname: "*.example.com",
 				},
 			},
 			want:   true,
@@ -1105,7 +1092,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "grpc route service precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -1114,7 +1101,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -1128,7 +1115,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "grpc header count precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:    1,
@@ -1137,7 +1124,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:    1,
@@ -1151,7 +1138,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "grpc method precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        1,
@@ -1160,7 +1147,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        1,
@@ -1174,7 +1161,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "grpc service precedence over method",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   1,
@@ -1183,7 +1170,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
+					Hostname: defaultHostname,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        1,
@@ -1197,7 +1184,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "creation timestamp precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            defaultHostname,
+					Hostname:             defaultHostname,
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1209,7 +1196,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            defaultHostname,
+					Hostname:             defaultHostname,
 					RouteCreateTimestamp: now,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1226,7 +1213,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			name: "rule index precedence",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:        defaultHostname,
+					Hostname:         defaultHostname,
 					RuleIndexInRoute: 1,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1238,7 +1225,7 @@ func Test_compareRulePrecedence_GRPC(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:        defaultHostname,
+					Hostname:         defaultHostname,
 					RuleIndexInRoute: 3,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1348,6 +1335,20 @@ func Test_getHostnamePrecedenceOrder(t *testing.T) {
 			description: "non-empty string should have higher precedence than empty",
 		},
 		{
+			name:        "empty vs wildcard - empty is catch-all, least specific",
+			hostnameOne: "",
+			hostnameTwo: "*.example.com",
+			want:        1,
+			description: "an empty hostname (catch-all) must lose even to a wildcard",
+		},
+		{
+			name:        "wildcard vs empty - wildcard beats catch-all",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "",
+			want:        -1,
+			description: "a wildcard must beat an empty hostname (catch-all)",
+		},
+		{
 			name:        "one hostname has more dots",
 			hostnameOne: "*.example.com",
 			hostnameTwo: "*.t.exa.com",
@@ -1374,118 +1375,6 @@ func Test_getHostnamePrecedenceOrder(t *testing.T) {
 	}
 }
 
-func Test_getHostnameListPrecedenceOrder(t *testing.T) {
-	tests := []struct {
-		name        string
-		listOne     []string
-		listTwo     []string
-		want        int
-		description string
-	}{
-		{
-			name:        "both empty",
-			listOne:     []string{},
-			listTwo:     []string{},
-			want:        0,
-			description: "two catch-all (empty) lists are equal",
-		},
-		{
-			name:        "empty vs non-empty",
-			listOne:     []string{},
-			listTwo:     []string{"example.com"},
-			want:        1,
-			description: "empty (catch-all) list is least specific, so list two wins",
-		},
-		{
-			name:        "non-empty vs empty",
-			listOne:     []string{"example.com"},
-			listTwo:     []string{},
-			want:        -1,
-			description: "non-empty list beats catch-all (empty) list",
-		},
-		{
-			name:        "same single hostname",
-			listOne:     []string{"example.com"},
-			listTwo:     []string{"example.com"},
-			want:        0,
-			description: "identical hostnames tie so precedence falls through to path",
-		},
-		{
-			// Regression: a longer hostname list must NOT be treated as more
-			// specific. Both lists share the equally-specific hostname
-			// example.com, so this must tie (0) and let path break the tie.
-			name:        "more hostnames does not beat fewer hostnames when most-specific ties",
-			listOne:     []string{"example.com", "example.net"},
-			listTwo:     []string{"example.com"},
-			want:        0,
-			description: "hostname-list length is not a specificity signal; equal most-specific hostname ties",
-		},
-		{
-			name:        "exact beats wildcard regardless of list length",
-			listOne:     []string{"api.example.com"},
-			listTwo:     []string{"*.example.com", "*.svc.example.com"},
-			want:        -1,
-			description: "most-specific representative: api.example.com (non-wildcard) beats any wildcard",
-		},
-		{
-			name:        "more dots in most-specific hostname wins",
-			listOne:     []string{"example.com", "a.example.com"},
-			listTwo:     []string{"example.com", "example.net"},
-			want:        -1,
-			description: "list one's most specific (a.example.com, 2 dots) beats list two's (1 dot)",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getHostnameListPrecedenceOrder(tt.listOne, tt.listTwo)
-			assert.Equal(t, tt.want, got, tt.description)
-		})
-	}
-}
-
-// Test_getHostnameListPrecedenceOrder_Transitive guards against a non-transitive
-// comparator (which makes sort.Slice produce undefined ordering). For the triple
-// X=[example.com], Y=[example.com, a.example.com], Z=[example.com, example.net],
-// the earlier length-based tiebreak made X "equal" to both Y and Z while Y and Z
-// were unequal, violating the strict weak ordering sort.Slice requires.
-func Test_getHostnameListPrecedenceOrder_Transitive(t *testing.T) {
-	x := []string{"example.com"}
-	y := []string{"example.com", "a.example.com"}
-	z := []string{"example.com", "example.net"}
-
-	lists := map[string][]string{"x": x, "y": y, "z": z}
-	// sign normalizes a comparison result to -1/0/1.
-	sign := func(v int) int {
-		switch {
-		case v < 0:
-			return -1
-		case v > 0:
-			return 1
-		default:
-			return 0
-		}
-	}
-
-	// Verify antisymmetry: cmp(a,b) == -cmp(b,a) for every pair.
-	names := []string{"x", "y", "z"}
-	for _, a := range names {
-		for _, b := range names {
-			ab := sign(getHostnameListPrecedenceOrder(lists[a], lists[b]))
-			ba := sign(getHostnameListPrecedenceOrder(lists[b], lists[a]))
-			assert.Equal(t, ab, -ba, "comparator must be antisymmetric for %s vs %s", a, b)
-		}
-	}
-
-	// Verify transitivity of the induced "equal" relation is not violated: if
-	// X==Y and X==Z then Y==Z. Under the correct comparator X is strictly less
-	// specific than Y (a.example.com adds specificity), so this holds vacuously,
-	// but we assert the concrete expected relations to lock in behavior.
-	assert.Equal(t, 0, getHostnameListPrecedenceOrder(x, z), "x and z tie on most-specific hostname")
-	assert.Equal(t, 1, sign(getHostnameListPrecedenceOrder(x, y)), "y is more specific than x (a.example.com)")
-	assert.Equal(t, 1, sign(getHostnameListPrecedenceOrder(z, y)), "y is more specific than z (a.example.com > example.net)")
-}
-
 func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	earlier := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -1501,7 +1390,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "specific GRPCRoute wins over catch-all HTTPRoute - reported vulnerability scenario",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: now, // attacker route is newer
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1511,7 +1400,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier, // victim route is older
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1527,7 +1416,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "specific GRPCRoute higher precedence than catch-all HTTPRoute (reversed arg order)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1538,7 +1427,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: now,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1553,7 +1442,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "exact HTTPRoute wins over regex GRPCRoute",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"api.example.com"},
+					Hostname: "api.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   3,  // exact
@@ -1562,7 +1451,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"api.example.com"},
+					Hostname: "api.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        1, // regex
@@ -1577,7 +1466,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "same path type and length - falls through to timestamp (HTTP older wins)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1587,7 +1476,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: now,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1603,7 +1492,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "same path type and length - falls through to timestamp (GRPC older wins)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: now,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1613,7 +1502,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1628,7 +1517,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "GRPC longer effective path wins over shorter HTTP path (same type)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"shared.example.com"},
+					Hostname: "shared.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   3, // exact
@@ -1637,7 +1526,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"shared.example.com"},
+					Hostname: "shared.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        3,  // exact
@@ -1652,7 +1541,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "HTTP with headers wins over GRPC without headers (same path specificity)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"shared.example.com"},
+					Hostname: "shared.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:    3, // exact
@@ -1662,7 +1551,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"shared.example.com"},
+					Hostname: "shared.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        3, // exact
@@ -1678,7 +1567,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "hostname specificity takes priority over path specificity across kinds",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"specific.example.com"},
+					Hostname: "specific.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:   2, // prefix
@@ -1687,7 +1576,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"*.example.com"},
+					Hostname: "*.example.com",
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
 					PathType:        3, // exact
@@ -1702,7 +1591,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "HTTP with method beats GRPC with more headers (hasMethod before headerCount)",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1714,7 +1603,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1731,7 +1620,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "GRPC with many headers does NOT beat HTTP with method",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1743,7 +1632,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1760,7 +1649,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "both without method - header count decides cross-kind",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1772,7 +1661,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1789,7 +1678,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "GRPC with more headers vs HTTP no method fewer headers",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1800,7 +1689,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1817,7 +1706,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "HTTP no method vs GRPC equal headers - query params break tie",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1830,7 +1719,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 				},
 				PrecedenceFactor: &RulePrecedenceFactor{
@@ -1847,7 +1736,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			name: "all specificity factors equal - namespaced name breaks tie",
 			ruleOne: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 					RouteNamespacedName:  "ns/http-rule",
 				},
@@ -1860,7 +1749,7 @@ func Test_compareRulePrecedence_CrossKind(t *testing.T) {
 			},
 			ruleTwo: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            []string{"shared.example.com"},
+					Hostname:             "shared.example.com",
 					RouteCreateTimestamp: earlier,
 					RouteNamespacedName:  "ns/grpc-rule",
 				},
@@ -2104,4 +1993,235 @@ func Test_SortAllRulesByPrecedence_CrossKind(t *testing.T) {
 	// Rule 6: grpcCatchAll (no method, pathType=0)
 	assert.Equal(t, "team-d/grpc-catchall", names[5],
 		"GRPC with no method match (catch-all) should be last")
+}
+
+// Test_SortAllRulesByPrecedence_MultiHostnameSplit exercises the per-hostname
+// rule split: a route with N hostnames and M matches produces N×M rule units,
+// one per (hostname, match), each carrying a SINGLE hostname. Hostname
+// precedence is evaluated per hostname (scalar), and equally-specific hostnames
+// (e.g. api.example.com vs web.example.com) are ordered deterministically by the
+// hostname-string tiebreaker. The rest of the precedence file uses only
+// single-hostname routes, so these cases are the multi-hostname coverage.
+func Test_SortAllRulesByPrecedence_MultiHostnameSplit(t *testing.T) {
+	created := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	prefix := (*gwv1.PathMatchType)(awssdk.String("PathPrefix"))
+	exact := (*gwv1.PathMatchType)(awssdk.String("Exact"))
+	rootPrefix := gwv1.HTTPRouteMatch{Path: &gwv1.HTTPPathMatch{Type: prefix, Value: awssdk.String("/")}}
+	healthExact := gwv1.HTTPRouteMatch{Path: &gwv1.HTTPPathMatch{Type: exact, Value: awssdk.String("/health")}}
+
+	mkRoute := func(hostnames []string, matches []gwv1.HTTPRouteMatch) *httpRouteDescription {
+		hn := make([]gwv1.Hostname, len(hostnames))
+		for i, h := range hostnames {
+			hn[i] = gwv1.Hostname(h)
+		}
+		return &httpRouteDescription{
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: v1.ObjectMeta{Name: "route", Namespace: "ns", CreationTimestamp: v1.Time{Time: created}},
+				Spec:       gwv1.HTTPRouteSpec{Hostnames: hn},
+			},
+			rules: []RouteRule{&convertedHTTPRouteRule{rule: &gwv1.HTTPRouteRule{Matches: matches}}},
+		}
+	}
+
+	type unit struct {
+		hostname string
+		matchIdx int
+	}
+
+	tests := []struct {
+		name      string
+		hostnames []string
+		matches   []gwv1.HTTPRouteMatch
+		want      []unit
+	}{
+		{
+			name:      "2 hostnames - split into 2 units ordered by specificity (non-wildcard before wildcard)",
+			hostnames: []string{"*.example.com", "api.example.com"},
+			matches:   []gwv1.HTTPRouteMatch{rootPrefix},
+			want: []unit{
+				{"api.example.com", 0},
+				{"*.example.com", 0},
+			},
+		},
+		{
+			name:      "3 hostnames x 2 matches - 6 units; hostname precedence dominates, path breaks ties within a hostname",
+			hostnames: []string{"*.example.com", "example.com", "a.b.example.com"},
+			matches:   []gwv1.HTTPRouteMatch{healthExact, rootPrefix}, // m0=/health (exact), m1=/ (prefix)
+			want: []unit{
+				{"a.b.example.com", 0}, // most-specific hostname (3 dots), exact path first
+				{"a.b.example.com", 1}, // most-specific hostname, prefix path
+				{"example.com", 0},     // 1 dot
+				{"example.com", 1},
+				{"*.example.com", 0}, // wildcard hostname last
+				{"*.example.com", 1},
+			},
+		},
+		{
+			name: "7 hostnames - 7 units; mixed specificity plus equal-specificity string tiebreak (api < web)",
+			hostnames: []string{
+				"web.example.com", "*.example.com", "example.com", "a.b.c.example.com",
+				"*.sub.example.com", "api.example.com", "a.b.example.com",
+			},
+			matches: []gwv1.HTTPRouteMatch{rootPrefix},
+			want: []unit{
+				{"a.b.c.example.com", 0}, // non-wildcard, 4 dots
+				{"a.b.example.com", 0},   // non-wildcard, 3 dots
+				{"api.example.com", 0},   // 2 dots, len 15 — ties web on specificity; api < web
+				{"web.example.com", 0},   // 2 dots, len 15
+				{"example.com", 0},       // 1 dot
+				{"*.sub.example.com", 0}, // wildcard, 3 dots
+				{"*.example.com", 0},     // wildcard, 2 dots
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			route := mkRoute(tt.hostnames, tt.matches)
+			result := SortAllRulesByPrecedence([]RouteDescriptor{route}, 0)
+
+			assert.Equalf(t, len(tt.hostnames)*len(tt.matches), len(result),
+				"expected N hostnames (%d) × M matches (%d) units", len(tt.hostnames), len(tt.matches))
+
+			for i, w := range tt.want {
+				if i >= len(result) {
+					break
+				}
+				assert.Equalf(t, w.hostname, result[i].CommonRulePrecedence.Hostname,
+					"priority %d hostname", i+1)
+				assert.Equalf(t, w.matchIdx, result[i].CommonRulePrecedence.MatchIndexInRule,
+					"priority %d matchIndex", i+1)
+			}
+		})
+	}
+}
+
+// Test_SortAllRulesByPrecedence_NoHostnameCatchAll verifies that a route with no
+// hostnames (a catch-all, e.g. attached to a listener with no hostname) still
+// produces one rule per match after the per-hostname split. The empty hostname
+// list collapses to a SINGLE catch-all hostname unit, so N(=1) × M matches = M
+// rules — each with an empty hostname list (no host-header condition -> matches
+// all hosts), preserving the pre-split behavior. (0 hostnames × 2 matches = 2
+// rules, not 1.)
+func Test_SortAllRulesByPrecedence_NoHostnameCatchAll(t *testing.T) {
+	created := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	prefix := (*gwv1.PathMatchType)(awssdk.String("PathPrefix"))
+	exact := (*gwv1.PathMatchType)(awssdk.String("Exact"))
+
+	route := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{Name: "catchall", Namespace: "ns", CreationTimestamp: v1.Time{Time: created}},
+			Spec:       gwv1.HTTPRouteSpec{}, // no hostnames
+		},
+		rules: []RouteRule{&convertedHTTPRouteRule{rule: &gwv1.HTTPRouteRule{
+			Matches: []gwv1.HTTPRouteMatch{
+				{Path: &gwv1.HTTPPathMatch{Type: exact, Value: awssdk.String("/health")}}, // m0
+				{Path: &gwv1.HTTPPathMatch{Type: prefix, Value: awssdk.String("/")}},      // m1
+			},
+		}}},
+	}
+
+	result := SortAllRulesByPrecedence([]RouteDescriptor{route}, 0)
+
+	// 1 catch-all hostname unit × 2 matches = 2 rules (NOT 1).
+	assert.Equal(t, 2, len(result), "no-hostname route with 2 matches must still produce 2 rules (one per match)")
+
+	// Both units are catch-all: empty hostname list -> no host-header condition downstream.
+	for i := range result {
+		assert.Emptyf(t, result[i].CommonRulePrecedence.Hostname, "unit %d must carry no hostname (catch-all)", i+1)
+	}
+
+	// Hostname precedence ties (both empty), so ordering falls to path: exact
+	// /health (m0) outranks prefix / (m1).
+	assert.Equal(t, 0, result[0].CommonRulePrecedence.MatchIndexInRule, "exact /health match should be first")
+	assert.Equal(t, 3, result[0].PrecedenceFactor.PathType, "priority-1 should be the exact match (pathType 3)")
+	assert.Equal(t, 1, result[1].CommonRulePrecedence.MatchIndexInRule, "prefix / match should be second")
+}
+
+// Test_SortAllRulesByPrecedence_InheritsListenerHostname covers the case where a
+// route declares NO hostnames but attaches to a listener that HAS one. Per the
+// Gateway API, the route inherits the listener's hostname; the loader records
+// that in CompatibleHostnamesByPort, and getCommonRouteInfo must prefer it over
+// the (empty) route hostnames. The resulting split units must carry the
+// listener's hostname — i.e. produce a host-scoped rule, NOT a catch-all that
+// matches every host. This is the only precedence test that exercises the
+// CompatibleHostnamesByPort path (the others use the route-hostname fallback).
+func Test_SortAllRulesByPrecedence_InheritsListenerHostname(t *testing.T) {
+	prefix := (*gwv1.PathMatchType)(awssdk.String("PathPrefix"))
+	const port int32 = 80
+
+	route := &MockRoute{
+		Kind:         HTTPRouteKind,
+		Name:         "no-hostname-route",
+		Namespace:    "ns",
+		Hostnames:    nil, // route declares no hostnames
+		CreationTime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		// Loader-computed intersection: the route inherits the listener's hostname.
+		CompatibleHostnamesByPort: map[int32][]gwv1.Hostname{port: {"listener.example.com"}},
+		Rules: []RouteRule{&MockRule{RawRule: &gwv1.HTTPRouteRule{
+			Matches: []gwv1.HTTPRouteMatch{
+				{Path: &gwv1.HTTPPathMatch{Type: prefix, Value: awssdk.String("/")}},    // m0
+				{Path: &gwv1.HTTPPathMatch{Type: prefix, Value: awssdk.String("/api")}}, // m1
+			},
+		}}},
+	}
+
+	result := SortAllRulesByPrecedence([]RouteDescriptor{route}, port)
+
+	// 1 inherited hostname × 2 matches = 2 rules.
+	assert.Equal(t, 2, len(result), "inherited-hostname route with 2 matches must produce 2 rules")
+
+	// Every unit must carry the LISTENER's hostname (not be a catch-all). An empty
+	// hostname list here would mean the rule matches every host — the bug this guards.
+	for i := range result {
+		assert.Equalf(t, "listener.example.com", result[i].CommonRulePrecedence.Hostname,
+			"unit %d must inherit the listener hostname, not become a catch-all", i+1)
+	}
+
+	// Ordering falls to path (hostname is identical): /api (len 4) beats / (len 1).
+	assert.Equal(t, 4, result[0].PrecedenceFactor.PathLength, "priority-1 should be the longer /api prefix")
+	assert.Equal(t, 1, result[0].CommonRulePrecedence.MatchIndexInRule, "/api is match index 1")
+	assert.Equal(t, 1, result[1].PrecedenceFactor.PathLength, "priority-2 should be the / prefix")
+	assert.Equal(t, 0, result[1].CommonRulePrecedence.MatchIndexInRule, "/ is match index 0")
+}
+
+// Test_SortAllRulesByPrecedence_TwoRoutesDistinctHostnames guards against a
+// (mis)understanding that the split iterates the listener-wide set of hostnames.
+// CompatibleHostnamesByPort is keyed per route, so each route sees ONLY its own
+// hostname: two single-hostname routes R1(A) and R2(B) must produce exactly two
+// units — R1×A and R2×B — NOT the cross product R1×A, R1×B, R2×A, R2×B.
+func Test_SortAllRulesByPrecedence_TwoRoutesDistinctHostnames(t *testing.T) {
+	prefix := (*gwv1.PathMatchType)(awssdk.String("PathPrefix"))
+	const port int32 = 80
+
+	mk := func(name, hostname string) *MockRoute {
+		return &MockRoute{
+			Kind:         HTTPRouteKind,
+			Name:         name,
+			Namespace:    "ns",
+			CreationTime: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			// Per-route compatible hostnames, exactly as the loader stores them.
+			CompatibleHostnamesByPort: map[int32][]gwv1.Hostname{port: {gwv1.Hostname(hostname)}},
+			Rules: []RouteRule{&MockRule{RawRule: &gwv1.HTTPRouteRule{
+				Matches: []gwv1.HTTPRouteMatch{{Path: &gwv1.HTTPPathMatch{Type: prefix, Value: awssdk.String("/")}}},
+			}}},
+		}
+	}
+
+	r1 := mk("r1", "a.example.com")
+	r2 := mk("r2", "b.example.com")
+
+	result := SortAllRulesByPrecedence([]RouteDescriptor{r1, r2}, port)
+
+	// Exactly 2 units (R1×A, R2×B), NOT the 4-unit cross product.
+	assert.Equal(t, 2, len(result), "each route sees only its own hostname: expect R1×A and R2×B, not the cross product")
+
+	routeToHost := map[string]string{}
+	for _, u := range result {
+		routeToHost[u.CommonRulePrecedence.RouteNamespacedName] = u.CommonRulePrecedence.Hostname
+	}
+	assert.Equal(t, map[string]string{
+		"ns/r1": "a.example.com",
+		"ns/r2": "b.example.com",
+	}, routeToHost, "R1 must map only to A and R2 only to B (no cross-contamination)")
 }

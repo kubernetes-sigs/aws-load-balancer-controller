@@ -52,7 +52,6 @@ type listenerBuilderImpl struct {
 func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, listeners []gwv1.Listener, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
 	gwLsCfgs, err := mapGatewayListenerConfigsByPort(listeners, routes)
 	if err != nil {
-		l.logger.Error(err, "buildListenerConfigsByPort", "gw", gw.Name)
 		return nil, err
 	}
 	secrets := make([]types.NamespacedName, 0)
@@ -64,10 +63,8 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 		for _, port := range gwLsPorts.Intersection(portsWithRoutes).List() {
 			ls, err := l.buildListener(ctx, stack, lb, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
 			if err != nil {
-				l.logger.Info("in error buildListenerConfigsByPort", "port", port, "protocol", gwLsCfgs[port].protocol)
 				return nil, err
 			}
-			l.logger.Info("after buildListenerConfigsByPort", "port", port, "protocol", gwLsCfgs[port].protocol)
 
 			if ls == nil {
 				continue
@@ -89,8 +86,6 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 
 func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
 	var listenerSpec *elbv2model.ListenerSpec
-
-	l.logger.Info("Building listener for this protocol", "gw", gw.Name, "protocol", gwLsCfg.protocol)
 
 	var err error
 	if l.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
@@ -141,7 +136,6 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2mod
 		}
 	}
 
-	l.logger.Info("About to configure listener", "gw", gw.Name, "protocol", protocol)
 	listenerSpec := &elbv2model.ListenerSpec{
 		LoadBalancerARN:    lb.LoadBalancerARN(),
 		Port:               port,
@@ -542,9 +536,7 @@ func mapGatewayListenerConfigsByPort(listeners []gwv1.Listener, routes map[int32
 	gwListenerConfigs := make(map[int32]gwListenerConfig)
 	for _, listener := range listeners {
 		port := int32(listener.Port)
-		fmt.Printf("Got this protocol --> %s\n", listener.Protocol)
 		protocol := elbv2model.Protocol(listener.Protocol)
-		fmt.Printf("PARSED this protocol --> %s\n", protocol)
 
 		// The combination of TLS listener + pass through just means to treat this traffic as tcp.
 		if protocol == elbv2model.ProtocolTLS {

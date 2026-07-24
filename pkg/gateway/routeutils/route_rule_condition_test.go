@@ -48,7 +48,7 @@ func Test_BuildHttpRuleConditions(t *testing.T) {
 			name: "match with all fields provided",
 			rule: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{hostname},
+					Hostname: hostname,
 				},
 				HTTPMatch: &gwv1.HTTPRouteMatch{
 					Path: &gwv1.HTTPPathMatch{
@@ -471,7 +471,7 @@ func Test_BuildGrpcRuleConditions(t *testing.T) {
 			name: "input has both method and headers",
 			rule: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{hostname},
+					Hostname: hostname,
 				},
 				GRPCMatch: &gwv1.GRPCRouteMatch{
 					Method: &gwv1.GRPCMethodMatch{
@@ -514,7 +514,7 @@ func Test_BuildGrpcRuleConditions(t *testing.T) {
 			name: "input with method is nil",
 			rule: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{hostname},
+					Hostname: hostname,
 				},
 				GRPCMatch: &gwv1.GRPCRouteMatch{},
 			},
@@ -538,7 +538,7 @@ func Test_BuildGrpcRuleConditions(t *testing.T) {
 			name: "input with match is nil",
 			rule: RulePrecedence{
 				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{hostname},
+					Hostname: hostname,
 				},
 			},
 			want: []elbv2model.RuleCondition{

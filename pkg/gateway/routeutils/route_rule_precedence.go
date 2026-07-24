@@ -42,7 +42,7 @@ type CommonRulePrecedence struct {
 	Rule            RouteRule
 
 	// common rule precedence factors
-	Hostnames            []string // raw hostnames from route, unsorted
+	Hostname             string // the single (compatible) hostname this rule was split to; "" = catch-all (no host-header condition)
 	RouteNamespacedName  string
 	RuleIndexInRoute     int // index of the rule in the route
 	MatchIndexInRule     int // index of the match in the rule
@@ -56,63 +56,86 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 
 	for _, route := range routes {
 		routeInfo := getCommonRouteInfo(route, port)
+		// Split the route's (compatible) hostnames so each generated rule carries a
+		// single hostname. This makes hostname precedence per-hostname (a scalar)
+		// instead of collapsing a multi-hostname route down to one representative.
+		// It is both more faithful to the Gateway API (precedence is defined per
+		// matching hostname) and removes the representative bias where an unrelated
+		// hostname could flip a route's ordering (e.g. a wildcard shadowing another
+		// route's exact host). Each hostname unit becomes its own ALB rule/priority.
+		hostnameUnits := splitHostnamesForPrecedence(getRouteHostnames(route, port))
+
 		for ruleIndex, rule := range route.GetAttachedRules() {
 			rawRule := rule.GetRawRouteRule()
 			switch r := rawRule.(type) {
 			case *v1.HTTPRouteRule:
-				for matchIndex, httpMatch := range r.Matches {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = matchIndex
-					match := RulePrecedence{
-						HTTPMatch:            &httpMatch,
-						PrecedenceFactor:     &RulePrecedenceFactor{},
-						CommonRulePrecedence: common,
+				for matchIndex := range r.Matches {
+					httpMatch := r.Matches[matchIndex]
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = matchIndex
+						match := RulePrecedence{
+							HTTPMatch:            &httpMatch,
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						// populate PrecedenceFactor from the HTTP match
+						getHttpMatchPrecedenceInfo(&httpMatch, &match)
+						httpRoutes = append(httpRoutes, match)
 					}
-					// populate PrecedenceFactor from the HTTP match
-					getHttpMatchPrecedenceInfo(&httpMatch, &match)
-					httpRoutes = append(httpRoutes, match)
 				}
 				if len(r.Matches) == 0 {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = math.MaxInt
-					match := RulePrecedence{
-						HTTPMatch:            &v1.HTTPRouteMatch{},
-						PrecedenceFactor:     &RulePrecedenceFactor{},
-						CommonRulePrecedence: common,
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = math.MaxInt
+						match := RulePrecedence{
+							HTTPMatch:            &v1.HTTPRouteMatch{},
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						httpRoutes = append(httpRoutes, match)
 					}
-					httpRoutes = append(httpRoutes, match)
 				}
 			case *v1.GRPCRouteRule:
-				for matchIndex, grpcMatch := range r.Matches {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = matchIndex
-					match := RulePrecedence{
-						GRPCMatch:            &grpcMatch,
-						PrecedenceFactor:     &RulePrecedenceFactor{},
-						CommonRulePrecedence: common,
+				for matchIndex := range r.Matches {
+					grpcMatch := r.Matches[matchIndex]
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = matchIndex
+						match := RulePrecedence{
+							GRPCMatch:            &grpcMatch,
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						// populate PrecedenceFactor from the GRPC match
+						getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
+						grpcRoutes = append(grpcRoutes, match)
 					}
-					// populate PrecedenceFactor from the GRPC match
-					getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
-					grpcRoutes = append(grpcRoutes, match)
 				}
 
 				if len(r.Matches) == 0 {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = math.MaxInt
-					match := RulePrecedence{
-						GRPCMatch:            &v1.GRPCRouteMatch{},
-						PrecedenceFactor:     &RulePrecedenceFactor{},
-						CommonRulePrecedence: common,
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = math.MaxInt
+						match := RulePrecedence{
+							GRPCMatch:            &v1.GRPCRouteMatch{},
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						grpcRoutes = append(grpcRoutes, match)
 					}
-					grpcRoutes = append(grpcRoutes, match)
 				}
 			}
 		}
@@ -132,11 +155,39 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 	return allRoutes
 }
 
+// splitHostnamesForPrecedence returns one entry per hostname the route serves on
+// the port, so each generated ALB rule carries a single hostname and is assigned
+// its own priority. A route with no hostnames yields a single catch-all entry
+// ("" -> no host-header condition), preserving the behavior for hostname-less
+// routes.
+func splitHostnamesForPrecedence(hostnames []string) []string {
+	if len(hostnames) == 0 {
+		return []string{""}
+	}
+	return hostnames
+}
+
 // getHostnamePrecedenceOrder Hostname precedence ordering rule:
+// 0. an empty hostname is a catch-all (matches every host) and is the least specific
 // 1. non-wildcard has higher precedence than wildcard
 // 2. hostname with longer characters have higher precedence than those with shorter ones
 // -1 means hostnameOne has higher precedence, 1 means hostnameTwo has higher precedence, 0 means equal
 func getHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
+	// An empty hostname is a catch-all and therefore the least specific — it must
+	// lose to any concrete hostname, including a wildcard. Handle it before the
+	// wildcard check below, which would otherwise treat "" as a non-wildcard and
+	// let it beat a wildcard.
+	if hostnameOne == "" || hostnameTwo == "" {
+		switch {
+		case hostnameOne == "" && hostnameTwo == "":
+			return 0
+		case hostnameOne == "":
+			return 1 // hostnameTwo (concrete) is more specific
+		default:
+			return -1 // hostnameOne (concrete) is more specific
+		}
+	}
+
 	isHostnameOneWildcard := strings.HasPrefix(hostnameOne, "*.")
 	isHostnameTwoWildcard := strings.HasPrefix(hostnameTwo, "*.")
 
@@ -160,58 +211,6 @@ func getHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
 			return 0
 		}
 	}
-}
-
-// mostSpecificHostname returns the highest-precedence (most specific) hostname
-// from a non-empty list without mutating the input slice. Callers must not pass
-// an empty list.
-func mostSpecificHostname(hostnames []string) string {
-	best := hostnames[0]
-	for _, h := range hostnames[1:] {
-		if getHostnamePrecedenceOrder(h, best) < 0 {
-			best = h
-		}
-	}
-	return best
-}
-
-// getHostnameListPrecedenceOrder tiebreaks two routes based on hostname precedence.
-// -1 means hostnameListOne has higher precedence, 1 means hostnameListTwo has higher
-// precedence, 0 means equal (tiebreak continues on path/header/etc.).
-//
-// An empty hostname list is a catch-all: it matches every hostname and is therefore
-// the least specific, so it always has lower precedence than any non-empty list.
-//
-// For two non-empty lists, precedence is decided by the single most-specific hostname
-// each list contributes — a route is only as specific as its most specific hostname,
-// and the number of hostnames in a list does not affect how specifically any given
-// request matches. Reducing each list to one representative keeps this comparator a
-// strict weak ordering (transitive), which sort.Slice requires. The previous
-// implementation compared lists positionally and then broke ties by list length; that
-// is both non-transitive (lists of differing length that tie on their shared prefix are
-// each "equal" to a shorter list but not to each other) and semantically wrong (it lets
-// hostname-list length dominate path specificity, so a catch-all path on a route with
-// more hostnames could outrank a specific path on a route with fewer hostnames).
-// Returning 0 on a genuine tie lets precedence fall through to path/header criteria,
-// matching the Gateway API precedence ordering (matching hostname specificity, then
-// path, then headers, ...).
-func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) int {
-	oneEmpty := len(hostnameListOne) == 0
-	twoEmpty := len(hostnameListTwo) == 0
-	if oneEmpty || twoEmpty {
-		switch {
-		case oneEmpty && twoEmpty:
-			return 0
-		case oneEmpty:
-			return 1 // two (non-empty) is more specific
-		default:
-			return -1 // one (non-empty) is more specific
-		}
-	}
-	return getHostnamePrecedenceOrder(
-		mostSpecificHostname(hostnameListOne),
-		mostSpecificHostname(hostnameListTwo),
-	)
 }
 
 // compareRulePrecedenceUnified is the single comparator used to order every
@@ -244,7 +243,7 @@ func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) i
 // preserving the Gateway API GRPC precedence (service characters, then method
 // characters).
 func compareRulePrecedenceUnified(ruleOne, ruleTwo RulePrecedence) bool {
-	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
+	precedence := getHostnamePrecedenceOrder(ruleOne.CommonRulePrecedence.Hostname, ruleTwo.CommonRulePrecedence.Hostname)
 	if precedence != 0 {
 		return precedence < 0 // -1 means first hostname has higher precedence
 	}
@@ -293,30 +292,45 @@ func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bo
 		return ruleOne.CommonRulePrecedence.RuleIndexInRoute < ruleTwo.CommonRulePrecedence.RuleIndexInRoute
 	}
 	// compare match index within rule
-	return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
+	if ruleOne.CommonRulePrecedence.MatchIndexInRule != ruleTwo.CommonRulePrecedence.MatchIndexInRule {
+		return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
+	}
+	// Final deterministic tiebreaker. After per-hostname splitting, two units can
+	// differ only by an equally specific hostname (e.g. example.com vs
+	// example.net). These match disjoint requests, so their relative ALB priority
+	// is functionally irrelevant — but ordering by the hostname string keeps the
+	// sort output stable/deterministic (so sort.Slice doesn't reorder equivalent
+	// elements across reconciles). This never fires for distinct routes, which are
+	// separated earlier by namespaced name.
+	return ruleOne.CommonRulePrecedence.Hostname < ruleTwo.CommonRulePrecedence.Hostname
 }
 
 func getCommonRouteInfo(route RouteDescriptor, port int32) CommonRulePrecedence {
-	routeNamespacedName := route.GetRouteNamespacedName().String()
-	routeCreateTimestamp := route.GetRouteCreateTimestamp()
-	// Use compatible hostnames computed during route attachment
-	compatibleHostnamesByPort := route.GetCompatibleHostnamesByPort()[port]
-	hostnames := make([]string, 0)
-	for _, h := range compatibleHostnamesByPort {
+	return CommonRulePrecedence{
+		RouteDescriptor:      route,
+		RouteCreateTimestamp: route.GetRouteCreateTimestamp(),
+		RouteNamespacedName:  route.GetRouteNamespacedName().String(),
+	}
+}
+
+// getRouteHostnames returns the hostnames a route serves on the given listener
+// port: the compatible hostnames computed during attachment (listener ∩ route,
+// narrowed to the more specific side), or the route's own hostnames when the
+// listener has no hostname. An empty result means the route is a catch-all on
+// this port.
+func getRouteHostnames(route RouteDescriptor, port int32) []string {
+	compatible := route.GetCompatibleHostnamesByPort()[port]
+	hostnames := make([]string, 0, len(compatible))
+	for _, h := range compatible {
 		hostnames = append(hostnames, string(h))
 	}
-	// If no compatible hostnames, use route hostnames
+	// If no compatible hostnames, use route hostnames.
 	if len(hostnames) == 0 {
 		for _, h := range route.GetHostnames() {
 			hostnames = append(hostnames, string(h))
 		}
 	}
-	return CommonRulePrecedence{
-		RouteDescriptor:      route,
-		Hostnames:            hostnames,
-		RouteCreateTimestamp: routeCreateTimestamp,
-		RouteNamespacedName:  routeNamespacedName,
-	}
+	return hostnames
 }
 
 func getHttpMatchPrecedenceInfo(httpMatch *v1.HTTPRouteMatch, matchPrecedence *RulePrecedence) {

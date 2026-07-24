@@ -265,8 +265,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		}
 	}
 
-	r.logger.Info("Got these listeners for gateway", "gw", gw.Name, "listeners", len(loaderResults.Listeners))
-
 	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, loaderResults.Listeners, allRoutes, currentAddOns, isDeleting)
 
 	if err != nil {
