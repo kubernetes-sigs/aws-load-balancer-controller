@@ -355,15 +355,15 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupIPAddressType(backendConf
 func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
 	// TODO - Not convinced that this is good, maybe auto detect certs == HTTPS / TLS.
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-		return builder.buildL7TargetGroupProtocol(targetGroupProps, route)
+		return builder.buildL7TargetGroupProtocol(targetGroupProps, route, listenerProtocol)
 	}
 
 	return builder.buildL4TargetGroupProtocol(targetGroupProps, route, listenerProtocol)
 }
 
-func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
+func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
-		return builder.inferTargetGroupProtocolFromRoute(route), nil
+		return builder.inferTargetGroupProtocolFromRoute(route, listenerProtocol), nil
 	}
 	switch string(*targetGroupProps.Protocol) {
 	case string(elbv2model.ProtocolHTTP):
@@ -381,7 +381,7 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupPro
 	}
 
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
-		return builder.inferTargetGroupProtocolFromRoute(route), nil
+		return builder.inferTargetGroupProtocolFromRoute(route, listenerProtocol), nil
 	}
 
 	switch string(*targetGroupProps.Protocol) {
@@ -398,7 +398,7 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupPro
 	}
 }
 
-func (builder *targetGroupBuilderImpl) inferTargetGroupProtocolFromRoute(route routeutils.RouteDescriptor) elbv2model.Protocol {
+func (builder *targetGroupBuilderImpl) inferTargetGroupProtocolFromRoute(route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol) elbv2model.Protocol {
 	switch route.GetRouteKind() {
 	case routeutils.TCPRouteKind:
 		return elbv2model.ProtocolTCP
@@ -410,6 +410,12 @@ func (builder *targetGroupBuilderImpl) inferTargetGroupProtocolFromRoute(route r
 		return elbv2model.ProtocolHTTP
 	case routeutils.TLSRouteKind:
 		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
+			// A TLS listener with tls.mode: Passthrough is provisioned as a TCP listener
+			// (see mapGatewayListenerConfigsByPort), so the target group protocol must be
+			// TCP as well, otherwise the listener and target group protocols mismatch.
+			if listenerProtocol == elbv2model.ProtocolTCP {
+				return elbv2model.ProtocolTCP
+			}
 			return elbv2model.ProtocolTLS
 		}
 		return elbv2model.ProtocolHTTPS
