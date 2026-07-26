@@ -139,6 +139,9 @@ spec:
         {{- if .Values.syncPeriod }}
         - --sync-period={{ .Values.syncPeriod }}
         {{- end }}
+        {{- if .Values.cacheSyncTimeout }}
+        - --cache-sync-timeout={{ .Values.cacheSyncTimeout }}
+        {{- end }}
         {{- if .Values.watchNamespace }}
         - --watch-namespace={{ .Values.watchNamespace }}
         {{- end }}
