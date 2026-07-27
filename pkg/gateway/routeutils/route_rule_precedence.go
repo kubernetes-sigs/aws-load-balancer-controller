@@ -14,24 +14,27 @@ type RulePrecedence struct {
 	HTTPMatch            *v1.HTTPRouteMatch
 	GRPCMatch            *v1.GRPCRouteMatch
 
-	// factors determining precedence
-	HttpSpecificRulePrecedenceFactor *HttpSpecificRulePrecedenceFactor
-	GrpcSpecificRulePrecedenceFactor *GrpcSpecificRulePrecedenceFactor
+	// PrecedenceFactor holds the specificity signals used to order this match.
+	// A single struct is used for both HTTPRoute and GRPCRoute rules so that one
+	// comparator can order every rule with a single uniform key — which is a
+	// strict weak ordering, as sort.Slice requires.
+	PrecedenceFactor *RulePrecedenceFactor
 }
 
-type GrpcSpecificRulePrecedenceFactor struct {
-	PathType      int // 3=exact, 1=regex
-	ServiceLength int // grpcRouteMatch Method - service characters number
-	MethodLength  int // grpcRouteMatch Method - method characters number
-	HeaderCount   int // headers count
-}
-
-type HttpSpecificRulePrecedenceFactor struct {
-	PathType        int  // 3=exact, 2=prefix, 1=regex
-	PathLength      int  // httpRouteMatch path length
-	HasMethod       bool // httpRouteMatch Method
-	HeaderCount     int  // httpRouteMatch headers count
-	QueryParamCount int  // httpRouteMatch query params count
+// RulePrecedenceFactor captures the per-match specificity signals for either
+// route kind. The two length fields are populated differently per kind so that
+// one uniform comparison key preserves each kind's Gateway API precedence:
+//
+//	         | PathLength (primary) | SecondaryLength | HasMethod          | QueryParamCount
+//	HTTPRoute| path length          | 0               | method match set   | query param count
+//	GRPCRoute| service length       | method length   | false              | 0
+type RulePrecedenceFactor struct {
+	PathType        int  // HTTP: 3=exact,2=prefix,1=regex,0=none. GRPC: 3=exact,1=regex,0=none.
+	PathLength      int  // primary match length: HTTP path length / GRPC service length
+	SecondaryLength int  // secondary match length: GRPC method length (0 for HTTP)
+	HasMethod       bool // HTTP method match present (always false for GRPC)
+	HeaderCount     int  // header match count
+	QueryParamCount int  // HTTP query param count (always 0 for GRPC)
 }
 
 type CommonRulePrecedence struct {
@@ -39,7 +42,7 @@ type CommonRulePrecedence struct {
 	Rule            RouteRule
 
 	// common rule precedence factors
-	Hostnames            []string // raw hostnames from route, unsorted
+	Hostname             string // the single (compatible) hostname this rule was split to; "" = catch-all (no host-header condition)
 	RouteNamespacedName  string
 	RuleIndexInRoute     int // index of the rule in the route
 	MatchIndexInRule     int // index of the match in the rule
@@ -53,63 +56,86 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 
 	for _, route := range routes {
 		routeInfo := getCommonRouteInfo(route, port)
+		// Split the route's (compatible) hostnames so each generated rule carries a
+		// single hostname. This makes hostname precedence per-hostname (a scalar)
+		// instead of collapsing a multi-hostname route down to one representative.
+		// It is both more faithful to the Gateway API (precedence is defined per
+		// matching hostname) and removes the representative bias where an unrelated
+		// hostname could flip a route's ordering (e.g. a wildcard shadowing another
+		// route's exact host). Each hostname unit becomes its own ALB rule/priority.
+		hostnameUnits := splitHostnamesForPrecedence(getRouteHostnames(route, port))
+
 		for ruleIndex, rule := range route.GetAttachedRules() {
 			rawRule := rule.GetRawRouteRule()
 			switch r := rawRule.(type) {
 			case *v1.HTTPRouteRule:
-				for matchIndex, httpMatch := range r.Matches {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = matchIndex
-					match := RulePrecedence{
-						HTTPMatch:                        &httpMatch,
-						HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
-						CommonRulePrecedence:             common,
+				for matchIndex := range r.Matches {
+					httpMatch := r.Matches[matchIndex]
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = matchIndex
+						match := RulePrecedence{
+							HTTPMatch:            &httpMatch,
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						// populate PrecedenceFactor from the HTTP match
+						getHttpMatchPrecedenceInfo(&httpMatch, &match)
+						httpRoutes = append(httpRoutes, match)
 					}
-					// set HttpSpecificRulePrecedenceFactor
-					getHttpMatchPrecedenceInfo(&httpMatch, &match)
-					httpRoutes = append(httpRoutes, match)
 				}
 				if len(r.Matches) == 0 {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = math.MaxInt
-					match := RulePrecedence{
-						HTTPMatch:                        &v1.HTTPRouteMatch{},
-						HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
-						CommonRulePrecedence:             common,
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = math.MaxInt
+						match := RulePrecedence{
+							HTTPMatch:            &v1.HTTPRouteMatch{},
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						httpRoutes = append(httpRoutes, match)
 					}
-					httpRoutes = append(httpRoutes, match)
 				}
 			case *v1.GRPCRouteRule:
-				for matchIndex, grpcMatch := range r.Matches {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = matchIndex
-					match := RulePrecedence{
-						GRPCMatch:                        &grpcMatch,
-						GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{},
-						CommonRulePrecedence:             common,
+				for matchIndex := range r.Matches {
+					grpcMatch := r.Matches[matchIndex]
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = matchIndex
+						match := RulePrecedence{
+							GRPCMatch:            &grpcMatch,
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						// populate PrecedenceFactor from the GRPC match
+						getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
+						grpcRoutes = append(grpcRoutes, match)
 					}
-					// set GrpcSpecificRulePrecedenceFactor
-					getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
-					grpcRoutes = append(grpcRoutes, match)
 				}
 
 				if len(r.Matches) == 0 {
-					common := routeInfo
-					common.Rule = rule
-					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = math.MaxInt
-					match := RulePrecedence{
-						GRPCMatch:                        &v1.GRPCRouteMatch{},
-						GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{},
-						CommonRulePrecedence:             common,
+					for _, hostname := range hostnameUnits {
+						common := routeInfo
+						common.Hostname = hostname
+						common.Rule = rule
+						common.RuleIndexInRoute = ruleIndex
+						common.MatchIndexInRule = math.MaxInt
+						match := RulePrecedence{
+							GRPCMatch:            &v1.GRPCRouteMatch{},
+							PrecedenceFactor:     &RulePrecedenceFactor{},
+							CommonRulePrecedence: common,
+						}
+						grpcRoutes = append(grpcRoutes, match)
 					}
-					grpcRoutes = append(grpcRoutes, match)
 				}
 			}
 		}
@@ -118,8 +144,10 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 	allRoutes = append(allRoutes, httpRoutes...)
 	allRoutes = append(allRoutes, grpcRoutes...)
 
-	// Sort all rules using a unified comparator that handles cross-kind
-	// precedence based on specificity rather than route kind.
+	// Sort every rule — HTTP or GRPC — with a single unified comparator. Using
+	// one uniform key for all pairs (rather than separate same-kind and
+	// cross-kind comparators) guarantees a strict weak ordering, which
+	// sort.Slice requires.
 	sort.Slice(allRoutes, func(i, j int) bool {
 		return compareRulePrecedenceUnified(allRoutes[i], allRoutes[j])
 	})
@@ -127,11 +155,39 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 	return allRoutes
 }
 
+// splitHostnamesForPrecedence returns one entry per hostname the route serves on
+// the port, so each generated ALB rule carries a single hostname and is assigned
+// its own priority. A route with no hostnames yields a single catch-all entry
+// ("" -> no host-header condition), preserving the behavior for hostname-less
+// routes.
+func splitHostnamesForPrecedence(hostnames []string) []string {
+	if len(hostnames) == 0 {
+		return []string{""}
+	}
+	return hostnames
+}
+
 // getHostnamePrecedenceOrder Hostname precedence ordering rule:
+// 0. an empty hostname is a catch-all (matches every host) and is the least specific
 // 1. non-wildcard has higher precedence than wildcard
 // 2. hostname with longer characters have higher precedence than those with shorter ones
 // -1 means hostnameOne has higher precedence, 1 means hostnameTwo has higher precedence, 0 means equal
 func getHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
+	// An empty hostname is a catch-all and therefore the least specific — it must
+	// lose to any concrete hostname, including a wildcard. Handle it before the
+	// wildcard check below, which would otherwise treat "" as a non-wildcard and
+	// let it beat a wildcard.
+	if hostnameOne == "" || hostnameTwo == "" {
+		switch {
+		case hostnameOne == "" && hostnameTwo == "":
+			return 0
+		case hostnameOne == "":
+			return 1 // hostnameTwo (concrete) is more specific
+		default:
+			return -1 // hostnameOne (concrete) is more specific
+		}
+	}
+
 	isHostnameOneWildcard := strings.HasPrefix(hostnameOne, "*.")
 	isHostnameTwoWildcard := strings.HasPrefix(hostnameTwo, "*.")
 
@@ -157,94 +213,67 @@ func getHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
 	}
 }
 
-// sortHostnameListByPrecedence Given a hostname list, sort it by precedence order
-func sortHostnameListByPrecedence(hostnames []string) {
-	// sort hostnames based on their precedence
-	sort.Slice(hostnames, func(i, j int) bool {
-		return getHostnamePrecedenceOrder(hostnames[i], hostnames[j]) < 0
-	})
-}
-
-// getHostnameListPrecedenceOrder this function tries to tiebreak two routes based on hostname precedence
-// When length of two hostname lists is not same and precedence order is not determined until the end, 0 will be return and tiebreak will continue on other attributes
-func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) int {
-	// sort each hostname list by precedence
-	sortHostnameListByPrecedence(hostnameListOne)
-	sortHostnameListByPrecedence(hostnameListTwo)
-	// compare each hostname list in order
-	length := min(len(hostnameListOne), len(hostnameListTwo))
-	for i := range length {
-		precedence := getHostnamePrecedenceOrder(hostnameListOne[i], hostnameListTwo[i])
-		if precedence != 0 {
-			return precedence
-		}
-	}
-	// All compared hostnames tie up to the shorter list's length. A shorter list
-	// (in the extreme, an empty list as used by a catch-all route) constrains
-	// fewer hostnames and is therefore less specific, so it must have lower
-	// precedence. Without this, an empty hostname list returns 0 ("equal") and
-	// precedence falls through to path length / creation timestamp, mixing
-	// incompatible criteria and making the comparator non-transitive.
-	if len(hostnameListOne) != len(hostnameListTwo) {
-		if len(hostnameListOne) > len(hostnameListTwo) {
-			return -1 // one is more specific (more hostnames)
-		}
-		return 1 // two is more specific
-	}
-	// genuinely equal at hostname level
-	return 0
-}
-
-func compareHttpRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
-	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
+// compareRulePrecedenceUnified is the single comparator used to order every
+// rule — HTTP or GRPC — by one uniform specificity key. Returns true when
+// ruleOne has higher precedence than ruleTwo (i.e. should sort earlier and be
+// assigned a lower/first ALB priority).
+//
+// Using one key for all pairs (rather than separate same-kind and cross-kind
+// comparators) guarantees a strict weak ordering, which sort.Slice requires.
+// The earlier design compared same-kind GRPC rules by (serviceLength,
+// methodLength) as separate keys while comparing cross-kind rules by their sum,
+// which was non-transitive and produced an undefined, input-order-dependent ALB
+// rule priority.
+//
+// Key, most significant first:
+//  1. Hostname specificity (most-specific matching hostname)
+//  2. Path match type (Exact=3 > Prefix=2 > Regex=1 > none=0)
+//  3. Primary match length   (HTTP: path length;    GRPC: service length)
+//  4. Secondary match length  (HTTP: 0;             GRPC: method length)
+//  5. HTTP method constraint  (HTTP: hasMethod;     GRPC: always false)
+//  6. Header match count
+//  7. Query param count       (HTTP: query params;  GRPC: always 0)
+//  8. Common tiebreakers (creation timestamp, namespaced name, rule/match index)
+//
+// Because each kind's "foreign" fields are constant within that kind
+// (SecondaryLength is always 0 for HTTP, HasMethod always false and
+// QueryParamCount always 0 for GRPC), this reproduces the previous intra-kind
+// HTTP and GRPC orderings exactly while making cross-kind ordering consistent.
+// In particular GRPC service and method remain separate keys (steps 3 and 4),
+// preserving the Gateway API GRPC precedence (service characters, then method
+// characters).
+func compareRulePrecedenceUnified(ruleOne, ruleTwo RulePrecedence) bool {
+	precedence := getHostnamePrecedenceOrder(ruleOne.CommonRulePrecedence.Hostname, ruleTwo.CommonRulePrecedence.Hostname)
 	if precedence != 0 {
 		return precedence < 0 // -1 means first hostname has higher precedence
 	}
-	// equal hostname precedence, sort by other factors
-	// compare path match type (exact  > prefix > regex)
-	if ruleOne.HttpSpecificRulePrecedenceFactor.PathType != ruleTwo.HttpSpecificRulePrecedenceFactor.PathType {
-		return ruleOne.HttpSpecificRulePrecedenceFactor.PathType > ruleTwo.HttpSpecificRulePrecedenceFactor.PathType
-	}
-	// compare path length
-	if ruleOne.HttpSpecificRulePrecedenceFactor.PathLength != ruleTwo.HttpSpecificRulePrecedenceFactor.PathLength {
-		return ruleOne.HttpSpecificRulePrecedenceFactor.PathLength > ruleTwo.HttpSpecificRulePrecedenceFactor.PathLength
-	}
-	// compare has method
-	if ruleOne.HttpSpecificRulePrecedenceFactor.HasMethod != ruleTwo.HttpSpecificRulePrecedenceFactor.HasMethod {
-		return ruleOne.HttpSpecificRulePrecedenceFactor.HasMethod
-	}
-	// compare header count
-	if ruleOne.HttpSpecificRulePrecedenceFactor.HeaderCount != ruleTwo.HttpSpecificRulePrecedenceFactor.HeaderCount {
-		return ruleOne.HttpSpecificRulePrecedenceFactor.HeaderCount > ruleTwo.HttpSpecificRulePrecedenceFactor.HeaderCount
-	}
-	// compare query param count
-	if ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount != ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount {
-		return ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount > ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount
-	}
-	return compareCommonTieBreakers(ruleOne, ruleTwo)
-}
 
-func compareGrpcRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
-	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
-	if precedence != 0 {
-		return precedence < 0 // -1 means first hostname has higher precedence
+	one := ruleOne.PrecedenceFactor
+	two := ruleTwo.PrecedenceFactor
+
+	// path match type (exact > prefix > regex > none)
+	if one.PathType != two.PathType {
+		return one.PathType > two.PathType
 	}
-	// equal hostname precedence, sort by other factors
-	// compare path match type (exact  > regex)
-	if ruleOne.GrpcSpecificRulePrecedenceFactor.PathType != ruleTwo.GrpcSpecificRulePrecedenceFactor.PathType {
-		return ruleOne.GrpcSpecificRulePrecedenceFactor.PathType > ruleTwo.GrpcSpecificRulePrecedenceFactor.PathType
+	// primary match length (HTTP path length / GRPC service length)
+	if one.PathLength != two.PathLength {
+		return one.PathLength > two.PathLength
 	}
-	// compare service length
-	if ruleOne.GrpcSpecificRulePrecedenceFactor.ServiceLength != ruleTwo.GrpcSpecificRulePrecedenceFactor.ServiceLength {
-		return ruleOne.GrpcSpecificRulePrecedenceFactor.ServiceLength > ruleTwo.GrpcSpecificRulePrecedenceFactor.ServiceLength
+	// secondary match length (GRPC method length; 0 for HTTP)
+	if one.SecondaryLength != two.SecondaryLength {
+		return one.SecondaryLength > two.SecondaryLength
 	}
-	// compare method length
-	if ruleOne.GrpcSpecificRulePrecedenceFactor.MethodLength != ruleTwo.GrpcSpecificRulePrecedenceFactor.MethodLength {
-		return ruleOne.GrpcSpecificRulePrecedenceFactor.MethodLength > ruleTwo.GrpcSpecificRulePrecedenceFactor.MethodLength
+	// HTTP method constraint (always false for GRPC)
+	if one.HasMethod != two.HasMethod {
+		return one.HasMethod
 	}
-	// compare header count
-	if ruleOne.GrpcSpecificRulePrecedenceFactor.HeaderCount != ruleTwo.GrpcSpecificRulePrecedenceFactor.HeaderCount {
-		return ruleOne.GrpcSpecificRulePrecedenceFactor.HeaderCount > ruleTwo.GrpcSpecificRulePrecedenceFactor.HeaderCount
+	// header match count
+	if one.HeaderCount != two.HeaderCount {
+		return one.HeaderCount > two.HeaderCount
+	}
+	// query param count (0 for GRPC)
+	if one.QueryParamCount != two.QueryParamCount {
+		return one.QueryParamCount > two.QueryParamCount
 	}
 	return compareCommonTieBreakers(ruleOne, ruleTwo)
 }
@@ -263,40 +292,55 @@ func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bo
 		return ruleOne.CommonRulePrecedence.RuleIndexInRoute < ruleTwo.CommonRulePrecedence.RuleIndexInRoute
 	}
 	// compare match index within rule
-	return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
+	if ruleOne.CommonRulePrecedence.MatchIndexInRule != ruleTwo.CommonRulePrecedence.MatchIndexInRule {
+		return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
+	}
+	// Final deterministic tiebreaker. After per-hostname splitting, two units can
+	// differ only by an equally specific hostname (e.g. example.com vs
+	// example.net). These match disjoint requests, so their relative ALB priority
+	// is functionally irrelevant — but ordering by the hostname string keeps the
+	// sort output stable/deterministic (so sort.Slice doesn't reorder equivalent
+	// elements across reconciles). This never fires for distinct routes, which are
+	// separated earlier by namespaced name.
+	return ruleOne.CommonRulePrecedence.Hostname < ruleTwo.CommonRulePrecedence.Hostname
 }
 
 func getCommonRouteInfo(route RouteDescriptor, port int32) CommonRulePrecedence {
-	routeNamespacedName := route.GetRouteNamespacedName().String()
-	routeCreateTimestamp := route.GetRouteCreateTimestamp()
-	// Use compatible hostnames computed during route attachment
-	compatibleHostnamesByPort := route.GetCompatibleHostnamesByPort()[port]
-	hostnames := make([]string, 0)
-	for _, h := range compatibleHostnamesByPort {
+	return CommonRulePrecedence{
+		RouteDescriptor:      route,
+		RouteCreateTimestamp: route.GetRouteCreateTimestamp(),
+		RouteNamespacedName:  route.GetRouteNamespacedName().String(),
+	}
+}
+
+// getRouteHostnames returns the hostnames a route serves on the given listener
+// port: the compatible hostnames computed during attachment (listener ∩ route,
+// narrowed to the more specific side), or the route's own hostnames when the
+// listener has no hostname. An empty result means the route is a catch-all on
+// this port.
+func getRouteHostnames(route RouteDescriptor, port int32) []string {
+	compatible := route.GetCompatibleHostnamesByPort()[port]
+	hostnames := make([]string, 0, len(compatible))
+	for _, h := range compatible {
 		hostnames = append(hostnames, string(h))
 	}
-	// If no compatible hostnames, use route hostnames
+	// If no compatible hostnames, use route hostnames.
 	if len(hostnames) == 0 {
 		for _, h := range route.GetHostnames() {
 			hostnames = append(hostnames, string(h))
 		}
 	}
-	return CommonRulePrecedence{
-		RouteDescriptor:      route,
-		Hostnames:            hostnames,
-		RouteCreateTimestamp: routeCreateTimestamp,
-		RouteNamespacedName:  routeNamespacedName,
-	}
+	return hostnames
 }
 
 func getHttpMatchPrecedenceInfo(httpMatch *v1.HTTPRouteMatch, matchPrecedence *RulePrecedence) {
-	matchPrecedence.HttpSpecificRulePrecedenceFactor.PathType = getHttpRoutePathType(httpMatch.Path)
+	matchPrecedence.PrecedenceFactor.PathType = getHttpRoutePathType(httpMatch.Path)
 	// httpMatch.Path.Value won't be nil, default is /
-	matchPrecedence.HttpSpecificRulePrecedenceFactor.PathLength = len(*httpMatch.Path.Value)
-	matchPrecedence.HttpSpecificRulePrecedenceFactor.HasMethod = httpMatch.Method != nil
-	matchPrecedence.HttpSpecificRulePrecedenceFactor.HeaderCount = len(httpMatch.Headers)
-	matchPrecedence.HttpSpecificRulePrecedenceFactor.QueryParamCount = len(httpMatch.QueryParams)
-
+	matchPrecedence.PrecedenceFactor.PathLength = len(*httpMatch.Path.Value)
+	matchPrecedence.PrecedenceFactor.HasMethod = httpMatch.Method != nil
+	matchPrecedence.PrecedenceFactor.HeaderCount = len(httpMatch.Headers)
+	matchPrecedence.PrecedenceFactor.QueryParamCount = len(httpMatch.QueryParams)
+	// SecondaryLength stays 0 for HTTP.
 }
 
 // getHttpRoutePathType returns path type
@@ -318,21 +362,24 @@ func getHttpRoutePathType(path *v1.HTTPPathMatch) int {
 	}
 }
 
-// getGrpcMatchPrecedenceInfo
+// getGrpcMatchPrecedenceInfo populates the unified PrecedenceFactor from a GRPC
+// match: service length is the primary length, method length the secondary,
+// preserving the Gateway API GRPC precedence (service characters, then method
+// characters). HasMethod stays false and QueryParamCount stays 0 for GRPC.
 func getGrpcMatchPrecedenceInfo(grpcMatch *v1.GRPCRouteMatch, matchPrecedence *RulePrecedence) {
-	matchPrecedence.GrpcSpecificRulePrecedenceFactor.PathType = getGrpcRoutePathType(grpcMatch.Method)
-	matchPrecedence.GrpcSpecificRulePrecedenceFactor.HeaderCount = len(grpcMatch.Headers)
+	matchPrecedence.PrecedenceFactor.PathType = getGrpcRoutePathType(grpcMatch.Method)
+	matchPrecedence.PrecedenceFactor.HeaderCount = len(grpcMatch.Headers)
 	if grpcMatch.Method != nil {
 		if grpcMatch.Method.Service != nil {
-			matchPrecedence.GrpcSpecificRulePrecedenceFactor.ServiceLength = len(*grpcMatch.Method.Service)
+			matchPrecedence.PrecedenceFactor.PathLength = len(*grpcMatch.Method.Service)
 		}
 		if grpcMatch.Method.Method != nil {
-			matchPrecedence.GrpcSpecificRulePrecedenceFactor.MethodLength = len(*grpcMatch.Method.Method)
+			matchPrecedence.PrecedenceFactor.SecondaryLength = len(*grpcMatch.Method.Method)
 		}
 	}
 }
 
-// getGrpcRoutePathTypeAndLength returns path type for grpc
+// getGrpcRoutePathType returns path type for grpc
 func getGrpcRoutePathType(method *v1.GRPCMethodMatch) int {
 	if method == nil {
 		return 0
@@ -345,151 +392,4 @@ func getGrpcRoutePathType(method *v1.GRPCMethodMatch) int {
 	default:
 		return 0
 	}
-}
-
-// compareRulePrecedenceUnified provides a single comparator that handles both
-// same-kind and cross-kind rule precedence. For same-kind comparisons it
-// delegates to the existing kind-specific comparators (which preserve
-// intra-kind semantics like GRPC's service > method ordering). For cross-kind
-// comparisons it normalizes both kinds to comparable specificity values.
-func compareRulePrecedenceUnified(ruleOne, ruleTwo RulePrecedence) bool {
-	oneIsHTTP := ruleOne.HttpSpecificRulePrecedenceFactor != nil
-	twoIsHTTP := ruleTwo.HttpSpecificRulePrecedenceFactor != nil
-
-	// Same kind: delegate to existing comparators to preserve intra-kind
-	// semantics (e.g. GRPC service length > method length ordering).
-	if oneIsHTTP && twoIsHTTP {
-		return compareHttpRulePrecedence(ruleOne, ruleTwo)
-	}
-	if !oneIsHTTP && !twoIsHTTP {
-		return compareGrpcRulePrecedence(ruleOne, ruleTwo)
-	}
-
-	// Cross-kind: use normalized specificity comparison.
-	return compareCrossKindRulePrecedence(ruleOne, ruleTwo)
-}
-
-// compareCrossKindRulePrecedence compares an HTTPRoute rule against a GRPCRoute
-// rule (or vice versa) using normalized specificity factors so that route kind
-// alone does not determine priority.
-//
-// Cross-kind precedence ordering (most significant first):
-//  1. Hostname specificity (exact > wildcard > none; more dots > fewer dots)
-//  2. Path type (exact=3 > prefix=2 > regex=1 > none=0)
-//  3. Effective path length (longer = more specific)
-//  4. HTTP method constraint (hasMethod=true > false; GRPC routes are treated
-//     as hasMethod=false since their method specificity is already captured in
-//     path length via ServiceLength + MethodLength)
-//  5. Header count (more headers = more specific)
-//  6. Additional conditions (query params)
-//  7. Common tiebreakers (creation timestamp, namespaced name, rule/match index)
-func compareCrossKindRulePrecedence(ruleOne, ruleTwo RulePrecedence) bool {
-	// 1. Hostname precedence
-	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
-	if precedence != 0 {
-		return precedence < 0
-	}
-
-	// 2. Path type
-	onePathType := ruleOne.normalizedPathType()
-	twoPathType := ruleTwo.normalizedPathType()
-	if onePathType != twoPathType {
-		return onePathType > twoPathType
-	}
-
-	// 3. Effective path length
-	onePathLen := ruleOne.effectivePathLength()
-	twoPathLen := ruleTwo.effectivePathLength()
-	if onePathLen != twoPathLen {
-		return onePathLen > twoPathLen
-	}
-
-	// 4. HTTP method constraint (hasMethod)
-	// GRPC routes have no equivalent of HTTP method matching (their method
-	// specificity is captured in path length), so they are treated as false.
-	oneHasMethod := ruleOne.normalizedHasMethod()
-	twoHasMethod := ruleTwo.normalizedHasMethod()
-	if oneHasMethod != twoHasMethod {
-		return oneHasMethod
-	}
-
-	// 5. Header count
-	oneHeaders := ruleOne.normalizedHeaderCount()
-	twoHeaders := ruleTwo.normalizedHeaderCount()
-	if oneHeaders != twoHeaders {
-		return oneHeaders > twoHeaders
-	}
-
-	// 6. Additional conditions (query params)
-	oneExtra := ruleOne.additionalConditionCount()
-	twoExtra := ruleTwo.additionalConditionCount()
-	if oneExtra != twoExtra {
-		return oneExtra > twoExtra
-	}
-
-	// 7. Common tiebreakers (timestamp, name, indices)
-	return compareCommonTieBreakers(ruleOne, ruleTwo)
-}
-
-// normalizedPathType returns a comparable path type value.
-// Scale: 3=exact, 2=prefix, 1=regex, 0=none/catch-all.
-func (r RulePrecedence) normalizedPathType() int {
-	if r.HttpSpecificRulePrecedenceFactor != nil {
-		return r.HttpSpecificRulePrecedenceFactor.PathType
-	}
-	if r.GrpcSpecificRulePrecedenceFactor != nil {
-		return r.GrpcSpecificRulePrecedenceFactor.PathType
-	}
-	return 0
-}
-
-// effectivePathLength returns the effective path length for cross-kind comparison.
-// HTTP: literal path length. GRPC: ServiceLength + MethodLength + separators.
-func (r RulePrecedence) effectivePathLength() int {
-	if r.HttpSpecificRulePrecedenceFactor != nil {
-		return r.HttpSpecificRulePrecedenceFactor.PathLength
-	}
-	if r.GrpcSpecificRulePrecedenceFactor != nil {
-		length := r.GrpcSpecificRulePrecedenceFactor.ServiceLength + r.GrpcSpecificRulePrecedenceFactor.MethodLength
-		if r.GrpcSpecificRulePrecedenceFactor.ServiceLength > 0 {
-			length++ // leading /
-		}
-		if r.GrpcSpecificRulePrecedenceFactor.MethodLength > 0 {
-			length++ // separator /
-		}
-		return length
-	}
-	return 0
-}
-
-// normalizedHeaderCount returns the header count for either route kind.
-func (r RulePrecedence) normalizedHeaderCount() int {
-	if r.HttpSpecificRulePrecedenceFactor != nil {
-		return r.HttpSpecificRulePrecedenceFactor.HeaderCount
-	}
-	if r.GrpcSpecificRulePrecedenceFactor != nil {
-		return r.GrpcSpecificRulePrecedenceFactor.HeaderCount
-	}
-	return 0
-}
-
-// normalizedHasMethod returns whether the rule has an HTTP method constraint.
-// GRPC routes have no equivalent of HTTP method matching — their method
-// specificity is already captured in the effective path length (ServiceLength +
-// MethodLength), so they always return false here.
-func (r RulePrecedence) normalizedHasMethod() bool {
-	if r.HttpSpecificRulePrecedenceFactor != nil {
-		return r.HttpSpecificRulePrecedenceFactor.HasMethod
-	}
-	return false
-}
-
-// additionalConditionCount returns extra specificity factors beyond path,
-// hasMethod, and headers. HTTP routes can constrain query params; GRPC routes
-// have no equivalent, so they return 0 (less specific on this axis).
-func (r RulePrecedence) additionalConditionCount() int {
-	if r.HttpSpecificRulePrecedenceFactor != nil {
-		return r.HttpSpecificRulePrecedenceFactor.QueryParamCount
-	}
-	return 0
 }

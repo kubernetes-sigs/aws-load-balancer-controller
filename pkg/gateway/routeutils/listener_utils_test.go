@@ -732,3 +732,332 @@ func TestCalculateAttachedListenerSets(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateListenerList(t *testing.T) {
+	hostname := func(h string) *gwv1.Hostname {
+		hn := gwv1.Hostname(h)
+		return &hn
+	}
+
+	type expectedListener struct {
+		isValid bool
+		reason  gwv1.ListenerConditionReason
+	}
+
+	tests := []struct {
+		name             string
+		listenerList     []gwv1.Listener
+		portHostnameMap  map[string]bool
+		portProtocolMap  map[gwv1.PortNumber]gwv1.ProtocolType
+		controllerName   string
+		generation       int64
+		expectedHasError bool
+		expected         map[gwv1.SectionName]expectedListener
+	}{
+		{
+			name:             "empty listener list produces no results",
+			listenerList:     []gwv1.Listener{},
+			controllerName:   gateway_constants.ALBGatewayController,
+			generation:       7,
+			expectedHasError: false,
+			expected:         map[gwv1.SectionName]expectedListener{},
+		},
+		{
+			name: "valid ALB HTTP listener is accepted",
+			listenerList: []gwv1.Listener{
+				{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "unsupported route kind is rejected",
+			listenerList: []gwv1.Listener{
+				{
+					Name:     "bad-kind",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+					AllowedRoutes: &gwv1.AllowedRoutes{
+						Kinds: []gwv1.RouteGroupKind{{Kind: gwv1.Kind(TCPRouteKind)}},
+					},
+				},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"bad-kind": {isValid: false, reason: gwv1.ListenerReasonInvalidRouteKinds},
+			},
+		},
+		{
+			name: "port below minimum is unavailable",
+			listenerList: []gwv1.Listener{
+				{Name: "low-port", Port: 0, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"low-port": {isValid: false, reason: gwv1.ListenerReasonPortUnavailable},
+			},
+		},
+		{
+			name: "port above maximum is unavailable",
+			listenerList: []gwv1.Listener{
+				{Name: "high-port", Port: 65536, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"high-port": {isValid: false, reason: gwv1.ListenerReasonPortUnavailable},
+			},
+		},
+		{
+			name: "ALB rejects TCP protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "tcp", Port: 80, Protocol: gwv1.TCPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"tcp": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "ALB rejects UDP protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "udp", Port: 80, Protocol: gwv1.UDPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"udp": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "ALB rejects TLS protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "tls", Port: 443, Protocol: gwv1.TLSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"tls": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "NLB rejects HTTP protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.NLBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "NLB rejects HTTPS protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "https", Port: 443, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.NLBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"https": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "ALB rejects unknown protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "foo", Port: 80, Protocol: gwv1.ProtocolType("FOO"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"foo": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "NLB rejects unknown protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "foo", Port: 80, Protocol: gwv1.ProtocolType("FOO"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.NLBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"foo": {isValid: false, reason: gwv1.ListenerReasonUnsupportedProtocol},
+			},
+		},
+		{
+			name: "NLB accepts TLS protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "tls", Port: 443, Protocol: gwv1.TLSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.NLBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"tls": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "ALB accepts HTTPS protocol",
+			listenerList: []gwv1.Listener{
+				{Name: "https", Port: 443, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"https": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "protocol conflict on same port with incompatible protocols",
+			listenerList: []gwv1.Listener{
+				{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+				{Name: "https", Port: 80, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http":  {isValid: true, reason: gwv1.ListenerReasonAccepted},
+				"https": {isValid: false, reason: gwv1.ListenerReasonProtocolConflict},
+			},
+		},
+		{
+			name: "TCP then UDP on same port is allowed",
+			listenerList: []gwv1.Listener{
+				{Name: "tcp", Port: 80, Protocol: gwv1.TCPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+				{Name: "udp", Port: 80, Protocol: gwv1.UDPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.NLBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"tcp": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+				"udp": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "UDP then TCP on same port is allowed",
+			listenerList: []gwv1.Listener{
+				{Name: "udp", Port: 80, Protocol: gwv1.UDPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+				{Name: "tcp", Port: 80, Protocol: gwv1.TCPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.NLBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"udp": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+				"tcp": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "same protocol on same port does not conflict",
+			listenerList: []gwv1.Listener{
+				{Name: "http-a", Port: 80, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+				{Name: "http-b", Port: 80, Protocol: gwv1.HTTPProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http-a": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+				"http-b": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "listener with hostname and no conflict is accepted",
+			listenerList: []gwv1.Listener{
+				{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: hostname("example.com"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "hostname conflict on same port and hostname",
+			listenerList: []gwv1.Listener{
+				{Name: "http-a", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: hostname("example.com"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+				{Name: "http-b", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: hostname("example.com"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http-a": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+				"http-b": {isValid: false, reason: gwv1.ListenerReasonHostnameConflict},
+			},
+		},
+		{
+			name: "different hostnames on same port are accepted",
+			listenerList: []gwv1.Listener{
+				{Name: "http-a", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: hostname("a.example.com"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+				{Name: "http-b", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: hostname("b.example.com"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: false,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http-a": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+				"http-b": {isValid: true, reason: gwv1.ListenerReasonAccepted},
+			},
+		},
+		{
+			name: "pre-seeded protocol map causes conflict on first listener",
+			listenerList: []gwv1.Listener{
+				{Name: "https", Port: 80, Protocol: gwv1.HTTPSProtocolType, AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			portProtocolMap: map[gwv1.PortNumber]gwv1.ProtocolType{
+				80: gwv1.HTTPProtocolType,
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"https": {isValid: false, reason: gwv1.ListenerReasonProtocolConflict},
+			},
+		},
+		{
+			name: "pre-seeded hostname map causes conflict on first listener",
+			listenerList: []gwv1.Listener{
+				{Name: "http", Port: 80, Protocol: gwv1.HTTPProtocolType, Hostname: hostname("example.com"), AllowedRoutes: &gwv1.AllowedRoutes{}},
+			},
+			portHostnameMap: map[string]bool{
+				"80-example.com": true,
+			},
+			portProtocolMap: map[gwv1.PortNumber]gwv1.ProtocolType{
+				80: gwv1.HTTPProtocolType,
+			},
+			controllerName:   gateway_constants.ALBGatewayController,
+			expectedHasError: true,
+			expected: map[gwv1.SectionName]expectedListener{
+				"http": {isValid: false, reason: gwv1.ListenerReasonHostnameConflict},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			portHostnameMap := tt.portHostnameMap
+			if portHostnameMap == nil {
+				portHostnameMap = make(map[string]bool)
+			}
+			portProtocolMap := tt.portProtocolMap
+			if portProtocolMap == nil {
+				portProtocolMap = make(map[gwv1.PortNumber]gwv1.ProtocolType)
+			}
+
+			results := validateListenerList(tt.listenerList, portHostnameMap, portProtocolMap, tt.controllerName, tt.generation)
+
+			assert.Equal(t, tt.generation, results.Generation)
+			assert.Equal(t, tt.expectedHasError, results.HasErrors)
+			assert.Len(t, results.Results, len(tt.expected))
+
+			for name, exp := range tt.expected {
+				actual, ok := results.Results[name]
+				assert.True(t, ok, "expected result for listener %s", name)
+				assert.Equal(t, exp.isValid, actual.IsValid, "IsValid mismatch for listener %s", name)
+				assert.Equal(t, exp.reason, actual.Reason, "Reason mismatch for listener %s", name)
+				assert.Equal(t, name, actual.ListenerName)
+			}
+		})
+	}
+}

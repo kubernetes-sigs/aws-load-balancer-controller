@@ -455,11 +455,28 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	acceptedConditioned := gwv1.GatewayReasonAccepted
+	isAccepted := metav1.ConditionFalse
 	if loaderResults.ValidationResults.HasErrors() {
 		acceptedConditioned = gwv1.GatewayReasonListenersNotValid
 	}
 
-	needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionTrue, string(acceptedConditioned), "") || needPatch
+	for _, v := range loaderResults.ValidationResults.GatewayListenerValidation.Results {
+		if v.IsValid {
+			isAccepted = metav1.ConditionTrue
+			break
+		}
+	}
+
+	for _, ls := range loaderResults.ValidationResults.ListenerSetListenerValidation {
+		for _, v := range ls.Results {
+			if v.IsValid {
+				isAccepted = metav1.ConditionTrue
+				break
+			}
+		}
+	}
+
+	needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), isAccepted, string(acceptedConditioned), "") || needPatch
 	normalizedDNSName := strings.ToLower(lbStatus.DNSName)
 	if len(gw.Status.Addresses) != 1 ||
 		gw.Status.Addresses[0].Value != normalizedDNSName {

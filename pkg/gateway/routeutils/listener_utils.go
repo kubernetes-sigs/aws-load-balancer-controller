@@ -150,13 +150,13 @@ func validateListenerList(listenerList []gwv1.Listener, portHostnameMap map[stri
 			result.Message = fmt.Sprintf("Port %d is not available (listener name %s)", listener.Port, listener.Name)
 			results.HasErrors = true
 		} else if controllerName == gateway_constants.ALBGatewayController &&
-			(listener.Protocol == gwv1.TCPProtocolType || listener.Protocol == gwv1.UDPProtocolType || listener.Protocol == gwv1.TLSProtocolType) {
+			!(listener.Protocol == gwv1.HTTPProtocolType || listener.Protocol == gwv1.HTTPSProtocolType) {
 			result.IsValid = false
 			result.Reason = gwv1.ListenerReasonUnsupportedProtocol
 			result.Message = fmt.Sprintf("Unsupported protocol %s for listener %s", listener.Protocol, listener.Name)
 			results.HasErrors = true
 		} else if controllerName == gateway_constants.NLBGatewayController &&
-			(listener.Protocol == gwv1.HTTPProtocolType || listener.Protocol == gwv1.HTTPSProtocolType) {
+			!(listener.Protocol == gwv1.TCPProtocolType || listener.Protocol == gwv1.UDPProtocolType || listener.Protocol == gwv1.TLSProtocolType) {
 			result.IsValid = false
 			result.Reason = gwv1.ListenerReasonUnsupportedProtocol
 			result.Message = fmt.Sprintf("Unsupported protocol %s for listener %s", listener.Protocol, listener.Name)
