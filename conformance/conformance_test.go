@@ -13,18 +13,20 @@ func TestConformance(t *testing.T) {
 
 	// Configure skip tests and supported features
 	options.SkipTests = []string{
-		"GatewayInvalidTLSConfiguration",
-		"GatewaySecretInvalidReferenceGrant",
-		"GatewaySecretMissingReferenceGrant",
-		"GatewaySecretReferenceGrantAllInNamespace",
-		"GatewaySecretReferenceGrantSpecific",
-		"GatewayWithAttachedRoutes",
-		"HTTPRouteBackendRequestHeaderModifier",
-		"HTTPRouteHTTPSListener",
-		"HTTPRouteRequestHeaderModifier",
-		"HTTPRouteHostnameIntersection",
-		"HTTPRouteServiceTypes",
-		"ListenerSetReferenceGrant",
+		"GatewayNameMaximumLength",                  // This test is in v1.7, we will need to address it for v1.7 conformance.
+		"GatewayInvalidTLSConfiguration",            // We don't use secrets for TLS
+		"GatewaySecretInvalidReferenceGrant",        // We don't use secrets
+		"GatewaySecretMissingReferenceGrant",        // We don't use secrets
+		"GatewaySecretReferenceGrantAllInNamespace", // We don't use secrets
+		"GatewaySecretReferenceGrantSpecific",       // We don't use secrets
+		"GatewayWithAttachedRoutes",                 // We don't use secrets
+		"HTTPRouteHTTPSListener",                    // We don't use secrets
+		"HTTPRouteRequestHeaderModifier",            // We don't support native request header modifier. https://docs.aws.amazon.com/elasticloadbalancing/latest/application/header-modification.html
+		"HTTPRouteBackendRequestHeaderModifier",     // We don't support native request header modifier. https://docs.aws.amazon.com/elasticloadbalancing/latest/application/header-modification.html
+		"HTTPRouteServiceTypes",                     // We don't support other backends other than Services.
+		"HTTPRouteHostnameIntersection",             // Works aside from one test which expects ALB to strip off port from value in host header, ALB does not support that. [We theoretically could support it, but it would change how rules are constructed]
+		"ListenerSetReferenceGrant",                 // We don't use secrets
+		"GatewayInvalidParametersRef",               // We don't use parameter references
 	}
 	options.SupportedFeatures = suite.ParseSupportedFeaturesSlice("Gateway,HTTPRoute,ReferenceGrant,HTTPRoutePortRedirect,HTTPRouteMethodMatching,HTTPRouteParentRefPort,HTTPRouteDestinationPortMatching,ListenerSet")
 
