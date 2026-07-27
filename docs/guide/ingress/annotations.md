@@ -697,6 +697,9 @@ Access control for LoadBalancer can be controlled with following annotations:
         alb.ingress.kubernetes.io/scheme: internal
         ```
 
+    !!!warning
+        Changing the scheme from `internet-facing` to `internal`, or vice versa, creates a replacement Application Load Balancer. Plan a traffic migration to avoid downtime.
+
 - <a name="inbound-cidrs">`alb.ingress.kubernetes.io/inbound-cidrs`</a> specifies the CIDRs that are allowed to access LoadBalancer.
 
     !!!note "Merge Behavior"
