@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
@@ -59,9 +60,13 @@ func (h *enqueueRequestsForPodEvent) enqueueImpactedTargetGroupBindings(_ contex
 		gateCondition := string(gate.ConditionType)
 		for _, prefix := range []string{targetgroupbinding.TargetHealthPodConditionTypePrefix, targetgroupbinding.TargetHealthPodConditionTypePrefixLegacy} {
 			if strings.HasPrefix(gateCondition, prefix) {
+				tgbName := parseTargetGroupBindingName(gateCondition, prefix)
+				if tgbName == "" {
+					continue
+				}
 				tgb := types.NamespacedName{
 					Namespace: pod.Key.Namespace,
-					Name:      gateCondition[len(prefix)+1:],
+					Name:      tgbName,
 				}
 
 				h.logger.V(1).Info("enqueue targetGroupBinding for pod event", "pod", pod.Key.Name, "targetGroupBinding", tgb)
@@ -71,4 +76,25 @@ func (h *enqueueRequestsForPodEvent) enqueueImpactedTargetGroupBindings(_ contex
 			}
 		}
 	}
+}
+
+// parseTargetGroupBindingName extracts the TargetGroupBinding name from a
+// TargetHealth pod-condition type of the form {targetPrefix}/{targetGroupBindingName}.
+//
+// The condition type only has to satisfy Kubernetes qualified-name validation,
+// which is looser than a resource name: it permits uppercase letters, "_", and
+// "." in the segment after the prefix. Those values would never match a real
+// TargetGroupBinding (whose name must be an RFC 1123 DNS subdomain), so we
+// validate the extracted name and drop anything invalid instead of enqueuing a
+// doomed reconcile request. This also guards against a condition type that is
+// exactly the prefix (no "/name"), which previously caused an out-of-range panic.
+func parseTargetGroupBindingName(gateCondition string, targetPrefix string) string {
+	name, ok := strings.CutPrefix(gateCondition, targetPrefix+"/")
+	if !ok {
+		return ""
+	}
+	if errs := validation.IsDNS1123Subdomain(name); len(errs) != 0 {
+		return ""
+	}
+	return name
 }
