@@ -180,7 +180,7 @@ var _ = Describe("certificate management ingress tests", func() {
 			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
-			
+
 			ing := ingBuilder.
 				AddHTTPRoute("example.com", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithIngressClassName(ingClass.Name).

@@ -13,13 +13,13 @@ import (
 // BuildHttpRuleConditions each match will be mapped to a ruleCondition, conditions within same match will be ANDed
 func BuildHttpRuleConditions(rule RulePrecedence) ([]elbv2model.RuleCondition, error) {
 	match := rule.HTTPMatch
-	hostnamesStringList := rule.CommonRulePrecedence.Hostnames
+	hostname := rule.CommonRulePrecedence.Hostname
 	var conditions []elbv2model.RuleCondition
-	if hostnamesStringList != nil && len(hostnamesStringList) > 0 {
+	if hostname != "" {
 		conditions = append(conditions, elbv2model.RuleCondition{
 			Field: elbv2model.RuleConditionFieldHostHeader,
 			HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
-				Values: hostnamesStringList,
+				Values: []string{hostname},
 			},
 		})
 	}
@@ -161,13 +161,13 @@ func buildHttpMethodCondition(method *gwv1.HTTPMethod) []elbv2model.RuleConditio
 
 func BuildGrpcRuleConditions(rule RulePrecedence) ([]elbv2model.RuleCondition, error) {
 	// handle host header
-	hostnamesStringList := rule.CommonRulePrecedence.Hostnames
+	hostname := rule.CommonRulePrecedence.Hostname
 	var conditions []elbv2model.RuleCondition
-	if hostnamesStringList != nil && len(hostnamesStringList) > 0 {
+	if hostname != "" {
 		conditions = append(conditions, elbv2model.RuleCondition{
 			Field: elbv2model.RuleConditionFieldHostHeader,
 			HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
-				Values: hostnamesStringList,
+				Values: []string{hostname},
 			},
 		})
 	}

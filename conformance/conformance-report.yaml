@@ -1,21 +1,23 @@
 apiVersion: gateway.networking.k8s.io/v1
-date: "2025-12-22T13:25:07-08:00"
-gatewayAPIChannel: experimental
-gatewayAPIVersion: v1.3.0
+date: "2026-07-24T15:58:01-07:00"
+gatewayAPIChannel: standard
+gatewayAPIVersion: v1.6.1
 implementation:
   contact:
   - https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/OWNERS#L6
   organization: aws
   project: aws-load-balancer-controller
   url: https://github.com/kubernetes-sigs/aws-load-balancer-controller
-  version: v2.17.0
+  version: v3.5.0
 kind: ConformanceReport
 mode: default
 profiles:
 - core:
     result: partial
     skippedTests:
+    - GatewayInvalidParametersRef
     - GatewayInvalidTLSConfiguration
+    - GatewayNameMaximumLength
     - GatewaySecretInvalidReferenceGrant
     - GatewaySecretMissingReferenceGrant
     - GatewaySecretReferenceGrantAllInNamespace
@@ -27,30 +29,46 @@ profiles:
     - HTTPRouteServiceTypes
     statistics:
       Failed: 0
-      Passed: 23
-      Skipped: 10
+      Passed: 26
+      Skipped: 12
   extended:
-    result: success
+    result: partial
+    skippedTests:
+    - ListenerSetReferenceGrant
     statistics:
       Failed: 0
-      Passed: 5
-      Skipped: 0
+      Passed: 16
+      Skipped: 1
     supportedFeatures:
     - HTTPRouteDestinationPortMatching
     - HTTPRouteMethodMatching
     - HTTPRouteParentRefPort
     - HTTPRoutePortRedirect
+    - ListenerSet
     unsupportedFeatures:
+    - BackendTLSPolicy
+    - BackendTLSPolicySANValidation
     - GatewayAddressEmpty
+    - GatewayBackendClientCertificate
+    - GatewayFrontendClientCertificateValidation
+    - GatewayFrontendClientCertificateValidationInsecureFallback
     - GatewayHTTPListenerIsolation
+    - GatewayHTTPSListenerDetectMisdirectedRequests
     - GatewayInfrastructurePropagation
     - GatewayPort8080
     - GatewayStaticAddresses
+    - HTTPRoute303RedirectStatusCode
+    - HTTPRoute307RedirectStatusCode
+    - HTTPRoute308RedirectStatusCode
     - HTTPRouteBackendProtocolH2C
     - HTTPRouteBackendProtocolWebSocket
     - HTTPRouteBackendRequestHeaderModification
+    - HTTPRouteBackendRequestRedirect
     - HTTPRouteBackendTimeout
+    - HTTPRouteBackendURLRewrite
+    - HTTPRouteCORS
     - HTTPRouteHostRewrite
+    - HTTPRouteNamedRouteRule
     - HTTPRoutePathRedirect
     - HTTPRoutePathRewrite
     - HTTPRouteQueryParamMatching
@@ -59,6 +77,10 @@ profiles:
     - HTTPRouteRequestPercentageMirror
     - HTTPRouteRequestTimeout
     - HTTPRouteResponseHeaderModification
+    - HTTPRouteRetry
+    - HTTPRouteRetryBackendTimeout
+    - HTTPRouteRetryConnectionError
     - HTTPRouteSchemeRedirect
   name: GATEWAY-HTTP
-  summary: Core tests partially succeeded with 10 test skips. Extended tests succeeded.
+  summary: Core tests partially succeeded with 12 test skips. Extended tests partially
+    succeeded with 1 test skips.

@@ -90,3 +90,13 @@ func (s *ResourceStore[T]) Get(obj interface{}) (item interface{}, exists bool, 
 func (s *ResourceStore[T]) GetByKey(key string) (item interface{}, exists bool, err error) {
 	return s.store.GetByKey(key)
 }
+
+// LastStoreSyncResourceVersion returns the latest resource version the store has seen.
+func (s *ResourceStore[T]) LastStoreSyncResourceVersion() string {
+	return s.store.LastStoreSyncResourceVersion()
+}
+
+// Bookmark observes a new resource version passed into it.
+func (s *ResourceStore[T]) Bookmark(rv string) {
+	s.store.Bookmark(rv)
+}
