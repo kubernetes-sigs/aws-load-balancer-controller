@@ -698,7 +698,7 @@ Access control for LoadBalancer can be controlled with following annotations:
         ```
 
     !!!warning
-        Amazon ELB cannot change a load balancer's scheme in place; updating its [`Scheme` property](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-resource-elasticloadbalancingv2-loadbalancer.html#cfn-elasticloadbalancingv2-loadbalancer-scheme) requires replacement. Therefore, changing the scheme from `internet-facing` to `internal`, or vice versa, causes the controller to create a replacement Application Load Balancer. Plan a traffic migration to avoid downtime.
+        Amazon ELB cannot change a load balancer's scheme in place; updating its `Scheme` property requires replacement. Therefore, changing the scheme from `internet-facing` to `internal`, or vice versa, causes the controller to create a replacement Application Load Balancer. Plan a traffic migration to avoid downtime.
 
 - <a name="inbound-cidrs">`alb.ingress.kubernetes.io/inbound-cidrs`</a> specifies the CIDRs that are allowed to access LoadBalancer.
 
