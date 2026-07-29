@@ -700,6 +700,9 @@ Access control for LoadBalancer can be controlled with following annotations:
         alb.ingress.kubernetes.io/scheme: internal
         ```
 
+    !!!warning
+        Amazon ELB cannot change a load balancer's scheme in place; updating its `Scheme` property requires replacement. Therefore, changing the scheme from `internet-facing` to `internal`, or vice versa, causes the controller to create a replacement Application Load Balancer. Plan a traffic migration to avoid downtime.
+
 - <a name="inbound-cidrs">`alb.ingress.kubernetes.io/inbound-cidrs`</a> specifies the CIDRs that are allowed to access LoadBalancer.
 
     !!!note "Merge Behavior"
