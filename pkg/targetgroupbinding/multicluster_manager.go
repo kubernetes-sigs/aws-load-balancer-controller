@@ -246,9 +246,12 @@ func (m *multiClusterManagerImpl) updateCache(tgb *elbv2api.TargetGroupBinding, 
 	m.configMapCache[cacheKey] = endpointMap
 }
 
-// getCacheKey generates a key to use with the k8s api
+// getCacheKey generates a key to use with the in-memory config map cache.
+// The "/" separator cannot appear in a namespace or name, so the key is unambiguous. Using a
+// separator that is legal within those values (e.g. "-") would let distinct TGBs collide, for
+// example namespace "a" + name "b-c" and namespace "a-b" + name "c".
 func getCacheKey(tgb *elbv2api.TargetGroupBinding) string {
-	return fmt.Sprintf("%s-%s", tgb.Namespace, tgb.Name)
+	return fmt.Sprintf("%s/%s", tgb.Namespace, tgb.Name)
 }
 
 // getConfigMapName generates a config map name to use with the k8s api.
