@@ -433,12 +433,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	return subnetMappings, nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]ec2types.Subnet, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType) ([]ec2types.Subnet, error) {
 	var rawSubnetNameOrIDs []string
 	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSubnets, &rawSubnetNameOrIDs, t.service.Annotations); exists {
 		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, rawSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 	}
 
@@ -456,6 +457,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, subnetIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 	}
 
@@ -468,11 +470,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		return t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 	}
 	return t.subnetsResolver.ResolveViaDiscovery(ctx,
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),
+		networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 	)
 }
 

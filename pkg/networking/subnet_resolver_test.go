@@ -1313,6 +1313,94 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			},
 			wantErr: errors.New("failed to list subnets by reachability: some error"),
 		},
+		{
+			// Regression test for kubernetes-sigs/aws-load-balancer-controller#4852: a dualstack LB
+			// must only be given subnets with an associated IPv6 CIDR block, otherwise ELBv2
+			// CreateLoadBalancer fails with "You must specify subnets with an associated IPv6 CIDR block".
+			name: "alb/internet-facing/dualstack, skips subnets without an IPv6 CIDR",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         true,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-dummy"},
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: []string{"", "1"},
+								},
+							},
+						},
+						output: []ec2types.Subnet{
+							subnetWithIPv6("subnet-no-ipv6", "us-west-2a", "usw2-az1", false),
+							subnetWithIPv6("subnet-with-ipv6", "us-west-2b", "usw2-az2", true),
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithSubnetsResolveLBIPAddressType(elbv2model.IPAddressTypeDualStack),
+				},
+			},
+			want: []ec2types.Subnet{
+				subnetWithIPv6("subnet-with-ipv6", "us-west-2b", "usw2-az2", true),
+			},
+		},
+		{
+			name: "alb/internet-facing/dualstack, no subnet has an IPv6 CIDR",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         true,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-dummy"},
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: []string{"", "1"},
+								},
+							},
+						},
+						output: []ec2types.Subnet{
+							subnetWithIPv6("subnet-no-ipv6-a", "us-west-2a", "usw2-az1", false),
+							subnetWithIPv6("subnet-no-ipv6-b", "us-west-2b", "usw2-az2", false),
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithSubnetsResolveLBIPAddressType(elbv2model.IPAddressTypeDualStack),
+				},
+			},
+			wantErr: errors.New("unable to resolve at least one subnet. Evaluated 2 subnets: 0 are tagged for other clusters, 0 have insufficient available IP addresses, and 2 don't have an associated IPv6 CIDR block, which is required for dualstack load balancers"),
+		},
 	}
 
 	for _, tt := range tests {
@@ -1342,6 +1430,8 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				opts := cmp.Options{
 					cmpopts.IgnoreUnexported(ec2types.Subnet{}),
 					cmpopts.IgnoreUnexported(ec2types.Tag{}),
+					cmpopts.IgnoreUnexported(ec2types.SubnetIpv6CidrBlockAssociation{}),
+					cmpopts.IgnoreUnexported(ec2types.SubnetCidrBlockState{}),
 				}
 				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
 			}
@@ -3739,6 +3829,203 @@ func Test_IsSubnetInLocalZoneOrOutpost(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_isSubnetContainsIPv6CIDR(t *testing.T) {
+	tests := []struct {
+		name   string
+		subnet ec2types.Subnet
+		want   bool
+	}{
+		{
+			name:   "no IPv6 CIDR association",
+			subnet: ec2types.Subnet{SubnetId: awssdk.String("subnet-1")},
+			want:   false,
+		},
+		{
+			name: "associated IPv6 CIDR",
+			subnet: ec2types.Subnet{
+				SubnetId: awssdk.String("subnet-1"),
+				Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+					{
+						Ipv6CidrBlock:      awssdk.String("2600:1f13::/64"),
+						Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{State: ec2types.SubnetCidrBlockStateCodeAssociated},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "IPv6 CIDR still associating is not eligible",
+			subnet: ec2types.Subnet{
+				SubnetId: awssdk.String("subnet-1"),
+				Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+					{
+						Ipv6CidrBlock:      awssdk.String("2600:1f13::/64"),
+						Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{State: ec2types.SubnetCidrBlockStateCodeAssociating},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil CIDR block state doesn't panic",
+			subnet: ec2types.Subnet{
+				SubnetId: awssdk.String("subnet-1"),
+				Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+					{Ipv6CidrBlock: awssdk.String("2600:1f13::/64")},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isSubnetContainsIPv6CIDR(tt.subnet))
+		})
+	}
+}
+
+func Test_isIPv6CIDRRequired(t *testing.T) {
+	tests := []struct {
+		name          string
+		ipAddressType elbv2model.IPAddressType
+		want          bool
+	}{
+		{name: "ipv4", ipAddressType: elbv2model.IPAddressTypeIPV4, want: false},
+		{name: "dualstack", ipAddressType: elbv2model.IPAddressTypeDualStack, want: true},
+		{name: "dualstack-without-public-ipv4", ipAddressType: elbv2model.IPAddressTypeDualStackWithoutPublicIPV4, want: true},
+		{name: "empty defaults to not required", ipAddressType: elbv2model.IPAddressType(""), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isIPv6CIDRRequired(tt.ipAddressType))
+		})
+	}
+}
+
+// subnetWithIPv6 returns a discovery-eligible subnet, optionally with an associated IPv6 CIDR.
+func subnetWithIPv6(subnetID string, az string, azID string, hasIPv6 bool) ec2types.Subnet {
+	subnet := ec2types.Subnet{
+		SubnetId:                awssdk.String(subnetID),
+		AvailabilityZone:        awssdk.String(az),
+		AvailabilityZoneId:      awssdk.String(azID),
+		AvailableIpAddressCount: awssdk.Int32(8),
+		VpcId:                   awssdk.String("vpc-dummy"),
+	}
+	if hasIPv6 {
+		subnet.Ipv6CidrBlockAssociationSet = []ec2types.SubnetIpv6CidrBlockAssociation{
+			{
+				Ipv6CidrBlock:      awssdk.String("2600:1f13::/64"),
+				Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{State: ec2types.SubnetCidrBlockStateCodeAssociated},
+			},
+		}
+	}
+	return subnet
+}
+
+// Test_categorizeSubnetsByEligibility_IPv6CIDR asserts that for dualstack load balancers, subnets
+// lacking an associated IPv6 CIDR block are filtered out of discovery instead of being handed to
+// ELBv2 CreateLoadBalancer, which rejects them with "You must specify subnets with an associated
+// IPv6 CIDR block". See kubernetes-sigs/aws-load-balancer-controller#4852.
+func Test_categorizeSubnetsByEligibility_IPv6CIDR(t *testing.T) {
+	subnetNoIPv6 := subnetWithIPv6("subnet-no-ipv6", "us-west-2a", "usw2-az1", false)
+	subnetWithIPv6A := subnetWithIPv6("subnet-with-ipv6", "us-west-2b", "usw2-az2", true)
+
+	tests := []struct {
+		name                string
+		ipAddressType       elbv2model.IPAddressType
+		subnets             []ec2types.Subnet
+		wantEligible        []string
+		wantMissingIPv6CIDR []string
+	}{
+		{
+			name:                "ipv4 LB accepts subnets without an IPv6 CIDR",
+			ipAddressType:       elbv2model.IPAddressTypeIPV4,
+			subnets:             []ec2types.Subnet{subnetNoIPv6, subnetWithIPv6A},
+			wantEligible:        []string{"subnet-no-ipv6", "subnet-with-ipv6"},
+			wantMissingIPv6CIDR: []string{},
+		},
+		{
+			name:                "dualstack LB filters out subnets without an IPv6 CIDR",
+			ipAddressType:       elbv2model.IPAddressTypeDualStack,
+			subnets:             []ec2types.Subnet{subnetNoIPv6, subnetWithIPv6A},
+			wantEligible:        []string{"subnet-with-ipv6"},
+			wantMissingIPv6CIDR: []string{"subnet-no-ipv6"},
+		},
+		{
+			name:                "dualstack-without-public-ipv4 LB filters out subnets without an IPv6 CIDR",
+			ipAddressType:       elbv2model.IPAddressTypeDualStackWithoutPublicIPV4,
+			subnets:             []ec2types.Subnet{subnetNoIPv6, subnetWithIPv6A},
+			wantEligible:        []string{"subnet-with-ipv6"},
+			wantMissingIPv6CIDR: []string{"subnet-no-ipv6"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &defaultSubnetsResolver{
+				vpcID:                          "vpc-dummy",
+				clusterName:                    "cluster-dummy",
+				minimalAvailableIPAddressCount: 8,
+				logger:                         logr.New(&log.NullLogSink{}),
+			}
+			resolveOpts := defaultSubnetsResolveOptions()
+			resolveOpts.ApplyOptions([]SubnetsResolveOption{WithSubnetsResolveLBIPAddressType(tt.ipAddressType)})
+
+			got := r.categorizeSubnetsByEligibility(tt.subnets, resolveOpts)
+			assert.Equal(t, tt.wantEligible, extractSubnetIDs(got.eligible))
+			assert.Equal(t, tt.wantMissingIPv6CIDR, extractSubnetIDs(got.missingIPv6CIDR))
+		})
+	}
+}
+
+// Test_validateSubnetsIPv6CIDR asserts that explicitly pinned subnets lacking an IPv6 CIDR fail
+// fast with an actionable error rather than the opaque ELBv2 ValidationError.
+func Test_validateSubnetsIPv6CIDR(t *testing.T) {
+	subnetNoIPv6 := subnetWithIPv6("subnet-no-ipv6", "us-west-2a", "usw2-az1", false)
+	subnetWithIPv6A := subnetWithIPv6("subnet-with-ipv6", "us-west-2b", "usw2-az2", true)
+
+	tests := []struct {
+		name          string
+		ipAddressType elbv2model.IPAddressType
+		subnets       []ec2types.Subnet
+		wantErr       string
+	}{
+		{
+			name:          "ipv4 LB tolerates subnets without an IPv6 CIDR",
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			subnets:       []ec2types.Subnet{subnetNoIPv6},
+		},
+		{
+			name:          "dualstack LB accepts subnets with an IPv6 CIDR",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			subnets:       []ec2types.Subnet{subnetWithIPv6A},
+		},
+		{
+			name:          "dualstack LB rejects subnets without an IPv6 CIDR",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			subnets:       []ec2types.Subnet{subnetNoIPv6, subnetWithIPv6A},
+			wantErr:       "subnets [subnet-no-ipv6] do not have an associated IPv6 CIDR block, which is required for dualstack load balancers",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &defaultSubnetsResolver{
+				vpcID:       "vpc-dummy",
+				clusterName: "cluster-dummy",
+				logger:      logr.New(&log.NullLogSink{}),
+			}
+			resolveOpts := defaultSubnetsResolveOptions()
+			resolveOpts.ApplyOptions([]SubnetsResolveOption{WithSubnetsResolveLBIPAddressType(tt.ipAddressType)})
+
+			err := r.validateSubnetsIPv6CIDR(tt.subnets, resolveOpts)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

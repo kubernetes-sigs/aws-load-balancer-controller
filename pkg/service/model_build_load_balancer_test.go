@@ -1385,7 +1385,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				elbv2TaggingManager: elbv2TaggingManager,
 				featureGates:        featureGates,
 			}
-			got, err := builder.buildLoadBalancerSubnets(context.Background(), tt.scheme)
+			got, err := builder.buildLoadBalancerSubnets(context.Background(), tt.scheme, elbv2.IPAddressTypeIPV4)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

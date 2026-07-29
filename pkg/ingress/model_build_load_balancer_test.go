@@ -1432,7 +1432,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				subnetsResolver:     subnetsResolver,
 				trackingProvider:    tracking.NewDefaultProvider("ingress.k8s.aws", "test-cluster"),
 			}
-			got, err := task.buildLoadBalancerSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
+			got, err := task.buildLoadBalancerSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing, elbv2.IPAddressTypeIPV4)
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {

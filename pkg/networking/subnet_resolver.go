@@ -53,6 +53,11 @@ type SubnetsResolveOptions struct {
 	// The Load Balancer Scheme.
 	// By default, it's internet-facing.
 	LBScheme elbv2model.LoadBalancerScheme
+	// The Load Balancer IPAddressType.
+	// By default, it's ipv4.
+	// When it requires IPv6 (dualstack/dualstack-without-public-ipv4), only subnets with an
+	// associated IPv6 CIDR block are eligible, matching the ELBv2 CreateLoadBalancer requirement.
+	LBIPAddressType elbv2model.IPAddressType
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -65,8 +70,9 @@ func (opts *SubnetsResolveOptions) ApplyOptions(options []SubnetsResolveOption) 
 // defaultSubnetsResolveOptions generates the default SubnetsResolveOptions
 func defaultSubnetsResolveOptions() SubnetsResolveOptions {
 	return SubnetsResolveOptions{
-		LBType:   elbv2model.LoadBalancerTypeApplication,
-		LBScheme: elbv2model.LoadBalancerSchemeInternetFacing,
+		LBType:          elbv2model.LoadBalancerTypeApplication,
+		LBScheme:        elbv2model.LoadBalancerSchemeInternetFacing,
+		LBIPAddressType: elbv2model.IPAddressTypeIPV4,
 	}
 }
 
@@ -83,6 +89,13 @@ func WithSubnetsResolveLBType(lbType elbv2model.LoadBalancerType) SubnetsResolve
 func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBScheme = lbScheme
+	}
+}
+
+// WithSubnetsResolveLBIPAddressType generates an option that configures LBIPAddressType.
+func WithSubnetsResolveLBIPAddressType(ipAddressType elbv2model.IPAddressType) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.LBIPAddressType = ipAddressType
 	}
 }
 
@@ -489,14 +502,41 @@ func (r *defaultSubnetsResolver) validateSpecifiedSubnets(ctx context.Context, s
 	if err := r.validateSubnetsMinimalCount(subnets, subnetLocale, resolveOpts); err != nil {
 		return err
 	}
+	if err := r.validateSubnetsIPv6CIDR(subnets, resolveOpts); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateSubnetsIPv6CIDR validates that all explicitly specified subnets have an associated IPv6 CIDR block
+// when the load balancer requires IPv6 (dualstack). This surfaces a clear error instead of the opaque
+// ELBv2 "You must specify subnets with an associated IPv6 CIDR block" CreateLoadBalancer failure.
+func (r *defaultSubnetsResolver) validateSubnetsIPv6CIDR(subnets []ec2types.Subnet, resolveOpts SubnetsResolveOptions) error {
+	if !isIPv6CIDRRequired(resolveOpts.LBIPAddressType) {
+		return nil
+	}
+	var subnetsWithoutIPv6CIDR []string
+	for _, subnet := range subnets {
+		if !isSubnetContainsIPv6CIDR(subnet) {
+			subnetsWithoutIPv6CIDR = append(subnetsWithoutIPv6CIDR, awssdk.ToString(subnet.SubnetId))
+		}
+	}
+	if len(subnetsWithoutIPv6CIDR) > 0 {
+		return fmt.Errorf("subnets %v do not have an associated IPv6 CIDR block, which is required for %v load balancers", subnetsWithoutIPv6CIDR, resolveOpts.LBIPAddressType)
+	}
 	return nil
 }
 
 // chooseAndValidateSubnetsPerAZ will choose one subnet per AZ from eligible subnets and then validate against chosen subnets.
 func (r *defaultSubnetsResolver) chooseAndValidateSubnetsPerAZ(ctx context.Context, subnets []ec2types.Subnet, resolveOpts SubnetsResolveOptions) ([]ec2types.Subnet, error) {
-	categorizedSubnets := r.categorizeSubnetsByEligibility(subnets)
+	categorizedSubnets := r.categorizeSubnetsByEligibility(subnets, resolveOpts)
 	chosenSubnets := r.chooseSubnetsPerAZ(categorizedSubnets.eligible)
 	if len(chosenSubnets) == 0 {
+		// only mention the IPv6 criterion when it actually applied, to keep the IPv4 message unchanged.
+		if isIPv6CIDRRequired(resolveOpts.LBIPAddressType) {
+			return nil, fmt.Errorf("unable to resolve at least one subnet. Evaluated %d subnets: %d are tagged for other clusters, %d have insufficient available IP addresses, and %d don't have an associated IPv6 CIDR block, which is required for %v load balancers",
+				len(subnets), len(categorizedSubnets.ineligibleClusterTag), len(categorizedSubnets.insufficientIPs), len(categorizedSubnets.missingIPv6CIDR), resolveOpts.LBIPAddressType)
+		}
 		return nil, fmt.Errorf("unable to resolve at least one subnet. Evaluated %d subnets: %d are tagged for other clusters, and %d have insufficient available IP addresses",
 			len(subnets), len(categorizedSubnets.ineligibleClusterTag), len(categorizedSubnets.insufficientIPs))
 	}
@@ -514,10 +554,12 @@ type categorizeSubnetsByEligibilityResult struct {
 	eligible             []ec2types.Subnet
 	ineligibleClusterTag []ec2types.Subnet
 	insufficientIPs      []ec2types.Subnet
+	missingIPv6CIDR      []ec2types.Subnet
 }
 
 // categorizeSubnetsByEligibility will categorize subnets based it's eligibility of ELB subnet
-func (r *defaultSubnetsResolver) categorizeSubnetsByEligibility(subnets []ec2types.Subnet) categorizeSubnetsByEligibilityResult {
+func (r *defaultSubnetsResolver) categorizeSubnetsByEligibility(subnets []ec2types.Subnet, resolveOpts SubnetsResolveOptions) categorizeSubnetsByEligibilityResult {
+	requiresIPv6 := isIPv6CIDRRequired(resolveOpts.LBIPAddressType)
 	var ret categorizeSubnetsByEligibilityResult
 	for _, subnet := range subnets {
 		if !r.isSubnetContainsEligibleClusterTag(subnet) {
@@ -526,6 +568,13 @@ func (r *defaultSubnetsResolver) categorizeSubnetsByEligibility(subnets []ec2typ
 		}
 		if !r.isSubnetContainsSufficientIPAddresses(subnet) {
 			ret.insufficientIPs = append(ret.insufficientIPs, subnet)
+			continue
+		}
+		// dualstack load balancers require every subnet to have an associated IPv6 CIDR block,
+		// otherwise ELBv2 CreateLoadBalancer fails with "You must specify subnets with an
+		// associated IPv6 CIDR block". Discovery has no other IPv6 awareness, so filter here.
+		if requiresIPv6 && !isSubnetContainsIPv6CIDR(subnet) {
+			ret.missingIPv6CIDR = append(ret.missingIPv6CIDR, subnet)
 			continue
 		}
 		ret.eligible = append(ret.eligible, subnet)
@@ -605,6 +654,30 @@ func (r *defaultSubnetsResolver) isSubnetContainsEligibleClusterTag(subnet ec2ty
 // isSubnetContainsSufficientIPAddresses checks whether subnet has minimal AvailableIPAddressAcount needed.
 func (r *defaultSubnetsResolver) isSubnetContainsSufficientIPAddresses(subnet ec2types.Subnet) bool {
 	return awssdk.ToInt32(subnet.AvailableIpAddressCount) >= r.minimalAvailableIPAddressCount
+}
+
+// isIPv6CIDRRequired returns whether the given load balancer IPAddressType requires subnets to have
+// an associated IPv6 CIDR block.
+func isIPv6CIDRRequired(ipAddressType elbv2model.IPAddressType) bool {
+	switch ipAddressType {
+	case elbv2model.IPAddressTypeDualStack, elbv2model.IPAddressTypeDualStackWithoutPublicIPV4:
+		return true
+	default:
+		return false
+	}
+}
+
+// isSubnetContainsIPv6CIDR checks whether a subnet has at least one associated IPv6 CIDR block.
+func isSubnetContainsIPv6CIDR(subnet ec2types.Subnet) bool {
+	for _, cidrAssociation := range subnet.Ipv6CidrBlockAssociationSet {
+		if cidrAssociation.Ipv6CidrBlockState == nil {
+			continue
+		}
+		if cidrAssociation.Ipv6CidrBlockState.State == ec2types.SubnetCidrBlockStateCodeAssociated {
+			return true
+		}
+	}
+	return false
 }
 
 // validateSDKSubnetsAZExclusivity validates subnets belong to different AZs.
