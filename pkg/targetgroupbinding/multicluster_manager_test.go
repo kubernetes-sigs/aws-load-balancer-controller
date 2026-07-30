@@ -676,8 +676,68 @@ func TestCleanUp(t *testing.T) {
 	}
 }
 
+func TestGetCacheKey(t *testing.T) {
+	testCases := []struct {
+		name        string
+		namespace   string
+		tgbName     string
+		expectedKey string
+	}{
+		{
+			name:        "namespace and name without hyphens",
+			namespace:   "a",
+			tgbName:     "c",
+			expectedKey: "a/c",
+		},
+		{
+			name:        "hyphen in name",
+			namespace:   "a",
+			tgbName:     "b-c",
+			expectedKey: "a/b-c",
+		},
+		{
+			name:        "hyphen in namespace",
+			namespace:   "a-b",
+			tgbName:     "c",
+			expectedKey: "a-b/c",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tgb := &elbv2api.TargetGroupBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: tc.namespace,
+					Name:      tc.tgbName,
+				},
+			}
+			assert.Equal(t, tc.expectedKey, getCacheKey(tgb))
+		})
+	}
+}
+
+// TestGetCacheKeyNoCollisionWithHyphens ensures that TGBs whose namespace / name differ only in
+// where a hyphen falls do not share a cache key. Sharing a key would let one TGB's tracked target
+// set drive another TGB's deregistration decisions.
+func TestGetCacheKeyNoCollisionWithHyphens(t *testing.T) {
+	first := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "a",
+			Name:      "b-c",
+		},
+	}
+	second := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "a-b",
+			Name:      "c",
+		},
+	}
+
+	assert.NotEqual(t, getCacheKey(first), getCacheKey(second))
+}
+
 func getCachedValue(mc *multiClusterManagerImpl, namespace, name string) sets.Set[string] {
-	key := fmt.Sprintf("%s-%s", namespace, name)
+	key := fmt.Sprintf("%s/%s", namespace, name)
 
 	if v, ok := mc.configMapCache[key]; !ok {
 		return nil
@@ -687,6 +747,6 @@ func getCachedValue(mc *multiClusterManagerImpl, namespace, name string) sets.Se
 }
 
 func setCachedValue(mc *multiClusterManagerImpl, v sets.Set[string], namespace, name string) {
-	key := fmt.Sprintf("%s-%s", namespace, name)
+	key := fmt.Sprintf("%s/%s", namespace, name)
 	mc.configMapCache[key] = v
 }
