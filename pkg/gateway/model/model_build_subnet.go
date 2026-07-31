@@ -63,7 +63,7 @@ func (subnetBuilder *subnetModelBuilderImpl) buildLoadBalancerSubnets(ctx contex
 		return buildLoadBalancerSubnetsOutput{}, err
 	}
 
-	resolvedEC2Subnets, err := subnetBuilder.resolveEC2Subnets(ctx, stack, gwSubnetConfig, gwSubnetTagSelectors, scheme)
+	resolvedEC2Subnets, err := subnetBuilder.resolveEC2Subnets(ctx, stack, gwSubnetConfig, gwSubnetTagSelectors, scheme, ipAddressType)
 
 	if err != nil {
 		return buildLoadBalancerSubnetsOutput{}, err
@@ -176,7 +176,7 @@ func (subnetBuilder *subnetModelBuilderImpl) validateSubnetsInput(subnetConfigsP
 	return sourceNATSpecified, nil
 }
 
-func (subnetBuilder *subnetModelBuilderImpl) resolveEC2Subnets(ctx context.Context, stack core.Stack, subnetConfigsPtr *[]elbv2gw.SubnetConfiguration, subnetTagSelector *map[string][]string, scheme elbv2model.LoadBalancerScheme) ([]ec2types.Subnet, error) {
+func (subnetBuilder *subnetModelBuilderImpl) resolveEC2Subnets(ctx context.Context, stack core.Stack, subnetConfigsPtr *[]elbv2gw.SubnetConfiguration, subnetTagSelector *map[string][]string, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType) ([]ec2types.Subnet, error) {
 	// if we have identifiers, query directly by them.
 	// this assumes that validateSubnetsInput() was already ran on the input.
 	if subnetConfigsPtr != nil && len(*subnetConfigsPtr) != 0 && (*subnetConfigsPtr)[0].Identifier != "" {
@@ -189,6 +189,7 @@ func (subnetBuilder *subnetModelBuilderImpl) resolveEC2Subnets(ctx context.Conte
 		return subnetBuilder.subnetsResolver.ResolveViaNameOrIDSlice(ctx, nameOrIds,
 			networking.WithSubnetsResolveLBType(subnetBuilder.loadBalancerType),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 	}
 
@@ -201,6 +202,7 @@ func (subnetBuilder *subnetModelBuilderImpl) resolveEC2Subnets(ctx context.Conte
 		return subnetBuilder.subnetsResolver.ResolveViaSelector(ctx, selector,
 			networking.WithSubnetsResolveLBType(subnetBuilder.loadBalancerType),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 	}
 
@@ -215,6 +217,7 @@ func (subnetBuilder *subnetModelBuilderImpl) resolveEC2Subnets(ctx context.Conte
 		return subnetBuilder.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(subnetBuilder.loadBalancerType),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 	}
 
@@ -226,6 +229,7 @@ func (subnetBuilder *subnetModelBuilderImpl) resolveEC2Subnets(ctx context.Conte
 	return subnetBuilder.subnetsResolver.ResolveViaNameOrIDSlice(ctx, storedSubnetIds,
 		networking.WithSubnetsResolveLBType(subnetBuilder.loadBalancerType),
 		networking.WithSubnetsResolveLBScheme(scheme),
+		networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 	)
 
 }

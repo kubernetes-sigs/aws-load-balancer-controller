@@ -265,7 +265,11 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_scheme_error", err, t.metricsCollector)
 	}
-	t.ec2Subnets, err = t.buildLoadBalancerSubnets(ctx, scheme)
+	ipAddressType, err := t.buildLoadBalancerIPAddressType(ctx)
+	if err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_ip_address_type_error", err, t.metricsCollector)
+	}
+	t.ec2Subnets, err = t.buildLoadBalancerSubnets(ctx, scheme, ipAddressType)
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_subnets_error", err, t.metricsCollector)
 	}

@@ -626,15 +626,15 @@ func Test_ResolveEC2Subnets(t *testing.T) {
 			subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
 
 			if tc.idOrNameResolutionCall != nil {
-				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.idOrNameResolutionCall.subnets, tc.idOrNameResolutionCall.err)
+				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.idOrNameResolutionCall.subnets, tc.idOrNameResolutionCall.err)
 			}
 
 			if tc.discoveryCall != nil {
-				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.discoveryCall.subnets, tc.discoveryCall.err)
+				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.discoveryCall.subnets, tc.discoveryCall.err)
 			}
 
 			if tc.selectorCall != nil {
-				subnetsResolver.EXPECT().ResolveViaSelector(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.selectorCall.subnets, tc.selectorCall.err)
+				subnetsResolver.EXPECT().ResolveViaSelector(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.selectorCall.subnets, tc.selectorCall.err)
 			}
 
 			elbv2TaggingManager := elbv2deploy.NewMockTaggingManager(ctrl)
@@ -649,7 +649,7 @@ func Test_ResolveEC2Subnets(t *testing.T) {
 				elbv2TaggingManager: elbv2TaggingManager,
 			}
 
-			subnets, err := builder.resolveEC2Subnets(context.Background(), nil, tc.subnetConfig, tc.selector, elbv2model.LoadBalancerSchemeInternal)
+			subnets, err := builder.resolveEC2Subnets(context.Background(), nil, tc.subnetConfig, tc.selector, elbv2model.LoadBalancerSchemeInternal, elbv2model.IPAddressTypeIPV4)
 
 			if tc.expectErr {
 				assert.Error(t, err)

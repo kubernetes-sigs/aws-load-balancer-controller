@@ -44,7 +44,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, scheme)
+	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, scheme, ipAddressType)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -200,7 +200,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 	}
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetSelectorList []v1beta1.SubnetSelector
 	var explicitSubnetNameOrIDsList [][]string
 	for _, member := range t.ingGroup.Members {
@@ -228,6 +228,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, chosenSubnetSelector,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 		if err != nil {
 			return nil, err
@@ -246,6 +247,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 		if err != nil {
 			return nil, err
@@ -263,6 +265,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsResolveLBIPAddressType(ipAddressType),
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't auto-discover subnets")

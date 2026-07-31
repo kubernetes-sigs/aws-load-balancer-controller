@@ -418,7 +418,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				annotationParser: annotationParser,
 				subnetsResolver:  mockSubnetsResolver,
 			}
-			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme)
+			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme, elbv2.IPAddressTypeIPV4)
 
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
