@@ -78,3 +78,17 @@ func (mr *MockTargetsManagerMockRecorder) RegisterTargets(arg0, arg1, arg2 inter
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargets", reflect.TypeOf((*MockTargetsManager)(nil).RegisterTargets), arg0, arg1, arg2)
 }
+
+// RegisterTargetsInterleaved mocks base method.
+func (m *MockTargetsManager) RegisterTargetsInterleaved(arg0 context.Context, arg1 []TargetGroupTargets) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterTargetsInterleaved", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RegisterTargetsInterleaved indicates an expected call of RegisterTargetsInterleaved.
+func (mr *MockTargetsManagerMockRecorder) RegisterTargetsInterleaved(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterTargetsInterleaved", reflect.TypeOf((*MockTargetsManager)(nil).RegisterTargetsInterleaved), arg0, arg1)
+}
