@@ -91,8 +91,8 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		stackDeployer:     stackDeployer,
 		backendSGProvider: backendSGProvider,
 
-		secretsManager:    secretsManager,
-		annotationParser:  annotationParser,
+		secretsManager:   secretsManager,
+		annotationParser: annotationParser,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -313,19 +313,18 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 	r.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixFrontendNlbStatusOnly, &frontendNlbStatusOnly, ing.Annotations)
 
 	ingOld := ing.DeepCopy()
-	if frontendNlbStatusOnly {
-		if frontendNlbDNS != "" {
-			if len(ing.Status.LoadBalancer.Ingress) != 1 ||
-				ing.Status.LoadBalancer.Ingress[0].Hostname != frontendNlbDNS {
-				ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
-					{Hostname: frontendNlbDNS},
-				}
+	if frontendNlbStatusOnly && frontendNlbDNS != "" {
+		// Only write the NLB hostname to status. When using ExternalDNS on AWS,
+		// only the first status entry gets a DNS record. Writing only the NLB hostname
+		// ensures ExternalDNS creates a record pointing at the NLB, not the ALB.
+		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
+			ing.Status.LoadBalancer.Ingress[0].Hostname != frontendNlbDNS {
+			ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
+				{Hostname: frontendNlbDNS},
 			}
-		} else {
-			// NLB not yet provisioned or failed to provision. Status is empty to avoid
-			// a transient DNS record pointing at the ALB that will be replaced later anyways.
 		}
-	} else {
+		// In case frontendNlbStatusOnly && frontendNlbDNS == "" nothing gets applied until the NLB is provisioned
+	} else if !frontendNlbStatusOnly {
 		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
 			ing.Status.LoadBalancer.Ingress[0].IP != "" ||
 			ing.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
