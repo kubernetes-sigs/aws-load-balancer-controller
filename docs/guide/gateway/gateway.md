@@ -11,15 +11,14 @@ The LBC Gateway API implementation supports the following Gateway API routes:
 * L4 (NLBGatewayAPI): UDPRoute, TCPRoute, TLSRoute >=v2.13.3
 * L7 (ALBGatewayAPI): HTTPRoute, GRPCRoute >= 2.14.0
 
-The LBC is built for Gateway API version v1.5.0.
+The LBC is built for Gateway API version v1.6.0.
 
 ## Prerequisites
 * LBC >= v2.13.0
 * For `ip` target type:
     * Pods have native AWS VPC networking configured. For more information, see the [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s#readme) documentation.
 * Installation of Gateway API CRDs
-    * Standard Gateway API CRDs: `kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml` [REQUIRED]
-    * Experimental Gateway API CRDs: `kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/experimental-install.yaml` [OPTIONAL: Used for L4 Routes]
+    * Standard Gateway API CRDs: `kubectl apply --server-side=true -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.0/standard-install.yaml` [REQUIRED]
 * Installation of LBC Gateway API specific CRDs: `kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml`
 
 
@@ -30,6 +29,8 @@ There a few backwards incompatible release.
 
 - Going from a version less than v1.5
   - v1.5 brings TLSRoute out of alpha and into the v1 API version. Once this happens, old versions of the controller will not work with TLSRoutes.
+- Going from a version less than v1.6
+  - v1.6 brings TCPRoute and UDPRoute out of experimental and into the standard channel (v1 API version). Experimental CRD installation is no longer required for L4 routes.
 
 ## Configuration
 
@@ -41,6 +42,9 @@ To explicitly disable these controllers, use the following feature gates:
 
 For the NLB Gateway controller (Layer 4) to be enabled, ensure the following CRDs are installed:
 `Gateway`, `GatewayClass`, `TCPRoute`, `UDPRoute`, `TLSRoute`, and the AWS vended CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
+
+!!! note "TCPRoute and UDPRoute in standard channel"
+    As of Gateway API v1.6.0, TCPRoute and UDPRoute are part of the standard CRD installation. Experimental CRD installation is no longer required for L4 routes.
 
 For the ALB Gateway controller (Layer 7) to be enabled, ensure the following CRDs are installed:
 `Gateway`, `GatewayClass`, `HTTPRoute`, `GRPCRoute`, and the AWS vended CRDs: `TargetGroupConfiguration`, `LoadBalancerConfiguration`, `ListenerRuleConfiguration`
