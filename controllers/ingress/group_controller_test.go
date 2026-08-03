@@ -331,13 +331,13 @@ func Test_updateIngressStatus(t *testing.T) {
 			wantHostnames:  []string{nlbDNS},
 		},
 		{
-			name: "frontend-nlb-status-only=true but no NLB DNS: falls back to ALB",
+			name: "frontend-nlb-status-only=true but no NLB DNS: status left empty to avoid transient ALB record",
 			annotations: map[string]string{
 				"alb.ingress.kubernetes.io/frontend-nlb-status-only": "true",
 			},
 			lbDNS:          albDNS,
 			frontendNlbDNS: "",
-			wantHostnames:  []string{albDNS},
+			wantHostnames:  nil,
 		},
 		{
 			name: "frontend-nlb-status-only=false: ALB first then NLB",

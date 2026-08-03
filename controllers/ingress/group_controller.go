@@ -313,15 +313,17 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 	r.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixFrontendNlbStatusOnly, &frontendNlbStatusOnly, ing.Annotations)
 
 	ingOld := ing.DeepCopy()
-	if frontendNlbStatusOnly && frontendNlbDNS != "" {
-		// Only write the NLB hostname to status. When using ExternalDNS on AWS,
-		// only the first status entry gets a DNS record, which would be the ALB,
-		// not the NLB that clients should actually reach.
-		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
-			ing.Status.LoadBalancer.Ingress[0].Hostname != frontendNlbDNS {
-			ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
-				{Hostname: frontendNlbDNS},
+	if frontendNlbStatusOnly {
+		if frontendNlbDNS != "" {
+			if len(ing.Status.LoadBalancer.Ingress) != 1 ||
+				ing.Status.LoadBalancer.Ingress[0].Hostname != frontendNlbDNS {
+				ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
+					{Hostname: frontendNlbDNS},
+				}
 			}
+		} else {
+			// NLB not yet provisioned or failed to provision. Status is empty to avoid
+			// a transient DNS record pointing at the ALB that will be replaced later anyways.
 		}
 	} else {
 		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
