@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strconv"
 
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
@@ -155,9 +156,31 @@ func (t *defaultModelBuildTask) validateEIPAllocations(eipAllocationsList [][]st
 	return []string{}, nil
 }
 
+func (t *defaultModelBuildTask) validatePrivateIPv4Addresses(privateIPv4AddressesList [][]string, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
+	if len(privateIPv4AddressesList) != 0 {
+		if scheme != elbv2model.LoadBalancerSchemeInternal {
+			return nil, errors.Errorf("private IPv4 addresses can only be set for internal load balancers")
+		}
+		chosenPrivateIPv4Addresses := privateIPv4AddressesList[0]
+		for _, privateIPv4Addresses := range privateIPv4AddressesList[1:] {
+			if !cmp.Equal(chosenPrivateIPv4Addresses, privateIPv4Addresses, equality.IgnoreStringSliceOrder()) {
+				return nil, errors.Errorf("all private IPv4 addresses for the ingress group must be the same: %v | %v", chosenPrivateIPv4Addresses, privateIPv4Addresses)
+			}
+		}
+		for _, ip := range chosenPrivateIPv4Addresses {
+			if net.ParseIP(ip) == nil || net.ParseIP(ip).To4() == nil {
+				return nil, errors.Errorf("invalid private IPv4 address: %s", ip)
+			}
+		}
+		return chosenPrivateIPv4Addresses, nil
+	}
+	return []string{}, nil
+}
+
 func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetNameOrIDsList [][]string
 	var eipAllocationsList [][]string
+	var privateIPv4AddressesList [][]string
 	// Read annotations
 	for _, member := range t.ingGroup.Members {
 		var rawSubnetNameOrIDs []string
@@ -168,6 +191,15 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAllocations, &rawEIP, member.Ing.Annotations); exists {
 			eipAllocationsList = append(eipAllocationsList, rawEIP)
 		}
+		var rawPrivateIPv4 []string
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbPrivateIPv4Addresses, &rawPrivateIPv4, member.Ing.Annotations); exists {
+			privateIPv4AddressesList = append(privateIPv4AddressesList, rawPrivateIPv4)
+		}
+	}
+
+	// EIP and private IPv4 are mutually exclusive — check before individual validation
+	if len(eipAllocationsList) != 0 && len(privateIPv4AddressesList) != 0 {
+		return nil, errors.Errorf("EIP allocations and private IPv4 addresses are mutually exclusive")
 	}
 
 	chosenSubnets, err := t.validateAndResolveSubnets(ctx, explicitSubnetNameOrIDsList, scheme, ipAddressType)
@@ -180,18 +212,30 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		return nil, err
 	}
 
+	chosenPrivateIPv4Addresses, err := t.validatePrivateIPv4Addresses(privateIPv4AddressesList, scheme)
+	if err != nil {
+		return nil, err
+	}
+
 	// Construct subnet mapping
 	if len(chosenEipAllocations) != 0 {
 		if len(chosenEipAllocations) != len(chosenSubnets) {
 			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(chosenSubnets))
 		}
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations, []string{}), nil
 	}
 
-	return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}), nil
+	if len(chosenPrivateIPv4Addresses) != 0 {
+		if len(chosenPrivateIPv4Addresses) != len(chosenSubnets) {
+			return nil, errors.Errorf("count of private IPv4 addresses (%d) and subnets (%d) must match", len(chosenPrivateIPv4Addresses), len(chosenSubnets))
+		}
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}, chosenPrivateIPv4Addresses), nil
+	}
+
+	return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}, []string{}), nil
 }
 
-func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string) []elbv2model.SubnetMapping {
+func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string, privateIPv4Addresses []string) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
 	for idx, subnet := range subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
@@ -199,6 +243,9 @@ func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAll
 		})
 		if len(eipAllocation) > 0 {
 			subnetMappings[idx].AllocationID = awssdk.String(eipAllocation[idx])
+		}
+		if len(privateIPv4Addresses) > 0 {
+			subnetMappings[idx].PrivateIPv4Address = awssdk.String(privateIPv4Addresses[idx])
 		}
 	}
 
