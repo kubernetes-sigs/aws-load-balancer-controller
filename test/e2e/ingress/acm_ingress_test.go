@@ -174,6 +174,11 @@ var _ = Describe("certificate management ingress tests", func() {
 				"alb.ingress.kubernetes.io/listen-ports":    `[{"HTTP": 80}, {"HTTPS": 443}]`,
 				"alb.ingress.kubernetes.io/create-acm-cert": "true",
 			}
+
+			if tf.Options.IPFamily == framework.IPv6 {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+
 			ing := ingBuilder.
 				AddHTTPRoute(wildcardHost, networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				AddHTTPRoute(tf.Options.Route53ValidationDomain, networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
