@@ -180,3 +180,42 @@ This support exists for all route types managed by the controller.
 
 
 
+
+## Security: Multi-Tenant Route Attachment
+
+When configuring `AllowedRoutes.Namespaces.From` on a Gateway listener, understand the trust implications of each setting:
+
+| Value | Meaning | Trust level |
+|-------|---------|-------------|
+| `Same` (default) | Only routes in the Gateway's own namespace can attach | **Restrictive** — single-tenant or admin-controlled |
+| `Selector` | Only routes in namespaces matching the label selector can attach | **Scoped** — multi-tenant with explicit allow-list |
+| `All` | Routes from **any** namespace in the cluster can attach | **Permissive** — any namespace can influence routing |
+
+!!! warning "Security implications of `From: All`"
+    Setting `AllowedRoutes.Namespaces.From: All` means **any namespace in the cluster can attach routes to your listener**. Once a namespace is authorized to attach routes, it can influence routing decisions on the ALB provisioned by this Gateway.
+
+### Recommendations for multi-tenant environments
+
+1. **Use `From: Same` (default) for single-tenant or admin-controlled Gateways.** This is the safest option and requires no additional consideration.
+
+2. **Use `From: Selector` to scope access to trusted namespaces only.** Label the namespaces you trust and use a selector to restrict route attachment:
+    ```yaml
+    listeners:
+      - name: https
+        protocol: HTTPS
+        port: 443
+        allowedRoutes:
+          namespaces:
+            from: Selector
+            selector:
+              matchLabels:
+                gateway-access: "trusted"
+    ```
+
+3. **Use `From: All` only when you trust all namespaces equally.** This is appropriate when:
+    - All namespaces are managed by the same team
+    - You have other controls in place (RBAC restricting who can create HTTPRoute/GRPCRoute objects)
+    - You accept that any authorized namespace can influence routing priority
+
+!!! note "Default behavior"
+    If `allowedRoutes` is not specified, the Gateway API defaults to `From: Same`, which only permits routes from the Gateway's own namespace.
