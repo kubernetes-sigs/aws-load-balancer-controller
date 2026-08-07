@@ -14,6 +14,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -190,15 +191,18 @@ type gatewayReconciler struct {
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
-	err := r.reconcileHelper(ctx, req)
-	return runtime.HandleReconcileError(err, r.logger)
+	return runtime.HandleReconcileErrorWithCondition(r.reconcileHelper(ctx, req), r.controllerName, req, r.metricsCollector, r.logger)
 }
 
 func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.Request) error {
 
 	gw := &gwv1.Gateway{}
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, gw); err != nil {
-		return client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			r.metricsCollector.DeleteControllerReconcileCondition(r.controllerName, req.Namespace, req.Name)
+			return nil
+		}
+		return err
 	}
 
 	r.logger.Info("Got request for reconcile", "gw", *gw)
@@ -217,6 +221,9 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 
 	if string(gwClass.Spec.ControllerName) != r.controllerName {
 		// ignore this gateway event as the gateway belongs to a different controller.
+		// drop any condition series this controller recorded for it before ownership was known,
+		// e.g. from a transient fetch error on an earlier reconcile.
+		r.metricsCollector.DeleteControllerReconcileCondition(r.controllerName, gw.Namespace, gw.Name)
 		return nil
 	}
 
@@ -284,7 +291,12 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		if k8s.HasFinalizer(gw, r.finalizer) {
 			r.logger.Info("Ignoring dry-run annotation on already-provisioned Gateway", "gateway", k8s.NamespacedName(gw))
 		} else {
-			return r.reconcileDryRun(ctx, gw, stack)
+			if err := r.reconcileDryRun(ctx, gw, stack); err != nil {
+				return err
+			}
+			// a successful dry-run pass must clear a previously failing condition
+			r.metricsCollector.ObserveControllerReconcileCondition(r.controllerName, gw.Namespace, gw.Name, true)
+			return nil
 		}
 	}
 
@@ -314,6 +326,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 			r.logger.Error(err, "Failed to process gateway delete")
 			return err
 		}
+		r.metricsCollector.DeleteControllerReconcileCondition(r.controllerName, gw.Namespace, gw.Name)
 		return nil
 	}
 	r.serviceReferenceCounter.UpdateRelations(getServicesFromRoutes(allRoutes), k8s.NamespacedName(gw), false)
@@ -376,6 +389,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 		return err
 	}
 	r.eventRecorder.Event(gw, corev1.EventTypeNormal, k8s.GatewayEventReasonSuccessfullyReconciled, "Successfully reconciled")
+	r.metricsCollector.ObserveControllerReconcileCondition(r.controllerName, gw.Namespace, gw.Name, true)
 	return nil
 }
 
