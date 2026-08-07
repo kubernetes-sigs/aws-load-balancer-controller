@@ -196,6 +196,7 @@ func main() {
 		controllerCFG.FeatureGates.Enabled(config.ALBSingleSubnet),
 		controllerCFG.FeatureGates.Enabled(config.SubnetDiscoveryByReachability),
 		ctrl.Log.WithName("subnets-resolver"))
+	eipResolver := networking.NewDefaultEIPResolver(cloud.EC2())
 	multiClusterManager := targetgroupbinding.NewMultiClusterManager(mgr.GetClient(), mgr.GetAPIReader(), ctrl.Log)
 
 	nodeInfoProvider := networking.NewDefaultNodeInfoProvider(cloud.EC2(), ctrl.Log)
@@ -221,7 +222,7 @@ func main() {
 		controllerCFG, backendSGProvider, sgResolver, secretsManager, ctrl.Log.WithName("controllers").WithName("ingress"), lbcMetricsCollector, reconcileCounters,
 		targetGroupCollector, tgArnMapper)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
-		finalizerManager, networkingManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
+		finalizerManager, networkingManager, sgManager, sgReconciler, subnetResolver, eipResolver, vpcInfoProvider, elbv2TaggingManager,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"), lbcMetricsCollector, reconcileCounters,
 		targetGroupCollector)
 

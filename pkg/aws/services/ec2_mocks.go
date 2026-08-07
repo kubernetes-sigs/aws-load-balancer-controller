@@ -111,6 +111,21 @@ func (mr *MockEC2MockRecorder) DeleteTagsWithContext(arg0, arg1 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTagsWithContext", reflect.TypeOf((*MockEC2)(nil).DeleteTagsWithContext), arg0, arg1)
 }
 
+// DescribeAddressesAsList mocks base method.
+func (m *MockEC2) DescribeAddressesAsList(arg0 context.Context, arg1 *ec2.DescribeAddressesInput) ([]types.Address, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeAddressesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]types.Address)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeAddressesAsList indicates an expected call of DescribeAddressesAsList.
+func (mr *MockEC2MockRecorder) DescribeAddressesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAddressesAsList", reflect.TypeOf((*MockEC2)(nil).DescribeAddressesAsList), arg0, arg1)
+}
+
 // DescribeAvailabilityZonesWithContext mocks base method.
 func (m *MockEC2) DescribeAvailabilityZonesWithContext(arg0 context.Context, arg1 *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {
 	m.ctrl.T.Helper()
