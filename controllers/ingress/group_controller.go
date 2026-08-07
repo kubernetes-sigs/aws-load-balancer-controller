@@ -90,7 +90,9 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		stackMarshaller:   stackMarshaller,
 		stackDeployer:     stackDeployer,
 		backendSGProvider: backendSGProvider,
-		secretsManager:    secretsManager,
+
+		secretsManager:   secretsManager,
+		annotationParser: annotationParser,
 
 		groupLoader:           groupLoader,
 		groupFinalizerManager: groupFinalizerManager,
@@ -114,6 +116,7 @@ type groupReconciler struct {
 	stackDeployer     deploy.StackDeployer
 	backendSGProvider networkingpkg.BackendSGProvider
 	secretsManager    k8s.SecretsManager
+	annotationParser  annotations.Parser
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
@@ -306,25 +309,41 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		}
 	}
 
-	ingOld := ing.DeepCopy()
-	if len(ing.Status.LoadBalancer.Ingress) != 1 ||
-		ing.Status.LoadBalancer.Ingress[0].IP != "" ||
-		ing.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
-		ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
-			{
-				Hostname: lbDNS,
-				Ports:    ingressPorts,
-			},
-		}
-	} else if len(ports) > 0 {
-		ing.Status.LoadBalancer.Ingress[0].Ports = ingressPorts
-	}
+	frontendNlbStatusOnly := false
+	r.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixFrontendNlbStatusOnly, &frontendNlbStatusOnly, ing.Annotations)
 
-	// Ensure frontendNLBDNS is appended if it is not already added
-	if frontendNlbDNS != "" && !hasFrontendNlbHostName(ing.Status.LoadBalancer.Ingress, frontendNlbDNS) {
-		ing.Status.LoadBalancer.Ingress = append(ing.Status.LoadBalancer.Ingress, networking.IngressLoadBalancerIngress{
-			Hostname: frontendNlbDNS,
-		})
+	ingOld := ing.DeepCopy()
+	if frontendNlbStatusOnly && frontendNlbDNS != "" {
+		// Only write the NLB hostname to status. When using ExternalDNS on AWS,
+		// only the first status entry gets a DNS record. Writing only the NLB hostname
+		// ensures ExternalDNS creates a record pointing at the NLB, not the ALB.
+		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
+			ing.Status.LoadBalancer.Ingress[0].Hostname != frontendNlbDNS {
+			ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
+				{Hostname: frontendNlbDNS},
+			}
+		}
+		// In case frontendNlbStatusOnly && frontendNlbDNS == "" nothing gets applied until the NLB is provisioned
+	} else if !frontendNlbStatusOnly {
+		if len(ing.Status.LoadBalancer.Ingress) != 1 ||
+			ing.Status.LoadBalancer.Ingress[0].IP != "" ||
+			ing.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
+			ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
+				{
+					Hostname: lbDNS,
+					Ports:    ingressPorts,
+				},
+			}
+		} else if len(ports) > 0 {
+			ing.Status.LoadBalancer.Ingress[0].Ports = ingressPorts
+		}
+
+		// Ensure frontendNLBDNS is appended if it is not already added
+		if frontendNlbDNS != "" && !hasFrontendNlbHostName(ing.Status.LoadBalancer.Ingress, frontendNlbDNS) {
+			ing.Status.LoadBalancer.Ingress = append(ing.Status.LoadBalancer.Ingress, networking.IngressLoadBalancerIngress{
+				Hostname: frontendNlbDNS,
+			})
+		}
 	}
 
 	if !isIngressStatusEqual(ingOld.Status.LoadBalancer.Ingress, ing.Status.LoadBalancer.Ingress) {
