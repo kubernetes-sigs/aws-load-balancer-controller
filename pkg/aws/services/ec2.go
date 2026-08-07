@@ -28,6 +28,9 @@ type EC2 interface {
 	// DescribeRouteTablesAsList wraps the DescribeRouteTablesWithContext API, which aggregates paged results into list.
 	DescribeRouteTablesAsList(ctx context.Context, input *ec2.DescribeRouteTablesInput) ([]types.RouteTable, error)
 
+	// DescribeAddressesAsList wraps the DescribeAddresses API, which aggregates paged results into list.
+	DescribeAddressesAsList(ctx context.Context, input *ec2.DescribeAddressesInput) ([]types.Address, error)
+
 	CreateTagsWithContext(ctx context.Context, input *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
 	DeleteTagsWithContext(ctx context.Context, input *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error)
 	CreateSecurityGroupWithContext(ctx context.Context, input *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
@@ -160,6 +163,18 @@ func (c *ec2Client) DescribeRouteTablesAsList(ctx context.Context, input *ec2.De
 		result = append(result, output.RouteTables...)
 	}
 	return result, nil
+}
+
+func (c *ec2Client) DescribeAddressesAsList(ctx context.Context, input *ec2.DescribeAddressesInput) ([]types.Address, error) {
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeAddresses")
+	if err != nil {
+		return nil, err
+	}
+	output, err := client.DescribeAddresses(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return output.Addresses, nil
 }
 
 func (c *ec2Client) CreateTagsWithContext(ctx context.Context, input *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
