@@ -829,10 +829,38 @@ func Test_buildTargetGroupName(t *testing.T) {
 				targetControlPort = tc.targetGroupProps.TargetControlPort
 			}
 
-			result := builder.buildTargetGroupName(tc.targetGroupProps, gwKey, routeKey, routeutils.HTTPRouteKind, svcKey, 80, elbv2model.TargetTypeIP, elbv2model.ProtocolTCP, tc.protocolVersion, targetControlPort)
+			result := builder.buildTargetGroupName(tc.targetGroupProps, gwKey, routeKey, routeutils.HTTPRouteKind, svcKey, 80, intstr.FromInt32(80), elbv2model.TargetTypeIP, elbv2model.ProtocolTCP, tc.protocolVersion, targetControlPort)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+// Multiple named targetPorts on one Service must not share a target group name,
+// while numeric ports must keep their previous names.
+func Test_buildTargetGroupName_namedPortUniqueness(t *testing.T) {
+	clusterName := "foo"
+	gwKey := types.NamespacedName{Namespace: "my-ns", Name: "my-gw"}
+	routeKey := types.NamespacedName{Namespace: "my-ns", Name: "my-route"}
+	svcKey := types.NamespacedName{Namespace: "my-ns", Name: "my-svc"}
+	builder := targetGroupBuilderImpl{clusterName: clusterName}
+
+	nameFor := func(tgPort int32, identifierPort intstr.IntOrString, targetType elbv2model.TargetType) string {
+		return builder.buildTargetGroupName(nil, gwKey, routeKey, routeutils.HTTPRouteKind, svcKey, tgPort, identifierPort, targetType, elbv2model.ProtocolTCP, nil, nil)
+	}
+
+	// Named ports both collapse to tgPort 1 for IP targets, but must stay unique.
+	first := nameFor(1, intstr.FromString("web"), elbv2model.TargetTypeIP)
+	second := nameFor(1, intstr.FromString("metrics"), elbv2model.TargetTypeIP)
+	assert.NotEqual(t, first, second, "named targetPorts must produce distinct target group names")
+
+	// Numeric IP targets keep their historical name.
+	assert.Equal(t, "k8s-myns-myroute-27d98b9190", nameFor(80, intstr.FromInt32(80), elbv2model.TargetTypeIP))
+
+	// Instance targets hash the NodePort, so the identifier port is irrelevant.
+	assert.Equal(t,
+		nameFor(31000, intstr.FromInt32(80), elbv2model.TargetTypeInstance),
+		nameFor(31000, intstr.FromString("http"), elbv2model.TargetTypeInstance),
+		"instance target names must be independent of the identifier port")
 }
 
 func Test_buildTargetGroupIPAddressType(t *testing.T) {
