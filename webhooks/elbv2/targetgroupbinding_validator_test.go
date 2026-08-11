@@ -1829,6 +1829,46 @@ func TestCheckAssumeRoleConfig(t *testing.T) {
 			},
 			err: errors.New("Unable to use instance target type while using assume role"),
 		},
+		{
+			name: "ip with pod availability zone and assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:                             &ip,
+					IamRoleArnToAssume:                     "foo",
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(true),
+				},
+			},
+		},
+		{
+			name: "ip with pod availability zone but no assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:                             &ip,
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(true),
+				},
+			},
+			err: errors.New("Unable to use registerTargetsWithPodAvailabilityZone without assume role"),
+		},
+		{
+			name: "ip with pod availability zone explicitly false and no assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:                             &ip,
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(false),
+				},
+			},
+		},
+		{
+			name: "instance with pod availability zone and assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:                             &instance,
+					IamRoleArnToAssume:                     "foo",
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(true),
+				},
+			},
+			err: errors.New("Unable to use instance target type while using assume role"),
+		},
 	}
 
 	for _, tc := range testCases {

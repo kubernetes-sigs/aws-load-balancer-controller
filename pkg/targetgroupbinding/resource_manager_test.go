@@ -2,6 +2,7 @@ package targetgroupbinding
 
 import (
 	"context"
+	"errors"
 	"net/netip"
 	"sync"
 	"testing"
@@ -1142,14 +1143,29 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 
 	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
 
+	crossAccountRoleArn := "arn:aws:iam::123456789012:role/MyRole"
+	podEndpoints := []backend.PodEndpoint{
+		{
+			IP:   "172.16.0.1",
+			Port: 8080,
+			Pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+				NodeName: "node-1",
+			},
+		},
+	}
+
 	tests := []struct {
-		name         string
-		endpoints    []backend.PodEndpoint
-		tgb          *elbv2api.TargetGroupBinding
-		doAzOverride func(addr netip.Addr) bool
-		usePodAZ     bool
-		wantTargets  []elbv2types.TargetDescription
-		wantErr      bool
+		name              string
+		endpoints         []backend.PodEndpoint
+		tgb               *elbv2api.TargetGroupBinding
+		doAzOverride      func(addr netip.Addr) bool
+		usePodAZ          bool
+		translatedAZ      *string
+		translationErr    error
+		wantTranslateCall bool
+		wantTargets       []elbv2types.TargetDescription
+		wantErr           bool
 	}{
 		{
 			name: "usePodAZ=false, doAzOverride=true - should use 'all'",
@@ -1226,20 +1242,11 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 			},
 		},
 		{
-			name: "usePodAZ=true with cross-account - should use 'all'",
-			endpoints: []backend.PodEndpoint{
-				{
-					IP:   "172.16.0.1",
-					Port: 8080,
-					Pod: k8s.PodInfo{
-						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
-						NodeName: "node-1",
-					},
-				},
-			},
+			name:      "cross-account without registerTargetsWithPodAvailabilityZone - should use 'all'",
+			endpoints: podEndpoints,
 			tgb: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					IamRoleArnToAssume: "arn:aws:iam::123456789012:role/MyRole",
+					IamRoleArnToAssume: crossAccountRoleArn,
 				},
 			},
 			doAzOverride: func(addr netip.Addr) bool { return true },
@@ -1252,13 +1259,88 @@ func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:      "cross-account with registerTargetsWithPodAvailabilityZone - should use translated AZ",
+			endpoints: podEndpoints,
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					IamRoleArnToAssume:                     crossAccountRoleArn,
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(true),
+				},
+			},
+			doAzOverride:      func(addr netip.Addr) bool { return true },
+			usePodAZ:          false,
+			translatedAZ:      awssdk.String("us-east-1c"),
+			wantTranslateCall: true,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:               awssdk.String("172.16.0.1"),
+					Port:             awssdk.Int32(8080),
+					AvailabilityZone: awssdk.String("us-east-1c"),
+				},
+			},
+		},
+		{
+			name:      "cross-account with unresolvable AZ - should use 'all'",
+			endpoints: podEndpoints,
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					IamRoleArnToAssume:                     crossAccountRoleArn,
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(true),
+				},
+			},
+			doAzOverride:      func(addr netip.Addr) bool { return true },
+			translatedAZ:      nil,
+			wantTranslateCall: true,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:               awssdk.String("172.16.0.1"),
+					Port:             awssdk.Int32(8080),
+					AvailabilityZone: awssdk.String("all"),
+				},
+			},
+		},
+		{
+			name:      "cross-account with translation error - should use 'all'",
+			endpoints: podEndpoints,
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					IamRoleArnToAssume:                     crossAccountRoleArn,
+					RegisterTargetsWithPodAvailabilityZone: awssdk.Bool(true),
+				},
+			},
+			doAzOverride:      func(addr netip.Addr) bool { return true },
+			translationErr:    errors.New("AccessDenied: ec2:DescribeAvailabilityZones"),
+			wantTranslateCall: true,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:               awssdk.String("172.16.0.1"),
+					Port:             awssdk.Int32(8080),
+					AvailabilityZone: awssdk.String("all"),
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockAZIDTranslator := networking.NewMockAZIDTranslator(ctrl)
+			if tt.wantTranslateCall {
+				mockAZIDTranslator.EXPECT().
+					TranslateAZName(gomock.Any(), crossAccountRoleArn, gomock.Any(), "us-east-1a").
+					Return(tt.translatedAZ, tt.translationErr).
+					Times(1)
+			} else {
+				mockAZIDTranslator.EXPECT().TranslateAZName(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+			}
+
 			m := &defaultResourceManager{
 				k8sClient:        k8sClient,
 				logger:           logr.New(&log.NullLogSink{}),
+				azIDTranslator:   mockAZIDTranslator,
 				nodeAZCache:      cache.NewExpiring(),
 				nodeAZCacheTTL:   60 * time.Minute,
 				nodeAZCacheMutex: sync.RWMutex{},

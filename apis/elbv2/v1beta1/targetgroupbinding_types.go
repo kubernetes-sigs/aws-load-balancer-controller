@@ -171,6 +171,13 @@ type TargetGroupBindingSpec struct {
 	// IAM Role ARN to assume when calling AWS APIs. Needed to assume a role in another account and prevent the confused deputy problem. https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
 	// +optional
 	AssumeRoleExternalId string `json:"assumeRoleExternalId,omitempty"`
+
+	// registerTargetsWithPodAvailabilityZone specifies whether cross-account targets are registered with the
+	// availability zone of the pod's node instead of "all". Requires iamRoleArnToAssume. Enables in-AZ routing
+	// when cross-zone load balancing is disabled. Availability zone names are translated across accounts using
+	// availability zone IDs, so the assumed role requires ec2:DescribeAvailabilityZones.
+	// +optional
+	RegisterTargetsWithPodAvailabilityZone *bool `json:"registerTargetsWithPodAvailabilityZone,omitempty"`
 }
 
 // TargetGroupBindingStatus defines the observed state of TargetGroupBinding

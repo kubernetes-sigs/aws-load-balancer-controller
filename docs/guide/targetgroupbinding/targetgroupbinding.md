@@ -133,6 +133,7 @@ Use this feature when you need to manage TargetGroups in a different AWS account
 **Spec fields:**
 * `iamRoleArnToAssume`: The ARN of the role in the TGO account that the controller will assume
 * `assumeRoleExternalId`: External ID for the assume role operation (optional but recommended to prevent the [confused deputy problem](https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html))
+* `registerTargetsWithPodAvailabilityZone`: Register cross-account IP targets with the availability zone of the pod's node instead of `all`. See [Availability zones for cross-account targets](#availability-zones-for-cross-account-targets). Requires `iamRoleArnToAssume`.
 
 
 ### Sample YAML
@@ -233,6 +234,41 @@ Add the following permission to the AWS Load Balancer Controller's IAM role. Thi
     "Resource": "*"
 }
 ```
+
+### Availability zones for cross-account targets
+
+By default, cross-account IP targets are registered with `AvailabilityZone: all`. Every zonal node of
+the load balancer can then forward to every target, so turning off cross-zone load balancing has no
+effect and inter-AZ data transfer charges are unavoidable.
+
+Set `registerTargetsWithPodAvailabilityZone: true` to register each target with the availability zone
+of the node its pod runs on. With cross-zone load balancing disabled, a zonal load balancer node then
+only forwards to targets in its own zone.
+
+Availability zone *names* are randomized per AWS account — `us-west-2a` in the CO account is usually a
+different physical zone than `us-west-2a` in the TGO account. Availability zone *IDs* (for example
+`usw2-az1`) are stable, so the controller resolves the pod's zone name to a zone ID in the CO account
+and then back to the matching zone name in the TGO account. Both lookups use
+`ec2:DescribeAvailabilityZones`, so the TGO role from Step 2 needs it:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "ec2:DescribeAvailabilityZones"
+  ],
+  "Resource": "*"
+}
+```
+
+!!!note ""
+    The zone must be one the load balancer has a subnet in. If a cluster runs nodes in a zone the load
+    balancer does not use, registration is rejected and the TargetGroupBinding reports an error.
+
+!!!note ""
+    If the zone cannot be translated — for instance when the TGO role is missing
+    `ec2:DescribeAvailabilityZones` — the controller logs the failure and falls back to
+    `AvailabilityZone: all` rather than failing registration.
 
 
 ## MultiCluster TargetGroup

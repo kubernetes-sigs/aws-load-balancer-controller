@@ -45,7 +45,8 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2,
 	podInfoRepo k8s.PodInfoRepo, networkingManager networking.NetworkingManager,
-	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
+	vpcInfoProvider networking.VPCInfoProvider, azIDTranslator networking.AZIDTranslator,
+	multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
 	vpcID string, failOpenEnabled bool, endpointSliceEnabled bool,
 	eventRecorder record.EventRecorder, logger logr.Logger, maxTargetsPerTargetGroup int, requeueDuration time.Duration) *defaultResourceManager {
 
@@ -60,6 +61,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		logger:                   logger,
 		vpcID:                    vpcID,
 		vpcInfoProvider:          vpcInfoProvider,
+		azIDTranslator:           azIDTranslator,
 		podInfoRepo:              podInfoRepo,
 		maxTargetsPerTargetGroup: maxTargetsPerTargetGroup,
 		multiClusterManager:      multiClusterManager,
@@ -89,6 +91,7 @@ type defaultResourceManager struct {
 	eventRecorder            record.EventRecorder
 	logger                   logr.Logger
 	vpcInfoProvider          networking.VPCInfoProvider
+	azIDTranslator           networking.AZIDTranslator
 	podInfoRepo              k8s.PodInfoRepo
 	maxTargetsPerTargetGroup int
 	multiClusterManager      MultiClusterManager
@@ -621,6 +624,9 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 
 func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, usePodAZ bool) ([]elbv2types.TargetDescription, error) {
 	usingCrossAccount := tgb.Spec.IamRoleArnToAssume != ""
+	// Cross-account pod AZs require an explicit opt-in, since the translation into the target group
+	// owner's account needs ec2:DescribeAvailabilityZones on the assumed role.
+	usePodAZForCrossAccount := usingCrossAccount && awssdk.ToBool(tgb.Spec.RegisterTargetsWithPodAvailabilityZone)
 
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
@@ -633,8 +639,8 @@ func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, en
 			return sdkTargets, err
 		}
 		if doAzOverride(podIP) {
-			if usePodAZ && !usingCrossAccount {
-				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
+			if (usePodAZ && !usingCrossAccount) || usePodAZForCrossAccount {
+				az, err := m.resolveTargetAvailabilityZone(ctx, tgb, endpoint.Pod, usingCrossAccount)
 				if err != nil {
 					return sdkTargets, err
 				}
@@ -917,6 +923,30 @@ func isAZValidationError(err error) bool {
 		return isMatch
 	}
 	return false
+}
+
+// resolveTargetAvailabilityZone returns the availability zone to register a pod's target with, or nil
+// when it cannot be determined and the caller should fall back to "all".
+// For cross-account target groups the pod's zone name is translated into the target group owner's
+// account, since zone names are randomized per account while zone IDs are not.
+func (m *defaultResourceManager) resolveTargetAvailabilityZone(ctx context.Context, tgb *elbv2api.TargetGroupBinding, pod k8s.PodInfo, usingCrossAccount bool) (*string, error) {
+	podAZ, err := m.getPodAvailabilityZone(ctx, pod)
+	if err != nil || podAZ == nil {
+		return nil, err
+	}
+	if !usingCrossAccount {
+		return podAZ, nil
+	}
+
+	translatedAZ, err := m.azIDTranslator.TranslateAZName(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId, *podAZ)
+	if err != nil {
+		// Registering with "all" keeps traffic flowing when the assumed role lacks
+		// ec2:DescribeAvailabilityZones, at the cost of cross-zone traffic.
+		m.logger.Error(err, "Failed to translate pod AZ for cross-account target group, falling back to 'all'",
+			"pod", pod.Key, "podAZ", *podAZ)
+		return nil, nil
+	}
+	return translatedAZ, nil
 }
 
 func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) (*string, error) {

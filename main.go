@@ -206,8 +206,9 @@ func main() {
 
 	tgArnMapper := shared_utils.NewTargetGroupNameToArnMapper(cloud.ELBV2())
 
+	azIDTranslator := networking.NewDefaultAZIDTranslator(cloud.EC2(), ctrl.Log.WithName("az-id-translator"))
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
-		podInfoRepo, networkingManager, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
+		podInfoRepo, networkingManager, vpcInfoProvider, azIDTranslator, multiClusterManager, lbcMetricsCollector,
 		cloud.VpcID(), controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices,
 		mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log, controllerCFG.MaxTargetsPerTargetGroup, controllerCFG.TargetGroupBindingRequeueDuration)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
