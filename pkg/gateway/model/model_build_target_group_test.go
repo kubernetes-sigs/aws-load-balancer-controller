@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +22,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_buildTargetGroupSpec(t *testing.T) {
@@ -849,9 +850,16 @@ func Test_buildTargetGroupName_namedPortUniqueness(t *testing.T) {
 	}
 
 	// Named ports both collapse to tgPort 1 for IP targets, but must stay unique.
-	first := nameFor(1, intstr.FromString("web"), elbv2model.TargetTypeIP)
-	second := nameFor(1, intstr.FromString("metrics"), elbv2model.TargetTypeIP)
-	assert.NotEqual(t, first, second, "named targetPorts must produce distinct target group names")
+	assert.NotEqual(t,
+		nameFor(1, intstr.FromString("web"), elbv2model.TargetTypeIP),
+		nameFor(1, intstr.FromString("metrics"), elbv2model.TargetTypeIP),
+		"named targetPorts must produce distinct target group names")
+
+	// Non-Instance names hash the identifier port, not the resolved tgPort.
+	assert.Equal(t,
+		nameFor(1, intstr.FromString("web"), elbv2model.TargetTypeIP),
+		nameFor(999, intstr.FromString("web"), elbv2model.TargetTypeIP),
+		"non-instance target names must ignore the resolved tgPort")
 
 	// Numeric IP targets keep their historical name.
 	assert.Equal(t, "k8s-myns-myroute-27d98b9190", nameFor(80, intstr.FromInt32(80), elbv2model.TargetTypeIP))
