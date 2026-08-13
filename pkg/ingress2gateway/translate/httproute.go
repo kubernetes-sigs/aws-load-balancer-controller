@@ -462,7 +462,7 @@ func lookupNamedPort(namespace, svcName, portName string, servicesByKey map[stri
 func newHTTPRoute(name, namespace string, parentRefs []gwv1.ParentReference, hostnames []gwv1.Hostname, rules []gwv1.HTTPRouteRule) gwv1.HTTPRoute {
 	return gwv1.HTTPRoute{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: gwconstants.ALBRouteResourceGroupVersion,
+			APIVersion: gwconstants.GatewayResourceGroupVersion,
 			Kind:       sharedconstants.HTTPRouteKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
