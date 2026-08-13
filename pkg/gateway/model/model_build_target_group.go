@@ -283,11 +283,12 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgPort := backendConfig.GetTargetGroupPort(targetType)
+	identifierPort := backendConfig.GetIdentifierPort()
 	targetControlPort, err := builder.buildTargetControlPort(targetGroupProps, tgProtocol, targetType)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), backendConfig.GetBackendNamespacedName(), tgPort, targetType, tgProtocol, tgProtocolVersion, targetControlPort)
+	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), backendConfig.GetBackendNamespacedName(), tgPort, identifierPort, targetType, tgProtocol, tgProtocolVersion, targetControlPort)
 
 	if tgPort == 0 {
 		if targetType == elbv2model.TargetTypeIP {
@@ -313,10 +314,18 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 // buildTargetGroupName will calculate the targetGroup's name.
 func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *elbv2gw.TargetGroupProps,
 	gwKey types.NamespacedName, routeKey types.NamespacedName, routeKind routeutils.RouteKind, svcKey types.NamespacedName, tgPort int32,
-	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion, targetControlPort *int32) string {
+	identifierPort intstr.IntOrString, targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion, targetControlPort *int32) string {
 
 	if targetGroupProps != nil && targetGroupProps.TargetGroupName != nil {
 		return *targetGroupProps.TargetGroupName
+	}
+
+	// Named targetPorts collapse to a constant tgPort for IP targets, so hash the
+	// per-backend identifier port to keep sibling names unique. Numeric ports stay
+	// stable (String() == itoa(tgPort)); Instance targets keep hashing the NodePort.
+	portHashInput := strconv.Itoa(int(tgPort))
+	if targetType != elbv2model.TargetTypeInstance {
+		portHashInput = identifierPort.String()
 	}
 
 	uuidHash := sha256.New()
@@ -328,7 +337,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	_, _ = uuidHash.Write([]byte(routeKind))
 	_, _ = uuidHash.Write([]byte(svcKey.Namespace))
 	_, _ = uuidHash.Write([]byte(svcKey.Name))
-	_, _ = uuidHash.Write([]byte(strconv.Itoa(int(tgPort))))
+	_, _ = uuidHash.Write([]byte(portHashInput))
 	_, _ = uuidHash.Write([]byte(targetType))
 	_, _ = uuidHash.Write([]byte(tgProtocol))
 	if tgProtocolVersion != nil {
