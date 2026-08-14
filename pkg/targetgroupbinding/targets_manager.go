@@ -22,10 +22,22 @@ const (
 	defaultNodeAZCacheTTL             = 60 * time.Minute
 )
 
+// TargetGroupTargets represents a target group binding and its targets to register.
+type TargetGroupTargets struct {
+	TGB     *elbv2api.TargetGroupBinding
+	Targets []elbv2types.TargetDescription
+}
+
 // TargetsManager is an abstraction around ELBV2's targets API.
 type TargetsManager interface {
 	// Register Targets into TargetGroup.
 	RegisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error
+
+	// RegisterTargetsInterleaved registers targets to multiple target groups in an interleaved manner.
+	// This ensures fair distribution of targets across target groups when quota limits are reached.
+	// Instead of registering all targets to TG1, then TG2, etc., it registers one target to each TG
+	// before moving to the next target, resulting in even distribution.
+	RegisterTargetsInterleaved(ctx context.Context, tgbTargets []TargetGroupTargets) error
 
 	// Deregister Targets from TargetGroup.
 	DeregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error
@@ -106,6 +118,96 @@ func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2ap
 			"targets", targetsChunk)
 		m.recordSuccessfulRegisterTargetsOperation(tgARN, targetsChunk)
 	}
+	return nil
+}
+
+// RegisterTargetsInterleaved registers targets to multiple target groups in an interleaved manner.
+// This ensures fair distribution when AWS quota limits are reached.
+// For example, with 3 target groups and targets [A, B, C], instead of:
+//   - TG1: A, B, C (then TG2, TG3 get nothing if quota exceeded)
+//
+// It registers:
+//   - TG1: A, TG2: A, TG3: A, TG1: B, TG2: B, TG3: B, ...
+//
+// This way, if quota is exceeded, all target groups have roughly equal targets.
+func (m *cachedTargetsManager) RegisterTargetsInterleaved(ctx context.Context, tgbTargets []TargetGroupTargets) error {
+	if len(tgbTargets) == 0 {
+		return nil
+	}
+
+	// If only one target group, use the standard method
+	if len(tgbTargets) == 1 {
+		return m.RegisterTargets(ctx, tgbTargets[0].TGB, tgbTargets[0].Targets)
+	}
+
+	// Find the maximum number of targets across all target groups
+	maxTargets := 0
+	for _, tgt := range tgbTargets {
+		if len(tgt.Targets) > maxTargets {
+			maxTargets = len(tgt.Targets)
+		}
+	}
+
+	// Register targets in interleaved manner, one target per TG at a time
+	// We batch up to chunkSize targets per TG before making the API call
+	// to balance between fairness and API efficiency
+	for startIdx := 0; startIdx < maxTargets; startIdx += m.registerTargetsChunkSize {
+		endIdx := startIdx + m.registerTargetsChunkSize
+		if endIdx > maxTargets {
+			endIdx = maxTargets
+		}
+
+		// For each target group, register the current chunk of targets
+		for _, tgt := range tgbTargets {
+			// Skip if this TG has fewer targets than the current index
+			if startIdx >= len(tgt.Targets) {
+				continue
+			}
+
+			// Get the chunk for this TG
+			chunkEnd := endIdx
+			if chunkEnd > len(tgt.Targets) {
+				chunkEnd = len(tgt.Targets)
+			}
+			targetsChunk := tgt.Targets[startIdx:chunkEnd]
+
+			if len(targetsChunk) == 0 {
+				continue
+			}
+
+			tgARN := tgt.TGB.Spec.TargetGroupARN
+			req := &elbv2sdk.RegisterTargetsInput{
+				TargetGroupArn: aws.String(tgARN),
+				Targets:        cloneTargetDescriptionSlice(targetsChunk),
+			}
+
+			m.logger.Info("registering targets (interleaved)",
+				"arn", tgARN,
+				"targets", targetsChunk,
+				"chunkIndex", startIdx/m.registerTargetsChunkSize)
+
+			clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgt.TGB.Spec.IamRoleArnToAssume, tgt.TGB.Spec.AssumeRoleExternalId)
+			if err != nil {
+				return err
+			}
+
+			_, err = clientToUse.RegisterTargetsWithContext(ctx, req)
+			if err != nil {
+				// Log the error but continue with other target groups to ensure fair distribution
+				m.logger.Error(err, "failed to register targets (interleaved), continuing with other target groups",
+					"arn", tgARN,
+					"targets", targetsChunk)
+				// We continue instead of returning to ensure other TGs get their fair share
+				continue
+			}
+
+			m.logger.Info("registered targets (interleaved)",
+				"arn", tgARN,
+				"targets", targetsChunk)
+			m.recordSuccessfulRegisterTargetsOperation(tgARN, targetsChunk)
+		}
+	}
+
 	return nil
 }
 

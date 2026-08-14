@@ -2336,3 +2336,527 @@ func Test_cloneTargetInfoSlice(t *testing.T) {
 		})
 	}
 }
+
+func Test_cachedTargetsManager_RegisterTargetsInterleaved(t *testing.T) {
+	type registerTargetsWithContextCall struct {
+		req  *elbv2sdk.RegisterTargetsInput
+		resp *elbv2sdk.RegisterTargetsOutput
+		err  error
+	}
+
+	type fields struct {
+		registerTargetsWithContextCalls []registerTargetsWithContextCall
+		targetsCache                    map[string][]TargetInfo
+	}
+	type args struct {
+		tgbTargets []TargetGroupTargets
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr error
+	}{
+		{
+			name: "empty target groups",
+			fields: fields{
+				registerTargetsWithContextCalls: nil,
+				targetsCache:                    nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "single target group falls back to standard registration",
+			fields: fields{
+				registerTargetsWithContextCalls: []registerTargetsWithContextCall{
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.1"),
+									Port: awssdk.Int32(8080),
+								},
+								{
+									Id:   awssdk.String("192.168.1.2"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+				},
+				targetsCache: nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{
+					{
+						TGB: makeTargetGroupBinding("tg-1"),
+						Targets: []elbv2types.TargetDescription{
+							{
+								Id:   awssdk.String("192.168.1.1"),
+								Port: awssdk.Int32(8080),
+							},
+							{
+								Id:   awssdk.String("192.168.1.2"),
+								Port: awssdk.Int32(8080),
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "multiple target groups with interleaved registration",
+			fields: fields{
+				registerTargetsWithContextCalls: []registerTargetsWithContextCall{
+					// First chunk: TG1 gets first 2 targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.1"),
+									Port: awssdk.Int32(8080),
+								},
+								{
+									Id:   awssdk.String("192.168.1.2"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// First chunk: TG2 gets first 2 targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-2"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.1"),
+									Port: awssdk.Int32(8080),
+								},
+								{
+									Id:   awssdk.String("192.168.1.2"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// Second chunk: TG1 gets next 2 targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.3"),
+									Port: awssdk.Int32(8080),
+								},
+								{
+									Id:   awssdk.String("192.168.1.4"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// Second chunk: TG2 gets next 2 targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-2"),
+							Targets: []elbv2types.TargetDescription{
+								{
+									Id:   awssdk.String("192.168.1.3"),
+									Port: awssdk.Int32(8080),
+								},
+								{
+									Id:   awssdk.String("192.168.1.4"),
+									Port: awssdk.Int32(8080),
+								},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+				},
+				targetsCache: nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{
+					{
+						TGB: makeTargetGroupBinding("tg-1"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.3"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.4"), Port: awssdk.Int32(8080)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-2"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.3"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.4"), Port: awssdk.Int32(8080)},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "target groups with different target counts",
+			fields: fields{
+				registerTargetsWithContextCalls: []registerTargetsWithContextCall{
+					// First chunk: TG1 gets first 2 targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// First chunk: TG2 gets its only 2 targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-2"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// Second chunk: Only TG1 has more targets
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.3"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.4"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+				},
+				targetsCache: nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{
+					{
+						TGB: makeTargetGroupBinding("tg-1"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.3"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.4"), Port: awssdk.Int32(8080)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-2"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "four target groups simulating NLB with 4 ports - fair distribution scenario",
+			fields: fields{
+				registerTargetsWithContextCalls: []registerTargetsWithContextCall{
+					// Chunk 1: All 4 TGs get their first batch
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-80"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node1"), Port: awssdk.Int32(30080)},
+								{Id: awssdk.String("i-node2"), Port: awssdk.Int32(30080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-443"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node1"), Port: awssdk.Int32(30443)},
+								{Id: awssdk.String("i-node2"), Port: awssdk.Int32(30443)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-8080"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node1"), Port: awssdk.Int32(38080)},
+								{Id: awssdk.String("i-node2"), Port: awssdk.Int32(38080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-8443"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node1"), Port: awssdk.Int32(38443)},
+								{Id: awssdk.String("i-node2"), Port: awssdk.Int32(38443)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// Chunk 2: All 4 TGs get their second batch
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-80"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node3"), Port: awssdk.Int32(30080)},
+								{Id: awssdk.String("i-node4"), Port: awssdk.Int32(30080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-443"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node3"), Port: awssdk.Int32(30443)},
+								{Id: awssdk.String("i-node4"), Port: awssdk.Int32(30443)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-8080"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node3"), Port: awssdk.Int32(38080)},
+								{Id: awssdk.String("i-node4"), Port: awssdk.Int32(38080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-port-8443"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("i-node3"), Port: awssdk.Int32(38443)},
+								{Id: awssdk.String("i-node4"), Port: awssdk.Int32(38443)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+				},
+				targetsCache: nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{
+					{
+						TGB: makeTargetGroupBinding("tg-port-80"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("i-node1"), Port: awssdk.Int32(30080)},
+							{Id: awssdk.String("i-node2"), Port: awssdk.Int32(30080)},
+							{Id: awssdk.String("i-node3"), Port: awssdk.Int32(30080)},
+							{Id: awssdk.String("i-node4"), Port: awssdk.Int32(30080)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-port-443"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("i-node1"), Port: awssdk.Int32(30443)},
+							{Id: awssdk.String("i-node2"), Port: awssdk.Int32(30443)},
+							{Id: awssdk.String("i-node3"), Port: awssdk.Int32(30443)},
+							{Id: awssdk.String("i-node4"), Port: awssdk.Int32(30443)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-port-8080"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("i-node1"), Port: awssdk.Int32(38080)},
+							{Id: awssdk.String("i-node2"), Port: awssdk.Int32(38080)},
+							{Id: awssdk.String("i-node3"), Port: awssdk.Int32(38080)},
+							{Id: awssdk.String("i-node4"), Port: awssdk.Int32(38080)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-port-8443"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("i-node1"), Port: awssdk.Int32(38443)},
+							{Id: awssdk.String("i-node2"), Port: awssdk.Int32(38443)},
+							{Id: awssdk.String("i-node3"), Port: awssdk.Int32(38443)},
+							{Id: awssdk.String("i-node4"), Port: awssdk.Int32(38443)},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "one target group has no targets",
+			fields: fields{
+				registerTargetsWithContextCalls: []registerTargetsWithContextCall{
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// TG2 has no targets, so no call for it
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-3"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(9090)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(9090)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+				},
+				targetsCache: nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{
+					{
+						TGB: makeTargetGroupBinding("tg-1"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+						},
+					},
+					{
+						TGB:     makeTargetGroupBinding("tg-2"),
+						Targets: []elbv2types.TargetDescription{}, // Empty targets
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-3"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(9090)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(9090)},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "partial failure continues with other target groups",
+			fields: fields{
+				registerTargetsWithContextCalls: []registerTargetsWithContextCall{
+					// TG1 succeeds
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-1"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+					// TG2 fails (simulating quota exceeded)
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-2"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: nil,
+						err:  &elbv2types.TooManyTargetsException{Message: awssdk.String("quota exceeded")},
+					},
+					// TG3 continues and succeeds
+					{
+						req: &elbv2sdk.RegisterTargetsInput{
+							TargetGroupArn: awssdk.String("tg-3"),
+							Targets: []elbv2types.TargetDescription{
+								{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+								{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+							},
+						},
+						resp: &elbv2sdk.RegisterTargetsOutput{},
+					},
+				},
+				targetsCache: nil,
+			},
+			args: args{
+				tgbTargets: []TargetGroupTargets{
+					{
+						TGB: makeTargetGroupBinding("tg-1"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-2"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+						},
+					},
+					{
+						TGB: makeTargetGroupBinding("tg-3"),
+						Targets: []elbv2types.TargetDescription{
+							{Id: awssdk.String("192.168.1.1"), Port: awssdk.Int32(8080)},
+							{Id: awssdk.String("192.168.1.2"), Port: awssdk.Int32(8080)},
+						},
+					},
+				},
+			},
+			wantErr: nil, // No error returned because we continue on failure
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+			ctx := context.Background()
+
+			for _, call := range tt.fields.registerTargetsWithContextCalls {
+				elbv2Client.EXPECT().RegisterTargetsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil)
+			}
+
+			targetsCache := cache.NewExpiring()
+			targetsCacheTTL := 1 * time.Minute
+			for tgARN, targets := range tt.fields.targetsCache {
+				targetsCache.Set(tgARN, &targetsCacheItem{
+					mutex:   sync.RWMutex{},
+					targets: targets,
+				}, targetsCacheTTL)
+			}
+			m := cachedTargetsManager{
+				elbv2Client:              elbv2Client,
+				targetsCache:             targetsCache,
+				targetsCacheTTL:          targetsCacheTTL,
+				registerTargetsChunkSize: 2,
+				logger:                   log.Log,
+			}
+
+			err := m.RegisterTargetsInterleaved(ctx, tt.args.tgbTargets)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
