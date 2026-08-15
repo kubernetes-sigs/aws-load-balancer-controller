@@ -214,7 +214,7 @@ func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, ing Cla
 	if len(hostRegexValues) != 0 {
 		conditions = append(conditions, t.buildHostHeaderRegexValuesCondition(ctx, hostRegexValues))
 	}
-	if len(pathValues) != 0 {
+	if len(pathValues) != 0 && !isCatchAllPathPattern(pathValues, pathRegexValues) {
 		conditions = append(conditions, t.buildPathValuesCondition(ctx, pathValues))
 	}
 	if len(pathRegexValues) != 0 {
@@ -224,6 +224,11 @@ func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, ing Cla
 		conditions = append(conditions, t.buildPathValuesCondition(ctx, []string{"/*"}))
 	}
 	return conditions, nil
+}
+
+// isCatchAllPathPattern checks whether the path patterns match all paths.
+func isCatchAllPathPattern(pathValues []string, pathRegexValues []string) bool {
+	return len(pathRegexValues) == 0 && len(pathValues) == 1 && pathValues[0] == "/*"
 }
 
 // buildPathPatterns will build ELBv2's path patterns for given path and pathType.
