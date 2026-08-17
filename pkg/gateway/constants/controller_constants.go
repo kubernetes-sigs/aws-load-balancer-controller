@@ -3,10 +3,14 @@ package constants
 import "k8s.io/apimachinery/pkg/util/sets"
 
 /*
-Common constants
+Common constants -- These are assigned as a variable so that importers can change these variables at runtime.
 */
 
 var (
+	// ALBGatewayController gateway controller name for ALB
+	ALBGatewayController = "gateway.k8s.aws/alb"
+	// NLBGatewayController gateway controller name for NLB
+	NLBGatewayController     = "gateway.k8s.aws/nlb"
 	FullGatewayControllerSet = sets.New(ALBGatewayController, NLBGatewayController)
 )
 
@@ -32,14 +36,8 @@ const (
 */
 
 const (
-	// NLBGatewayController gateway controller name for NLB
-	NLBGatewayController = "gateway.k8s.aws/nlb"
-
 	// NLBGatewayTagPrefix the tag applied to all resources created by the NLB Gateway controller.
 	NLBGatewayTagPrefix = "gateway.k8s.aws.nlb"
-
-	// NLBRouteResourceGroupVersion the groupVersion used by TCPRoute and UDPRoute
-	NLBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1"
 )
 
 /*
@@ -47,14 +45,8 @@ const (
 */
 
 const (
-	// ALBGatewayController gateway controller name for ALB
-	ALBGatewayController = "gateway.k8s.aws/alb"
-
 	// ALBGatewayTagPrefix the tag applied to all resources created by the ALB Gateway controller.
 	ALBGatewayTagPrefix = "gateway.k8s.aws.alb"
-
-	// ALBRouteResourceGroupVersion the groupVersion used by HTTPRoute and GRPCRoute
-	ALBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1"
 )
 
 const (

@@ -43,7 +43,7 @@ func Test_IsGatewayManagedByLBController(t *testing.T) {
 						Name: "nlb-class",
 					},
 					Spec: gwv1.GatewayClassSpec{
-						ControllerName: constants.NLBGatewayController,
+						ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 					},
 				},
 				gwController: constants.NLBGatewayController,
@@ -66,7 +66,7 @@ func Test_IsGatewayManagedByLBController(t *testing.T) {
 						Name: "alb-class",
 					},
 					Spec: gwv1.GatewayClassSpec{
-						ControllerName: constants.ALBGatewayController,
+						ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 					},
 				},
 				gwController: constants.ALBGatewayController,
@@ -128,7 +128,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 							Name: "nlb-class-1",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 					{
@@ -136,7 +136,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 							Name: "nlb-class-2",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 					{
@@ -144,7 +144,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -169,7 +169,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 							Name: "nlb-class-1",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 					{
@@ -177,7 +177,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 							Name: "alb-class-1",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -185,7 +185,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 							Name: "alb-class-2",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -262,7 +262,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -320,7 +320,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -374,7 +374,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -441,7 +441,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -494,7 +494,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -561,7 +561,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -620,7 +620,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -676,7 +676,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 				},
@@ -760,7 +760,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -902,7 +902,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class-1",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -915,7 +915,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class-2",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -928,7 +928,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -956,7 +956,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class-1",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -969,7 +969,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class-2",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -982,7 +982,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -1010,7 +1010,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class-with-nil-namespace",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -1023,7 +1023,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 							Name: "test-class-with-namespace",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 							ParametersRef: &gwv1.ParametersReference{
 								Kind:      "LoadBalancerConfiguration",
 								Name:      "test-config",
@@ -1119,7 +1119,7 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 							Name: "test-managed-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -1127,7 +1127,7 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 							Name: "test-unmanaged-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -1205,7 +1205,7 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 							Name: "test-managed-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 					{
@@ -1213,7 +1213,7 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 							Name: "test-unmanaged-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 				},
@@ -1287,7 +1287,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 					{
@@ -1295,7 +1295,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 				},
@@ -1340,7 +1340,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -1348,7 +1348,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
@@ -1375,7 +1375,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 					{
@@ -1383,7 +1383,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 				},
@@ -1419,7 +1419,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "alb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.ALBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.ALBGatewayController),
 						},
 					},
 					{
@@ -1427,7 +1427,7 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 							Name: "nlb-class",
 						},
 						Spec: gwv1.GatewayClassSpec{
-							ControllerName: constants.NLBGatewayController,
+							ControllerName: gwv1.GatewayController(constants.NLBGatewayController),
 						},
 					},
 				},
