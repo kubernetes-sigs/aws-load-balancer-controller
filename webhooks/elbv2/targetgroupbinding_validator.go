@@ -301,6 +301,9 @@ func (v *targetGroupBindingValidator) getVpcIDFromAWS(tgCache func() tgCacheObje
 // checkAssumeRoleConfig various checks for using cross account target group bindings.
 func (v *targetGroupBindingValidator) checkAssumeRoleConfig(tgb *elbv2api.TargetGroupBinding) error {
 	if tgb.Spec.IamRoleArnToAssume == "" {
+		if awssdk.ToBool(tgb.Spec.RegisterTargetsWithPodAvailabilityZone) {
+			return errors.New("Unable to use registerTargetsWithPodAvailabilityZone without assume role")
+		}
 		return nil
 	}
 

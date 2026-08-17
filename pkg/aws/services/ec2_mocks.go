@@ -36,6 +36,21 @@ func (m *MockEC2) EXPECT() *MockEC2MockRecorder {
 	return m.recorder
 }
 
+// AssumeRole mocks base method.
+func (m *MockEC2) AssumeRole(arg0 context.Context, arg1, arg2 string) (EC2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssumeRole", arg0, arg1, arg2)
+	ret0, _ := ret[0].(EC2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssumeRole indicates an expected call of AssumeRole.
+func (mr *MockEC2MockRecorder) AssumeRole(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssumeRole", reflect.TypeOf((*MockEC2)(nil).AssumeRole), arg0, arg1, arg2)
+}
+
 // AuthorizeSecurityGroupIngressWithContext mocks base method.
 func (m *MockEC2) AuthorizeSecurityGroupIngressWithContext(arg0 context.Context, arg1 *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
 	m.ctrl.T.Helper()

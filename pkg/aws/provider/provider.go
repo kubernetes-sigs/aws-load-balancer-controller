@@ -28,4 +28,5 @@ type AWSClientsProvider interface {
 	GetSTSClient(ctx context.Context, operationName string) (*sts.Client, error)
 	GetGlobalAcceleratorClient(ctx context.Context, operationName string) (*globalaccelerator.Client, error)
 	GenerateNewELBv2Client(cfg aws.Config) *elasticloadbalancingv2.Client
+	GenerateNewEC2Client(cfg aws.Config) *ec2.Client
 }

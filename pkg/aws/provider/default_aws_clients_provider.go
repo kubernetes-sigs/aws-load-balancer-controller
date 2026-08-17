@@ -31,6 +31,9 @@ type defaultAWSClientsProvider struct {
 
 	// used for dynamic creation of ELBv2 client
 	elbv2CustomEndpoint *string
+
+	// used for dynamic creation of EC2 client
+	ec2CustomEndpoint *string
 }
 
 func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.Resolver) (AWSClientsProvider, error) {
@@ -45,11 +48,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 	globalAcceleratorCustomEndpoint := endpointsResolver.EndpointFor(globalaccelerator.ServiceID)
 	route53CustomEndpoint := endpointsResolver.EndpointFor(route53.ServiceID)
 
-	ec2Client := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
-		if ec2CustomEndpoint != nil {
-			o.BaseEndpoint = ec2CustomEndpoint
-		}
-	})
+	ec2Client := generateNewEC2ClientHelper(cfg, ec2CustomEndpoint)
 
 	elbv2Client := generateNewELBv2ClientHelper(cfg, elbv2CustomEndpoint)
 
@@ -113,6 +112,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		globalAcceleratorClient: globalAcceleratorClient,
 
 		elbv2CustomEndpoint: elbv2CustomEndpoint,
+		ec2CustomEndpoint:   ec2CustomEndpoint,
 	}, nil
 }
 
@@ -167,6 +167,18 @@ func generateNewELBv2ClientHelper(cfg aws.Config, elbv2CustomEndpoint *string) *
 	return elasticloadbalancingv2.NewFromConfig(cfg, func(o *elasticloadbalancingv2.Options) {
 		if elbv2CustomEndpoint != nil {
 			o.BaseEndpoint = elbv2CustomEndpoint
+		}
+	})
+}
+
+func (p *defaultAWSClientsProvider) GenerateNewEC2Client(cfg aws.Config) *ec2.Client {
+	return generateNewEC2ClientHelper(cfg, p.ec2CustomEndpoint)
+}
+
+func generateNewEC2ClientHelper(cfg aws.Config, ec2CustomEndpoint *string) *ec2.Client {
+	return ec2.NewFromConfig(cfg, func(o *ec2.Options) {
+		if ec2CustomEndpoint != nil {
+			o.BaseEndpoint = ec2CustomEndpoint
 		}
 	})
 }
