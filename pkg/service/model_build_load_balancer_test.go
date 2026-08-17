@@ -208,6 +208,8 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 		want                         []elbv2.SubnetMapping
 		svc                          *corev1.Service
 		wantErr                      error
+		eipAllocationIDs             []string
+		eipResolveErr                error
 	}{
 		{
 			name:          "ipv4 - with auto-assigned addresses",
@@ -326,6 +328,86 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("count of EIP allocations (1) and subnets (2) must match"),
+		},
+		{
+			name:          "ipv4 - with EIP discovery tags",
+			ipAddressType: elbv2.IPAddressTypeIPV4,
+			scheme:        elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+				},
+				{
+					SubnetId:         aws.String("subnet-2"),
+					AvailabilityZone: aws.String("us-west-2b"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.2.0/24"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations-discovery-tags": "pod=pod998,service=zorg,visibility=external",
+					},
+				},
+			},
+			eipAllocationIDs: []string{"eipalloc-aaa", "eipalloc-bbb"},
+			want: []elbv2.SubnetMapping{
+				{
+					SubnetID:     "subnet-1",
+					AllocationID: aws.String("eipalloc-aaa"),
+				},
+				{
+					SubnetID:     "subnet-2",
+					AllocationID: aws.String("eipalloc-bbb"),
+				},
+			},
+		},
+		{
+			name:          "ipv4 - EIP discovery tags on internal load balancer",
+			ipAddressType: elbv2.IPAddressTypeIPV4,
+			scheme:        elbv2.LoadBalancerSchemeInternal,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations-discovery-tags": "pod=pod998,service=zorg",
+					},
+				},
+			},
+			wantErr: errors.New("EIP allocations can only be set for internet facing load balancers"),
+		},
+		{
+			name:          "ipv4 - EIP allocations and discovery tags are mutually exclusive",
+			ipAddressType: elbv2.IPAddressTypeIPV4,
+			scheme:        elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations":                    "eip1",
+						"service.beta.kubernetes.io/aws-load-balancer-eip-allocations-discovery-tags":     "pod=pod998",
+					},
+				},
+			},
+			wantErr: errors.New("aws-load-balancer-eip-allocations and aws-load-balancer-eip-allocations-discovery-tags are mutually exclusive"),
 		},
 		{
 			name:          "ipv4 - with PrivateIPv4Address",
@@ -1134,7 +1216,11 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 			defer ctrl.Finish()
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser}
+			eipResolver := networking.NewMockEIPResolver(ctrl)
+			if tt.eipAllocationIDs != nil || tt.eipResolveErr != nil {
+				eipResolver.EXPECT().ResolveForSubnets(gomock.Any(), gomock.Any(), tt.subnets).Return(tt.eipAllocationIDs, tt.eipResolveErr)
+			}
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser, eipResolver: eipResolver}
 			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.ipAddressType, tt.scheme, tt.subnets, tt.enablePrefixForIpv6SourceNat)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())

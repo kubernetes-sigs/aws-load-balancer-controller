@@ -44,7 +44,7 @@ const (
 
 func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingManager networking.NetworkingManager, networkingSGManager networking.SecurityGroupManager,
-	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
+	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver, eipResolver networking.EIPResolver,
 	vpcInfoProvider networking.VPCInfoProvider, elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
 	targetGroupCollector awsmetrics.TargetGroupCollector) *serviceReconciler {
@@ -53,7 +53,7 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
 	serviceUtils := service.NewServiceUtils(annotationParser, shared_constants.ServiceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
 	enhancedBackendBuilder := service.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, logger)
-	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
+	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, eipResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
 		elbv2TaggingManager, cloud.EC2(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
 		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, logger, metricsCollector, controllerConfig.FeatureGates.Enabled(config.EnableTCPUDPListenerType), enhancedBackendBuilder)
