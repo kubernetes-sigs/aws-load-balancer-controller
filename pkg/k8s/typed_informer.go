@@ -42,11 +42,8 @@ func (is *TypedInformer[T]) Start(ctx context.Context, queue workqueue.TypedRate
 				ObjectNew: newObj.(T),
 			}, queue)
 		},
-		DeleteFunc: func(obj any) {
-			is.Handler.Delete(ctx, event.TypedDeleteEvent[T]{
-				Object: obj.(T),
-			}, queue)
-		},
+		// Ignored: EndpointSlice watches already reflect a Pod's removal.
+		DeleteFunc: func(obj any) {},
 	}
 
 	_, err := is.Informer.AddEventHandlerWithOptions(handler, toolscache.HandlerOptions{})
