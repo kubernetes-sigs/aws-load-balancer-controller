@@ -1016,7 +1016,7 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolUDP,
 		},
 		{
-			name:             "nlb - auto detect - tls",
+			name:             "nlb - auto detect - tls passthrough listener downgraded to tcp",
 			listenerProtocol: elbv2model.ProtocolTCP,
 			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
@@ -1024,7 +1024,7 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 				Name:      "r1",
 				Namespace: "ns",
 			},
-			expected: elbv2model.ProtocolTLS,
+			expected: elbv2model.ProtocolTCP,
 		},
 		{
 			name:             "alb - specified - http",
