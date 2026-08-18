@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	"testing"
+	"time"
 )
 
 func Test_NewErrorWithMetrics(t *testing.T) {
@@ -41,4 +42,13 @@ func Test_NewErrorWithMetrics(t *testing.T) {
 			assert.Equal(t, tc.expectedInvocations, len(mc.Invocations[lbcmetrics.MetricControllerReconcileErrors]))
 		})
 	}
+}
+
+func Test_ErrorWithMetrics_Unwrap(t *testing.T) {
+	requeueErr := NewRequeueNeededAfter("waiting", time.Second)
+	wrapped := &ErrorWithMetrics{Err: requeueErr}
+
+	var target *RequeueNeededAfter
+	assert.True(t, errors.As(wrapped, &target))
+	assert.Equal(t, requeueErr, target)
 }

@@ -137,7 +137,7 @@ type groupReconciler struct {
 
 func (r *groupReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileCounters.IncrementIngress(req.NamespacedName)
-	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
+	return runtime.HandleReconcileErrorWithCondition(r.reconcile(ctx, req), controllerName, req, r.metricsCollector, r.logger)
 }
 
 func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
@@ -207,6 +207,12 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 		}
 	}
 
+	if len(ingGroup.Members) > 0 {
+		r.metricsCollector.ObserveControllerReconcileCondition(controllerName, ingGroupID.Namespace, ingGroupID.Name, true)
+	} else {
+		// the group no longer contains any member Ingress, so its series must not linger
+		r.metricsCollector.DeleteControllerReconcileCondition(controllerName, ingGroupID.Namespace, ingGroupID.Name)
+	}
 	r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeNormal, k8s.IngressEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
 }

@@ -65,18 +65,46 @@ type mockMetricsCollector struct{}
 func (m *mockMetricsCollector) ObservePodReadinessGateReady(_ string, _ string, _ time.Duration) {}
 func (m *mockMetricsCollector) ObserveQUICTargetMissingServerId(_ string, _ string)              {}
 func (m *mockMetricsCollector) ObserveControllerReconcileError(_ string, _ string)               {}
-func (m *mockMetricsCollector) ObserveControllerReconcileLatency(_ string, _ string, fn func())  { fn() }
-func (m *mockMetricsCollector) ObserveWebhookValidationError(_ string, _ string)                 {}
-func (m *mockMetricsCollector) ObserveWebhookMutationError(_ string, _ string)                   {}
-func (m *mockMetricsCollector) StartCollectTopTalkers(_ context.Context)                         {}
-func (m *mockMetricsCollector) StartCollectCacheSize(_ context.Context)                          {}
+func (m *mockMetricsCollector) ObserveControllerReconcileCondition(_ string, _ string, _ string, _ bool) {
+}
+func (m *mockMetricsCollector) DeleteControllerReconcileCondition(_ string, _ string, _ string) {}
+func (m *mockMetricsCollector) ObserveControllerReconcileLatency(_ string, _ string, fn func()) { fn() }
+func (m *mockMetricsCollector) ObserveWebhookValidationError(_ string, _ string)                {}
+func (m *mockMetricsCollector) ObserveWebhookMutationError(_ string, _ string)                  {}
+func (m *mockMetricsCollector) StartCollectTopTalkers(_ context.Context)                        {}
+func (m *mockMetricsCollector) StartCollectCacheSize(_ context.Context)                         {}
+
+// recordedCondition captures the arguments of a reconcile-condition observation/deletion.
+type recordedCondition struct {
+	controller string
+	namespace  string
+	name       string
+	reconciled bool
+}
+
+// recordingMetricsCollector records the reconcile-condition calls so tests can assert on the
+// per-resource condition metric. It relies on mockMetricsCollector for every other method,
+// including ObserveControllerReconcileLatency which invokes the passed fn.
+type recordingMetricsCollector struct {
+	mockMetricsCollector
+	conditions []recordedCondition
+	deletes    []recordedCondition
+}
+
+func (m *recordingMetricsCollector) ObserveControllerReconcileCondition(controller string, namespace string, name string, reconciled bool) {
+	m.conditions = append(m.conditions, recordedCondition{controller, namespace, name, reconciled})
+}
+
+func (m *recordingMetricsCollector) DeleteControllerReconcileCondition(controller string, namespace string, name string) {
+	m.deletes = append(m.deletes, recordedCondition{controller: controller, namespace: namespace, name: name})
+}
 
 // buildTestReconciler wires up a serviceReconciler with the given mocks and a real fake k8s client
-// pre-populated with svc.
-func buildTestReconciler(svc *corev1.Service, mb *mockModelBuilder, sd *mockStackDeployer) *serviceReconciler {
+// pre-populated with the given objects.
+func buildTestReconciler(mb *mockModelBuilder, sd *mockStackDeployer, objs ...client.Object) *serviceReconciler {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
-	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithObjects(svc).Build()
+	k8sClient := testclient.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 
 	return &serviceReconciler{
 		k8sClient:        k8sClient,
@@ -86,7 +114,7 @@ func buildTestReconciler(svc *corev1.Service, mb *mockModelBuilder, sd *mockStac
 		stackMarshaller:  &mockStackMarshaller{},
 		stackDeployer:    sd,
 		logger:           logr.Discard(),
-		metricsCollector: &mockMetricsCollector{},
+		metricsCollector: &recordingMetricsCollector{},
 	}
 }
 
@@ -95,24 +123,28 @@ func buildTestReconciler(svc *corev1.Service, mb *mockModelBuilder, sd *mockStac
 func TestReconcile(t *testing.T) {
 	stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "default", Name: "my-svc"}))
 	tests := []struct {
-		name         string
-		svc          *corev1.Service
-		lb           *elbv2model.LoadBalancer
-		deployErr    error
-		wantErr      bool
-		wantDeployed int
+		name           string
+		svc            *corev1.Service
+		lb             *elbv2model.LoadBalancer
+		deployErr      error
+		wantErr        bool
+		wantDeployed   int
+		wantConditions []recordedCondition
+		wantDeletes    []recordedCondition
 	}{
 		{
-			name: "lb nil, no finalizer: cleanup is no-op, returns nil",
+			name: "lb nil, no finalizer: cleanup is no-op, condition series is removed",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-svc", Namespace: "default"},
 			},
 			lb:           nil,
 			wantErr:      false,
 			wantDeployed: 0,
+			// no LB means the resource is no longer managed, so its series must be deleted
+			wantDeletes: []recordedCondition{{controller: "service", namespace: "default", name: "my-svc"}},
 		},
 		{
-			name: "lb nil, has finalizer, cleanup deploy fails: returns error",
+			name: "lb nil, has finalizer, cleanup deploy fails: returns error, no condition recorded",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "my-svc",
@@ -124,6 +156,7 @@ func TestReconcile(t *testing.T) {
 			deployErr:    errors.New("deploy failed"),
 			wantErr:      true,
 			wantDeployed: 1,
+			// the failure is surfaced by HandleReconcileErrorWithCondition, not reconcile itself
 		},
 		{
 			name: "lb not nil: reconcileLoadBalancerResources is called",
@@ -144,7 +177,7 @@ func TestReconcile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mb := &mockModelBuilder{stack: stack, lb: tt.lb}
 			sd := &mockStackDeployer{err: tt.deployErr}
-			r := buildTestReconciler(tt.svc, mb, sd)
+			r := buildTestReconciler(mb, sd, tt.svc)
 
 			err := r.reconcile(context.Background(), reconcile.Request{
 				NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-svc"},
@@ -156,8 +189,32 @@ func TestReconcile(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantDeployed, sd.deployedCount)
+
+			mc := r.metricsCollector.(*recordingMetricsCollector)
+			assert.Equal(t, tt.wantConditions, mc.conditions)
+			assert.Equal(t, tt.wantDeletes, mc.deletes)
 		})
 	}
+}
+
+// TestReconcile_NotFound covers the branch where the Service has already been deleted: the fetch
+// returns NotFound and the reconcile must drop the resource's condition series without erroring.
+func TestReconcile_NotFound(t *testing.T) {
+	mb := &mockModelBuilder{}
+	sd := &mockStackDeployer{}
+	// no objects seeded into the fake client, so the Get returns NotFound
+	r := buildTestReconciler(mb, sd)
+
+	err := r.reconcile(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: "default", Name: "gone-svc"},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, sd.deployedCount)
+
+	mc := r.metricsCollector.(*recordingMetricsCollector)
+	assert.Empty(t, mc.conditions)
+	assert.Equal(t, []recordedCondition{{controller: "service", namespace: "default", name: "gone-svc"}}, mc.deletes)
 }
 
 func TestBuildPortsForStatus(t *testing.T) {

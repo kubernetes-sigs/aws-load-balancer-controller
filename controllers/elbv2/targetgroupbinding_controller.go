@@ -29,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -107,7 +108,7 @@ type targetGroupBindingReconciler struct {
 func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileCounters.IncrementTGB(req.NamespacedName)
 	r.logger.V(1).Info("Reconcile request", "name", req.Name)
-	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
+	return runtime.HandleReconcileErrorWithCondition(r.reconcile(ctx, req), controllerName, req, r.metricsCollector, r.logger)
 }
 
 func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
@@ -118,11 +119,19 @@ func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req reconc
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "fetch_targetGroupBinding", fetchTargetGroupBindingFn)
 	if err != nil {
-		return client.IgnoreNotFound(err)
+		if apierrors.IsNotFound(err) {
+			r.metricsCollector.DeleteControllerReconcileCondition(controllerName, req.Namespace, req.Name)
+			return nil
+		}
+		return err
 	}
 
 	if !tgb.DeletionTimestamp.IsZero() {
-		return r.cleanupTargetGroupBinding(ctx, tgb)
+		if err := r.cleanupTargetGroupBinding(ctx, tgb); err != nil {
+			return err
+		}
+		r.metricsCollector.DeleteControllerReconcileCondition(controllerName, tgb.Namespace, tgb.Name)
+		return nil
 	}
 	return r.reconcileTargetGroupBinding(ctx, tgb)
 }
@@ -152,6 +161,9 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 
 	if deferred {
 		r.deferredTargetGroupBindingReconciler.Enqueue(tgb)
+		// the reconcile pass itself did not fail, so a previously failing TGB must not stay
+		// reported as failing for the whole deferral window
+		r.metricsCollector.ObserveControllerReconcileCondition(controllerName, tgb.Namespace, tgb.Name, true)
 		return nil
 	} else {
 		r.deferredTargetGroupBindingReconciler.MarkProcessed(tgb)
@@ -167,6 +179,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	}
 
 	r.eventRecorder.Event(tgb, corev1.EventTypeNormal, k8s.TargetGroupBindingEventReasonSuccessfullyReconciled, "Successfully reconciled")
+	r.metricsCollector.ObserveControllerReconcileCondition(controllerName, tgb.Namespace, tgb.Name, true)
 	return nil
 }
 
