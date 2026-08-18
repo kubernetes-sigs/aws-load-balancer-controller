@@ -291,6 +291,10 @@ lbStabilizationMonitorInterval:
 # Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
+# Time limit for waiting on controller caches to sync during startup. (default 2m0s)
+# Increase on clusters with a large number of Services or Gateway API resources.
+cacheSyncTimeout:
+
 # Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
 watchNamespace:
 
