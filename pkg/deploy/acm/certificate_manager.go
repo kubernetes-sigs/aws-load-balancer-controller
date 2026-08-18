@@ -9,10 +9,12 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
-
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
+	
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 
 	"github.com/aws/aws-sdk-go-v2/service/acm"
@@ -41,13 +43,17 @@ type CertificateManager interface {
 }
 
 // NewDefaultTaggingManager constructs new defaultTaggingManager.
-func NewDefaultCertificateManager(acmClient services.ACM, route53Client services.Route53, defaultCaArn string, trackingProvider tracking.Provider, logger logr.Logger) *defaultCertificateManager {
+func NewDefaultCertificateManager(acmClient services.ACM, route53Client services.Route53, defaultCaArn string, trackingProvider tracking.Provider, logger logr.Logger,
+	clusterName string, route53RoutingPolicy string, route53RecordWeight int64) *defaultCertificateManager {
 	return &defaultCertificateManager{
-		acmClient:        acmClient,
-		route53Client:    route53Client,
-		defaultCaArn:     defaultCaArn,
-		logger:           logger,
-		trackingProvider: trackingProvider,
+		acmClient:            acmClient,
+		route53Client:        route53Client,
+		defaultCaArn:         defaultCaArn,
+		logger:               logger,
+		trackingProvider:     trackingProvider,
+		clusterName:          clusterName,
+		route53RoutingPolicy: route53RoutingPolicy,
+		route53RecordWeight:  route53RecordWeight,
 	}
 }
 
@@ -60,6 +66,41 @@ type defaultCertificateManager struct {
 	defaultCaArn     string
 	logger           logr.Logger
 	trackingProvider tracking.Provider
+
+	// clusterName uniquely identifies this controller deployment. It's used as the Route53
+	// SetIdentifier for validation records when route53RoutingPolicy is "weighted", so that
+	// multiple independent LBC controllers (e.g. blue/green clusters) can each own a validation
+	// record for the same domain name without conflicting.
+	clusterName string
+
+	// route53RoutingPolicy is either "simple" (default) or "weighted".
+	route53RoutingPolicy string
+
+	// route53RecordWeight is the weight assigned to this controller's validation records when
+	// route53RoutingPolicy is "weighted". Unused otherwise.
+	route53RecordWeight int64
+}
+
+// buildValidationResourceRecordSet builds the Route53 ResourceRecordSet for a DNS validation
+// record, applying this controller's configured routing policy. It's used by both create and
+// delete so the two stay in lock-step. Route53 requires a DELETE's ResourceRecordSet to exactly
+// match what was created, including SetIdentifier and Weight for weighted records.
+func (c *defaultCertificateManager) buildValidationResourceRecordSet(opts acmtypes.DomainValidation) *route53types.ResourceRecordSet {
+	rrs := &route53types.ResourceRecordSet{
+		Name: opts.ResourceRecord.Name,
+		Type: route53types.RRType(opts.ResourceRecord.Type),
+		TTL:  awssdk.Int64(validationRecordTTL),
+		ResourceRecords: []route53types.ResourceRecord{
+			{
+				Value: opts.ResourceRecord.Value,
+			},
+		},
+	}
+	if c.route53RoutingPolicy == config.Route53RoutingPolicyWeighted {
+		rrs.SetIdentifier = awssdk.String(c.clusterName)
+		rrs.Weight = awssdk.Int64(c.route53RecordWeight)
+	}
+	return rrs
 }
 
 func (c *defaultCertificateManager) Create(ctx context.Context, certModel *acmModel.Certificate) (*acmModel.CertificateStatus, error) {
@@ -135,17 +176,8 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 				ChangeBatch: &route53types.ChangeBatch{
 					Changes: []route53types.Change{
 						{
-							Action: "CREATE",
-							ResourceRecordSet: &route53types.ResourceRecordSet{
-								Name: opts.ResourceRecord.Name,
-								Type: route53types.RRType(opts.ResourceRecord.Type),
-								TTL:  awssdk.Int64(validationRecordTTL),
-								ResourceRecords: []route53types.ResourceRecord{
-									{
-										Value: opts.ResourceRecord.Value,
-									},
-								},
-							},
+							Action:            "CREATE",
+							ResourceRecordSet: c.buildValidationResourceRecordSet(opts),
 						},
 					},
 				},
@@ -242,17 +274,8 @@ func (c *defaultCertificateManager) DeleteWithValidationRecords(ctx context.Cont
 				ChangeBatch: &route53types.ChangeBatch{
 					Changes: []route53types.Change{
 						{
-							Action: "DELETE",
-							ResourceRecordSet: &route53types.ResourceRecordSet{
-								Name: opts.ResourceRecord.Name,
-								Type: route53types.RRType(opts.ResourceRecord.Type),
-								TTL:  awssdk.Int64(validationRecordTTL),
-								ResourceRecords: []route53types.ResourceRecord{
-									{
-										Value: opts.ResourceRecord.Value,
-									},
-								},
-							},
+							Action:            "DELETE",
+							ResourceRecordSet: c.buildValidationResourceRecordSet(opts),
 						},
 					},
 				},
