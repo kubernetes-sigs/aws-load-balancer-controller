@@ -18,9 +18,13 @@ func Test_podInfoConverter_idempotent(t *testing.T) {
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: "pod", UID: "uid"}}
 
 	first, err := b.podInfoConverter(pod)
-	assert.NoError(t, err)
+	if !assert.NoError(t, err) {
+		return
+	}
 	podInfo, ok := first.(*PodInfo)
-	assert.True(t, ok)
+	if !assert.True(t, ok) {
+		return
+	}
 
 	second, err := b.podInfoConverter(first)
 	assert.NoError(t, err)
