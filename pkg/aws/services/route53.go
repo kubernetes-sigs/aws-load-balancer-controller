@@ -22,6 +22,7 @@ const (
 type Route53 interface {
 	ChangeRecordsWithContext(ctx context.Context, input *route53.ChangeResourceRecordSetsInput) (*route53.ChangeResourceRecordSetsOutput, error)
 	GetHostedZoneID(ctx context.Context, domain string) (*string, error)
+	GetPublicHostedZoneID(ctx context.Context, domain string) (*string, error)
 }
 
 func NewRoute53(awsClientsProvider provider.AWSClientsProvider) Route53 {
@@ -57,11 +58,39 @@ func (c *route53Client) GetHostedZoneID(ctx context.Context, domain string) (*st
 		return nil, err
 	}
 
+	if bestID := findHostedZoneID(zones, domain, false); bestID != nil {
+		return bestID, nil
+	}
+
+	return nil, fmt.Errorf("no hosted zone found for validation records")
+}
+
+// GetPublicHostedZoneID skips private zones: Amazon-issued ACM certificates are
+// validated over public DNS, so a validation record in a private zone (e.g. the
+// most-specific match in split-horizon Route 53) leaves the cert in PENDING_VALIDATION.
+func (c *route53Client) GetPublicHostedZoneID(ctx context.Context, domain string) (*string, error) {
+	zones, err := c.listHostedZones(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if bestID := findHostedZoneID(zones, domain, true); bestID != nil {
+		return bestID, nil
+	}
+
+	return nil, fmt.Errorf("no public Route 53 hosted zone found for %q", domain)
+}
+
+// findHostedZoneID returns the nearest-ancestor hosted zone (longest matching suffix).
+func findHostedZoneID(zones []types.HostedZone, domain string, publicOnly bool) *string {
 	recParts := strings.Split(domain, ".")
 
 	var bestID *string
 	bestLen := -1
 	for _, zone := range zones {
+		if publicOnly && zone.Config != nil && zone.Config.PrivateZone {
+			continue
+		}
 		zoneParts := strings.Split(strings.TrimRight(*zone.Name, "."), ".")
 		if len(zoneParts) > len(recParts) {
 			continue
@@ -72,11 +101,7 @@ func (c *route53Client) GetHostedZoneID(ctx context.Context, domain string) (*st
 		}
 	}
 
-	if bestID != nil {
-		return bestID, nil
-	}
-
-	return nil, fmt.Errorf("no hosted zone found for validation records")
+	return bestID
 }
 
 func (c *route53Client) listHostedZones(ctx context.Context) ([]types.HostedZone, error) {
