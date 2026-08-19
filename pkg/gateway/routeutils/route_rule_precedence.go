@@ -14,6 +14,12 @@ type RulePrecedence struct {
 	HTTPMatch            *v1.HTTPRouteMatch
 	GRPCMatch            *v1.GRPCRouteMatch
 
+	// HTTPMethods holds every method served by this entry when matches of the
+	// same route rule that differ only by method were consolidated into one ALB
+	// rule. Empty when nothing was consolidated, in which case the method of
+	// HTTPMatch is used.
+	HTTPMethods []string
+
 	// PrecedenceFactor holds the specificity signals used to order this match.
 	// A single struct is used for both HTTPRoute and GRPCRoute rules so that one
 	// comparator can order every rule with a single uniform key — which is a
@@ -140,6 +146,10 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePreced
 			}
 		}
 	}
+
+	// Collapse matches of the same route rule that differ only by method into a
+	// single rule carrying every method, which keeps the ALB rule count down.
+	httpRoutes = consolidateHttpMethodMatches(httpRoutes)
 
 	allRoutes = append(allRoutes, httpRoutes...)
 	allRoutes = append(allRoutes, grpcRoutes...)

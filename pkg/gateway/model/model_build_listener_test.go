@@ -1422,6 +1422,18 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 	}
 }
 
+// methodOnlyMatch builds a match on the "/" prefix path that differs from its
+// siblings only by HTTP method.
+func methodOnlyMatch(method string) gwv1.HTTPRouteMatch {
+	return gwv1.HTTPRouteMatch{
+		Path: &gwv1.HTTPPathMatch{
+			Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+			Value: awssdk.String("/"),
+		},
+		Method: (*gwv1.HTTPMethod)(awssdk.String(method)),
+	}
+}
+
 func Test_BuildListenerRules(t *testing.T) {
 	autheticateBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate
 	testCases := []struct {
@@ -1541,6 +1553,104 @@ func Test_BuildListenerRules(t *testing.T) {
 							Field: "path-pattern",
 							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
 								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "matches differing only by method should be consolidated into method-list rules",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Matches: []gwv1.HTTPRouteMatch{
+										methodOnlyMatch("GET"),
+										methodOnlyMatch("HEAD"),
+										methodOnlyMatch("POST"),
+										methodOnlyMatch("PUT"),
+										methodOnlyMatch("PATCH"),
+										methodOnlyMatch("DELETE"),
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			// Six matches become two rules: the "/" prefix pattern takes one of
+			// the five condition values a rule may carry, leaving four for the
+			// method list.
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "forward",
+							ForwardConfig: &elbv2model.ForwardActionConfig{
+								TargetGroups: []elbv2model.TargetGroupTuple{
+									{
+										Weight: awssdk.Int32(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+						{
+							Field: "http-request-method",
+							HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+								Values: []string{"GET", "HEAD", "POST", "PUT"},
+							},
+						},
+					},
+				},
+				{
+					Priority: 2,
+					Actions: []elbv2model.Action{
+						{
+							Type: "forward",
+							ForwardConfig: &elbv2model.ForwardActionConfig{
+								TargetGroups: []elbv2model.TargetGroupTuple{
+									{
+										Weight: awssdk.Int32(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+						{
+							Field: "http-request-method",
+							HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+								Values: []string{"PATCH", "DELETE"},
 							},
 						},
 					},

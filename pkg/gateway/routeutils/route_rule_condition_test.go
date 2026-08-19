@@ -130,6 +130,34 @@ func Test_BuildHttpRuleConditions(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "consolidated methods share one http-request-method condition",
+			rule: RulePrecedence{
+				HTTPMatch: &gwv1.HTTPRouteMatch{
+					Path: &gwv1.HTTPPathMatch{
+						Type:  &exactType,
+						Value: &pathValue,
+					},
+					Method: &methodValue,
+				},
+				HTTPMethods: []string{"GET", "HEAD", "POST", "PUT"},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{pathValue},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
+					HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
+						Values: []string{"GET", "HEAD", "POST", "PUT"},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

@@ -38,7 +38,9 @@ func BuildHttpRuleConditions(rule RulePrecedence) ([]elbv2model.RuleCondition, e
 		queryParamConditions := buildHttpQueryParamCondition(match.QueryParams)
 		conditions = append(conditions, queryParamConditions...)
 	}
-	if match.Method != nil {
+	if len(rule.HTTPMethods) > 0 {
+		conditions = append(conditions, buildHttpMethodConditionFromValues(rule.HTTPMethods)...)
+	} else if match.Method != nil {
 		methodCondition := buildHttpMethodCondition(match.Method)
 		conditions = append(conditions, methodCondition...)
 	}
@@ -149,11 +151,18 @@ func buildHttpQueryParamCondition(queryParams []gwv1.HTTPQueryParamMatch) []elbv
 }
 
 func buildHttpMethodCondition(method *gwv1.HTTPMethod) []elbv2model.RuleCondition {
+	return buildHttpMethodConditionFromValues([]string{string(*method)})
+}
+
+// buildHttpMethodConditionFromValues builds the single http-request-method
+// condition of a rule. ALB matches the request when any listed method matches, so
+// matches differing only by method share one condition.
+func buildHttpMethodConditionFromValues(methods []string) []elbv2model.RuleCondition {
 	return []elbv2model.RuleCondition{
 		{
 			Field: elbv2model.RuleConditionFieldHTTPRequestMethod,
 			HTTPRequestMethodConfig: &elbv2model.HTTPRequestMethodConditionConfig{
-				Values: []string{string(*method)},
+				Values: methods,
 			},
 		},
 	}
