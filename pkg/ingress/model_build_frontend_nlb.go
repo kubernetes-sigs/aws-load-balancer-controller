@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
@@ -229,7 +230,32 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		if len(chosenPrivateIPv4Addresses) != len(chosenSubnets) {
 			return nil, errors.Errorf("count of private IPv4 addresses (%d) and subnets (%d) must match", len(chosenPrivateIPv4Addresses), len(chosenSubnets))
 		}
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}, chosenPrivateIPv4Addresses), nil
+		// Parse all private IPv4 addresses into netip.Addr
+		var ipv4Addresses []netip.Addr
+		for _, ip := range chosenPrivateIPv4Addresses {
+			addr, err := netip.ParseAddr(ip)
+			if err != nil || !addr.Is4() {
+				return nil, errors.Errorf("invalid private IPv4 address: %s", ip)
+			}
+			ipv4Addresses = append(ipv4Addresses, addr)
+		}
+		// Build subnet mappings using CIDR-based matching (same pattern as service NLB)
+		subnetMappings := make([]elbv2model.SubnetMapping, 0, len(chosenSubnets))
+		for _, subnet := range chosenSubnets {
+			subnetIPv4CIDRs, err := networking.GetSubnetAssociatedIPv4CIDRs(subnet)
+			if err != nil {
+				return nil, err
+			}
+			ipv4AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv4Addresses, subnetIPv4CIDRs)
+			if len(ipv4AddressesWithinSubnet) != 1 {
+				return nil, errors.Errorf("expect exactly one private IPv4 address within subnet %v CIDR, got %d", awssdk.ToString(subnet.SubnetId), len(ipv4AddressesWithinSubnet))
+			}
+			subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
+				SubnetID:           awssdk.ToString(subnet.SubnetId),
+				PrivateIPv4Address: awssdk.String(ipv4AddressesWithinSubnet[0].String()),
+			})
+		}
+		return subnetMappings, nil
 	}
 
 	return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}, []string{}), nil

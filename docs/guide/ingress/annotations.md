@@ -1420,11 +1420,11 @@ When this option is set to true, the controller will automatically provision a N
 - <a name="frontend-nlb-private-ipv4-addresses">`alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses`</a> specifies a list of private IPv4 addresses to assign to an internal frontend NLB.
 
     !!!note
-        - This configuration is optional, and you can use it to assign static private IP addresses to your internal NLB
-        - If you include the subnets [annotation](#frontend-nlb-subnets) it must have the same number of subnets as this annotation has addresses
         - NLB must be internal (scheme must be `internal`)
+        - This configuration is optional, and you can use it to assign static private IPv4 addresses to your internal frontend NLB
+        - You must specify the same number of private IPv4 addresses as frontend NLB subnets [annotation](#frontend-nlb-subnets)
+        - You must specify the IPv4 addresses from the frontend NLB subnet IPv4 ranges
         - Mutually exclusive with [frontend-nlb-eip-allocations](#frontend-nlb-eip-allocations)
-        - Each address must be a valid IPv4 address within the respective subnet's CIDR range
 
     !!!example
         ```

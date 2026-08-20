@@ -536,6 +536,74 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			wantMappings: nil,
 			wantErr:      "invalid private IPv4 address: not-an-ip",
 		},
+		{
+			name: "error when ingress group members have different private IPv4 addresses",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-12",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-13",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.99,10.0.2.99",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "all private IPv4 addresses for the ingress group must be the same: [10.0.1.10 10.0.2.10] | [10.0.1.99 10.0.2.99]",
+		},
+		{
+			name: "error when private IPv4 address is not within subnet CIDR",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-14",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "192.168.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "expect exactly one private IPv4 address within subnet subnet-1 CIDR, got 0",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -547,13 +615,13 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 
 			mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
 				Return([]ec2types.Subnet{
-					{SubnetId: awssdk.String("subnet-1")},
-					{SubnetId: awssdk.String("subnet-2")},
+					{SubnetId: awssdk.String("subnet-1"), CidrBlock: awssdk.String("10.0.1.0/24")},
+					{SubnetId: awssdk.String("subnet-2"), CidrBlock: awssdk.String("10.0.2.0/24")},
 				}, nil).AnyTimes()
 			mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
 				Return([]ec2types.Subnet{
-					{SubnetId: awssdk.String("subnet-1")},
-					{SubnetId: awssdk.String("subnet-2")},
+					{SubnetId: awssdk.String("subnet-1"), CidrBlock: awssdk.String("10.0.1.0/24")},
+					{SubnetId: awssdk.String("subnet-2"), CidrBlock: awssdk.String("10.0.2.0/24")},
 				}, nil).AnyTimes()
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
