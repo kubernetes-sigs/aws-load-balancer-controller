@@ -215,8 +215,9 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 	}
 
 	type expectedMapping struct {
-		SubnetID     string
-		AllocationID *string
+		SubnetID           string
+		AllocationID       *string
+		PrivateIPv4Address *string
 	}
 
 	tests := []struct {
@@ -392,6 +393,217 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				{SubnetID: "subnet-2", AllocationID: awssdk.String("eip-20")},
 			},
 		},
+		{
+			name: "with subnets and private IPv4 addresses",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-7",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: nil, PrivateIPv4Address: awssdk.String("10.0.1.10")},
+				{SubnetID: "subnet-2", AllocationID: nil, PrivateIPv4Address: awssdk.String("10.0.2.10")},
+			},
+		},
+		{
+			name: "error when private IPv4 addresses are specified but scheme is internet-facing",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-8",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: nil,
+			wantErr:      "private IPv4 addresses can only be set for internal load balancers",
+		},
+		{
+			name: "error when number of private IPv4 addresses does not match subnets",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-9",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "count of private IPv4 addresses (1) and subnets (2) must match",
+		},
+		{
+			name: "error when both EIP and private IPv4 are specified",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-10",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations":        "eip-1,eip-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: nil,
+			wantErr:      "EIP allocations and private IPv4 addresses are mutually exclusive",
+		},
+		{
+			name: "error when invalid IPv4 address format",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-11",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "not-an-ip,10.0.2.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "invalid private IPv4 address: not-an-ip",
+		},
+		{
+			name: "error when ingress group members have different private IPv4 addresses",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-12",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-13",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "10.0.1.99,10.0.2.99",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "all private IPv4 addresses for the ingress group must be the same: [10.0.1.10 10.0.2.10] | [10.0.1.99 10.0.2.99]",
+		},
+		{
+			name: "error when private IPv4 address is not within subnet CIDR",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-14",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":                  "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses": "192.168.1.10,10.0.2.10",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "expect exactly one private IPv4 address within subnet subnet-1 CIDR, got 0",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -403,13 +615,13 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 
 			mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
 				Return([]ec2types.Subnet{
-					{SubnetId: awssdk.String("subnet-1")},
-					{SubnetId: awssdk.String("subnet-2")},
+					{SubnetId: awssdk.String("subnet-1"), CidrBlock: awssdk.String("10.0.1.0/24")},
+					{SubnetId: awssdk.String("subnet-2"), CidrBlock: awssdk.String("10.0.2.0/24")},
 				}, nil).AnyTimes()
 			mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
 				Return([]ec2types.Subnet{
-					{SubnetId: awssdk.String("subnet-1")},
-					{SubnetId: awssdk.String("subnet-2")},
+					{SubnetId: awssdk.String("subnet-1"), CidrBlock: awssdk.String("10.0.1.0/24")},
+					{SubnetId: awssdk.String("subnet-2"), CidrBlock: awssdk.String("10.0.2.0/24")},
 				}, nil).AnyTimes()
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
@@ -427,8 +639,9 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				var gotMappings []expectedMapping
 				for _, mapping := range got {
 					gotMappings = append(gotMappings, expectedMapping{
-						SubnetID:     mapping.SubnetID,
-						AllocationID: mapping.AllocationID,
+						SubnetID:           mapping.SubnetID,
+						AllocationID:       mapping.AllocationID,
+						PrivateIPv4Address: mapping.PrivateIPv4Address,
 					})
 				}
 				assert.Equal(t, tt.wantMappings, gotMappings)

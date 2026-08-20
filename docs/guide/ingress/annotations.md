@@ -87,6 +87,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes](#frontend-nlb-healthcheck-success-codes) | string                                     |200| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-tags](#frontend-nlb-tags) | stringMap | N/A | Ingress | Exclusive |
 | [alb.ingress.kubernetes.io/frontend-nlb-eip-allocations](#frontend-nlb-eip-allocations) | stringList                                     |200| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses](#frontend-nlb-private-ipv4-addresses) | stringList                                     |N/A| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}](#target-control-port)                                       | integer                                    |N/A| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-attributes](#frontend-nlb-attributes) | stringList                                     |N/A| Ingress | N/A           |
 
@@ -1415,6 +1416,21 @@ When this option is set to true, the controller will automatically provision a N
         ```
         alb.ingress.kubernetes.io/frontend-nlb-eip-allocations: eipalloc-xyz, eipalloc-zzz
         ```
+
+- <a name="frontend-nlb-private-ipv4-addresses">`alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses`</a> specifies a list of private IPv4 addresses to assign to an internal frontend NLB.
+
+    !!!note
+        - NLB must be internal (scheme must be `internal`)
+        - This configuration is optional, and you can use it to assign static private IPv4 addresses to your internal frontend NLB
+        - You must specify the same number of private IPv4 addresses as frontend NLB subnets [annotation](#frontend-nlb-subnets)
+        - You must specify the IPv4 addresses from the frontend NLB subnet IPv4 ranges
+        - Mutually exclusive with [frontend-nlb-eip-allocations](#frontend-nlb-eip-allocations)
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-private-ipv4-addresses: 10.0.1.10, 10.0.2.10
+        ```
+
 - <a name="target-control-port">`alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}`</a> specifies the port on which the target control agent and application load balancer exchange management traffic for the target optimizer feature.  
 
     !!!note
