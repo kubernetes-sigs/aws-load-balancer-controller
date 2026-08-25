@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -12,7 +13,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -29,6 +29,7 @@ func NewLoadbalancerConfigurationReconciler(k8sClient client.Client, eventRecord
 		eventRecorder:    eventRecorder,
 		logger:           logger,
 		finalizerManager: finalizerManager,
+		finalizer:        controllerConfig.GatewayFinalizerConfig.LoadBalancerConfigurationFinalizer,
 		workers:          controllerConfig.GatewayClassMaxConcurrentReconciles,
 	}
 }
@@ -39,6 +40,7 @@ type loadbalancerConfigurationReconciler struct {
 	logger           logr.Logger
 	eventRecorder    record.EventRecorder
 	finalizerManager k8s.FinalizerManager
+	finalizer        string
 	workers          int
 }
 
@@ -71,14 +73,14 @@ func (r *loadbalancerConfigurationReconciler) reconcile(ctx context.Context, req
 }
 
 func (r *loadbalancerConfigurationReconciler) handleUpdate(lbConf *elbv2gw.LoadBalancerConfiguration) error {
-	if k8s.HasFinalizer(lbConf, shared_constants.LoadBalancerConfigurationFinalizer) {
+	if k8s.HasFinalizer(lbConf, r.finalizer) {
 		return nil
 	}
-	return r.finalizerManager.AddFinalizers(context.Background(), lbConf, shared_constants.LoadBalancerConfigurationFinalizer)
+	return r.finalizerManager.AddFinalizers(context.Background(), lbConf, r.finalizer)
 }
 
 func (r *loadbalancerConfigurationReconciler) handleDelete(lbConf *elbv2gw.LoadBalancerConfiguration) error {
-	if !k8s.HasFinalizer(lbConf, shared_constants.LoadBalancerConfigurationFinalizer) {
+	if !k8s.HasFinalizer(lbConf, r.finalizer) {
 		return nil
 	}
 
@@ -91,7 +93,7 @@ func (r *loadbalancerConfigurationReconciler) handleDelete(lbConf *elbv2gw.LoadB
 	if inUse {
 		return fmt.Errorf("loadbalancer configuration [%+v] is still in use", k8s.NamespacedName(lbConf))
 	}
-	return r.finalizerManager.RemoveFinalizers(context.Background(), lbConf, shared_constants.LoadBalancerConfigurationFinalizer)
+	return r.finalizerManager.RemoveFinalizers(context.Background(), lbConf, r.finalizer)
 }
 
 func (r *loadbalancerConfigurationReconciler) SetupWithManager(_ context.Context, mgr ctrl.Manager) (controller.Controller, error) {

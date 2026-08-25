@@ -433,6 +433,7 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 				},
 				configResolverFn:    tc.configResolverFn,
 				tgConfigConstructor: gateway.NewTargetGroupConfigConstructor(),
+				lbConfigFinalizer:   shared_constants.LoadBalancerConfigurationFinalizer,
 				logger:              logr.Discard(),
 			}
 			tc.setupMocks()

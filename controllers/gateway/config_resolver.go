@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -25,14 +24,16 @@ type gatewayConfigResolverImpl struct {
 	configMergeFn       func(gwClassLbConfig elbv2gw.LoadBalancerConfiguration, gwLbConfig elbv2gw.LoadBalancerConfiguration) elbv2gw.LoadBalancerConfiguration
 	configResolverFn    func(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error)
 	tgConfigConstructor gateway.TargetGroupConfigConstructor
+	lbConfigFinalizer   string
 	logger              logr.Logger
 }
 
-func newGatewayConfigResolver(logger logr.Logger) gatewayConfigResolver {
+func newGatewayConfigResolver(lbConfigFinalizer string, logger logr.Logger) gatewayConfigResolver {
 	return &gatewayConfigResolverImpl{
 		configMergeFn:       gateway.NewLoadBalancerConfigMerger().Merge,
 		configResolverFn:    gatewayutils.ResolveLoadBalancerConfig,
 		tgConfigConstructor: gateway.NewTargetGroupConfigConstructor(),
+		lbConfigFinalizer:   lbConfigFinalizer,
 		logger:              logger,
 	}
 }
@@ -53,8 +54,8 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 	}
 
 	if gatewayClassLBConfig != nil {
-		if !k8s.HasFinalizer(gatewayClassLBConfig, shared_constants.LoadBalancerConfigurationFinalizer) {
-			if err := finalizerManager.AddFinalizers(ctx, gatewayClassLBConfig, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
+		if !k8s.HasFinalizer(gatewayClassLBConfig, resolver.lbConfigFinalizer) {
+			if err := finalizerManager.AddFinalizers(ctx, gatewayClassLBConfig, resolver.lbConfigFinalizer); err != nil {
 				return elbv2gw.LoadBalancerConfiguration{}, nil, errors.Errorf("failed to add finalizers on load balancer configuration %s", k8s.NamespacedName(gatewayClassLBConfig))
 			}
 		}
@@ -86,8 +87,8 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 	}
 
 	if gatewayLBConfig != nil {
-		if !k8s.HasFinalizer(gatewayLBConfig, shared_constants.LoadBalancerConfigurationFinalizer) {
-			if err := finalizerManager.AddFinalizers(ctx, gatewayLBConfig, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
+		if !k8s.HasFinalizer(gatewayLBConfig, resolver.lbConfigFinalizer) {
+			if err := finalizerManager.AddFinalizers(ctx, gatewayLBConfig, resolver.lbConfigFinalizer); err != nil {
 				return elbv2gw.LoadBalancerConfiguration{}, nil, errors.Errorf("failed to add finalizers on load balancer configuration %s", k8s.NamespacedName(gatewayLBConfig))
 			}
 		}

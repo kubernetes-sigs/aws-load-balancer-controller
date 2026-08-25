@@ -211,7 +211,9 @@ func main() {
 		cloud.VpcID(), controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices,
 		mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log, controllerCFG.MaxTargetsPerTargetGroup, controllerCFG.TargetGroupBindingRequeueDuration)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
-		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, nlbGatewayEnabled || albGatewayEnabled, ctrl.Log.WithName("backend-sg-provider"))
+		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, nlbGatewayEnabled || albGatewayEnabled,
+		controllerCFG.GatewayFinalizerConfig.ALBGatewayFinalizer, controllerCFG.GatewayFinalizerConfig.NLBGatewayFinalizer,
+		ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
 	requiredLabelKey, requiredLabelValue := config.ParseRequiredSecretsLabel(controllerCFG.RequiredSecretsLabel)
@@ -597,7 +599,8 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 		AWSConfig: aws.CloudConfig{
 			ThrottleConfig: defaultAWSThrottleCFG,
 		},
-		FeatureGates: config.NewFeatureGates(),
+		FeatureGates:           config.NewFeatureGates(),
+		GatewayFinalizerConfig: config.NewDefaultGatewayFinalizerConfig(),
 	}
 
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)

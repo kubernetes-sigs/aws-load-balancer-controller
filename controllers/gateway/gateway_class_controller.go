@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -43,6 +42,7 @@ func NewGatewayClassReconciler(k8sClient client.Client, eventRecorder record.Eve
 		logger:                      logger,
 		enabledControllers:          enabledControllers,
 		finalizerManager:            finalizerManager,
+		finalizer:                   controllerConfig.GatewayFinalizerConfig.GatewayClassFinalizer,
 		workers:                     controllerConfig.GatewayClassMaxConcurrentReconciles,
 		updateGwClassAcceptedFn:     updateGatewayClassAcceptedCondition,
 		updateLastProcessedConfigFn: updateGatewayClassLastProcessedConfig,
@@ -59,6 +59,7 @@ type gatewayClassReconciler struct {
 	logger             logr.Logger
 	enabledControllers sets.Set[string]
 	finalizerManager   k8s.FinalizerManager
+	finalizer          string
 	workers            int
 
 	updateGwClassAcceptedFn     func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, status metav1.ConditionStatus, reason string, message string) error
@@ -128,8 +129,8 @@ func (r *gatewayClassReconciler) reconcile(ctx context.Context, req reconcile.Re
 }
 
 func (r *gatewayClassReconciler) handleUpdate(ctx context.Context, gwClass *gwv1.GatewayClass) error {
-	if !k8s.HasFinalizer(gwClass, shared_constants.GatewayClassFinalizer) {
-		err := r.finalizerManager.AddFinalizers(context.Background(), gwClass, shared_constants.GatewayClassFinalizer)
+	if !k8s.HasFinalizer(gwClass, r.finalizer) {
+		err := r.finalizerManager.AddFinalizers(context.Background(), gwClass, r.finalizer)
 		if err != nil {
 			return err
 		}
@@ -177,7 +178,7 @@ func (r *gatewayClassReconciler) handleUpdate(ctx context.Context, gwClass *gwv1
 }
 
 func (r *gatewayClassReconciler) handleDelete(ctx context.Context, gwClass *gwv1.GatewayClass) error {
-	if !k8s.HasFinalizer(gwClass, shared_constants.GatewayClassFinalizer) {
+	if !k8s.HasFinalizer(gwClass, r.finalizer) {
 		return nil
 	}
 
@@ -188,7 +189,7 @@ func (r *gatewayClassReconciler) handleDelete(ctx context.Context, gwClass *gwv1
 	if len(refCount) != 0 {
 		return fmt.Errorf("unable to delete GatewayClass [%+v], as it is still referenced by Gateways", gwClass.Name)
 	}
-	return r.finalizerManager.RemoveFinalizers(ctx, gwClass, shared_constants.GatewayClassFinalizer)
+	return r.finalizerManager.RemoveFinalizers(ctx, gwClass, r.finalizer)
 }
 
 func (r *gatewayClassReconciler) getNotFoundMessage(paramRef *gwv1.ParametersReference) string {

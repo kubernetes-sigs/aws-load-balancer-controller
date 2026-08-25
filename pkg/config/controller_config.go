@@ -91,6 +91,10 @@ type ControllerConfig struct {
 	AddonsConfig AddonsConfig
 	// Configurations for the Service controller
 	ServiceConfig ServiceConfig
+	// GatewayFinalizerConfig defines the finalizers the controller attaches to Gateway API
+	// related resources. It is configured ad-hoc (programmatically) rather than via flags;
+	// see config.NewDefaultGatewayFinalizerConfig for the built-in defaults.
+	GatewayFinalizerConfig GatewayFinalizerConfig
 
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string

@@ -59,7 +59,8 @@ type BackendSGProvider interface {
 
 // NewBackendSGProvider constructs a new  defaultBackendSGProvider
 func NewBackendSGProvider(clusterName string, backendSG string, vpcID string,
-	ec2Client services.EC2, k8sClient client.Client, defaultTags map[string]string, enableGatewayCheck bool, logger logr.Logger) *defaultBackendSGProvider {
+	ec2Client services.EC2, k8sClient client.Client, defaultTags map[string]string, enableGatewayCheck bool,
+	albGatewayFinalizer string, nlbGatewayFinalizer string, logger logr.Logger) *defaultBackendSGProvider {
 	return &defaultBackendSGProvider{
 		vpcID:       vpcID,
 		clusterName: clusterName,
@@ -92,7 +93,7 @@ func NewBackendSGProvider(clusterName string, backendSG string, vpcID string,
 
 		checkGatewayFinalizersFunc: func(finalizers []string) bool {
 			for _, fin := range finalizers {
-				if fin == shared_constants.ALBGatewayFinalizer || fin == shared_constants.NLBGatewayFinalizer {
+				if fin == albGatewayFinalizer || fin == nlbGatewayFinalizer {
 					return true
 				}
 			}
