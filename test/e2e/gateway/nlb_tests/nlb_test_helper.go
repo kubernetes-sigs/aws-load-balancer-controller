@@ -370,22 +370,22 @@ func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack alb_tests
 	})
 }
 
-func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framework.Framework, albNamespace *corev1.Namespace) (*gwbeta1.ReferenceGrant, error) {
-	refGrant := &gwbeta1.ReferenceGrant{
+func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framework.Framework, albNamespace *corev1.Namespace) (*gwv1.ReferenceGrant, error) {
+	refGrant := &gwv1.ReferenceGrant{
 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "refgrant-fe-nlb",
 			Namespace: albNamespace.Name,
 		},
-		Spec: gwbeta1.ReferenceGrantSpec{
-			From: []gwbeta1.ReferenceGrantFrom{
+		Spec: gwv1.ReferenceGrantSpec{
+			From: []gwv1.ReferenceGrantFrom{
 				{
 					Group:     gwbeta1.Group(gwbeta1.GroupName),
 					Kind:      gwbeta1.Kind("TCPRoute"),
 					Namespace: gwbeta1.Namespace(s.Resources.CommonStack.Ns.Name),
 				},
 			},
-			To: []gwbeta1.ReferenceGrantTo{
+			To: []gwv1.ReferenceGrantTo{
 				{
 					Kind:  "Gateway",
 					Group: gwbeta1.Group(gwbeta1.GroupName),
@@ -394,7 +394,7 @@ func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framewo
 		},
 	}
 
-	if err := test_resources.CreateReferenceGrants(ctx, f, []*gwbeta1.ReferenceGrant{refGrant}); err != nil {
+	if err := test_resources.CreateReferenceGrants(ctx, f, []*gwv1.ReferenceGrant{refGrant}); err != nil {
 		return nil, err
 	}
 

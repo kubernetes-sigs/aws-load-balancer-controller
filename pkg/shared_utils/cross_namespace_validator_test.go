@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -34,7 +35,7 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 	testCases := []struct {
 		name            string
 		kind            string
-		referenceGrants []gwv1beta1.ReferenceGrant
+		referenceGrants []gwv1.ReferenceGrant
 		fromNamespace   string
 		fromGroup       string
 		fromKind        string
@@ -56,21 +57,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "svc-namespace",
 			toName:        "svc-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "svc-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -92,21 +93,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.GatewayApiKind,
 			toNamespace:   "gw-namespace",
 			toName:        "gw-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "gw-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.GatewayAPIResourcesGroup,
 								Kind:  shared_constants.GatewayApiKind,
@@ -128,21 +129,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "svc-namespace",
 			toName:        "svc-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "svc-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -175,21 +176,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "svc-namespace",
 			toName:        "svc-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "svc-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -211,21 +212,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "svc-namespace",
 			toName:        "svc-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "svc-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind("other kind"),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -246,21 +247,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.GatewayApiKind,
 			toNamespace:   "gw-namespace",
 			toName:        "gw-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "gw-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -282,21 +283,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "svc-namespace",
 			toName:        "svc-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "svc-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     "wrong-group",
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -317,21 +318,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "svc-namespace",
 			toName:        "svc-name",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "svc-namespace",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GatewayAPIResourcesGroup,
 								Kind:      gwv1beta1.Kind(shared_constants.HTTPRouteKind),
 								Namespace: "route-namespace",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: "wrong-group",
 								Kind:  shared_constants.ServiceKind,
@@ -352,21 +353,21 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 			toKind:        shared_constants.ServiceKind,
 			toNamespace:   "service-ns",
 			toName:        "my-service",
-			referenceGrants: []gwv1beta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "service-ns",
 						Name:      "grant1",
 					},
-					Spec: gwv1beta1.ReferenceGrantSpec{
-						From: []gwv1beta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     shared_constants.GlobalAcceleratorResourcesGroup,
 								Kind:      shared_constants.GlobalAcceleratorKind,
 								Namespace: "accelerator-ns",
 							},
 						},
-						To: []gwv1beta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: shared_constants.CoreAPIGroup,
 								Kind:  shared_constants.ServiceKind,
@@ -468,7 +469,7 @@ func TestValidateCrossNamespaceReference(t *testing.T) {
 func TestGrantAllowsReference(t *testing.T) {
 	tests := []struct {
 		name          string
-		grant         gwv1beta1.ReferenceGrant
+		grant         gwv1.ReferenceGrant
 		fromNamespace string
 		toGroup       string
 		toKind        string
@@ -477,16 +478,16 @@ func TestGrantAllowsReference(t *testing.T) {
 	}{
 		{
 			name: "matching grant - service reference",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.CoreAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.ServiceKind),
@@ -502,16 +503,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "matching grant - ingress reference",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.IngressAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.IngressKind),
@@ -527,16 +528,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "matching grant - gateway reference",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.GatewayAPIResourcesGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.GatewayApiKind),
@@ -552,9 +553,9 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "matching grant - multiple from namespaces",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
@@ -566,7 +567,7 @@ func TestGrantAllowsReference(t *testing.T) {
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.CoreAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.ServiceKind),
@@ -582,16 +583,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "matching grant - multiple to resources",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.IngressAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.IngressKind),
@@ -611,16 +612,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "non-matching - wrong from namespace",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("other-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.CoreAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.ServiceKind),
@@ -636,16 +637,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "non-matching - wrong from group",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group("some-other-group"),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.CoreAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.ServiceKind),
@@ -661,16 +662,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "non-matching - wrong from kind",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind("SomeOtherKind"),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.CoreAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.ServiceKind),
@@ -686,16 +687,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "non-matching - wrong to group",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.IngressAPIGroup),
 							Kind:  gwv1beta1.Kind(shared_constants.IngressKind),
@@ -711,16 +712,16 @@ func TestGrantAllowsReference(t *testing.T) {
 		},
 		{
 			name: "non-matching - wrong to kind",
-			grant: gwv1beta1.ReferenceGrant{
-				Spec: gwv1beta1.ReferenceGrantSpec{
-					From: []gwv1beta1.ReferenceGrantFrom{
+			grant: gwv1.ReferenceGrant{
+				Spec: gwv1.ReferenceGrantSpec{
+					From: []gwv1.ReferenceGrantFrom{
 						{
 							Group:     gwv1beta1.Group(shared_constants.GlobalAcceleratorResourcesGroup),
 							Kind:      gwv1beta1.Kind(shared_constants.GlobalAcceleratorKind),
 							Namespace: gwv1beta1.Namespace("accelerator-ns"),
 						},
 					},
-					To: []gwv1beta1.ReferenceGrantTo{
+					To: []gwv1.ReferenceGrantTo{
 						{
 							Group: gwv1beta1.Group(shared_constants.CoreAPIGroup),
 							Kind:  gwv1beta1.Kind("SomeOtherKind"),

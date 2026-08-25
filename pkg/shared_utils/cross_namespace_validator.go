@@ -3,10 +3,11 @@ package shared_utils
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // ValidateCrossNamespaceReference checks if a ReferenceGrant allows the reference
@@ -15,7 +16,7 @@ func ValidateCrossNamespaceReference(ctx context.Context, k8sClient client.Clien
 	toGroup, toKind, toNamespace, toName string) (bool, error) {
 
 	// List ReferenceGrants in the target namespace
-	refGrantList := &gwv1beta1.ReferenceGrantList{}
+	refGrantList := &gwv1.ReferenceGrantList{}
 	if err := k8sClient.List(ctx, refGrantList, client.InNamespace(toNamespace)); err != nil {
 		if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			// If the CRD is not installed, handle it gracefully instead of returning an error
@@ -37,7 +38,7 @@ func ValidateCrossNamespaceReference(ctx context.Context, k8sClient client.Clien
 }
 
 // grantAllowsReference checks if a specific ReferenceGrant allows the reference
-func grantAllowsReference(grant gwv1beta1.ReferenceGrant,
+func grantAllowsReference(grant gwv1.ReferenceGrant,
 	fromNamespace string, fromGroup, fromKind, toGroup, toKind, toName string) bool {
 
 	// Check From section

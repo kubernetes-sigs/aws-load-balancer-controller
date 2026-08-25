@@ -19,8 +19,9 @@ package controllers
 import (
 	"context"
 	"fmt"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"time"
+
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
@@ -527,7 +528,7 @@ func (r *globalAcceleratorReconciler) setupGlobalAcceleratorWatches(c controller
 			loggerPrefix.WithName("referencegrant-handler"),
 		)
 
-		if err := c.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, referenceGrantHandler)); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &gatewayv1.ReferenceGrant{}, referenceGrantHandler)); err != nil {
 			r.logger.Info("Failed to set up watch for ReferenceGrant resources, cross-namespace validation may be delayed", "error", err)
 		}
 	} else {

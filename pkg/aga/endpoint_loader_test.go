@@ -182,20 +182,20 @@ func TestLoadEndpoint_CrossNamespace(t *testing.T) {
 	k8sClient.Create(context.Background(), svc)
 
 	// Create a ReferenceGrant to allow cross-namespace reference
-	refGrant := &gwv1beta1.ReferenceGrant{
+	refGrant := &gwv1.ReferenceGrant{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "allow-ga-to-service",
 			Namespace: "other-namespace",
 		},
-		Spec: gwv1beta1.ReferenceGrantSpec{
-			From: []gwv1beta1.ReferenceGrantFrom{
+		Spec: gwv1.ReferenceGrantSpec{
+			From: []gwv1.ReferenceGrantFrom{
 				{
 					Group:     shared_constants.GlobalAcceleratorResourcesGroup,
 					Kind:      shared_constants.GlobalAcceleratorKind,
 					Namespace: "default",
 				},
 			},
-			To: []gwv1beta1.ReferenceGrantTo{
+			To: []gwv1.ReferenceGrantTo{
 				{
 					Group: shared_constants.CoreAPIGroup,
 					Kind:  shared_constants.ServiceKind,

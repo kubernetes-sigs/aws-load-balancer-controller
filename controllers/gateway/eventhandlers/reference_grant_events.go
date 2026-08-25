@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 // NewEnqueueRequestsForReferenceGrantEvent creates handler for ReferenceGrant resources
@@ -22,7 +21,7 @@ func NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan chan<- event.Ty
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.UDPRoute],
 	tlsRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.TLSRoute],
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gatewayv1.ReferenceGrant, reconcile.Request] {
 	return &enqueueRequestsForReferenceGrantEvent{
 		httpRouteEventChan: httpRouteEventChan,
 		grpcRouteEventChan: grpcRouteEventChan,
@@ -35,7 +34,7 @@ func NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan chan<- event.Ty
 	}
 }
 
-var _ handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] = (*enqueueRequestsForReferenceGrantEvent)(nil)
+var _ handler.TypedEventHandler[*gatewayv1.ReferenceGrant, reconcile.Request] = (*enqueueRequestsForReferenceGrantEvent)(nil)
 
 // enqueueRequestsForReferenceGrantEvent handles ReferenceGrant events
 type enqueueRequestsForReferenceGrantEvent struct {
@@ -49,34 +48,34 @@ type enqueueRequestsForReferenceGrantEvent struct {
 	logger             logr.Logger
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwbeta1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	referenceGrantNew := e.Object
 	h.logger.V(1).Info("enqueue reference grant create event", "reference grant", referenceGrantNew.Name)
 	h.enqueueImpactedRoutes(ctx, referenceGrantNew, nil)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gwbeta1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gatewayv1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	referenceGrantNew := e.ObjectNew
 	referenceGrantOld := e.ObjectOld
 	h.logger.V(1).Info("enqueue reference grant update event", "reference grant", referenceGrantNew.Name)
 	h.enqueueImpactedRoutes(ctx, referenceGrantNew, referenceGrantOld)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gwbeta1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gatewayv1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	refgrant := e.Object
 	h.logger.V(1).Info("enqueue reference grant delete event", "reference grant", refgrant.Name)
 	h.enqueueImpactedRoutes(ctx, refgrant, nil)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwbeta1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gatewayv1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	refgrant := e.Object
 	h.logger.V(1).Info("enqueue reference grant generic event", "reference grant", refgrant.Name)
 	h.enqueueImpactedRoutes(ctx, refgrant, nil)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx context.Context, newRefGrant *gwbeta1.ReferenceGrant, oldRefGrant *gwbeta1.ReferenceGrant) {
+func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx context.Context, newRefGrant *gatewayv1.ReferenceGrant, oldRefGrant *gatewayv1.ReferenceGrant) {
 
-	impactedRoutes := make(map[string]gwbeta1.ReferenceGrantFrom)
+	impactedRoutes := make(map[string]gatewayv1.ReferenceGrantFrom)
 
 	for i, from := range newRefGrant.Spec.From {
 		impactedRoutes[generateGrantFromKey(from)] = newRefGrant.Spec.From[i]
@@ -169,6 +168,6 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 	}
 }
 
-func generateGrantFromKey(from gwbeta1.ReferenceGrantFrom) string {
+func generateGrantFromKey(from gatewayv1.ReferenceGrantFrom) string {
 	return fmt.Sprintf("%s-%s", from.Kind, from.Namespace)
 }

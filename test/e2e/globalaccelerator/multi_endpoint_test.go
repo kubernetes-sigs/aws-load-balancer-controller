@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/service"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
@@ -505,7 +504,7 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 			})
 
 			By("deleting the Service reference grant", func() {
-				refGrant := &gwbeta1.ReferenceGrant{
+				refGrant := &gwv1.ReferenceGrant{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      svcRefGrantName,
 						Namespace: svcNamespace,

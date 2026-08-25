@@ -3,6 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/util/workqueue"
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/v3/apis/aga/v1beta1"
@@ -12,21 +13,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // NewEnqueueRequestsForReferenceGrantEvent creates handler for ReferenceGrant resources
 func NewEnqueueRequestsForReferenceGrantEvent(
 	k8sClient client.Client,
 	logger logr.Logger,
-) handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] {
+) handler.TypedEventHandler[*gwv1.ReferenceGrant, reconcile.Request] {
 	return &enqueueRequestsForReferenceGrantEvent{
 		k8sClient: k8sClient,
 		logger:    logger,
 	}
 }
 
-var _ handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] = (*enqueueRequestsForReferenceGrantEvent)(nil)
+var _ handler.TypedEventHandler[*gwv1.ReferenceGrant, reconcile.Request] = (*enqueueRequestsForReferenceGrantEvent)(nil)
 
 // enqueueRequestsForReferenceGrantEvent handles ReferenceGrant events
 type enqueueRequestsForReferenceGrantEvent struct {
@@ -34,26 +35,26 @@ type enqueueRequestsForReferenceGrantEvent struct {
 	logger    logr.Logger
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwbeta1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwv1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	refGrant := e.Object
 	h.logger.V(1).Info("enqueue reference grant create event", "reference grant", refGrant.Name)
 	h.enqueueImpactedGlobalAccelerators(ctx, refGrant, nil, queue)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gwbeta1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gwv1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	refGrantNew := e.ObjectNew
 	refGrantOld := e.ObjectOld
 	h.logger.V(1).Info("enqueue reference grant update event", "reference grant", refGrantNew.Name)
 	h.enqueueImpactedGlobalAccelerators(ctx, refGrantNew, refGrantOld, queue)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gwbeta1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gwv1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	refGrant := e.Object
 	h.logger.V(1).Info("enqueue reference grant delete event", "reference grant", refGrant.Name)
 	h.enqueueImpactedGlobalAccelerators(ctx, refGrant, nil, queue)
 }
 
-func (h *enqueueRequestsForReferenceGrantEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwbeta1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForReferenceGrantEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwv1.ReferenceGrant], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	refGrant := e.Object
 	h.logger.V(1).Info("enqueue reference grant generic event", "reference grant", refGrant.Name)
 	h.enqueueImpactedGlobalAccelerators(ctx, refGrant, nil, queue)
@@ -62,12 +63,12 @@ func (h *enqueueRequestsForReferenceGrantEvent) Generic(ctx context.Context, e e
 // enqueueImpactedGlobalAccelerators finds and enqueues GlobalAccelerators impacted by a ReferenceGrant change
 func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedGlobalAccelerators(
 	ctx context.Context,
-	newRefGrant *gwbeta1.ReferenceGrant,
-	oldRefGrant *gwbeta1.ReferenceGrant,
+	newRefGrant *gwv1.ReferenceGrant,
+	oldRefGrant *gwv1.ReferenceGrant,
 	queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 
 	// Collect all relevant namespaces from both old and new ReferenceGrant
-	impactedFroms := make(map[string]gwbeta1.ReferenceGrantFrom)
+	impactedFroms := make(map[string]gwv1.ReferenceGrantFrom)
 
 	// Process new reference grant
 	for i, from := range newRefGrant.Spec.From {
@@ -172,6 +173,6 @@ func (h *enqueueRequestsForReferenceGrantEvent) hasCrossNamespaceReferences(
 }
 
 // generateGrantFromKey creates a unique key for a ReferenceGrantFrom
-func generateGrantFromKey(from gwbeta1.ReferenceGrantFrom) string {
+func generateGrantFromKey(from gwv1.ReferenceGrantFrom) string {
 	return fmt.Sprintf("%s-%s", from.Kind, from.Namespace)
 }

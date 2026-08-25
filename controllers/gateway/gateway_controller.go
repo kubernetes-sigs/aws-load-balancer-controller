@@ -49,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -667,7 +666,7 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, refGrantHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ReferenceGrant{}, refGrantHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.HTTPRoute{}, httpRouteEventHandler)); err != nil {
@@ -731,7 +730,7 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, refGrantHandler)); err != nil {
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.ReferenceGrant{}, refGrantHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.TCPRoute{}, tcpRouteEventHandler)); err != nil {

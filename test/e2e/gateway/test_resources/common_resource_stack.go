@@ -14,7 +14,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -182,7 +181,7 @@ func CreateServices(ctx context.Context, f *framework.Framework, svcs []*corev1.
 	return nil
 }
 
-func CreateReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwbeta1.ReferenceGrant) error {
+func CreateReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwv1.ReferenceGrant) error {
 	f.Logger.Info("About to create ref grant")
 	for _, refg := range refGrants {
 		f.Logger.Info("creating ref grant", "refg", k8s.NamespacedName(refg))
@@ -195,7 +194,7 @@ func CreateReferenceGrants(ctx context.Context, f *framework.Framework, refGrant
 	return nil
 }
 
-func deleteReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwbeta1.ReferenceGrant) error {
+func deleteReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwv1.ReferenceGrant) error {
 	f.Logger.Info("About to delete ref grant")
 	for _, refg := range refGrants {
 		f.Logger.Info("deleting ref grant", "refg", k8s.NamespacedName(refg))

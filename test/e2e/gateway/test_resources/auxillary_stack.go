@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
@@ -36,7 +37,7 @@ type AuxiliaryResourceStack struct {
 	Svcs      []*corev1.Service
 	Dps       []*appsv1.Deployment
 	Tgcs      []*elbv2gw.TargetGroupConfiguration
-	RefGrants []*gwbeta1.ReferenceGrant
+	RefGrants []*gwv1.ReferenceGrant
 
 	// runtime variables
 	Ns *corev1.Namespace
@@ -73,14 +74,14 @@ func (s *AuxiliaryResourceStack) Deploy(ctx context.Context, f *framework.Framew
 }
 
 func (s *AuxiliaryResourceStack) CreateReferenceGrants(ctx context.Context, f *framework.Framework, mainNamespace *corev1.Namespace) error {
-	refGrants := []*gwbeta1.ReferenceGrant{
+	refGrants := []*gwv1.ReferenceGrant{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "refgrant",
 				Namespace: s.Ns.Name,
 			},
-			Spec: gwbeta1.ReferenceGrantSpec{
-				From: []gwbeta1.ReferenceGrantFrom{
+			Spec: gwv1.ReferenceGrantSpec{
+				From: []gwv1.ReferenceGrantFrom{
 					{
 						Group:     gwbeta1.Group(gwbeta1.GroupName),
 						Kind:      gwbeta1.Kind("HTTPRoute"),
@@ -92,7 +93,7 @@ func (s *AuxiliaryResourceStack) CreateReferenceGrants(ctx context.Context, f *f
 						Namespace: gwbeta1.Namespace(mainNamespace.Name),
 					},
 				},
-				To: []gwbeta1.ReferenceGrantTo{
+				To: []gwv1.ReferenceGrantTo{
 					{
 						Kind: "Service",
 					},

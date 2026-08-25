@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute", func() {
@@ -44,7 +43,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 		var albARN string
 		var nlbDnsName string
 		var nlbARN string
-		var refGrant *gwbeta1.ReferenceGrant
+		var refGrant *gwv1.ReferenceGrant
 		It("should provision both ALB and NLB load balancers with HTTPRoute and TCPRoute", func() {
 			// ALB Configuration
 			albInterf := elbv2gw.LoadBalancerSchemeInternal

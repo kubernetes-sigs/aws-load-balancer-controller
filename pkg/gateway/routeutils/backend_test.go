@@ -76,7 +76,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 		name                string
 		storedService       *corev1.Service
 		storedTGConfigs     []elbv2gw.TargetGroupConfiguration
-		referenceGrants     []gwbeta1.ReferenceGrant
+		referenceGrants     []gwv1.ReferenceGrant
 		backendRef          gwv1.BackendRef
 		routeIdentifier     types.NamespacedName
 		weight              int
@@ -221,21 +221,21 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 					Port:      portConverter(80),
 				},
 			},
-			referenceGrants: []gwbeta1.ReferenceGrant{
+			referenceGrants: []gwv1.ReferenceGrant{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: namespaceToUse,
 						Name:      "grant1",
 					},
-					Spec: gwbeta1.ReferenceGrantSpec{
-						From: []gwbeta1.ReferenceGrantFrom{
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{
 							{
 								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-ns",
 							},
 						},
-						To: []gwbeta1.ReferenceGrantTo{
+						To: []gwv1.ReferenceGrantTo{
 							{
 								Group: "",
 								Kind:  serviceKind,
