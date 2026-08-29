@@ -34,6 +34,7 @@ const (
 	flagWebhookCertName         = "webhook-cert-file"
 	flagWebhookKeyName          = "webhook-key-file"
 	flagKubernetesCaPemFilepath = "kube-ca-pem-filepath"
+	flagCacheSyncTimeout       = "cache-sync-timeout"
 
 	defaultKubeconfig              = ""
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
@@ -49,9 +50,10 @@ const (
 	// High enough Burst to fit all expected use cases. Burst=0 is not set here, because
 	// client code is overriding it.
 	defaultBurst           = 1e6
-	defaultWebhookCertDir  = ""
-	defaultWebhookCertName = ""
-	defaultWebhookKeyName  = ""
+	defaultWebhookCertDir    = ""
+	defaultWebhookCertName   = ""
+	defaultWebhookKeyName    = ""
+	defaultCacheSyncTimeout  = 2 * time.Minute
 )
 
 // RuntimeConfig stores the configuration for the controller-runtime
@@ -70,6 +72,7 @@ type RuntimeConfig struct {
 	WebhookCertName         string
 	WebhookKeyName          string
 	KubernetesCaPemFilePath string
+	CacheSyncTimeout        time.Duration
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -97,7 +100,8 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.WebhookCertName, flagWebhookCertName, defaultWebhookCertName, "WebhookCertName is the webhook server certificate name.")
 	fs.StringVar(&c.WebhookKeyName, flagWebhookKeyName, defaultWebhookKeyName, "WebhookKeyName is the webhook server key name.")
 	fs.StringVar(&c.KubernetesCaPemFilePath, flagKubernetesCaPemFilepath, "", "Location of Kubernetes CA file on disk.")
-
+	fs.DurationVar(&c.CacheSyncTimeout, flagCacheSyncTimeout, defaultCacheSyncTimeout,
+		"Time limit for waiting on controller caches to sync during startup. Increase on clusters with a large number of Services or Gateway API resources.")
 }
 
 // BuildRestConfig builds the REST config for the controller runtime
@@ -180,6 +184,8 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) (ctrl.Opti
 			TLSOpts:  baseOpts,
 		}),
 	}
+
+	opt.Controller.CacheSyncTimeout = rtCfg.CacheSyncTimeout
 
 	// cannot set DefaultNamespaces = corev1.NamespaceAll
 	// https://github.com/kubernetes-sigs/controller-runtime/issues/2628
