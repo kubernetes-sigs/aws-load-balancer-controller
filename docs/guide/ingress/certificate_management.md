@@ -38,6 +38,12 @@ Amazon Issued certificates are currently validated using DNS Method and Route53 
 E-Mail validation is not supported due to significant higher delays between requesting a certificate and it's issuance. 
 When using a PCA, certificates don't have to be validated.
 
+#### Validation record routing policy
+
+By default, the controller creates DNS validation records using Route53's Simple routing policy, which allows only one record per name and type. If you run multiple independent LBC controller deployments that need to validate certificates for the same domain name (for example, blue/green clusters), the second controller's validation record creation fails because a Simple record already exists.
+
+Set [route53-validation-record-routing-policy](../../deploy/configurations.md#route53-validation-record-routing-policy) to `weighted` to have each controller create its validation record using Route53's Weighted routing policy instead, identified by `--cluster-name` and a configurable `--route53-validation-record-weight`. This lets multiple controllers each own a validation record for the same domain without conflicting. See [route53-validation-record-routing-policy](../../deploy/configurations.md#route53-validation-record-routing-policy) for details and configuration flags.
+
 ## Ingress Group Behavior
 
 When using certificate management with [IngressGroups](ingress_class.md#specgroup), each ingress in the group gets its own certificate based on its own hostnames. All certificates are attached to the shared ALB's HTTPS listener.
