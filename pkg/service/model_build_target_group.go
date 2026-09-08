@@ -103,7 +103,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, baseSvc *c
 	if err != nil {
 		return nil, err
 	}
-	tgAttrs, err := t.buildTargetGroupAttributes(ctx, baseSvcAnnotations, port)
+	tgAttrs, err := t.buildTargetGroupAttributes(ctx, baseSvcAnnotations, port, tgProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +324,7 @@ func (t *defaultModelBuildTask) validateAndParseAttributes(annotation string) (m
 	return attrs, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupAttributes(ctx context.Context, baseSvcAnnotations map[string]string, port corev1.ServicePort) ([]elbv2model.TargetGroupAttribute, error) {
+func (t *defaultModelBuildTask) buildTargetGroupAttributes(ctx context.Context, baseSvcAnnotations map[string]string, port corev1.ServicePort, tgProtocol elbv2model.Protocol) ([]elbv2model.TargetGroupAttribute, error) {
 	// Start with defaults
 	rawAttributes := make(map[string]string)
 	rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
@@ -373,6 +373,22 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(ctx context.Context, 
 		rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
 	}
 
+	/*
+		https://docs.aws.amazon.com/elasticloadbalancing/latest/network/edit-target-group-attributes.html#client-ip-preservation
+		Client IP preservation can't be disabled for UDP, QUIC, TCP_QUIC and TCP_UDP target groups and ELB rejects
+		preserve_client_ip.enabled=false for them, which would fail the whole deploy. Force it to true for those
+		target groups so a global attribute still applies to the TCP/TLS target groups of the same service.
+	*/
+	if isClientIPPreservationForced(tgProtocol) {
+		if rawValue, exists := rawAttributes[shared_constants.TGAttributePreserveClientIPEnabled]; exists {
+			if enabled, err := strconv.ParseBool(rawValue); err == nil && !enabled {
+				t.logger.Info("client IP preservation can't be disabled for this target group protocol, forcing preserve_client_ip.enabled=true",
+					"service", k8s.NamespacedName(t.service), "port", port.Port, "protocol", tgProtocol)
+				rawAttributes[shared_constants.TGAttributePreserveClientIPEnabled] = "true"
+			}
+		}
+	}
+
 	// Convert map to sorted array of attributes
 	attributes := make([]elbv2model.TargetGroupAttribute, 0, len(rawAttributes))
 	for attrKey, attrValue := range rawAttributes {
@@ -391,6 +407,15 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(ctx context.Context, 
 		return attributes[i].Key < attributes[j].Key
 	})
 	return attributes, nil
+}
+
+// isClientIPPreservationForced returns whether ELB always enables client IP preservation for the target group protocol.
+func isClientIPPreservationForced(tgProtocol elbv2model.Protocol) bool {
+	switch tgProtocol {
+	case elbv2model.ProtocolUDP, elbv2model.ProtocolTCP_UDP, elbv2model.ProtocolQUIC, elbv2model.ProtocolTCP_QUIC:
+		return true
+	}
+	return false
 }
 
 func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType, tgAttrs []elbv2model.TargetGroupAttribute) (bool, error) {

@@ -28,11 +28,12 @@ import (
 
 func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 	tests := []struct {
-		testName  string
-		svc       *corev1.Service
-		port      corev1.ServicePort
-		wantError bool
-		wantValue []elbv2.TargetGroupAttribute
+		testName   string
+		svc        *corev1.Service
+		port       corev1.ServicePort
+		tgProtocol elbv2.Protocol
+		wantError  bool
+		wantValue  []elbv2.TargetGroupAttribute
 	}{
 		{
 			testName: "Default values",
@@ -376,6 +377,117 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				},
 			},
 		},
+		{
+			testName: "preserve_client_ip.enabled=false is kept for TCP target groups",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "preserve_client_ip.enabled=false",
+					},
+				},
+			},
+			port:       corev1.ServicePort{Port: 7447, Protocol: corev1.ProtocolTCP},
+			tgProtocol: elbv2.ProtocolTCP,
+			wantError:  false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Value: "false",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
+		{
+			testName: "preserve_client_ip.enabled=false is forced to true for UDP target groups",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "preserve_client_ip.enabled=false",
+					},
+				},
+			},
+			port:       corev1.ServicePort{Port: 47998, Protocol: corev1.ProtocolUDP},
+			tgProtocol: elbv2.ProtocolUDP,
+			wantError:  false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Value: "true",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
+		{
+			testName: "preserve_client_ip.enabled=false is forced to true for TCP_UDP target groups",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "preserve_client_ip.enabled=false",
+					},
+				},
+			},
+			port:       corev1.ServicePort{Port: 53, Protocol: corev1.ProtocolUDP},
+			tgProtocol: elbv2.ProtocolTCP_UDP,
+			wantError:  false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Value: "true",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
+		{
+			testName: "preserve_client_ip.enabled=true is unchanged for UDP target groups",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "preserve_client_ip.enabled=true",
+					},
+				},
+			},
+			port:       corev1.ServicePort{Port: 47998, Protocol: corev1.ProtocolUDP},
+			tgProtocol: elbv2.ProtocolUDP,
+			wantError:  false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
+					Value: "true",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
+		{
+			testName: "port-specific preserve_client_ip.enabled=false on a TCP port does not touch the UDP target group",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.7447": "preserve_client_ip.enabled=false",
+					},
+				},
+			},
+			port:       corev1.ServicePort{Port: 47998, Protocol: corev1.ProtocolUDP},
+			tgProtocol: elbv2.ProtocolUDP,
+			wantError:  false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -384,7 +496,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				service:          tt.svc,
 				annotationParser: parser,
 			}
-			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.svc.Annotations, tt.port)
+			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.svc.Annotations, tt.port, tt.tgProtocol)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
