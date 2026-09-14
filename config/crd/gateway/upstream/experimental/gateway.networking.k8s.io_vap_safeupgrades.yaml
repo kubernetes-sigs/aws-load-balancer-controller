@@ -1,0 +1,50 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  annotations:
+    gateway.networking.k8s.io/bundle-version: v0.0.0-dev
+    gateway.networking.k8s.io/channel: standard
+  name: "safe-upgrades.gateway.networking.k8s.io"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["apiextensions.k8s.io"]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["*"]
+  validations:
+    - expression: "object.spec.group != 'gateway.networking.k8s.io' || oldObject == null || (
+        has(object.metadata.annotations) && object.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/channel') && 
+        object.metadata.annotations['gateway.networking.k8s.io/channel'] == 'standard' ) || (
+        oldObject != null && has(oldObject.metadata.annotations) && oldObject.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/channel') && 
+        oldObject.metadata.annotations['gateway.networking.k8s.io/channel'] == 'experimental' )"
+      message: "Installing experimental CRDs on top of standard channel CRDs is prohibited by default. Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io to install experimental CRDs on top of standard channel CRDs."
+      reason: Invalid
+    - expression: |
+        object.spec.group != 'gateway.networking.k8s.io' ||
+        (has(object.metadata.annotations) && object.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/bundle-version') &&
+        (object.metadata.annotations['gateway.networking.k8s.io/bundle-version'] == 'v0.0.0-dev' ||
+        (object.metadata.annotations['gateway.networking.k8s.io/bundle-version'].startsWith('v1.') &&
+         !matches(object.metadata.annotations['gateway.networking.k8s.io/bundle-version'], '^v1\\.[0-4](\\.|$)'))))
+      message: "Installing CRDs with version other than v0.0.0-dev or v1.5+ is prohibited by default. Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io to install other versions."
+      reason: Invalid
+
+---
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  annotations:
+    gateway.networking.k8s.io/bundle-version: v0.0.0-dev
+    gateway.networking.k8s.io/channel: standard
+  name: safe-upgrades.gateway.networking.k8s.io
+spec:
+  policyName: safe-upgrades.gateway.networking.k8s.io
+  validationActions: [Deny]
+  matchResources:
+    resourceRules:
+    - apiGroups:   ["apiextensions.k8s.io"]
+      apiVersions: ["v1"]
+      resources:   ["customresourcedefinitions"]
+      operations:  ["CREATE", "UPDATE"]
