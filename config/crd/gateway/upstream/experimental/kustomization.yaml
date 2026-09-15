@@ -1,0 +1,15 @@
+resources:
+- gateway.networking.k8s.io_backendtlspolicies.yaml
+- gateway.networking.k8s.io_gatewayclasses.yaml
+- gateway.networking.k8s.io_gateways.yaml
+- gateway.networking.k8s.io_grpcroutes.yaml
+- gateway.networking.k8s.io_httproutes.yaml
+- gateway.networking.k8s.io_listenersets.yaml
+- gateway.networking.k8s.io_referencegrants.yaml
+- gateway.networking.k8s.io_tcproutes.yaml
+- gateway.networking.k8s.io_tlsroutes.yaml
+- gateway.networking.k8s.io_udproutes.yaml
+- gateway.networking.k8s.io_vap_safeupgrades.yaml
+- gateway.networking.x-k8s.io_xbackends.yaml
+- gateway.networking.x-k8s.io_xbackendtrafficpolicies.yaml
+- gateway.networking.x-k8s.io_xmeshes.yaml
