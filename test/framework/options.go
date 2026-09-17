@@ -38,6 +38,7 @@ type Options struct {
 	CertificateARNs      string
 	IPFamily             string
 	TestImageRegistry    string
+	ResolveImageTags     bool
 	EnableGatewayTests   bool
 	EnableAGATests       bool
 	EnableCertMgmtTests  bool
@@ -71,6 +72,7 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.CertificateARNs, "certificate-arns", "", `Certificate ARNs to use for TLS listeners`)
 	flag.StringVar(&options.IPFamily, "ip-family", IPv4, "the ip family used for the cluster, can be IPv4 or IPv6")
 	flag.StringVar(&options.TestImageRegistry, "test-image-registry", "617930562442.dkr.ecr.us-west-2.amazonaws.com", "the aws registry in test-infra-* accounts where e2e test images are stored")
+	flag.BoolVar(&options.ResolveImageTags, "resolve-image-tags", false, "resolve test image tags from ECR at runtime; required in partitions where :latest is not replicated")
 
 	flag.BoolVar(&options.EnableGatewayTests, "enable-gateway-tests", false, "enables gateway tests")
 	flag.BoolVar(&options.EnableAGATests, "enable-aga-tests", false, "enables AWS Global Accelerator tests")

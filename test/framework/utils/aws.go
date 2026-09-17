@@ -20,6 +20,25 @@ func IsCommercialPartition(region string) bool {
 	return true
 }
 
+// PartitionDNSSuffix returns the ELB DNS suffix for the given region's partition.
+func PartitionDNSSuffix(region string) string {
+	r := strings.ToLower(region)
+	switch {
+	case strings.HasPrefix(r, "cn-"):
+		return "amazonaws.com.cn"
+	case strings.HasPrefix(r, "us-isob-"):
+		return "sc2s.sgov.gov"
+	case strings.HasPrefix(r, "us-isof-"):
+		return "csp.hci.ic.gov"
+	case strings.HasPrefix(r, "us-iso-"):
+		return "c2s.ic.gov"
+	case strings.HasPrefix(r, "eu-isoe-"):
+		return "cloud.adc-e.uk"
+	default:
+		return "amazonaws.com"
+	}
+}
+
 func GetClusterZones(ctx context.Context, k8sClient client.Client) ([]string, error) {
 	nodes := &corev1.NodeList{}
 	err := k8sClient.List(ctx, nodes)
