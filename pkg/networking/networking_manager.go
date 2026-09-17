@@ -400,11 +400,11 @@ func (m *defaultNetworkingManager) computeIngressPermissionsForTGBNetworking(ctx
 					Protocol: &protocolTCP,
 					Port:     nil,
 				}
-				permissions, err := m.computePermissionsForPeerPort(ctx, rulePeer, allTCPPort, pods)
+				permissionsForPeerPort, err := m.computePermissionsForPeerPort(ctx, rulePeer, allTCPPort, pods)
 				if err != nil {
 					return nil, err
 				}
-				permissions = append(permissions, permissions...)
+				permissions = append(permissions, permissionsForPeerPort...)
 			}
 		}
 	}
