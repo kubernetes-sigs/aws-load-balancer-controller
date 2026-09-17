@@ -1,6 +1,11 @@
 package nlb_tests
 
-import "sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+import (
+	"context"
+
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework"
+)
 
 var tf *framework.Framework
 
@@ -12,6 +17,6 @@ func InitTF() error {
 		return nil
 	}
 	var err error
-	tf, err = framework.InitFramework()
+	tf, err = test_resources.InitGatewayFramework(context.Background())
 	return err
 }

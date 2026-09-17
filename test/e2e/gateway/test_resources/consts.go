@@ -1,12 +1,26 @@
 package test_resources
 
 import (
+	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+// TestHostname is the wildcard hostname used by ALB tests; SetTestHostnameForRegion updates it per partition.
+var TestHostname = "*.elb.us-west-2.amazonaws.com"
+
+// SetTestHostnameForRegion rewrites TestHostname for the given region's partition DNS suffix.
+func SetTestHostnameForRegion(region string) {
+	if region == "" {
+		return
+	}
+	TestHostname = fmt.Sprintf("*.elb.%s.%s", region, utils.PartitionDNSSuffix(region))
+}
 
 const (
 	AppContainerPort        = 80
@@ -21,7 +35,6 @@ const (
 	DefaultTgConfigName     = "tgconfig-e2e"
 	DefaultLRConfigName     = "lrconfig-e2e"
 	UDPDefaultTgConfigName  = DefaultTgConfigName + "-udp"
-	TestHostname            = "*.elb.us-west-2.amazonaws.com"
 	// constants used in ALB http route matches and filters tests
 	HeaderModificationServerEnabled = "routing.http.response.server.enabled"
 	HeaderModificationMaxAge        = "routing.http.response.access_control_max_age.header_value"

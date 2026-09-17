@@ -106,11 +106,12 @@ func BuildCustomizableResponseDeploymentSpec(dpName, fixedResponseContent, testI
 	}
 }
 
-func BuildUDPDeploymentSpec() *appsv1.Deployment {
+func BuildUDPDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
 	numReplicas := int32(DefaultNumReplicas)
 	labels := map[string]string{
 		"app.kubernetes.io/instance": UDPDefaultName,
 	}
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.UDPImage)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: UDPDefaultName,
@@ -129,7 +130,7 @@ func BuildUDPDeploymentSpec() *appsv1.Deployment {
 						{
 							Name:            "app",
 							ImagePullPolicy: corev1.PullAlways,
-							Image:           utils.UDPImage,
+							Image:           dpImage,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: UDPContainerPort,
@@ -150,8 +151,9 @@ func BuildUDPDeploymentSpec() *appsv1.Deployment {
 	}
 }
 
-func BuildGRPCDeploymentSpec(name string, fixedResponseMessage string, labels map[string]string) *appsv1.Deployment {
+func BuildGRPCDeploymentSpec(name string, fixedResponseMessage string, labels map[string]string, testImageRegistry string) *appsv1.Deployment {
 	numReplicas := int32(DefaultNumReplicas)
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.GRPCImage)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -170,7 +172,7 @@ func BuildGRPCDeploymentSpec(name string, fixedResponseMessage string, labels ma
 						{
 							Name:            "app",
 							ImagePullPolicy: corev1.PullAlways,
-							Image:           utils.GRPCImage,
+							Image:           dpImage,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: GRPCContainerPort,

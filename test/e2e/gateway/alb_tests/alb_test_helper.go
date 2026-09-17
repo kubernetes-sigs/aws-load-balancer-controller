@@ -48,11 +48,11 @@ func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, g
 	}
 
 	svc := test_resources.BuildGRPCServiceSpec(test_resources.GRPCDefaultName, labels)
-	dp := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName, "Hello World", labels)
+	dp := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName, "Hello World", labels, f.Options.TestImageRegistry)
 	tgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName, tgConfSpec, svc)
 
 	svcOther := test_resources.BuildGRPCServiceSpec(test_resources.GRPCDefaultName+"-other", otherLabels)
-	dpOther := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName+"-other", "Hello World - Other", otherLabels)
+	dpOther := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName+"-other", "Hello World - Other", otherLabels, f.Options.TestImageRegistry)
 	tgcOther := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName+"-other", tgConfSpec, svcOther)
 
 	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{}, grpcrs, []*appsv1.Deployment{dp, dpOther}, []*corev1.Service{svc, svcOther}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc, tgcOther}, lrConfSpec, nil, readinessGateEnabled)
@@ -70,7 +70,7 @@ func (s *ALBTestStack) DeployHTTPAndGRPC(ctx context.Context, f *framework.Frame
 		"app.kubernetes.io/instance": test_resources.GRPCDefaultName,
 	}
 	grpcSvc := test_resources.BuildGRPCServiceSpec(test_resources.GRPCDefaultName, grpcLabels)
-	grpcDp := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName, "Hello World", grpcLabels)
+	grpcDp := test_resources.BuildGRPCDeploymentSpec(test_resources.GRPCDefaultName, "Hello World", grpcLabels, f.Options.TestImageRegistry)
 	grpcTgc := test_resources.BuildTargetGroupConfig(test_resources.DefaultTgConfigName+"-grpc", tgConfSpec, grpcSvc)
 
 	return s.deploy(ctx, f, gwListeners, httprs, grpcrs,

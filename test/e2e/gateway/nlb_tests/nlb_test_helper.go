@@ -28,7 +28,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	dpTCP := test_resources.BuildDeploymentSpec(f.Options.TestImageRegistry)
 	svcTCP := test_resources.BuildServiceSpec(map[string]string{})
 
-	dpUDP := test_resources.BuildUDPDeploymentSpec()
+	dpUDP := test_resources.BuildUDPDeploymentSpec(f.Options.TestImageRegistry)
 	svcUDP := test_resources.BuildUDPServiceSpec()
 	gwc := test_resources.BuildGatewayClassSpec(test_resources.NLBGatewayControllerName)
 
@@ -154,7 +154,7 @@ func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.
 }
 
 func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
-	dpUDP := test_resources.BuildUDPDeploymentSpec()
+	dpUDP := test_resources.BuildUDPDeploymentSpec(f.Options.TestImageRegistry)
 	svcUDP := test_resources.BuildUDPServiceSpec()
 	gwc := test_resources.BuildGatewayClassSpec(test_resources.NLBGatewayControllerName)
 
@@ -185,7 +185,7 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 }
 
 func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, namespaceLabels map[string]string) error {
-	dpUDP := test_resources.BuildUDPDeploymentSpec()
+	dpUDP := test_resources.BuildUDPDeploymentSpec(f.Options.TestImageRegistry)
 	svcUDP := test_resources.BuildUDPServiceSpec()
 
 	dpUDP.Spec.Template.Annotations = make(map[string]string)
@@ -212,7 +212,7 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 }
 
 func (s *NLBTestStack) DeployTCP_QUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, namespaceLabels map[string]string) error {
-	dpUDP := test_resources.BuildUDPDeploymentSpec()
+	dpUDP := test_resources.BuildUDPDeploymentSpec(f.Options.TestImageRegistry)
 	svcUDP := test_resources.BuildUDPServiceSpec()
 
 	dpUDP.Spec.Template.Annotations = make(map[string]string)
