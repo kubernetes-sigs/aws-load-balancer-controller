@@ -67,6 +67,7 @@ const (
 	IngressSuffixFrontendNlbSecurityGroups                     = "frontend-nlb-security-groups"
 	IngressSuffixFrontendNlbListenerPortMapping                = "frontend-nlb-listener-port-mapping"
 	IngressSuffixFrontendNlbEipAllocations                     = "frontend-nlb-eip-allocations"
+	IngressSuffixFrontendNlbPrivateIPv4Addresses               = "frontend-nlb-private-ipv4-addresses"
 	IngressSuffixFrontendNlbHealthCheckPort                    = "frontend-nlb-healthcheck-port"
 	IngressSuffixFrontendNlbHealthCheckProtocol                = "frontend-nlb-healthcheck-protocol"
 	IngressSuffixFrontendNlbHealthCheckPath                    = "frontend-nlb-healthcheck-path"
