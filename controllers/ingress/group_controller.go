@@ -309,8 +309,10 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		}
 	}
 
-	frontendNlbStatusOnly := false
-	r.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixFrontendNlbStatusOnly, &frontendNlbStatusOnly, ing.Annotations)
+frontendNlbStatusOnly := false
+	if _, err := r.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixFrontendNlbStatusOnly, &frontendNlbStatusOnly, ing.Annotations); err != nil {
+		return err
+	}
 
 	ingOld := ing.DeepCopy()
 	if frontendNlbStatusOnly && frontendNlbDNS != "" {
