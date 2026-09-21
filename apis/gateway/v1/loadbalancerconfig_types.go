@@ -255,6 +255,7 @@ type LoadBalancerConfigurationSpec struct {
 	SecurityGroupPrefixes *[]string `json:"securityGroupPrefixes,omitempty"`
 
 	// sourceRanges an optional list of CIDRs that are allowed to access the LB.
+	// IPv4 and IPv6 CIDRs are canonicalized. Defaults to 0.0.0.0/0 and ::/0.
 	// +optional
 	SourceRanges *[]string `json:"sourceRanges,omitempty"`
 

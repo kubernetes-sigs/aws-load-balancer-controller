@@ -705,6 +705,8 @@ Access control for LoadBalancer can be controlled with following annotations:
 
 - <a name="inbound-cidrs">`alb.ingress.kubernetes.io/inbound-cidrs`</a> specifies the CIDRs that are allowed to access LoadBalancer.
 
+    The Load Balancer Controller canonicalizes CIDRs.
+
     !!!note "Merge Behavior"
         `inbound-cidrs` is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.
 

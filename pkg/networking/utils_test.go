@@ -338,3 +338,69 @@ func TestGetSubnetAssociatedIPv6CIDRs(t *testing.T) {
 		})
 	}
 }
+
+func TestCanonicalizeCIDRs(t *testing.T) {
+	type output struct {
+		ipv4CIDRs []string
+		ipv6CIDRs []string
+	}
+	tests := []struct {
+		name    string
+		args    []string
+		want    output
+		wantErr error
+	}{
+		{
+			name: "valid non-canonical IPv4 CIDR",
+			args: []string{"100.68.0.18/18"},
+			want: output{
+				ipv4CIDRs: []string{"100.68.0.0/18"},
+			},
+		},
+		{
+			name: "valid canonical IPv4 CIDR",
+			args: []string{"100.68.0.0/18"},
+			want: output{
+				ipv4CIDRs: []string{"100.68.0.0/18"},
+			},
+		},
+		{
+			name: "valid non-canonical IPv6 CIDR",
+			args: []string{"fe80:0000:0000:0000::/64"},
+			want: output{
+				ipv6CIDRs: []string{"fe80::/64"},
+			},
+		},
+		{
+			name: "valid non-canonical IPv4 and non-canonical IPv6 CIDRs",
+			args: []string{"100.68.0.18/18", "fe80:0000:0000:0000::/64"},
+			want: output{
+				ipv4CIDRs: []string{"100.68.0.0/18"},
+				ipv6CIDRs: []string{"fe80::/64"},
+			},
+		},
+		{
+			name: "dedupe canonical and non-canonical forms of the same IPv4 CIDR",
+			args: []string{"100.68.0.18/18", "100.68.0.0/18"},
+			want: output{
+				ipv4CIDRs: []string{"100.68.0.0/18"},
+			},
+		},
+		{
+			name:    "invalid IPv4 CIDR",
+			args:    []string{"100.0.0.0.0/32"},
+			wantErr: errors.New("invalid CIDR address: 100.0.0.0.0/32"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIpv4CIDRs, gotIpv6CIDRs, err := CanonicalizeCIDRs(tt.args)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want.ipv4CIDRs, gotIpv4CIDRs)
+				assert.Equal(t, tt.want.ipv6CIDRs, gotIpv6CIDRs)
+			}
+		})
+	}
+}
