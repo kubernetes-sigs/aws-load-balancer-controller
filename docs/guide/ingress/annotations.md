@@ -817,7 +817,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         ```
 
     !!!warning "Accessing OIDC secrets"
-        Any user who can create an Ingress in the same namespace as an OIDC secret can use that secret to enable OIDC-based authentication on the Ingress. The AWS Load Balancer Controller uses its own RBAC permissions to retrieve the secret's contents in order to configure the ALB listener.
+        Anything that can create an Ingress in the same namespace as the secret that contains the OIDC information can use that secret to enable OIDC-based authentication on the Ingress. The AWS Load Balancer Controller uses its own RBAC permissions to retrieve the secret's contents in order to configure the ALB listener.
   
 - <a name="auth-on-unauthenticated-request">`alb.ingress.kubernetes.io/auth-on-unauthenticated-request`</a> specifies the behavior if the user is not authenticated.
 
