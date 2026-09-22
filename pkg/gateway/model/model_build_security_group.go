@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"slices"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -156,7 +157,11 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.St
 		return nil, err
 	}
 
-	ingressPermissions := builder.buildManagedSecurityGroupIngressPermissions(lbConf, listeners, ipAddressType)
+	ingressPermissions, err := builder.buildManagedSecurityGroupIngressPermissions(lbConf, listeners, ipAddressType)
+	if err != nil {
+		return nil, err
+	}
+
 	return ec2model.NewSecurityGroup(stack, resourceIDManagedSecurityGroup, ec2model.SecurityGroupSpec{
 		GroupName:   name,
 		Description: managedSGDescription,
@@ -178,12 +183,11 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupName(gw *gwv1.
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf elbv2gw.LoadBalancerConfiguration, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf elbv2gw.LoadBalancerConfiguration, listeners []gwv1.Listener, ipAddressType elbv2model.IPAddressType) ([]ec2model.IPPermission, error) {
 	var permissions []ec2model.IPPermission
 
 	// Default to 0.0.0.0/0 and ::/0
 	// If user specified actual ranges, then these values will be overridden.
-	// TODO - Document this
 	sourceRanges := []string{
 		"0.0.0.0/0",
 		"::/0",
@@ -205,12 +209,18 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermiss
 
 	includeIPv6 := isIPv6Supported(ipAddressType)
 
+	ipv4CIDRs, ipv6CIDRs, err := networking.CanonicalizeCIDRs(sourceRanges)
+	if err != nil {
+		return nil, err
+	}
+	cidrs := slices.Concat(ipv4CIDRs, ipv6CIDRs)
+
 	//listener loop
 	for _, listener := range listeners {
 		port := int32(listener.Port)
 		protocol := getSgRuleProtocol(listener.Protocol)
 		// CIDR Loop
-		for _, cidr := range sourceRanges {
+		for _, cidr := range cidrs {
 			isIPv6 := isIPv6CIDR(cidr)
 
 			if !isIPv6 {
@@ -278,7 +288,7 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermiss
 			})
 		} // PL loop
 	} // listener loop
-	return permissions
+	return permissions, nil
 }
 
 func getSgRuleProtocol(protocol gwv1.ProtocolType) ec2types.Protocol {

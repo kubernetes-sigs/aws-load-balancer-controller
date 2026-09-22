@@ -77,6 +77,43 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 			wantErr: false,
 			want:    nil,
 		},
+		{
+			name: "valid non-canonical IPv4 specified in service.beta.kubernetes.io/load-balancer-source-ranges",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/load-balancer-source-ranges": "100.68.0.18/18",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeIPV4,
+				prefixListsConfigured: false,
+			},
+			wantErr: false,
+			want: []string{
+				"100.68.0.0/18",
+			},
+		},
+		{
+			name: "valid non-canonical IPv6 specified in service.beta.kubernetes.io/load-balancer-source-ranges",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack",
+							"service.beta.kubernetes.io/load-balancer-source-ranges":       "fe80:0000:0000:0000::/64",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeDualStack,
+				prefixListsConfigured: false,
+			},
+			wantErr: false,
+			want: []string{
+				"fe80::/64",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t1 *testing.T) {

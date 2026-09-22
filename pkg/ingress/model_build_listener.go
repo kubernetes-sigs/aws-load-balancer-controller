@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
-
 	"k8s.io/utils/strings/slices"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
@@ -24,6 +22,7 @@ import (
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	networkingUtils "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 )
 
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int32, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {
@@ -281,22 +280,14 @@ func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Con
 		_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundCIDRs, &rawInboundCIDRs, ing.Ing.Annotations)
 	}
 
-	var inboundCIDRv4s, inboundCIDRv6s []string
-	for _, cidr := range rawInboundCIDRs {
-		_, _, err := net.ParseCIDR(cidr)
-		if err != nil {
-			if fromIngressClassParams {
-				return nil, nil, fmt.Errorf("invalid CIDR in IngressClassParams InboundCIDR %s: %w", cidr, err)
-			}
-			return nil, nil, fmt.Errorf("invalid %v settings on Ingress: %v: %w", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing.Ing), err)
+	ipv4CIDRs, ipv6CIDRs, err := networkingUtils.CanonicalizeCIDRs(rawInboundCIDRs)
+	if err != nil {
+		if fromIngressClassParams {
+			return nil, nil, fmt.Errorf("invalid settings on IngressClassParams InboundCIDR: %w", err)
 		}
-		if strings.Contains(cidr, ":") {
-			inboundCIDRv6s = append(inboundCIDRv6s, cidr)
-		} else {
-			inboundCIDRv4s = append(inboundCIDRv4s, cidr)
-		}
+		return nil, nil, fmt.Errorf("invalid %v settings on Ingress: %v: %w", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing.Ing), err)
 	}
-	return inboundCIDRv4s, inboundCIDRv6s, nil
+	return ipv4CIDRs, ipv6CIDRs, nil
 }
 
 func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Context, ing *ClassifiedIngress) *string {

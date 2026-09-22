@@ -1825,7 +1825,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Spec: v1beta1.IngressClassParamsSpec{
 										InboundCIDRs: []string{
 											"10.0.0.0/8",
-											"172.16.0.0/12",
+											"100.68.0.18/18",
 										},
 									},
 								},
@@ -1920,7 +1920,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 							"ipProtocol": "tcp",
 							"ipRanges": [
 								{
-									"cidrIP": "172.16.0.0/12"
+									"cidrIP": "100.68.0.0/18"
 								}
 							],
 							"toPort": 80

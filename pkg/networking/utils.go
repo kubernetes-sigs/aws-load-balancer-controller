@@ -1,6 +1,7 @@
 package networking
 
 import (
+	"net"
 	"net/netip"
 	"strings"
 
@@ -163,4 +164,31 @@ func ValidateSourceNatPrefixForSubnetPair(sourceNatIpv6Prefix string, subnet ec2
 		return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be within subnet CIDR range: %v.", sourceNatIpv6Prefix, subnetIPv6CIDRs)
 	}
 	return nil
+}
+
+// CanonicalizeCIDRs returns the canonicalized (normalized) CIDRs given the raw CIDRs.
+func CanonicalizeCIDRs(rawCIDRs []string) ([]string, []string, error) {
+	var ipv4CIDRs, ipv6CIDRs []string
+	seen := make(map[string]struct{}) // For dedupe
+
+	for _, rawCIDR := range rawCIDRs {
+		_, ipNet, err := net.ParseCIDR(rawCIDR)
+		if err != nil {
+			return nil, nil, err
+		}
+		canonicalCIDR := ipNet.String()
+
+		_, exists := seen[canonicalCIDR]
+		if exists {
+			continue
+		}
+
+		seen[canonicalCIDR] = struct{}{}
+		if strings.Contains(canonicalCIDR, ":") {
+			ipv6CIDRs = append(ipv6CIDRs, canonicalCIDR)
+		} else {
+			ipv4CIDRs = append(ipv4CIDRs, canonicalCIDR)
+		}
+	}
+	return ipv4CIDRs, ipv6CIDRs, nil
 }

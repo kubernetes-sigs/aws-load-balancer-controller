@@ -352,6 +352,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		ipAddressType elbv2model.IPAddressType
 		gateway       *gwv1.Gateway
 		expected      []ec2model.IPPermission
+		expectErr     bool
 	}{
 		{
 			name: "ipv4 - tcp - with default source ranges",
@@ -411,7 +412,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -421,7 +422,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -431,7 +432,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -466,7 +467,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -476,7 +477,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -486,7 +487,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -520,7 +521,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -530,7 +531,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(4),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -566,7 +567,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -576,7 +577,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(4),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -636,7 +637,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -646,7 +647,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -656,7 +657,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -666,7 +667,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(8080),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -676,7 +677,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(8080),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -686,7 +687,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(8080),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -731,7 +732,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -741,7 +742,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -751,7 +752,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -761,7 +762,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(85),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -771,7 +772,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(85),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -781,7 +782,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(85),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -791,7 +792,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(90),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -801,7 +802,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(90),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.100.0.1/24",
+							CIDRIP: "127.100.0.0/24",
 						},
 					},
 				},
@@ -811,7 +812,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(90),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.200.0.1/24",
+							CIDRIP: "127.200.0.0/24",
 						},
 					},
 				},
@@ -950,7 +951,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -995,7 +996,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -1029,7 +1030,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					ToPort:     awssdk.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
-							CIDRIP: "127.0.0.1/24",
+							CIDRIP: "127.0.0.0/24",
 						},
 					},
 				},
@@ -1055,13 +1056,145 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 				},
 			},
 		},
+		{
+			name:          "valid non-canonical ipv4 cidr in source range",
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"100.68.0.18/18",
+					},
+				},
+			},
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{{
+						CIDRIP: "100.68.0.0/18",
+					}},
+				},
+			},
+		},
+		{
+			name:          "invalid ipv4 cidr in source range",
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"10.0.0.11111/18",
+					},
+				},
+			},
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
+					},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name:          "valid non-canonical ipv6 cidr in source range",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"fe80:0000:0000:0000::/64",
+					},
+				},
+			},
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{{
+						CIDRIPv6: "fe80::/64",
+					}},
+				},
+			},
+		},
+		{
+			name:          "valid non-canonical ipv4 and non-canonical ipv6 cidrs in source range",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"100.68.0.18/18",
+						"fe80:0000:0000:0000::/64",
+					},
+				},
+			},
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{{
+						CIDRIP: "100.68.0.0/18",
+					}},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{{
+						CIDRIPv6: "fe80::/64",
+					}},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := &securityGroupBuilderImpl{}
-			permissions := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.gateway.Spec.Listeners, tc.ipAddressType)
-			assert.ElementsMatch(t, tc.expected, permissions, fmt.Sprintf("%+v", permissions))
+			permissions, err := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.gateway.Spec.Listeners, tc.ipAddressType)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.ElementsMatch(t, tc.expected, permissions, fmt.Sprintf("%+v", permissions))
+			}
 		})
 	}
 }

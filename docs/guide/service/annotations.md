@@ -610,6 +610,7 @@ Load balancer access can be controlled via following annotations:
     !!!tip
         - We recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
         - For enhanced security with `internal` network load balancers, we recommend limiting access by specifying allowed source IP ranges.  This can be done using either the `service.beta.kubernetes.io/load-balancer-source-ranges` annotation or the `spec.loadBalancerSourceRanges` field.
+        - The Load Balancer Controller canonicalizes CIDRs
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"

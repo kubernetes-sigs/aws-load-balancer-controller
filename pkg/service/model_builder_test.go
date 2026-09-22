@@ -4771,7 +4771,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "1.2.3.4/19"
+                         "cidrIP": "1.2.0.0/19"
                       }
                    ]
                 },
@@ -4791,7 +4791,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 83,
                    "ipRanges": [
                       {
-                         "cidrIP": "1.2.3.4/19"
+                         "cidrIP": "1.2.0.0/19"
                       }
                    ]
                 }
@@ -5122,7 +5122,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "1.2.3.4/19"
+                         "cidrIP": "1.2.0.0/19"
                       }
                    ]
                 },
@@ -5142,7 +5142,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 83,
                    "ipRanges": [
                       {
-                         "cidrIP": "1.2.3.4/19"
+                         "cidrIP": "1.2.0.0/19"
                       }
                    ]
                 }
