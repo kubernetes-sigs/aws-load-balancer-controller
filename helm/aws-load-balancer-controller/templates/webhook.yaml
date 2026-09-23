@@ -133,6 +133,10 @@ webhooks:
     matchLabels:
     {{- toYaml .Values.serviceMutatorWebhookConfig.objectSelector.matchLabels | nindent 6 }}
     {{- end }}
+  {{- if .Values.serviceMutatorWebhookConfig.matchConditions }}
+  matchConditions:
+  {{- toYaml .Values.serviceMutatorWebhookConfig.matchConditions | nindent 2 }}
+  {{- end }}
   rules:
   - apiGroups:
     - ""
