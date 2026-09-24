@@ -83,7 +83,7 @@ func Test_Synthesizer(t *testing.T) {
 					},
 				}, nil)
 
-				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+				mockRoute53.EXPECT().GetPublicHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
 
 				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
 					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
@@ -242,8 +242,8 @@ func Test_Synthesizer(t *testing.T) {
 					},
 				}, nil)
 
-				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
-				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("otherexample.com")).Return(awssdk.String("Z0922506B3S0MGK4SALX"), nil)
+				mockRoute53.EXPECT().GetPublicHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+				mockRoute53.EXPECT().GetPublicHostedZoneID(gomock.Any(), gomock.Eq("otherexample.com")).Return(awssdk.String("Z0922506B3S0MGK4SALX"), nil)
 				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
 					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
 					ChangeBatch: &route53types.ChangeBatch{
@@ -366,6 +366,8 @@ func Test_Synthesizer(t *testing.T) {
 				}, nil)
 
 				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+				// delete path also checks the public zone; same ID → single DELETE
+				mockRoute53.EXPECT().GetPublicHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
 				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
 					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
 					ChangeBatch: &route53types.ChangeBatch{
@@ -411,7 +413,7 @@ func Test_Synthesizer(t *testing.T) {
 					},
 				}, nil)
 
-				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
+				mockRoute53.EXPECT().GetPublicHostedZoneID(gomock.Any(), gomock.Eq("example.com")).Return(awssdk.String("Z0382403B3S5MSK4SVXX"), nil)
 
 				mockRoute53.EXPECT().ChangeRecordsWithContext(gomock.Any(), gomock.Eq(&route53.ChangeResourceRecordSetsInput{
 					HostedZoneId: awssdk.String("Z0382403B3S5MSK4SVXX"),
@@ -510,8 +512,8 @@ func Test_Synthesizer(t *testing.T) {
 				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
 					Return([]acmtypes.CertificateSummary{}, nil)
 
-				// Pre-check: GetHostedZoneID fails — no cert should be requested
-				mockRoute53.EXPECT().GetHostedZoneID(gomock.Any(), gomock.Eq("wrong.nonexistent-domain.com")).
+				// Pre-check: GetPublicHostedZoneID fails — no cert should be requested
+				mockRoute53.EXPECT().GetPublicHostedZoneID(gomock.Any(), gomock.Eq("wrong.nonexistent-domain.com")).
 					Return(nil, fmt.Errorf("no hosted zone found for validation records"))
 
 				// RequestCertificate should NOT be called
