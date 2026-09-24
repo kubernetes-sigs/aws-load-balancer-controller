@@ -74,6 +74,41 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 			},
 		},
 		{
+			name: "with one rule / one peer / empty ports",
+			args: args{
+				tgbNetworking: elbv2api.TargetGroupBindingNetworking{
+					Ingress: []elbv2api.NetworkingIngressRule{
+						{
+							From: []elbv2api.NetworkingPeer{
+								{
+									SecurityGroup: &elbv2api.SecurityGroup{
+										GroupID: "sg-abcdefg",
+									},
+								},
+							},
+							Ports: []elbv2api.NetworkingPort{},
+						},
+					},
+				},
+			},
+			want: []IPPermissionInfo{
+				{
+					Permission: ec2types.IpPermission{
+						IpProtocol: awssdk.String("tcp"),
+						FromPort:   awssdk.Int32(0),
+						ToPort:     awssdk.Int32(65535),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
+							{
+								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
+								GroupId:     awssdk.String("sg-abcdefg"),
+							},
+						},
+					},
+					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
+				},
+			},
+		},
+		{
 			name: "with one rule / multiple peer / multiple port",
 			args: args{
 				tgbNetworking: elbv2api.TargetGroupBindingNetworking{
