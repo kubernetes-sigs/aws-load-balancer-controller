@@ -3,13 +3,23 @@ package aws
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/provider"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -185,4 +195,204 @@ func Test_assumedRoleCacheKey(t *testing.T) {
 			}
 		})
 	}
+}
+
+// stubAWSClientsProvider serves a fixed STS client and builds EC2 clients against a fixed endpoint.
+// Embedding the interface leaves every other method nil so an unexpected call fails loudly.
+type stubAWSClientsProvider struct {
+	provider.AWSClientsProvider
+	stsClient   *sts.Client
+	ec2Endpoint string
+}
+
+func (p *stubAWSClientsProvider) GetSTSClient(_ context.Context, _ string) (*sts.Client, error) {
+	return p.stsClient, nil
+}
+
+func (p *stubAWSClientsProvider) GenerateNewEC2Client(cfg aws.Config) *ec2.Client {
+	return ec2.NewFromConfig(cfg, func(o *ec2.Options) {
+		o.BaseEndpoint = aws.String(p.ec2Endpoint)
+	})
+}
+
+// stubAWSConfigGenerator applies the supplied options to an otherwise empty config, so the
+// credentials handed to it are the only credentials the resulting clients can sign with.
+type stubAWSConfigGenerator struct{}
+
+func (stubAWSConfigGenerator) GenerateAWSConfig(optFns ...func(*config.LoadOptions) error) (aws.Config, error) {
+	var lo config.LoadOptions
+	for _, fn := range optFns {
+		if err := fn(&lo); err != nil {
+			return aws.Config{}, err
+		}
+	}
+	return aws.Config{Region: "us-west-2", Credentials: lo.Credentials}, nil
+}
+
+// fakeAWSQueryServer answers STS AssumeRole and EC2 DescribeAvailabilityZones over the AWS query
+// protocol and records what it received.
+type fakeAWSQueryServer struct {
+	*httptest.Server
+	assumedAccessKeyID string
+	stsDenied          bool
+
+	mu                sync.Mutex
+	assumeRoleForms   []url.Values
+	ec2Authorizations []string
+}
+
+func newFakeAWSQueryServer(assumedAccessKeyID string) *fakeAWSQueryServer {
+	f := &fakeAWSQueryServer{assumedAccessKeyID: assumedAccessKeyID}
+	f.Server = httptest.NewServer(http.HandlerFunc(f.handle))
+	return f
+}
+
+func (f *fakeAWSQueryServer) handle(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	w.Header().Set("Content-Type", "text/xml")
+	switch r.Form.Get("Action") {
+	case "AssumeRole":
+		f.assumeRoleForms = append(f.assumeRoleForms, r.Form)
+		if f.stsDenied {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `<ErrorResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><Error><Type>Sender</Type><Code>AccessDenied</Code><Message>not authorized</Message></Error><RequestId>req-1</RequestId></ErrorResponse>`)
+			return
+		}
+		fmt.Fprintf(w, `<AssumeRoleResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><AssumeRoleResult><Credentials><AccessKeyId>%s</AccessKeyId><SecretAccessKey>assumed-secret</SecretAccessKey><SessionToken>assumed-token</SessionToken><Expiration>%s</Expiration></Credentials><AssumedRoleUser><Arn>arn:aws:sts::111122223333:assumed-role/tg-role/session</Arn><AssumedRoleId>AROAEXAMPLE:session</AssumedRoleId></AssumedRoleUser></AssumeRoleResult><ResponseMetadata><RequestId>req-2</RequestId></ResponseMetadata></AssumeRoleResponse>`,
+			f.assumedAccessKeyID, time.Now().Add(time.Hour).UTC().Format(time.RFC3339))
+	case "DescribeAvailabilityZones":
+		f.ec2Authorizations = append(f.ec2Authorizations, r.Header.Get("Authorization"))
+		fmt.Fprint(w, `<DescribeAvailabilityZonesResponse xmlns="http://ec2.amazonaws.com/doc/2016-11-15/"><requestId>req-3</requestId><availabilityZoneInfo><item><zoneName>us-west-2a</zoneName><zoneId>usw2-az1</zoneId><zoneState>available</zoneState><regionName>us-west-2</regionName></item></availabilityZoneInfo></DescribeAvailabilityZonesResponse>`)
+	default:
+		http.Error(w, "unexpected action "+r.Form.Get("Action"), http.StatusBadRequest)
+	}
+}
+
+func (f *fakeAWSQueryServer) snapshot() ([]url.Values, []string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]url.Values(nil), f.assumeRoleForms...), append([]string(nil), f.ec2Authorizations...)
+}
+
+func newTestCloudForAssumedRoleEC2(srv *fakeAWSQueryServer, defaultEC2 services.EC2) *defaultCloud {
+	stsClient := sts.NewFromConfig(aws.Config{
+		Region:      "us-west-2",
+		Credentials: credentials.NewStaticCredentialsProvider("CONTROLLERKEY", "controller-secret", ""),
+	}, func(o *sts.Options) {
+		o.BaseEndpoint = aws.String(srv.URL)
+	})
+	return &defaultCloud{
+		clusterName:        "my-cluster",
+		ec2:                defaultEC2,
+		assumeRoleEc2Cache: cache.NewExpiring(),
+		awsClientsProvider: &stubAWSClientsProvider{stsClient: stsClient, ec2Endpoint: srv.URL},
+		awsConfigGenerator: stubAWSConfigGenerator{},
+		logger:             ctrl.Log.WithName("test"),
+	}
+}
+
+func Test_defaultCloud_GetAssumedRoleEC2(t *testing.T) {
+	ctx := context.Background()
+	const roleArn = "arn:aws:iam::111122223333:role/tg-role"
+
+	t.Run("empty role ARN returns the default EC2 client without calling STS", func(t *testing.T) {
+		srv := newFakeAWSQueryServer("ASSUMEDKEY")
+		defer srv.Close()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		defaultEC2 := services.NewMockEC2(ctrl)
+		c := newTestCloudForAssumedRoleEC2(srv, defaultEC2)
+
+		got, err := c.GetAssumedRoleEC2(ctx, "", "")
+		assert.NoError(t, err)
+		assert.Same(t, defaultEC2, got)
+		assumeRoleForms, _ := srv.snapshot()
+		assert.Empty(t, assumeRoleForms)
+	})
+
+	t.Run("assumed-role client is built from STS credentials and routes EC2 calls through them", func(t *testing.T) {
+		srv := newFakeAWSQueryServer("ASSUMEDKEY")
+		defer srv.Close()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		c := newTestCloudForAssumedRoleEC2(srv, services.NewMockEC2(ctrl))
+
+		got, err := c.GetAssumedRoleEC2(ctx, roleArn, "ext-1")
+		assert.NoError(t, err)
+		assert.NotNil(t, got)
+
+		resp, err := got.DescribeAvailabilityZonesWithContext(ctx, &ec2.DescribeAvailabilityZonesInput{})
+		assert.NoError(t, err)
+		assert.Equal(t, []ec2types.AvailabilityZone{{
+			ZoneName:   aws.String("us-west-2a"),
+			ZoneId:     aws.String("usw2-az1"),
+			State:      ec2types.AvailabilityZoneStateAvailable,
+			RegionName: aws.String("us-west-2"),
+		}}, resp.AvailabilityZones)
+
+		assumeRoleForms, ec2Authorizations := srv.snapshot()
+		assert.Len(t, assumeRoleForms, 1)
+		assert.Equal(t, roleArn, assumeRoleForms[0].Get("RoleArn"))
+		assert.Equal(t, "ext-1", assumeRoleForms[0].Get("ExternalId"))
+		assert.Equal(t, generateAssumeRoleSessionName("my-cluster"), assumeRoleForms[0].Get("RoleSessionName"))
+		assert.Len(t, ec2Authorizations, 1)
+		assert.Contains(t, ec2Authorizations[0], "Credential=ASSUMEDKEY/")
+		assert.NotContains(t, ec2Authorizations[0], "CONTROLLERKEY")
+	})
+
+	t.Run("external ID is omitted from the STS request when empty", func(t *testing.T) {
+		srv := newFakeAWSQueryServer("ASSUMEDKEY")
+		defer srv.Close()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		c := newTestCloudForAssumedRoleEC2(srv, services.NewMockEC2(ctrl))
+
+		_, err := c.GetAssumedRoleEC2(ctx, roleArn, "")
+		assert.NoError(t, err)
+		assumeRoleForms, _ := srv.snapshot()
+		assert.Len(t, assumeRoleForms, 1)
+		assert.False(t, assumeRoleForms[0].Has("ExternalId"))
+	})
+
+	t.Run("clients are cached per role ARN and external ID", func(t *testing.T) {
+		srv := newFakeAWSQueryServer("ASSUMEDKEY")
+		defer srv.Close()
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		c := newTestCloudForAssumedRoleEC2(srv, services.NewMockEC2(ctrl))
+
+		first, err := c.GetAssumedRoleEC2(ctx, roleArn, "ext-1")
+		assert.NoError(t, err)
+		second, err := c.GetAssumedRoleEC2(ctx, roleArn, "ext-1")
+		assert.NoError(t, err)
+		assert.Same(t, first, second)
+		assumeRoleForms, _ := srv.snapshot()
+		assert.Len(t, assumeRoleForms, 1)
+
+		third, err := c.GetAssumedRoleEC2(ctx, roleArn, "ext-2")
+		assert.NoError(t, err)
+		assert.NotSame(t, first, third)
+		assumeRoleForms, _ = srv.snapshot()
+		assert.Len(t, assumeRoleForms, 2)
+	})
+
+	t.Run("STS failure is returned and nothing is cached", func(t *testing.T) {
+		srv := newFakeAWSQueryServer("ASSUMEDKEY")
+		defer srv.Close()
+		srv.stsDenied = true
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		c := newTestCloudForAssumedRoleEC2(srv, services.NewMockEC2(ctrl))
+
+		got, err := c.GetAssumedRoleEC2(ctx, roleArn, "ext-1")
+		assert.Nil(t, got)
+		assert.ErrorContains(t, err, "AccessDenied")
+		_, exists := c.assumeRoleEc2Cache.Get(assumedRoleCacheKey{roleArn: roleArn, externalId: "ext-1"})
+		assert.False(t, exists)
+	})
 }
