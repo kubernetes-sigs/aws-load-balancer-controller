@@ -22,6 +22,7 @@ $MOCKGEN -package=k8s -destination=./pkg/k8s/pod_info_repo_mocks.go sigs.k8s.io/
 $MOCKGEN -package=networking -destination=./pkg/networking/security_group_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking SecurityGroupManager
 $MOCKGEN -package=networking -destination=./pkg/networking/subnet_resolver_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking SubnetsResolver
 $MOCKGEN -package=networking -destination=./pkg/networking/az_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking AZInfoProvider
+$MOCKGEN -package=networking -destination=./pkg/networking/az_id_translator_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking AZIDTranslator
 $MOCKGEN -package=networking -destination=./pkg/networking/node_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking NodeInfoProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/vpc_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking VPCInfoProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/backend_sg_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking BackendSGProvider

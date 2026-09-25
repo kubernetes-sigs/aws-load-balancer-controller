@@ -37,21 +37,50 @@ type EC2 interface {
 	DescribeAvailabilityZonesWithContext(ctx context.Context, input *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error)
 	DescribeVpcsWithContext(ctx context.Context, input *ec2.DescribeVpcsInput) (*ec2.DescribeVpcsOutput, error)
 	DescribeInstancesWithContext(ctx context.Context, input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
+
+	// AssumeRole returns an EC2 client for the given assumeRoleArn, or this client if assumeRoleArn is empty.
+	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (EC2, error)
 }
 
 // NewEC2 constructs new EC2 implementation.
-func NewEC2(awsClientsProvider provider.AWSClientsProvider) EC2 {
+func NewEC2(awsClientsProvider provider.AWSClientsProvider, cloud Cloud) EC2 {
 	return &ec2Client{
 		awsClientsProvider: awsClientsProvider,
+		cloud:              cloud,
+	}
+}
+
+// NewEC2FromStaticClient constructs new EC2 implementation backed by a pre-built client, used for
+// clients constructed with assumed-role credentials.
+func NewEC2FromStaticClient(staticEC2Client *ec2.Client, cloud Cloud) EC2 {
+	return &ec2Client{
+		staticEC2Client: staticEC2Client,
+		cloud:           cloud,
 	}
 }
 
 type ec2Client struct {
 	awsClientsProvider provider.AWSClientsProvider
+	staticEC2Client    *ec2.Client
+	cloud              Cloud
+}
+
+func (c *ec2Client) AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (EC2, error) {
+	if assumeRoleArn == "" {
+		return c, nil
+	}
+	return c.cloud.GetAssumedRoleEC2(ctx, assumeRoleArn, externalId)
+}
+
+func (c *ec2Client) getClient(ctx context.Context, operation string) (*ec2.Client, error) {
+	if c.staticEC2Client != nil {
+		return c.staticEC2Client, nil
+	}
+	return c.awsClientsProvider.GetEC2Client(ctx, operation)
 }
 
 func (c *ec2Client) DescribeInstancesWithContext(ctx context.Context, input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeInstances")
+	client, err := c.getClient(ctx, "DescribeInstances")
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +89,7 @@ func (c *ec2Client) DescribeInstancesWithContext(ctx context.Context, input *ec2
 
 func (c *ec2Client) DescribeInstancesAsList(ctx context.Context, input *ec2.DescribeInstancesInput) ([]types.Instance, error) {
 	var result []types.Instance
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeInstances")
+	client, err := c.getClient(ctx, "DescribeInstances")
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +108,7 @@ func (c *ec2Client) DescribeInstancesAsList(ctx context.Context, input *ec2.Desc
 
 func (c *ec2Client) DescribeNetworkInterfacesAsList(ctx context.Context, input *ec2.DescribeNetworkInterfacesInput) ([]types.NetworkInterface, error) {
 	var result []types.NetworkInterface
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeNetworkInterfaces")
+	client, err := c.getClient(ctx, "DescribeNetworkInterfaces")
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +125,7 @@ func (c *ec2Client) DescribeNetworkInterfacesAsList(ctx context.Context, input *
 
 func (c *ec2Client) DescribeSecurityGroupsAsList(ctx context.Context, input *ec2.DescribeSecurityGroupsInput) ([]types.SecurityGroup, error) {
 	var result []types.SecurityGroup
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeSecurityGroups")
+	client, err := c.getClient(ctx, "DescribeSecurityGroups")
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +142,7 @@ func (c *ec2Client) DescribeSecurityGroupsAsList(ctx context.Context, input *ec2
 
 func (c *ec2Client) DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]types.Subnet, error) {
 	var result []types.Subnet
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeSubnets")
+	client, err := c.getClient(ctx, "DescribeSubnets")
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +159,7 @@ func (c *ec2Client) DescribeSubnetsAsList(ctx context.Context, input *ec2.Descri
 
 func (c *ec2Client) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]types.Vpc, error) {
 	var result []types.Vpc
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeVpcs")
+	client, err := c.getClient(ctx, "DescribeVpcs")
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +176,7 @@ func (c *ec2Client) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeV
 
 func (c *ec2Client) DescribeRouteTablesAsList(ctx context.Context, input *ec2.DescribeRouteTablesInput) ([]types.RouteTable, error) {
 	var result []types.RouteTable
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeRouteTables")
+	client, err := c.getClient(ctx, "DescribeRouteTables")
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +192,7 @@ func (c *ec2Client) DescribeRouteTablesAsList(ctx context.Context, input *ec2.De
 }
 
 func (c *ec2Client) CreateTagsWithContext(ctx context.Context, input *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "CreateTags")
+	client, err := c.getClient(ctx, "CreateTags")
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +200,7 @@ func (c *ec2Client) CreateTagsWithContext(ctx context.Context, input *ec2.Create
 }
 
 func (c *ec2Client) DeleteTagsWithContext(ctx context.Context, input *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DeleteTags")
+	client, err := c.getClient(ctx, "DeleteTags")
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +208,7 @@ func (c *ec2Client) DeleteTagsWithContext(ctx context.Context, input *ec2.Delete
 }
 
 func (c *ec2Client) CreateSecurityGroupWithContext(ctx context.Context, input *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "CreateSecurityGroup")
+	client, err := c.getClient(ctx, "CreateSecurityGroup")
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +216,7 @@ func (c *ec2Client) CreateSecurityGroupWithContext(ctx context.Context, input *e
 }
 
 func (c *ec2Client) DeleteSecurityGroupWithContext(ctx context.Context, input *ec2.DeleteSecurityGroupInput) (*ec2.DeleteSecurityGroupOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DeleteSecurityGroup")
+	client, err := c.getClient(ctx, "DeleteSecurityGroup")
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +224,7 @@ func (c *ec2Client) DeleteSecurityGroupWithContext(ctx context.Context, input *e
 }
 
 func (c *ec2Client) AuthorizeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "AuthorizeSecurityGroupIngress")
+	client, err := c.getClient(ctx, "AuthorizeSecurityGroupIngress")
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +232,7 @@ func (c *ec2Client) AuthorizeSecurityGroupIngressWithContext(ctx context.Context
 }
 
 func (c *ec2Client) RevokeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "RevokeSecurityGroupIngress")
+	client, err := c.getClient(ctx, "RevokeSecurityGroupIngress")
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +240,7 @@ func (c *ec2Client) RevokeSecurityGroupIngressWithContext(ctx context.Context, i
 }
 
 func (c *ec2Client) DescribeAvailabilityZonesWithContext(ctx context.Context, input *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeAvailabilityZones")
+	client, err := c.getClient(ctx, "DescribeAvailabilityZones")
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +248,7 @@ func (c *ec2Client) DescribeAvailabilityZonesWithContext(ctx context.Context, in
 }
 
 func (c *ec2Client) DescribeVpcsWithContext(ctx context.Context, input *ec2.DescribeVpcsInput) (*ec2.DescribeVpcsOutput, error) {
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeVpcs")
+	client, err := c.getClient(ctx, "DescribeVpcs")
 	if err != nil {
 		return nil, err
 	}
