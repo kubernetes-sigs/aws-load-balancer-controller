@@ -1,10 +1,13 @@
 package elbv2
 
 import (
+	"context"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1193,4 +1196,275 @@ func Test_isL4TargetGroup(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+type mockTGOperation int
+
+const (
+	createTG mockTGOperation = iota
+	deleteTG
+	updateTG
+)
+
+type mockTGCall struct {
+	name string // This will equal Spec.Name for creates and the ARN for deletes/updates
+	op   mockTGOperation
+}
+
+// mockTargetGroupManager simulates a quota-limited TG manager.
+// Create returns TooManyUniqueTargetGroupsPerLoadBalancer when tgCount == maxTGCount.
+// deleteErr optionally causes Delete to fail to simulate the ResourceInUse error.
+type mockTargetGroupManager struct {
+	tgCount    int
+	maxTGCount int
+	deleteErr  error
+	calls      []mockTGCall
+}
+
+func (m *mockTargetGroupManager) Create(_ context.Context, resTG *elbv2model.TargetGroup) (elbv2model.TargetGroupStatus, error) {
+	if m.tgCount == m.maxTGCount {
+		return elbv2model.TargetGroupStatus{}, &smithy.GenericAPIError{
+			Code:    "TooManyUniqueTargetGroupsPerLoadBalancer",
+			Message: "too many unique target groups per load balancer",
+		}
+	}
+	m.calls = append(m.calls, mockTGCall{name: resTG.Spec.Name, op: createTG})
+	m.tgCount++
+	return elbv2model.TargetGroupStatus{TargetGroupARN: resTG.Spec.Name}, nil
+}
+
+func (m *mockTargetGroupManager) Update(_ context.Context, _ *elbv2model.TargetGroup, sdkTG TargetGroupWithTags) (elbv2model.TargetGroupStatus, error) {
+	m.calls = append(m.calls, mockTGCall{name: awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn), op: updateTG})
+	return elbv2model.TargetGroupStatus{TargetGroupARN: awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn)}, nil
+}
+
+func (m *mockTargetGroupManager) Delete(_ context.Context, sdkTG TargetGroupWithTags) error {
+	if m.deleteErr != nil {
+		return m.deleteErr
+	}
+	m.calls = append(m.calls, mockTGCall{name: awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn), op: deleteTG})
+	m.tgCount--
+	return nil
+}
+
+// Unlike the listener_rule_synthesizer the one for target groups
+// does not expose update and delete functions directly but does it inline.
+// Thus we need these helper functions
+
+const testResourceIDTagKey = "ingress.k8s.aws/resource"
+
+type testTrackingProvider struct{}
+
+func (p *testTrackingProvider) ResourceIDTagKey() string { return testResourceIDTagKey }
+func (p *testTrackingProvider) StackTags(_ coremodel.Stack) map[string]string {
+	return map[string]string{}
+}
+func (p *testTrackingProvider) StackTagsLegacy(_ coremodel.Stack) map[string]string {
+	return map[string]string{}
+}
+func (p *testTrackingProvider) StackLabels(_ coremodel.Stack) map[string]string {
+	return map[string]string{}
+}
+func (p *testTrackingProvider) ResourceTags(_ coremodel.Stack, _ coremodel.Resource, _ map[string]string) map[string]string {
+	return map[string]string{}
+}
+func (p *testTrackingProvider) LegacyTagKeys() []string { return nil }
+
+// newTestStack creates a stack and adds desired TGs to it (auto-registered via NewTargetGroup).
+func newTestStack(desiredNames []string) coremodel.Stack {
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "ns", Name: "test"})
+	for _, name := range desiredNames {
+		elbv2model.NewTargetGroup(stack, name, elbv2model.TargetGroupSpec{Name: name})
+	}
+	return stack
+}
+
+func staleSdkTG(arn, resourceID string) TargetGroupWithTags {
+	return TargetGroupWithTags{
+		TargetGroup: &elbv2types.TargetGroup{TargetGroupArn: awssdk.String(arn)},
+		Tags:        map[string]string{testResourceIDTagKey: resourceID},
+	}
+}
+
+func newSynthesizerForTest(mock *mockTargetGroupManager, stack coremodel.Stack, sdkTGs []TargetGroupWithTags) *targetGroupSynthesizer {
+	return &targetGroupSynthesizer{
+		tgManager:        mock,
+		trackingProvider: &testTrackingProvider{},
+		featureGates:     config.NewFeatureGates(),
+		logger:           logr.Discard(),
+		stack:            stack,
+		findSDKTargetGroups: func() TargetGroupsResult {
+			return TargetGroupsResult{TargetGroups: sdkTGs}
+		},
+	}
+}
+
+func Test_isTooManyUniqueTargetGroupsErr(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "actual error code returns true",
+			err:  &smithy.GenericAPIError{Code: "TooManyUniqueTargetGroupsPerLoadBalancer"},
+			want: true,
+		},
+		{
+			name: "any API error code returns false",
+			err:  &smithy.GenericAPIError{Code: "TooManyRules"},
+			want: false,
+		},
+		{
+			name: "plain error returns false",
+			err:  errors.New("err"),
+			want: false,
+		},
+		{
+			name: "nil returns false",
+			err:  nil,
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isTooManyUniqueTargetGroupsErr(tt.err))
+		})
+	}
+}
+
+func Test_targetGroupSynthesizer_Synthesize(t *testing.T) {
+	tests := []struct {
+		name          string
+		desiredTGs    []string
+		sdkTGs        []TargetGroupWithTags // existing TGs returned by AWS
+		tgCount       int                   // current number of TGs counted against quota
+		maxTGCount    int
+		deleteErr     error
+		wantErr       bool
+		wantErrSubstr string
+		wantCalls     []mockTGCall
+	}{
+		{
+			name:       "no TGs at all",
+			tgCount:    0,
+			maxTGCount: 100,
+		},
+		{
+			name:       "creates succeed without hitting quota",
+			desiredTGs: []string{"tg-1", "tg-2", "tg-3"},
+			tgCount:    0,
+			maxTGCount: 100,
+			wantCalls: []mockTGCall{
+				{name: "tg-1", op: createTG},
+				{name: "tg-2", op: createTG},
+				{name: "tg-3", op: createTG},
+			},
+		},
+		{
+			name:       "quota hit once",
+			desiredTGs: []string{"tg-new"},
+			sdkTGs:     []TargetGroupWithTags{staleSdkTG("stale-arn-1", "stale-1")},
+			tgCount:    2,
+			maxTGCount: 2,
+			wantCalls: []mockTGCall{
+				{name: "stale-arn-1", op: deleteTG},
+				{name: "tg-new", op: createTG},
+			},
+		},
+		{
+			name:       "quota hit multiple times",
+			desiredTGs: []string{"tg-new-1", "tg-new-2"},
+			sdkTGs: []TargetGroupWithTags{
+				staleSdkTG("stale-arn-1", "stale-1"),
+				staleSdkTG("stale-arn-2", "stale-2"),
+			},
+			tgCount:    2,
+			maxTGCount: 2,
+			wantCalls: []mockTGCall{
+				{name: "stale-arn-1", op: deleteTG},
+				{name: "tg-new-1", op: createTG},
+				{name: "stale-arn-2", op: deleteTG},
+				{name: "tg-new-2", op: createTG},
+			},
+		},
+		{
+			name:          "quota hit but no stale TGs available",
+			desiredTGs:    []string{"tg-new"},
+			sdkTGs:        nil,
+			tgCount:       2,
+			maxTGCount:    2,
+			wantErr:       true,
+			wantErrSubstr: "no unused target groups available to delete",
+		},
+		{
+			name:          "quota hit but stale TG delete fails (eventual consistency)",
+			desiredTGs:    []string{"tg-new"},
+			sdkTGs:        []TargetGroupWithTags{staleSdkTG("stale-arn-1", "stale-1")},
+			tgCount:       2,
+			maxTGCount:    2,
+			deleteErr:     errors.New("ResourceInUse: TG still referenced by a listener rule"),
+			wantErr:       true,
+			wantErrSubstr: "ResourceInUse",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stack := newTestStack(tt.desiredTGs)
+			mock := &mockTargetGroupManager{tgCount: tt.tgCount, maxTGCount: tt.maxTGCount, deleteErr: tt.deleteErr}
+			s := newSynthesizerForTest(mock, stack, tt.sdkTGs)
+
+			err := s.Synthesize(context.Background())
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrSubstr != "" {
+					assert.Contains(t, err.Error(), tt.wantErrSubstr)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantCalls, mock.calls)
+			}
+		})
+	}
+}
+
+func Test_targetGroupSynthesizer_PostSynthesize(t *testing.T) {
+	t.Run("stale TGs already deleted inline by Synthesize are not re-deleted in PostSynthesize", func(t *testing.T) {
+
+		stack := newTestStack([]string{"tg-new-1", "tg-new-2"})
+		staleTGs := []TargetGroupWithTags{
+			staleSdkTG("stale-arn-1", "stale-1"),
+			staleSdkTG("stale-arn-2", "stale-2"),
+		}
+		mock := &mockTargetGroupManager{tgCount: 2, maxTGCount: 2}
+		s := newSynthesizerForTest(mock, stack, staleTGs)
+
+		assert.NoError(t, s.Synthesize(context.Background()))
+		callsAfterSynthesize := append([]mockTGCall(nil), mock.calls...)
+
+		assert.NoError(t, s.PostSynthesize(context.Background()))
+		assert.Equal(t, callsAfterSynthesize, mock.calls)
+	})
+
+	t.Run("stale TGs not consumed inline are deleted in PostSynthesize", func(t *testing.T) {
+
+		stack := newTestStack(nil)
+		staleTGs := []TargetGroupWithTags{
+			staleSdkTG("stale-arn-1", "stale-1"),
+			staleSdkTG("stale-arn-2", "stale-2"),
+		}
+		mock := &mockTargetGroupManager{tgCount: 0, maxTGCount: 100}
+		s := newSynthesizerForTest(mock, stack, staleTGs)
+
+		assert.NoError(t, s.Synthesize(context.Background()))
+		assert.Empty(t, mock.calls)
+
+		assert.NoError(t, s.PostSynthesize(context.Background()))
+		assert.Equal(t, []mockTGCall{
+			{name: "stale-arn-1", op: deleteTG},
+			{name: "stale-arn-2", op: deleteTG},
+		}, mock.calls)
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -62,13 +63,39 @@ func (s *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	// * unmatched targetGroups might still be use by a listener rule.
 	s.unmatchedSDKTGs = unmatchedSDKTGs
 
+	// sdkTGDeleteIndex tracks how many unmatchedSDKTGs were already deleted inline
+	sdkTGDeleteIndex := 0
 	for _, resTG := range unmatchedResTGs {
 		tgStatus, err := s.tgManager.Create(ctx, resTG)
 		if err != nil {
-			return err
+			if !isTooManyUniqueTargetGroupsErr(err) {
+				return err
+			}
+			// Listener rules are always deleted prior to target groups, so
+			// any old TG that is no longer needed should already be dissociable.
+			// Delete one stale TG to free a slot, then retry the create.
+			// Due to eventual consistency the listener-rule dissociation may not be
+			// fully reflected yet. In that case the delete will error and the
+			// controller will requeue and retry.
+			if sdkTGDeleteIndex >= len(s.unmatchedSDKTGs) {
+				return errors.Wrap(err, "unable to synthesize target groups: TooManyUniqueTargetGroupsPerLoadBalancer and no unused target groups available to delete")
+			}
+			s.logger.V(1).Info("TooManyUniqueTargetGroupsPerLoadBalancer detected, deleting unused target group to free quota",
+				"tgArn", awssdk.ToString(s.unmatchedSDKTGs[sdkTGDeleteIndex].TargetGroup.TargetGroupArn))
+			if delErr := s.tgManager.Delete(ctx, s.unmatchedSDKTGs[sdkTGDeleteIndex]); delErr != nil {
+				return delErr
+			}
+			sdkTGDeleteIndex++
+			// Retry the create now that a slot has been freed.
+			tgStatus, err = s.tgManager.Create(ctx, resTG)
+			if err != nil {
+				return err
+			}
 		}
 		resTG.SetStatus(tgStatus)
 	}
+	// Trim the TGs already deleted so PostSynthesize does not attempt them again.
+	s.unmatchedSDKTGs = s.unmatchedSDKTGs[sdkTGDeleteIndex:]
 	for _, resAndSDKTG := range matchedResAndSDKTGs {
 		tgStatus, err := s.tgManager.Update(ctx, resAndSDKTG.resTG, resAndSDKTG.sdkTG)
 		if err != nil {
@@ -214,6 +241,14 @@ func isL4TargetGroup(protocol elbv2model.Protocol) bool {
 	default:
 		return false
 	}
+}
+
+func isTooManyUniqueTargetGroupsErr(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "TooManyUniqueTargetGroupsPerLoadBalancer"
+	}
+	return false
 }
 
 func isSDKTargetGroupTargetControlPortDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG TargetGroupWithTags) bool {
