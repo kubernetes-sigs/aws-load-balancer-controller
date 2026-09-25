@@ -18,6 +18,16 @@ It automatically creates TargetGroupBinding in the same namespace of the Service
 
     You can view all TargetGroupBindings in a namespace by `kubectl get targetgroupbindings -n <your-namespace> -o wide`
 
+!!!warning "Do not manually delete controller-generated TargetGroupBindings"
+Deleting a `TargetGroupBinding` that the controller generated for an Ingress, Service, or Gateway resource:
+
+* deregisters every target from the associated AWS target group, and
+* is **not** immediately reconciled by the controller.
+
+The controller watches the Ingress, Service, and Gateway resources that own the binding, but it does **not** watch the generated `TargetGroupBinding` itself. As a result, a deleted binding is only recreated when the owning resource is updated (for example, editing any annotation) or during the periodic resync (`--sync-period`, which defaults to `10h`). Until then, the load balancer forwards to zero registered targets.
+
+If you delete a controller-generated binding while troubleshooting, force an immediate reconcile by editing any annotation on the owning Ingress, Service, or Gateway resource, and verify that the binding and its targets are restored.
+
 !!!question "EKS Auto Mode users"
 If you are using EKS Auto Mode, please see the
 [EKS Auto Mode documentation](https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html#_considerations)
