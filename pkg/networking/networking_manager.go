@@ -98,30 +98,31 @@ type defaultNetworkingManager struct {
 }
 
 func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
-	var ingressPermissionsPerSG map[string][]IPPermissionInfo
-	if tgb.Spec.Networking != nil {
-		var err error
-		ingressPermissionsPerSG, err = m.computeIngressPermissionsPerSGWithPodEndpoints(ctx, *tgb.Spec.Networking, endpoints)
-		if err != nil {
-			return err
-		}
+	if tgb.Spec.Networking == nil {
+		return nil
+	}
+	ingressPermissionsPerSG, err := m.computeIngressPermissionsPerSGWithPodEndpoints(ctx, *tgb.Spec.Networking, endpoints)
+	if err != nil {
+		return err
 	}
 	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, ingressPermissionsPerSG)
 }
 
 func (m *defaultNetworkingManager) ReconcileForNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error {
-	var ingressPermissionsPerSG map[string][]IPPermissionInfo
-	if tgb.Spec.Networking != nil {
-		var err error
-		ingressPermissionsPerSG, err = m.computeIngressPermissionsPerSGWithNodePortEndpoints(ctx, *tgb.Spec.Networking, endpoints)
-		if err != nil {
-			return err
-		}
+	if tgb.Spec.Networking == nil {
+		return nil
+	}
+	ingressPermissionsPerSG, err := m.computeIngressPermissionsPerSGWithNodePortEndpoints(ctx, *tgb.Spec.Networking, endpoints)
+	if err != nil {
+		return err
 	}
 	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, ingressPermissionsPerSG)
 }
 
 func (m *defaultNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.Networking == nil {
+		return nil
+	}
 	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, nil)
 }
 

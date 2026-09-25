@@ -155,8 +155,10 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 		return err
 	}
 
-	if err := m.networkingManager.Cleanup(ctx, tgb); err != nil {
-		return err
+	if tgb.Spec.Networking != nil {
+		if err := m.networkingManager.Cleanup(ctx, tgb); err != nil {
+			return err
+		}
 	}
 	if err := m.updatePodAsHealthyForDeletedTGB(ctx, tgb); err != nil {
 		return err
@@ -211,10 +213,12 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(tgb, endpoints, notDrainingTargets)
 
 	needNetworkingRequeue := false
-	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
-		tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForPodEndpoints")
-		m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
-		needNetworkingRequeue = true
+	if tgb.Spec.Networking != nil {
+		if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
+			tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForPodEndpoints")
+			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
+			needNetworkingRequeue = true
+		}
 	}
 
 	preflightNeedFurtherProbe := false
@@ -338,9 +342,11 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 
 	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, notDrainingTargets)
 
-	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
-		tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForNodePortEndpoints")
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "reconcile_nodeport_endpoints_error", err, m.metricsCollector)
+	if tgb.Spec.Networking != nil {
+		if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
+			tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForNodePortEndpoints")
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "reconcile_nodeport_endpoints_error", err, m.metricsCollector)
+		}
 	}
 
 	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 {

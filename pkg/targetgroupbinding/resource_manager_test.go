@@ -24,10 +24,13 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1520,6 +1523,263 @@ func Test_needReadinessGateFlip(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := needReadinessGateFlip(tt.endpoints, condType)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+type trackingNetworkingManager struct {
+	reconcileForPodEndpointsCalls      int
+	reconcileForNodePortEndpointsCalls int
+	cleanupCalls                       int
+	attemptGarbageCollectionCalls      int
+}
+
+func (m *trackingNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
+	m.reconcileForPodEndpointsCalls++
+	return nil
+}
+
+func (m *trackingNetworkingManager) ReconcileForNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error {
+	m.reconcileForNodePortEndpointsCalls++
+	return nil
+}
+
+func (m *trackingNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	m.cleanupCalls++
+	return nil
+}
+
+func (m *trackingNetworkingManager) AttemptGarbageCollection(ctx context.Context) error {
+	m.attemptGarbageCollectionCalls++
+	return nil
+}
+
+type fakeEndpointResolver struct {
+	podEndpoints      []backend.PodEndpoint
+	nodePortEndpoints []backend.NodePortEndpoint
+	err               error
+}
+
+func (f *fakeEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, endpointSliceAddressType discovery.AddressType) ([]backend.PodEndpoint, error) {
+	return f.podEndpoints, f.err
+}
+
+func (f *fakeEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...backend.EndpointResolveOption) ([]backend.NodePortEndpoint, error) {
+	return f.nodePortEndpoints, f.err
+}
+
+type fakeTargetsManager struct {
+	targets []TargetInfo
+	err     error
+}
+
+func (f *fakeTargetsManager) ListTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) ([]TargetInfo, error) {
+	return f.targets, f.err
+}
+
+func (f *fakeTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+	return f.err
+}
+
+func (f *fakeTargetsManager) DeregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+	return f.err
+}
+
+type fakeMultiClusterManager struct {
+	cleanupCalls int
+}
+
+func (f *fakeMultiClusterManager) FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targetInfo []TargetInfo) ([]TargetInfo, bool, error) {
+	return targetInfo, false, nil
+}
+
+func (f *fakeMultiClusterManager) UpdateTrackedIPTargets(ctx context.Context, updateTrackedTargets bool, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error {
+	return nil
+}
+
+func (f *fakeMultiClusterManager) UpdateTrackedInstanceTargets(ctx context.Context, updateRequested bool, endpoints []backend.NodePortEndpoint, tgb *elbv2api.TargetGroupBinding) error {
+	return nil
+}
+
+func (f *fakeMultiClusterManager) CleanUp(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	f.cleanupCalls++
+	return nil
+}
+
+type fakePodInfoRepo struct{}
+
+func (f *fakePodInfoRepo) ListKeys(_ context.Context) []types.NamespacedName {
+	return nil
+}
+
+func (f *fakePodInfoRepo) Get(_ context.Context, key types.NamespacedName) (k8s.PodInfo, bool, error) {
+	return k8s.PodInfo{}, false, nil
+}
+
+func Test_defaultResourceManager_NetworkingOptOut(t *testing.T) {
+	targetTypeIP := elbv2api.TargetTypeIP
+	targetTypeInstance := elbv2api.TargetTypeInstance
+
+	tests := []struct {
+		name                         string
+		targetType                   *elbv2api.TargetType
+		networking                   *elbv2api.TargetGroupBindingNetworking
+		expectPodReconcileCalls      int
+		expectNodePortReconcileCalls int
+	}{
+		{
+			name:                         "IP target with Spec.Networking nil - networkingManager should NOT be called",
+			targetType:                   &targetTypeIP,
+			networking:                   nil,
+			expectPodReconcileCalls:      0,
+			expectNodePortReconcileCalls: 0,
+		},
+		{
+			name:       "IP target with Spec.Networking configured - networkingManager SHOULD be called",
+			targetType: &targetTypeIP,
+			networking: &elbv2api.TargetGroupBindingNetworking{
+				Ingress: []elbv2api.NetworkingIngressRule{},
+			},
+			expectPodReconcileCalls:      1,
+			expectNodePortReconcileCalls: 0,
+		},
+		{
+			name:                         "Instance target with Spec.Networking nil - networkingManager should NOT be called",
+			targetType:                   &targetTypeInstance,
+			networking:                   nil,
+			expectPodReconcileCalls:      0,
+			expectNodePortReconcileCalls: 0,
+		},
+		{
+			name:       "Instance target with Spec.Networking configured - networkingManager SHOULD be called",
+			targetType: &targetTypeInstance,
+			networking: &elbv2api.TargetGroupBindingNetworking{
+				Ingress: []elbv2api.NetworkingIngressRule{},
+			},
+			expectPodReconcileCalls:      0,
+			expectNodePortReconcileCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			netMgr := &trackingNetworkingManager{}
+			epResolver := &fakeEndpointResolver{}
+			tgMgr := &fakeTargetsManager{}
+			mcMgr := &fakeMultiClusterManager{}
+
+			m := &defaultResourceManager{
+				k8sClient:                k8sClient,
+				targetsManager:           tgMgr,
+				endpointResolver:         epResolver,
+				networkingManager:        netMgr,
+				multiClusterManager:      mcMgr,
+				eventRecorder:            record.NewFakeRecorder(10),
+				logger:                   logr.New(&log.NullLogSink{}),
+				metricsCollector:         lbcmetrics.NewMockCollector(),
+				requeueDuration:          time.Second,
+				maxTargetsPerTargetGroup: 0,
+			}
+
+			tgb := &elbv2api.TargetGroupBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test-tgb",
+				},
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/tg/123456",
+					TargetType:     tt.targetType,
+					ServiceRef: elbv2api.ServiceReference{
+						Name: "test-svc",
+						Port: intstr.FromInt(80),
+					},
+					Networking: tt.networking,
+				},
+			}
+
+			ctx := context.Background()
+			err := k8sClient.Create(ctx, tgb)
+			assert.NoError(t, err)
+
+			_, err = m.Reconcile(ctx, tgb)
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expectPodReconcileCalls, netMgr.reconcileForPodEndpointsCalls, "reconcileForPodEndpointsCalls mismatch")
+			assert.Equal(t, tt.expectNodePortReconcileCalls, netMgr.reconcileForNodePortEndpointsCalls, "reconcileForNodePortEndpointsCalls mismatch")
+		})
+	}
+}
+
+func Test_defaultResourceManager_Cleanup_NetworkingOptOut(t *testing.T) {
+	tests := []struct {
+		name               string
+		networking         *elbv2api.TargetGroupBindingNetworking
+		expectCleanupCalls int
+	}{
+		{
+			name:               "Cleanup with Spec.Networking nil - networkingManager.Cleanup should NOT be called",
+			networking:         nil,
+			expectCleanupCalls: 0,
+		},
+		{
+			name: "Cleanup with Spec.Networking configured - networkingManager.Cleanup SHOULD be called",
+			networking: &elbv2api.TargetGroupBindingNetworking{
+				Ingress: []elbv2api.NetworkingIngressRule{},
+			},
+			expectCleanupCalls: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			netMgr := &trackingNetworkingManager{}
+			tgMgr := &fakeTargetsManager{}
+			mcMgr := &fakeMultiClusterManager{}
+
+			m := &defaultResourceManager{
+				k8sClient:           k8sClient,
+				targetsManager:      tgMgr,
+				networkingManager:   netMgr,
+				multiClusterManager: mcMgr,
+				eventRecorder:       record.NewFakeRecorder(10),
+				logger:              logr.New(&log.NullLogSink{}),
+				metricsCollector:    lbcmetrics.NewMockCollector(),
+				podInfoRepo:         &fakePodInfoRepo{},
+			}
+
+			targetTypeIP := elbv2api.TargetTypeIP
+			tgb := &elbv2api.TargetGroupBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test-tgb",
+				},
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/tg/123456",
+					TargetType:     &targetTypeIP,
+					ServiceRef: elbv2api.ServiceReference{
+						Name: "test-svc",
+						Port: intstr.FromInt(80),
+					},
+					Networking: tt.networking,
+				},
+			}
+
+			ctx := context.Background()
+			err := m.Cleanup(ctx, tgb)
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expectCleanupCalls, netMgr.cleanupCalls, "cleanupCalls mismatch")
+			assert.Equal(t, 1, mcMgr.cleanupCalls, "multiClusterManager.CleanUp should always be called")
 		})
 	}
 }
