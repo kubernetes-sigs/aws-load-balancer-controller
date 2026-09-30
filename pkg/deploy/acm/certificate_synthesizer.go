@@ -228,6 +228,15 @@ func isSDKCertificateRequiresReplacement(sdkCert CertificateWithTags, resCert *a
 		return true
 	}
 
+	// ensure the key algorithm is identical, ACM uses RSA_2048 if none was requested
+	desiredKeyAlgorithm := resCert.Spec.KeyAlgorithm
+	if desiredKeyAlgorithm == "" {
+		desiredKeyAlgorithm = acmtypes.KeyAlgorithmRsa2048
+	}
+	if sdkCert.Certificate.KeyAlgorithm != "" && sdkCert.Certificate.KeyAlgorithm != desiredKeyAlgorithm {
+		return true
+	}
+
 	return false
 }
 

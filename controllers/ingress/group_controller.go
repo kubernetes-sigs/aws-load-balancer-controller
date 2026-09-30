@@ -71,7 +71,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, targetGroupNameToArnMapper, secretsManager, logger, metricsCollector,
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), controllerConfig.FeatureGates.Enabled(config.EnableCertificateManagement), controllerConfig.IngressConfig.DefaultPCAArn, controllerConfig.IngressConfig.DefaultCertificateKeyAlgorithm, targetGroupNameToArnMapper, secretsManager, logger, metricsCollector,
 		certDiscovery)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
