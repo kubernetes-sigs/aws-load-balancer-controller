@@ -234,9 +234,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
 			},
 		},
 		{
@@ -267,9 +267,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--sect1": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--sect2": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--sect3": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//sect1": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//sect2": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//sect3": true,
 			},
 		},
 		{
@@ -300,9 +300,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns-80-": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns-80-": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns-80-": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns/80/": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns/80/": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns/80/": true,
 			},
 		},
 		{
@@ -336,9 +336,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns-80-sect1": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns-80-sect2": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns-80-sect3": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns/80/sect1": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns/80/sect2": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns/80/sect3": true,
 			},
 		},
 		{
@@ -369,9 +369,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
 			},
 		},
 		{
@@ -402,9 +402,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"ListenerSet-http1-http1-ns-HTTPRoute-ls-gw-ns--": true,
-				"ListenerSet-http2-http2-ns-HTTPRoute-ls-gw-ns--": true,
-				"ListenerSet-http3-http3-ns-HTTPRoute-ls-gw-ns--": true,
+				"ListenerSet/http1/http1-ns/HTTPRoute/ls/gw-ns//": true,
+				"ListenerSet/http2/http2-ns/HTTPRoute/ls/gw-ns//": true,
+				"ListenerSet/http3/http3-ns/HTTPRoute/ls/gw-ns//": true,
 			},
 		},
 		{
@@ -453,12 +453,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"ListenerSet-http1-http1-ns-HTTPRoute-ls-gw-ns--": true,
-				"ListenerSet-http2-http2-ns-HTTPRoute-ls-gw-ns--": true,
-				"ListenerSet-http3-http3-ns-HTTPRoute-ls-gw-ns--": true,
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--":     true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--":     true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--":     true,
+				"ListenerSet/http1/http1-ns/HTTPRoute/ls/gw-ns//": true,
+				"ListenerSet/http2/http2-ns/HTTPRoute/ls/gw-ns//": true,
+				"ListenerSet/http3/http3-ns/HTTPRoute/ls/gw-ns//": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//":     true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//":     true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//":     true,
 			},
 		},
 		{
@@ -507,12 +507,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"ListenerSet-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"ListenerSet-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"ListenerSet-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--":     true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--":     true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--":     true,
+				"ListenerSet/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"ListenerSet/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"ListenerSet/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//":     true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//":     true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//":     true,
 			},
 		},
 		{
@@ -542,9 +542,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
 			},
 		},
 		{
@@ -572,9 +572,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				}},
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-tcp1-tcp1-ns-TCPRoute-gw-gw-ns--": true,
-				"Gateway-tcp2-tcp2-ns-TCPRoute-gw-gw-ns--": true,
-				"Gateway-tcp3-tcp3-ns-TCPRoute-gw-gw-ns--": true,
+				"Gateway/tcp1/tcp1-ns/TCPRoute/gw/gw-ns//": true,
+				"Gateway/tcp2/tcp2-ns/TCPRoute/gw/gw-ns//": true,
+				"Gateway/tcp3/tcp3-ns/TCPRoute/gw/gw-ns//": true,
 			},
 		},
 		{
@@ -616,12 +616,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
-				"Gateway-tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    true,
-				"Gateway-tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/tcp1/tcp1-ns/TCPRoute/gw/gw-ns//":    true,
+				"Gateway/tcp2/tcp2-ns/TCPRoute/gw/gw-ns//":    true,
+				"Gateway/tcp3/tcp3-ns/TCPRoute/gw/gw-ns//":    true,
 			},
 		},
 		{
@@ -663,12 +663,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
-				"Gateway-tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    false,
-				"Gateway-tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/tcp1/tcp1-ns/TCPRoute/gw/gw-ns//":    true,
+				"Gateway/tcp2/tcp2-ns/TCPRoute/gw/gw-ns//":    false,
+				"Gateway/tcp3/tcp3-ns/TCPRoute/gw/gw-ns//":    true,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{
@@ -713,9 +713,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": false,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": false,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": false,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": false,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{
@@ -775,9 +775,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
 			},
 			lsLoaderRejected: []gwv1.ListenerSet{
 				{
@@ -821,9 +821,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"Gateway-http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"Gateway-http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"Gateway/http1/http1-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http2/http2-ns/HTTPRoute/gw/gw-ns//": true,
+				"Gateway/http3/http3-ns/HTTPRoute/gw/gw-ns//": true,
 			},
 			lsLoaderRejected:           nil,
 			expectedRejectedLSSetsLen:  0,
@@ -906,4 +906,54 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 
 		})
 	}
+}
+
+// Test_generateResourceCacheKey verifies the Gateway-scoped route resource cache key uses a "/"
+// separator so distinct routes never collide.
+func Test_generateResourceCacheKey(t *testing.T) {
+	testCases := []struct {
+		name        string
+		routeKind   RouteKind
+		namespace   string
+		routeName   string
+		expectedKey string
+	}{
+		{
+			name:        "no hyphens",
+			routeKind:   HTTPRouteKind,
+			namespace:   "team",
+			routeName:   "a",
+			expectedKey: "HTTPRoute/team/a",
+		},
+		{
+			name:        "hyphen in name",
+			routeKind:   HTTPRouteKind,
+			namespace:   "team",
+			routeName:   "a-b",
+			expectedKey: "HTTPRoute/team/a-b",
+		},
+		{
+			name:        "hyphen in namespace",
+			routeKind:   HTTPRouteKind,
+			namespace:   "b-team",
+			routeName:   "a",
+			expectedKey: "HTTPRoute/b-team/a",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			key := generateResourceCacheKey(tc.routeKind, types.NamespacedName{Namespace: tc.namespace, Name: tc.routeName})
+			assert.Equal(t, tc.expectedKey, key)
+		})
+	}
+}
+
+// Test_generateResourceCacheKey_noHyphenCollision ensures two routes whose name/namespace differ only
+// in where a hyphen falls do not share a cache key.
+func Test_generateResourceCacheKey_noHyphenCollision(t *testing.T) {
+	// HTTPRoute "a" in ns "b-team" vs HTTPRoute "a-b" in ns "team"
+	first := generateResourceCacheKey(HTTPRouteKind, types.NamespacedName{Namespace: "b-team", Name: "a"})
+	second := generateResourceCacheKey(HTTPRouteKind, types.NamespacedName{Namespace: "team", Name: "a-b"})
+	assert.NotEqual(t, first, second, "distinct routes must not share a cache key")
 }

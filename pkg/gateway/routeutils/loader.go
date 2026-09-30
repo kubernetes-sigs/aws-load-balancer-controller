@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
@@ -183,9 +184,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 	for port, preloadedRouteList := range preloadedRoutes {
 		for _, preloadedRoute := range preloadedRouteList {
-			namespacedNameRoute := preloadedRoute.GetRouteNamespacedName()
-			routeKind := preloadedRoute.GetRouteKind()
-			cacheKey := fmt.Sprintf("%s-%s-%s", routeKind, namespacedNameRoute.Name, namespacedNameRoute.Namespace)
+			cacheKey := generateResourceCacheKey(preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteNamespacedName())
 
 			cachedRoute, ok := resourceCache[cacheKey]
 			if ok {
@@ -259,6 +258,13 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 	return loadedRouteData, failedRoutes, nil
 }
 
+// generateResourceCacheKey builds the key for the Gateway-scoped route resource cache.
+// It uses "/" as the separator because "/" is illegal in Kubernetes names and namespaces, so the key
+// is unique per route.
+func generateResourceCacheKey(routeKind RouteKind, nn types.NamespacedName) string {
+	return fmt.Sprintf("%s/%s", routeKind, nn.String())
+}
+
 func generateRouteDataCacheKey(rd RouteData) string {
 	port := ""
 
@@ -278,5 +284,7 @@ func generateRouteDataCacheKey(rd RouteData) string {
 	if rd.ParentRef.Namespace != nil {
 		namespace = string(*rd.ParentRef.Namespace)
 	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s", kind, rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
+	// Dedup key for status updates only (no routing impact). Use "/" not "-": "/" is illegal in k8s
+	// names/namespaces, so distinct routes can't collide and suppress each other's status update.
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%s/%s/%s", kind, rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
 }
