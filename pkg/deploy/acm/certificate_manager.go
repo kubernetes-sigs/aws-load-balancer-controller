@@ -83,7 +83,7 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 		if _, checked := hostedZoneByDomain[host]; checked {
 			continue
 		}
-		zoneID, err := c.route53Client.GetHostedZoneID(ctx, host)
+		zoneID, err := c.route53Client.GetPublicHostedZoneID(ctx, host)
 		if err != nil {
 			return nil, fmt.Errorf("pre-check failed for domain %q: %w", host, err)
 		}
@@ -226,6 +226,12 @@ func (c *defaultCertificateManager) DeleteWithValidationRecords(ctx context.Cont
 
 	for _, opts := range desc.Certificate.DomainValidationOptions {
 		if opts.ValidationMethod == acmtypes.ValidationMethodDns {
+			if opts.ResourceRecord == nil {
+				// ACM populates ResourceRecord asynchronously; a certificate deleted right
+				// after creation may not have one yet, so there is no record to clean up.
+				c.logger.Info("no resource record on validation option, skipping validation record cleanup", "domain", awssdk.ToString(opts.DomainName))
+				continue
+			}
 			c.logger.Info("deleting validation records for certificate", "certificateARN", arn)
 			id, err := c.route53Client.GetHostedZoneID(ctx, awssdk.ToString(opts.DomainName))
 			if err != nil {
@@ -237,37 +243,49 @@ func (c *defaultCertificateManager) DeleteWithValidationRecords(ctx context.Cont
 				}
 				return err
 			}
-			input := &route53sdk.ChangeResourceRecordSetsInput{
-				HostedZoneId: id,
-				ChangeBatch: &route53types.ChangeBatch{
-					Changes: []route53types.Change{
-						{
-							Action: "DELETE",
-							ResourceRecordSet: &route53types.ResourceRecordSet{
-								Name: opts.ResourceRecord.Name,
-								Type: route53types.RRType(opts.ResourceRecord.Type),
-								TTL:  awssdk.Int64(validationRecordTTL),
-								ResourceRecords: []route53types.ResourceRecord{
-									{
-										Value: opts.ResourceRecord.Value,
+			// The validation record lives in the nearest public zone (written by current
+			// controllers) or, for certificates created by controller versions that
+			// predate the public-zone selection fix (issue #4840), in the most-specific
+			// zone regardless of visibility. Attempt cleanup in both when they differ;
+			// a delete against the wrong zone fails with "not found", which is
+			// tolerated below.
+			zoneIDs := []*string{id}
+			if publicID, err := c.route53Client.GetPublicHostedZoneID(ctx, awssdk.ToString(opts.DomainName)); err == nil && awssdk.ToString(publicID) != awssdk.ToString(id) {
+				zoneIDs = append(zoneIDs, publicID)
+			}
+			for _, zoneID := range zoneIDs {
+				input := &route53sdk.ChangeResourceRecordSetsInput{
+					HostedZoneId: zoneID,
+					ChangeBatch: &route53types.ChangeBatch{
+						Changes: []route53types.Change{
+							{
+								Action: "DELETE",
+								ResourceRecordSet: &route53types.ResourceRecordSet{
+									Name: opts.ResourceRecord.Name,
+									Type: route53types.RRType(opts.ResourceRecord.Type),
+									TTL:  awssdk.Int64(validationRecordTTL),
+									ResourceRecords: []route53types.ResourceRecord{
+										{
+											Value: opts.ResourceRecord.Value,
+										},
 									},
 								},
 							},
 						},
 					},
-				},
-			}
-			_, err = c.route53Client.ChangeRecordsWithContext(ctx, input)
-			if err != nil && strings.Contains(err.Error(), "not found") {
-				c.logger.Info("validation records no longer found, ignoring", "name", opts.ResourceRecord.Name, "value", opts.ResourceRecord.Value, "type", opts.ResourceRecord.Type)
-				continue
-			}
-			if err != nil && strings.Contains(err.Error(), "do not match the current values") {
-				c.logger.Info("validation records have been reused for another certificate, ignoring", "name", opts.ResourceRecord.Name, "value", opts.ResourceRecord.Value, "type", opts.ResourceRecord.Type)
-				continue
-			}
-			if err != nil {
-				return err
+				}
+				_, err = c.route53Client.ChangeRecordsWithContext(ctx, input)
+				if err != nil && strings.Contains(err.Error(), "not found") {
+					c.logger.Info("validation records no longer found, ignoring", "name", opts.ResourceRecord.Name, "value", opts.ResourceRecord.Value, "type", opts.ResourceRecord.Type)
+					continue
+				}
+				if err != nil && strings.Contains(err.Error(), "do not match the current values") {
+					c.logger.Info("validation records have been reused for another certificate, ignoring", "name", opts.ResourceRecord.Name, "value", opts.ResourceRecord.Value, "type", opts.ResourceRecord.Type)
+					continue
+				}
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
