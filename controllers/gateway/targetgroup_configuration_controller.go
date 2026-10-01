@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/controllers/gateway/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/gatewayutils"
@@ -24,6 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+)
+
+const (
+	targetReferenceKindGateway = "Gateway"
 )
 
 // NewTargetGroupConfigurationReconciler constructs a reconciler that responds to targetgroup configuration changes
@@ -132,6 +137,17 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, r.finalizer)
 	}
 
+	if tgConf.Spec.TargetReference.Kind != nil && *tgConf.Spec.TargetReference.Kind == targetReferenceKindGateway {
+		inUseRoutes, err := r.isGatewayTargetTGCInUse(context.Background(), tgConf)
+		if err != nil {
+			return err
+		}
+		if inUseRoutes != "" {
+			return fmt.Errorf("targetgroup configuration [%+v] is still in use by TCPRoutes [%s]", k8s.NamespacedName(tgConf), inUseRoutes)
+		}
+		return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, r.finalizer)
+	}
+
 	svcReference := types.NamespacedName{
 		Namespace: tgConf.Namespace,
 		Name:      tgConf.Spec.TargetReference.Name,
@@ -186,6 +202,23 @@ func (r *targetgroupConfigurationReconciler) isDefaultTGCInUse(ctx context.Conte
 	}
 	if len(inUseLBCs) > 0 {
 		return strings.Join(inUseLBCs, ", "), nil
+	}
+	return "", nil
+}
+
+func (r *targetgroupConfigurationReconciler) isGatewayTargetTGCInUse(ctx context.Context, tgConf *elbv2gw.TargetGroupConfiguration) (string, error) {
+	tcpRouteList := &gwv1.TCPRouteList{}
+	if err := r.k8sClient.List(ctx, tcpRouteList); err != nil {
+		return "", err
+	}
+
+	inUseRoutes := make([]string, 0)
+	for _, route := range eventhandlers.GetImpactedTCPRoutes(tcpRouteList, tgConf) {
+		inUseRoutes = append(inUseRoutes, k8s.NamespacedName(route).String())
+	}
+
+	if len(inUseRoutes) > 0 {
+		return strings.Join(inUseRoutes, ", "), nil
 	}
 	return "", nil
 }
