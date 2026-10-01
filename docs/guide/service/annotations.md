@@ -48,6 +48,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval](#healthcheck-interval)                           | integer                                       | 10                       |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes](#healthcheck-success-codes)                 | string                                        | 200-399                  |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-eip-allocations](#eip-allocations)                                     | stringList                                    |                          | internet-facing lb only. Length must match the number of subnets                                                                                                                                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-eip-allocations-discovery-tags](#eip-allocations-discovery-tags)       | stringMap                                     |                          | internet-facing lb only. Mutually exclusive with [eip-allocations](#eip-allocations)                                                                                                                                                                                                                                                                                                                               |
 | [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)                       | stringList                                    |                          | internal lb only. Length must match the number of subnets                                                                                                                                                                                                                                                                                                                                                            |
 | [service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses](#ipv6-addresses)                                       | stringList                                    |                          | dualstack lb only. Length must match the number of subnets                                                                                                                                                                                                                                                                                                                                                           |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes)                     | stringMap                                     |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -176,6 +177,20 @@ on the load balancer.
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
+        ```
+
+- <a name="eip-allocations-discovery-tags">`service.beta.kubernetes.io/aws-load-balancer-eip-allocations-discovery-tags`</a> discovers [elastic IP address](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html) allocation IDs by EC2 resource tags instead of listing them explicitly.
+
+    !!!note
+        - This configuration is optional, and you can use it to assign static IP addresses to your NLB without hardcoding allocation IDs
+        - NLB must be internet-facing
+        - Mutually exclusive with [aws-load-balancer-eip-allocations](#eip-allocations)
+        - Tag one VPC-scoped EIP per load balancer subnet Availability Zone; the controller matches EIPs to subnets by AZ
+        - Tags must uniquely identify the intended EIP set for the service
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-eip-allocations-discovery-tags: pod=pod998,service=zorg,visibility=external
         ```
 
 

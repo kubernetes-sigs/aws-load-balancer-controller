@@ -324,10 +324,31 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []ec2types.Subnet, enablePrefixForIpv6SourceNat elbv2model.EnablePrefixForIpv6SourceNat) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []ec2types.Subnet, enablePrefixForIpv6SourceNat elbv2model.EnablePrefixForIpv6SourceNat) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
-	if eipConfigured {
+
+	var eipDiscoveryTags map[string]string
+	eipDiscoveryConfigured, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixEIPAllocationsDiscoveryTags, &eipDiscoveryTags, t.service.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	if eipConfigured && eipDiscoveryConfigured {
+		return nil, errors.Errorf("aws-load-balancer-eip-allocations and aws-load-balancer-eip-allocations-discovery-tags are mutually exclusive")
+	}
+
+	if eipDiscoveryConfigured {
+		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		}
+		eipAllocation, err = t.eipResolver.ResolveForSubnets(ctx, eipDiscoveryTags, ec2Subnets)
+		if err != nil {
+			return nil, err
+		}
+		eipConfigured = true
+	}
+
+	if eipConfigured && !eipDiscoveryConfigured {
 		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
 			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
 		}
