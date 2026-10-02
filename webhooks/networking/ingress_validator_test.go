@@ -1171,3 +1171,84 @@ func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
 		})
 	}
 }
+
+func Test_ingressValidator_ValidateUpdate_deletingIngress(t *testing.T) {
+	now := metav1.Now()
+	tests := []struct {
+		name    string
+		ing     *networking.Ingress
+		oldIng  *networking.Ingress
+		wantErr bool
+	}{
+		{
+			name: "ingress being deleted with missing IngressClass should be allowed",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:         "ns-1",
+					Name:              "ing-1",
+					DeletionTimestamp: &now,
+					Finalizers:        []string{"ingress.k8s.aws/resources"},
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("deleted-ingress-class"),
+				},
+			},
+			oldIng: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns-1",
+					Name:      "ing-1",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("deleted-ingress-class"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "ingress not being deleted with missing IngressClass should be denied",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns-1",
+					Name:      "ing-1",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("deleted-ingress-class"),
+				},
+			},
+			oldIng: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns-1",
+					Name:      "ing-1",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("other-class"),
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
+			v := &ingressValidator{
+				annotationParser:                   annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
+				classAnnotationMatcher:             ingress.NewDefaultClassAnnotationMatcher("alb"),
+				classLoader:                        ingress.NewDefaultClassLoader(k8sClient, false),
+				manageIngressesWithoutIngressClass: false,
+				logger:                             logr.New(&log.NullLogSink{}),
+				metricsCollector:                   mockMetricsCollector,
+			}
+			err := v.ValidateUpdate(ctx, tt.ing, tt.oldIng)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

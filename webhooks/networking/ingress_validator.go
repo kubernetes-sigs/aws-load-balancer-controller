@@ -83,6 +83,10 @@ func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 
 func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	ing := obj.(*networking.Ingress)
+	// skip validation for ingresses being deleted to allow finalizer removal when IngressClass is already gone.
+	if !ing.DeletionTimestamp.IsZero() {
+		return nil
+	}
 	oldIng := oldObj.(*networking.Ingress)
 	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClass")
