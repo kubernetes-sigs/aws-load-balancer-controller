@@ -17,7 +17,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/referencecounter"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -29,6 +31,7 @@ import (
 
 const (
 	targetReferenceKindGateway = "Gateway"
+	gatewayAPIGroup            = "gateway.networking.k8s.io"
 )
 
 // NewTargetGroupConfigurationReconciler constructs a reconciler that responds to targetgroup configuration changes
@@ -214,6 +217,17 @@ func (r *targetgroupConfigurationReconciler) isGatewayTargetTGCInUse(ctx context
 
 	inUseRoutes := make([]string, 0)
 	for _, route := range eventhandlers.GetImpactedTCPRoutes(tcpRouteList, tgConf) {
+		if route.Namespace != tgConf.Namespace {
+			allowed, err := shared_utils.ValidateCrossNamespaceReference(ctx, r.k8sClient, route.Namespace, gatewayAPIGroup, string(routeutils.TCPRouteKind), gatewayAPIGroup, targetReferenceKindGateway, tgConf.Namespace, tgConf.Spec.TargetReference.Name)
+			if err != nil {
+				return "", err
+			}
+			if !allowed {
+				r.logger.V(1).Info("ignoring tcproute with cross namespace reference that no ReferenceGrant permits",
+					"targetgroupconfiguration", k8s.NamespacedName(tgConf), "tcproute", k8s.NamespacedName(route))
+				continue
+			}
+		}
 		inUseRoutes = append(inUseRoutes, k8s.NamespacedName(route).String())
 	}
 
