@@ -142,6 +142,9 @@ spec:
         {{- if .Values.watchNamespace }}
         - --watch-namespace={{ .Values.watchNamespace }}
         {{- end }}
+        {{- if .Values.namespaceSelector }}
+        - --namespace-selector={{ .Values.namespaceSelector }}
+        {{- end }}
         {{- if kindIs "bool" .Values.disableIngressClassAnnotation }}
         - --disable-ingress-class-annotation={{ .Values.disableIngressClassAnnotation }}
         {{- end }}

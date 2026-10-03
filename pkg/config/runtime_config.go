@@ -1,15 +1,19 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/pkg/errors"
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -28,6 +32,7 @@ const (
 	flagLeaderElectionID        = "leader-election-id"
 	flagLeaderElectionNamespace = "leader-election-namespace"
 	flagWatchNamespace          = "watch-namespace"
+	flagNamespaceSelector       = "namespace-selector"
 	flagSyncPeriod              = "sync-period"
 	flagKubeconfig              = "kubeconfig"
 	flagWebhookCertDir          = "webhook-cert-dir"
@@ -39,6 +44,7 @@ const (
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
 	defaultLeaderElectionNamespace = ""
 	defaultWatchNamespace          = corev1.NamespaceAll
+	defaultNamespaceSelector       = ""
 	defaultMetricsAddr             = ":8080"
 	defaultHealthProbeBindAddress  = ":61779"
 	defaultSyncPeriod              = 10 * time.Hour
@@ -65,6 +71,9 @@ type RuntimeConfig struct {
 	LeaderElectionID        string
 	LeaderElectionNamespace string
 	WatchNamespace          string
+	// NamespaceSelector restricts which namespaces are watched using standard Kubernetes label
+	// selector syntax (for example "!tenant" or "team=platform").
+	NamespaceSelector       string
 	SyncPeriod              time.Duration
 	WebhookCertDir          string
 	WebhookCertName         string
@@ -90,7 +99,11 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.LeaderElectionNamespace, flagLeaderElectionNamespace, defaultLeaderElectionNamespace,
 		"Name of the leader election ID to use for this controller")
 	fs.StringVar(&c.WatchNamespace, flagWatchNamespace, defaultWatchNamespace,
-		"Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.")
+		"Namespace the controller watches for updates to Kubernetes objects. If empty, all namespaces are watched. Mutually exclusive with --namespace-selector.")
+	fs.StringVar(&c.NamespaceSelector, flagNamespaceSelector, defaultNamespaceSelector,
+		"Label selector to restrict which namespaces the controller watches. Uses standard Kubernetes label selector syntax "+
+			"(e.g. '!tenant', 'team in (platform,ingress)', 'env!=production'). Mutually exclusive with --watch-namespace. "+
+			"Resolved once at startup; restart the controller after namespace label changes.")
 	fs.DurationVar(&c.SyncPeriod, flagSyncPeriod, defaultSyncPeriod,
 		"Period at which the controller forces the repopulation of its local object stores.")
 	fs.StringVar(&c.WebhookCertDir, flagWebhookCertDir, defaultWebhookCertDir, "WebhookCertDir is the directory that contains the webhook server key and certificate.")
@@ -120,8 +133,49 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 	return restCFG, nil
 }
 
-// BuildRuntimeOptions builds the options for the controller runtime based on config
-func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) (ctrl.Options, error) {
+// ResolveWatchedNamespaces returns the namespaces the controller should watch.
+// A nil return means all namespaces. watch-namespace and namespace-selector are mutually exclusive.
+func ResolveWatchedNamespaces(ctx context.Context, clientset kubernetes.Interface, rtCfg RuntimeConfig) ([]string, error) {
+	hasWatchNamespace := rtCfg.WatchNamespace != corev1.NamespaceAll && rtCfg.WatchNamespace != ""
+	hasNamespaceSelector := rtCfg.NamespaceSelector != ""
+
+	if hasWatchNamespace && hasNamespaceSelector {
+		return nil, errors.New("--watch-namespace and --namespace-selector are mutually exclusive")
+	}
+
+	if hasWatchNamespace {
+		return []string{rtCfg.WatchNamespace}, nil
+	}
+
+	if !hasNamespaceSelector {
+		return nil, nil
+	}
+
+	selector, err := labels.Parse(rtCfg.NamespaceSelector)
+	if err != nil {
+		return nil, errors.Wrapf(err, "invalid --namespace-selector %q", rtCfg.NamespaceSelector)
+	}
+
+	nsList, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list namespaces for --namespace-selector")
+	}
+
+	watched := make([]string, 0, len(nsList.Items))
+	for _, ns := range nsList.Items {
+		if selector.Matches(labels.Set(ns.Labels)) {
+			watched = append(watched, ns.Name)
+		}
+	}
+	if len(watched) == 0 {
+		return nil, errors.Errorf("--namespace-selector %q matched no namespaces", rtCfg.NamespaceSelector)
+	}
+	return watched, nil
+}
+
+// BuildRuntimeOptions builds the options for the controller runtime based on config.
+// watchedNamespaces scopes the cache; nil or empty means all namespaces.
+func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme, watchedNamespaces []string) (ctrl.Options, error) {
 	baseOpts := []func(config *tls.Config){
 		func(config *tls.Config) {
 			config.MinVersion = tls.VersionTLS12
@@ -183,9 +237,10 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) (ctrl.Opti
 
 	// cannot set DefaultNamespaces = corev1.NamespaceAll
 	// https://github.com/kubernetes-sigs/controller-runtime/issues/2628
-	if rtCfg.WatchNamespace != corev1.NamespaceAll {
-		opt.Cache.DefaultNamespaces = map[string]cache.Config{
-			rtCfg.WatchNamespace: {},
+	if len(watchedNamespaces) > 0 {
+		opt.Cache.DefaultNamespaces = make(map[string]cache.Config, len(watchedNamespaces))
+		for _, ns := range watchedNamespaces {
+			opt.Cache.DefaultNamespaces[ns] = cache.Config{}
 		}
 	}
 
