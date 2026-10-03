@@ -2,6 +2,8 @@ package networking
 
 import (
 	"context"
+	"sync"
+
 	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -64,6 +66,21 @@ var _ SecurityGroupReconciler = &defaultSecurityGroupReconciler{}
 type defaultSecurityGroupReconciler struct {
 	sgManager SecurityGroupManager
 	logger    logr.Logger
+
+	// sgLocks serializes reconciles per SecurityGroup.
+	// A reconcile is a read-modify-write sequence (fetch rules, diff against desired, authorize/revoke):
+	// if two reconciles for the same SecurityGroup interleave, one can diff against a snapshot taken
+	// while the other was mid-mutation and revoke rules without granting replacements,
+	// leaving the SecurityGroup without any of the managed rules.
+	sgLocks sync.Map // sgID -> *sync.Mutex
+}
+
+// lockSG locks the mutex for sgID and returns the function that unlocks it.
+func (r *defaultSecurityGroupReconciler) lockSG(sgID string) func() {
+	lock, _ := r.sgLocks.LoadOrStore(sgID, &sync.Mutex{})
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }
 
 func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error {
@@ -71,6 +88,11 @@ func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, s
 		PermissionSelector: labels.Everything(),
 	}
 	reconcileOpts.ApplyOptions(opts...)
+
+	// the fetch below must happen under the same lock as the mutations:
+	// a snapshot fetched while another reconcile holds the lock would be stale by the time the lock is acquired.
+	unlockSG := r.lockSG(sgID)
+	defer unlockSG()
 
 	sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, []string{sgID})
 	if err != nil {
