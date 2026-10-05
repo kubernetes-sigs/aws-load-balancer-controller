@@ -1406,6 +1406,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#vpcid" class="md-nav__link">
+    <span class="md-ellipsis">
+      VpcId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#loadbalancerattributes" class="md-nav__link">
     <span class="md-ellipsis">
       LoadBalancerAttributes
@@ -2857,6 +2866,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#vpcid" class="md-nav__link">
+    <span class="md-ellipsis">
+      VpcId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#loadbalancerattributes" class="md-nav__link">
     <span class="md-ellipsis">
       LoadBalancerAttributes
@@ -3406,6 +3424,18 @@ spec:
 </code></pre></div>
 <p>An optional list of CIDRs that are allowed to access the LB.</p>
 <p><strong>Default</strong> Empty list</p>
+<h4 id="vpcid">VpcId<a class="headerlink" href="#vpcid" title="Permanent link">&para;</a></h4>
+<p><code>vpcId</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  vpcId: vpc-1234
+</code></pre></div>
+<p>The VPC ID of LoadBalancer</p>
+<p><strong>Default</strong> Autodetect VPC from Cluster VPC</p>
 <h4 id="loadbalancerattributes">LoadBalancerAttributes<a class="headerlink" href="#loadbalancerattributes" title="Permanent link">&para;</a></h4>
 <p><code>loadBalancerAttributes</code></p>
 <div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1

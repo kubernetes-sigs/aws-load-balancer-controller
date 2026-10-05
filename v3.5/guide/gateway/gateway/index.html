@@ -1268,30 +1268,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#security-multi-tenant-route-attachment" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security: Multi-Tenant Route Attachment
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Security: Multi-Tenant Route Attachment">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#recommendations-for-multi-tenant-environments" class="md-nav__link">
-    <span class="md-ellipsis">
-      Recommendations for multi-tenant environments
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -2522,30 +2498,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#security-multi-tenant-route-attachment" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security: Multi-Tenant Route Attachment
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Security: Multi-Tenant Route Attachment">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#recommendations-for-multi-tenant-environments" class="md-nav__link">
-    <span class="md-ellipsis">
-      Recommendations for multi-tenant environments
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -2725,70 +2677,6 @@ registered with an AWS Target Group outside the controller's lifecycle.</p>
 <span class="w">      </span><span class="nt">weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </code></pre></div>
 <p>This support exists for all route types managed by the controller.</p>
-<h2 id="security-multi-tenant-route-attachment">Security: Multi-Tenant Route Attachment<a class="headerlink" href="#security-multi-tenant-route-attachment" title="Permanent link">&para;</a></h2>
-<p>When configuring <code>AllowedRoutes.Namespaces.From</code> on a Gateway listener, understand the trust implications of each setting:</p>
-<table>
-<thead>
-<tr>
-<th>Value</th>
-<th>Meaning</th>
-<th>Trust level</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Same</code> (default)</td>
-<td>Only routes in the Gateway's own namespace can attach</td>
-<td><strong>Restrictive</strong> — single-tenant or admin-controlled</td>
-</tr>
-<tr>
-<td><code>Selector</code></td>
-<td>Only routes in namespaces matching the label selector can attach</td>
-<td><strong>Scoped</strong> — multi-tenant with explicit allow-list</td>
-</tr>
-<tr>
-<td><code>All</code></td>
-<td>Routes from <strong>any</strong> namespace in the cluster can attach</td>
-<td><strong>Permissive</strong> — any namespace can influence routing</td>
-</tr>
-</tbody>
-</table>
-<div class="admonition warning">
-<p class="admonition-title">Security implications of <code>From: All</code></p>
-<p>Setting <code>AllowedRoutes.Namespaces.From: All</code> means <strong>any namespace in the cluster can attach routes to your listener</strong>. Once a namespace is authorized to attach routes, it can influence routing decisions on the ALB provisioned by this Gateway.</p>
-</div>
-<h3 id="recommendations-for-multi-tenant-environments">Recommendations for multi-tenant environments<a class="headerlink" href="#recommendations-for-multi-tenant-environments" title="Permanent link">&para;</a></h3>
-<ol>
-<li>
-<p><strong>Use <code>From: Same</code> (default) for single-tenant or admin-controlled Gateways.</strong> This is the safest option and requires no additional consideration.</p>
-</li>
-<li>
-<p><strong>Use <code>From: Selector</code> to scope access to trusted namespaces only.</strong> Label the namespaces you trust and use a selector to restrict route attachment:
-    <div class="highlight"><pre><span></span><code><span class="nt">listeners</span><span class="p">:</span>
-<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https</span>
-<span class="w">    </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPS</span>
-<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">443</span>
-<span class="w">    </span><span class="nt">allowedRoutes</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">namespaces</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">from</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Selector</span>
-<span class="w">        </span><span class="nt">selector</span><span class="p">:</span>
-<span class="w">          </span><span class="nt">matchLabels</span><span class="p">:</span>
-<span class="w">            </span><span class="nt">gateway-access</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;trusted&quot;</span>
-</code></pre></div></p>
-</li>
-<li>
-<p><strong>Use <code>From: All</code> only when you trust all namespaces equally.</strong> This is appropriate when:</p>
-<ul>
-<li>All namespaces are managed by the same team</li>
-<li>You have other controls in place (RBAC restricting who can create HTTPRoute/GRPCRoute objects)</li>
-<li>You accept that any authorized namespace can influence routing priority</li>
-</ul>
-</li>
-</ol>
-<div class="admonition note">
-<p class="admonition-title">Default behavior</p>
-<p>If <code>allowedRoutes</code> is not specified, the Gateway API defaults to <code>From: Same</code>, which only permits routes from the Gateway's own namespace.</p>
-</div>
 
 
 

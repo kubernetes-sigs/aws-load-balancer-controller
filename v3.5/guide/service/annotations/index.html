@@ -3461,7 +3461,6 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/cre
 <ul>
 <li>We recommend specifying CIDRs in the service <code>spec.loadBalancerSourceRanges</code> instead</li>
 <li>For enhanced security with <code>internal</code> network load balancers, we recommend limiting access by specifying allowed source IP ranges.  This can be done using either the <code>service.beta.kubernetes.io/load-balancer-source-ranges</code> annotation or the <code>spec.loadBalancerSourceRanges</code> field.</li>
-<li>The Load Balancer Controller canonicalizes CIDRs</li>
 </ul>
 </div>
 <div class="admonition note">
