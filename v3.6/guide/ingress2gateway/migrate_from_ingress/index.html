@@ -1,0 +1,3127 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../../gateway/spec/">
+      
+      
+        <link rel="next" href="../lbc_migrate_reference/">
+      
+      
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>Migration Guide - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
+    <link rel="stylesheet" href="../../../assets/stylesheets/announcements.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#migrate-from-ingress-to-gateway-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="header.title"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                Migration Guide
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+        <label class="md-header__button md-icon" for="__search">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        </label>
+  
+        <!-- Search interface -->
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+    
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
+          
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../ingress/annotations/" class="md-tabs__link">
+          
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+    <div id="gh-announcements"></div>
+
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How it works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subnet Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Group Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Scaling your LBC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upgrade
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            Upgrade
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate v1 to v2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/certificate_management/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Service
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/nlb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Network Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            TargetGroupBinding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l7gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L7 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/listenerruleconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerRuleConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/gateway_chaining/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/listenersets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerSets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress To Gateway Migration (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress To Gateway Migration (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Migration Guide
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Migration Guide
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-you-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before you start
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-translate-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Translate Manifests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 1: Translate Manifests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick start
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-preview-with-dry-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Preview with Dry-Run
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Preview with Dry-Run">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-enable-the-ingress-plan-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      2a. Enable the Ingress plan annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-apply-the-generated-gateway-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      2b. Apply the generated Gateway manifests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-launch-the-migration-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      2c. Launch the migration console
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-optional-inspect-the-raw-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      2d. (Optional) Inspect the raw plan
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-apply-gateway-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Apply Gateway Manifests
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-verify-gateway-albs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Verify Gateway ALBs
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Verify Gateway ALBs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#check-gateway-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Check Gateway status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-target-group-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verify target group health
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-alb-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verify ALB configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitor metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-directly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test directly
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-shift-traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Shift Traffic
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 6: Cleanup
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 6: Cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#delete-the-ingress" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete the Ingress
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-leftover-dry-run-gateways" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete leftover dry-run Gateways
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disable-the-ingressplanannotation-feature-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disable the IngressPlanAnnotation feature gate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean-up-traffic-management-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Clean up traffic management resources
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Further Reading
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lbc_migrate_reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migration Tool (lbc-migrate)
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../in_cluster_console/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migration Console
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    AWS Global Accelerator (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            AWS Global Accelerator (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/aga-controller/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/examples/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Tasks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cognito Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SSL Redirect
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Use Cases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            Use Cases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    NLB TLS Termination
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Externally Managed Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frontend Security Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Blue/Green
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    MultiCluster Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/legacy_app_integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Legacy Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_9" id="__nav_3_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            Metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_10" id="__nav_3_10_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    ALB Target Optimizer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_10">
+            <span class="md-nav__icon md-icon"></span>
+            ALB Target Optimizer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Target Control Agent
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent-spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALBTargetControlConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EchoServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    gRPCServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RBAC to access OIDC Secret
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      Overview
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#before-you-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before you start
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-1-translate-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 1: Translate Manifests
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 1: Translate Manifests">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Quick start
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-2-preview-with-dry-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 2: Preview with Dry-Run
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 2: Preview with Dry-Run">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#2a-enable-the-ingress-plan-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      2a. Enable the Ingress plan annotation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-apply-the-generated-gateway-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      2b. Apply the generated Gateway manifests
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-launch-the-migration-console" class="md-nav__link">
+    <span class="md-ellipsis">
+      2c. Launch the migration console
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2d-optional-inspect-the-raw-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      2d. (Optional) Inspect the raw plan
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-3-apply-gateway-manifests" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 3: Apply Gateway Manifests
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-4-verify-gateway-albs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4: Verify Gateway ALBs
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 4: Verify Gateway ALBs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#check-gateway-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Check Gateway status
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-target-group-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verify target group health
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verify-alb-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Verify ALB configuration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#monitor-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitor metrics
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#test-directly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Test directly
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-5-shift-traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 5: Shift Traffic
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-6-cleanup" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 6: Cleanup
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Step 6: Cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#delete-the-ingress" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete the Ingress
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-leftover-dry-run-gateways" class="md-nav__link">
+    <span class="md-ellipsis">
+      Delete leftover dry-run Gateways
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#disable-the-ingressplanannotation-feature-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disable the IngressPlanAnnotation feature gate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean-up-traffic-management-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Clean up traffic management resources
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Troubleshooting
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#further-reading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Further Reading
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="migrate-from-ingress-to-gateway-api">Migrate from Ingress to Gateway API<a class="headerlink" href="#migrate-from-ingress-to-gateway-api" title="Permanent link">&para;</a></h1>
+<p>This guide covers migrating AWS Load Balancer Controller (LBC) Ingress resources to Gateway API, step by step. The migration is designed to be safe and non-disruptive — new ALBs are created alongside existing ones, so current workloads stay running throughout the process.</p>
+<p>Two tools are provided to help:</p>
+<ul>
+<li><strong><a href="../lbc_migrate_reference/"><code>lbc-migrate</code> CLI</a></strong> — translates Ingress manifests (annotations, rules, groups) into equivalent Gateway API YAML.</li>
+<li><strong><a href="../in_cluster_console/">Migration Console</a></strong> — a local web UI that compares the AWS resource plans produced by both the ingress and gateway controllers field by field, to verify equivalence before applying Gateway manifests for real.</li>
+</ul>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The migration follows six steps. Each step is safe to pause at — you can stop and resume at any point.</p>
+<p><img alt="Migration flow overview" src="../assets/migration/migration_flow.png" /></p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Action</th>
+<th>What happens</th>
+<th>Rollback</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Translate manifests</td>
+<td><code>lbc-migrate</code> converts Ingress YAML to Gateway API YAML</td>
+<td>Delete generated files</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Preview with dry-run</td>
+<td>Ingress controller writes its plan to annotation (requires feature gate). Gateway manifests applied with dry-run — gateway controller writes its plan without creating AWS resources. Console compares both plans.</td>
+<td>Delete the dry-run Gateway</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Apply Gateway manifests</td>
+<td>LBC creates new ALBs for the Gateway resources alongside existing Ingress ALBs</td>
+<td>Delete Gateway resources</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Verify Gateway ALBs</td>
+<td>Confirm new ALBs are healthy, configurations are correct, and metrics look normal</td>
+<td>—</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Shift traffic</td>
+<td>Gradually move traffic from Ingress ALBs to Gateway ALBs</td>
+<td>Shift traffic back</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Cleanup</td>
+<td>Delete Ingress and old resources</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition important">
+<p class="admonition-title">What changes and what stays the same</p>
+<p>The generated output <strong>replaces only your Ingress resource</strong>. Everything else stays untouched:</p>
+<ul>
+<li><strong>Namespace</strong> — already exists, no changes needed.</li>
+<li><strong>Deployment</strong> — unchanged, continues running your application pods.</li>
+<li><strong>Service</strong> — unchanged, the new HTTPRoute <code>backendRefs</code> reference it by name.</li>
+</ul>
+</div>
+<p><img alt="Service reuse during migration" src="../assets/migration/service_reuse.png" /></p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>AWS Load Balancer Controller installed in the cluster with Gateway API support enabled</li>
+<li>The <a href="https://gateway-api.sigs.k8s.io/guides/getting-started/#installing-gateway-api">Gateway API CRDs</a> installed at a compatible version (see <a href="../../gateway/gateway/">Gateway API documentation</a>)</li>
+<li><code>lbc-migrate</code> binary built (see <a href="../lbc_migrate_reference/#installation">Installation</a>)</li>
+<li>The tool assumes input Ingress resources are valid and currently working with the AWS Load Balancer Controller. It does not re-validate Ingress annotations.</li>
+</ul>
+<h3 id="before-you-start">Before you start<a class="headerlink" href="#before-you-start" title="Permanent link">&para;</a></h3>
+<p>Before running <code>lbc-migrate</code>, scan your cluster for known limitations and read the relevant reference sections so you don't hit a silent blocker mid-migration:</p>
+<ul>
+<li><strong>Annotation support</strong> — open the <a href="../lbc_migrate_reference/#annotation-support">Annotation Support table</a> and confirm none of your in-use annotations are listed as <strong>Not supported</strong> (in particular WAF Classic <code>waf-acl-id</code> / <code>web-acl-id</code>, and all <code>frontend-nlb-*</code>). If they are, resolve them before starting (e.g., migrate WAF Classic to WAFv2).</li>
+<li><strong>Known differences from Ingress</strong> — review <a href="../lbc_migrate_reference/#known-differences-from-ingress">Known Differences from Ingress</a>, which covers <code>group.order</code> priority handling, ALB rule count/priority differences, external Target Group references in <code>actions.*</code>, and limited support for some annotations.</li>
+<li><strong>Cross-namespace IngressGroups</strong> — if any IngressGroup spans multiple namespaces, see <a href="../lbc_migrate_reference/#ingressgroup-support">IngressGroup Support</a>. You must use <code>--all-namespaces</code> or list every namespace the group spans; otherwise the tool produces incomplete output.</li>
+<li><strong>Console RBAC</strong> — ensure the kubeconfig context you will run the migration console with has cluster-wide <code>list</code> permission on Gateways and Ingresses. See <a href="../in_cluster_console/#rbac">Migration Console — RBAC</a>.</li>
+</ul>
+<hr />
+<h2 id="step-1-translate-manifests">Step 1: Translate Manifests<a class="headerlink" href="#step-1-translate-manifests" title="Permanent link">&para;</a></h2>
+<p>First, install the <code>lbc-migrate</code> CLI if you haven't already:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Build from the aws-load-balancer-controller repo</span>
+make<span class="w"> </span>lbc-migrate
+
+<span class="c1"># (Optional) Install on your PATH</span>
+make<span class="w"> </span>install-lbc-migrate
+</code></pre></div>
+<p>See <a href="../lbc_migrate_reference/#installation">Installation</a> for details.</p>
+<p>Then run <code>lbc-migrate</code> to convert your Ingress resources to Gateway API equivalents.</p>
+<h3 id="quick-start">Quick start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># From YAML files</span>
+lbc-migrate<span class="w"> </span>-f<span class="w"> </span>ingress.yaml<span class="w"> </span>--output-dir<span class="w"> </span>./gw/
+
+<span class="c1"># From a directory of manifests</span>
+lbc-migrate<span class="w"> </span>--input-dir<span class="w"> </span>./k8s-manifests/<span class="w"> </span>--output-dir<span class="w"> </span>./gw/
+
+<span class="c1"># From a live cluster (recommended — automatically fetches referenced Services, IngressClass, etc.)</span>
+lbc-migrate<span class="w"> </span>--from-cluster<span class="w"> </span>--namespaces<span class="w"> </span>production<span class="w"> </span>--output-dir<span class="w"> </span>./gw/
+</code></pre></div>
+<p>The tool generates Gateway, HTTPRoute, GatewayClass, and optional CRD resources (LoadBalancerConfiguration, TargetGroupConfiguration, ListenerRuleConfiguration).</p>
+<div class="admonition tip">
+<p class="admonition-title">Use <code>--from-cluster</code> for best results</p>
+<p>File-based input may miss Service-level annotations and IngressClassParams overrides. <code>--from-cluster</code> automatically fetches all referenced resources for the most accurate translation.</p>
+</div>
+<p><strong>Output:</strong> A directory of Gateway API YAML files ready to apply. By default, <code>--dry-run=true</code> is set, so the generated Gateway manifests include the <code>gateway.k8s.aws/dry-run: "true"</code> annotation.</p>
+<p>For the full CLI reference (all flags, output formats, split modes, IngressGroup handling, annotation support table), see <strong><a href="../lbc_migrate_reference/">Migration Tool (lbc-migrate)</a></strong>.</p>
+<hr />
+<h2 id="step-2-preview-with-dry-run">Step 2: Preview with Dry-Run<a class="headerlink" href="#step-2-preview-with-dry-run" title="Permanent link">&para;</a></h2>
+<p>Before creating any AWS resources, verify that the generated Gateway manifests will produce the same ALB configuration as your current Ingress.</p>
+<p><img alt="Dry-run verification workflow" src="../assets/migration/dryrun_workflow.png" /></p>
+<h3 id="2a-enable-the-ingress-plan-annotation">2a. Enable the Ingress plan annotation<a class="headerlink" href="#2a-enable-the-ingress-plan-annotation" title="Permanent link">&para;</a></h3>
+<p>The <code>IngressPlanAnnotation</code> feature gate makes the ingress controller publish its built model stack to each reconciled Ingress as <code>alb.ingress.kubernetes.io/dry-run-plan</code>. The in-cluster console reads this annotation. Turn it on by adding the gate to the controller's <code>--feature-gates</code> argument:</p>
+<div class="highlight"><pre><span></span><code>--feature-gates=IngressPlanAnnotation=true
+</code></pre></div>
+<p>If you installed LBC with the official Helm chart, set it through <code>controllerConfig.featureGates</code> (the chart converts the map into the <code>--feature-gates</code> flag automatically):</p>
+<div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>aws-load-balancer-controller<span class="w"> </span>eks/aws-load-balancer-controller<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-n<span class="w"> </span>kube-system<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--set<span class="w"> </span>controllerConfig.featureGates.IngressPlanAnnotation<span class="o">=</span><span class="nb">true</span>
+</code></pre></div>
+<p>The Helm upgrade restarts the controller pods automatically. For non-Helm installs (raw manifests, GitOps, etc.) edit the controller Deployment's args and roll the pods. See <a href="../../../deploy/configurations/#feature-gates">Configurations — Feature Gates</a> for the full feature-gate reference.</p>
+<p>Once the controller is running with the gate enabled, the ingress controller writes its built model stack to each reconciled Ingress as <code>alb.ingress.kubernetes.io/dry-run-plan</code>.</p>
+<div class="admonition note">
+<p class="admonition-title">IngressGroup behavior</p>
+<p>For an IngressGroup, all members share one plan. The controller writes the annotation only to the primary member (lowest <code>group.order</code>, tie-broken by lexical <code>namespace/name</code>).</p>
+</div>
+<h3 id="2b-apply-the-generated-gateway-manifests">2b. Apply the generated Gateway manifests<a class="headerlink" href="#2b-apply-the-generated-gateway-manifests" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>./gw/gateway-resources.yaml
+</code></pre></div>
+<p>Because the Gateways carry <code>gateway.k8s.aws/dry-run: "true"</code>, the gateway controller builds its model but does <strong>not</strong> create an ALB. It writes the plan back to the Gateway as <code>gateway.k8s.aws/dry-run-plan</code>. <strong>No AWS resources are created.</strong></p>
+<h3 id="2c-launch-the-migration-console">2c. Launch the migration console<a class="headerlink" href="#2c-launch-the-migration-console" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>lbc-migrate<span class="w"> </span>--console
+<span class="c1"># or bind to a different port</span>
+lbc-migrate<span class="w"> </span>--console<span class="w"> </span>--port<span class="w"> </span><span class="m">9000</span>
+</code></pre></div>
+<p>Open <code>http://localhost:8080</code> in your browser. The console reads both plan annotations and shows a field-by-field comparison of every AWS resource (LoadBalancer, Listeners, ListenerRules, TargetGroups, SecurityGroups) that each controller would create.</p>
+<p>The console is read-only and uses your current kubeconfig context — it never modifies any cluster or AWS resources.</p>
+<p>Look for:</p>
+<ul>
+<li><strong>"Changed" diffs</strong> — fields that differ between ingress and gateway plans. Known migration artifacts (naming changes, health-check defaults) are filtered by default.</li>
+<li><strong>"Added" / "Removed"</strong> — resources or fields present on only one side.</li>
+</ul>
+<div class="admonition success">
+<p class="admonition-title">When to proceed</p>
+<p>Review the diffs and confirm they are expected. Some differences are intentional (e.g., you deliberately changed a health-check path). As long as you understand and accept all listed changes, you can proceed to Step 3.</p>
+</div>
+<p>For the full console walkthrough (UI guide, diff classification, export, RBAC, troubleshooting), see <strong><a href="../in_cluster_console/">Migration Console</a></strong>.</p>
+<h3 id="2d-optional-inspect-the-raw-plan">2d. (Optional) Inspect the raw plan<a class="headerlink" href="#2d-optional-inspect-the-raw-plan" title="Permanent link">&para;</a></h3>
+<p>You can also inspect the plan annotation directly:</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span>my-gateway<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.metadata.annotations.gateway\.k8s\.aws/dry-run-plan}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+</code></pre></div>
+<hr />
+<h2 id="step-3-apply-gateway-manifests">Step 3: Apply Gateway Manifests<a class="headerlink" href="#step-3-apply-gateway-manifests" title="Permanent link">&para;</a></h2>
+<p>Once you've confirmed the dry-run plan matches, you have two equivalent paths to switch the Gateway from dry-run to live. Pick one based on how you manage manifests:</p>
+<p><strong>Option A — regenerate without dry-run (recommended for GitOps).</strong> Produces a clean source-controlled manifest with no <code>dry-run</code> annotation:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Regenerate without dry-run</span>
+lbc-migrate<span class="w"> </span>--from-cluster<span class="w"> </span>--namespaces<span class="w"> </span>production<span class="w"> </span>--output-dir<span class="w"> </span>./gw/<span class="w"> </span>--dry-run<span class="o">=</span><span class="nb">false</span>
+
+<span class="c1"># Apply</span>
+kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>./gw/gateway-resources.yaml
+</code></pre></div>
+<p><strong>Option B — remove the dry-run annotation in place.</strong> Faster, but the cluster state diverges from your source-controlled YAML until you regenerate:</p>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>annotate<span class="w"> </span>-n<span class="w"> </span>&lt;NAMESPACE&gt;<span class="w"> </span>gateway<span class="w"> </span>&lt;GATEWAY_NAME&gt;<span class="w"> </span>gateway.k8s.aws/dry-run-
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">External Target Groups conflict</p>
+<p>If your Ingress uses <code>actions.*</code> annotations that reference an external Target Group, the Gateway ALB cannot attach the same external TG that the Ingress ALB is currently using — only one ALB can own an external TG at a time. See <a href="../lbc_migrate_reference/#external-target-group-references-in-actions">External Target Group References in Actions</a> for the resolution options before you apply.</p>
+</div>
+<p><strong>What happens:</strong></p>
+<ul>
+<li>LBC creates <strong>new ALBs</strong> for the Gateway resources (one per Gateway object)</li>
+<li>LBC creates new Target Groups pointing to the <strong>same</strong> Services/Pods</li>
+<li>Both your existing Ingress ALBs and the new Gateway ALBs now route to the same backend Pods</li>
+<li>Existing Ingress ALBs continue working as before — no disruption</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Duplicate ALB cost during the migration window</p>
+<p>Both the original Ingress ALBs and the new Gateway ALBs run in parallel for the duration of Steps 3–5. Expect duplicate ALB-hours and LCU-hours on your AWS bill until you complete cleanup in Step 6.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Service reuse</p>
+<p>Gateway API HTTPRoute <code>backendRefs</code> point directly to your existing Kubernetes Services. No new Services, Deployments, or Pods are created. Both sets of ALBs register the same pod IPs.</p>
+</div>
+<hr />
+<h2 id="step-4-verify-gateway-albs">Step 4: Verify Gateway ALBs<a class="headerlink" href="#step-4-verify-gateway-albs" title="Permanent link">&para;</a></h2>
+<p>Before shifting traffic, confirm the new Gateway ALBs are healthy and correctly configured.</p>
+<h3 id="check-gateway-status">Check Gateway status<a class="headerlink" href="#check-gateway-status" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span>&lt;GATEWAY_NAME&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;NAMESPACE&gt;
+</code></pre></div>
+<p>Look for:</p>
+<ul>
+<li><code>Programmed: True</code> condition — the ALB is fully provisioned</li>
+<li><code>status.addresses</code> — contains the new ALB DNS name</li>
+</ul>
+<h3 id="verify-target-group-health">Verify target group health<a class="headerlink" href="#verify-target-group-health" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Get the ALB ARN from Gateway status or AWS console</span>
+aws<span class="w"> </span>elbv2<span class="w"> </span>describe-target-health<span class="w"> </span>--target-group-arn<span class="w"> </span>&lt;TG_ARN&gt;
+</code></pre></div>
+<p>All targets should show <code>healthy</code>.</p>
+<h3 id="verify-alb-configuration">Verify ALB configuration<a class="headerlink" href="#verify-alb-configuration" title="Permanent link">&para;</a></h3>
+<p>In the AWS Console or via CLI, confirm:</p>
+<ul>
+<li>Listeners match expected ports and protocols</li>
+<li>Security groups are correct</li>
+<li>SSL certificates are attached</li>
+<li>WAF/Shield settings are in place (if applicable)</li>
+<li>Tags are correct</li>
+</ul>
+<h3 id="monitor-metrics">Monitor metrics<a class="headerlink" href="#monitor-metrics" title="Permanent link">&para;</a></h3>
+<p>Check CloudWatch metrics for the new ALBs:</p>
+<ul>
+<li><code>HealthyHostCount</code> — all targets registered and healthy</li>
+<li><code>HTTPCode_ELB_5XX_Count</code> — no unexpected 5xx errors</li>
+<li><code>TargetResponseTime</code> — latency within expected range</li>
+</ul>
+<h3 id="test-directly">Test directly<a class="headerlink" href="#test-directly" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Get Gateway ALB DNS</span>
+<span class="nv">GATEWAY_ALB</span><span class="o">=</span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span>&lt;GATEWAY_NAME&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;NAMESPACE&gt;<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.status.addresses[0].value}&#39;</span><span class="k">)</span>
+
+<span class="c1"># Test a request</span>
+curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Host: your-app.example.com&quot;</span><span class="w"> </span>http://<span class="nv">$GATEWAY_ALB</span>/health
+</code></pre></div>
+<div class="admonition warning">
+<p class="admonition-title">Do not skip verification</p>
+<p>Confirm the new ALBs serve correct responses and all configurations look right before shifting any production traffic.</p>
+</div>
+<hr />
+<h2 id="step-5-shift-traffic">Step 5: Shift Traffic<a class="headerlink" href="#step-5-shift-traffic" title="Permanent link">&para;</a></h2>
+<p>After verifying the new Gateway ALBs, shift production traffic from the Ingress ALBs to the Gateway ALBs.</p>
+<div class="admonition warning">
+<p class="admonition-title">Understand the traffic path before shifting</p>
+<p>Before changing anything, identify how clients reach the Ingress ALB:</p>
+<ul>
+<li>Through a custom domain (e.g., <code>api.example.com</code>) backed by Route 53 or another DNS provider</li>
+<li>Directly via the ALB DNS name (e.g., <code>k8s-default-myingress-abc123...elb.amazonaws.com</code>)</li>
+</ul>
+<p>If clients use the ALB DNS directly, traffic cannot be shifted without updating every client. Plan accordingly.</p>
+</div>
+<p>The exact mechanism depends on your environment — DNS providers, load balancing services, and client configurations vary. Common considerations include the ability to roll back quickly if issues arise and whether gradual shifting is required for risk management.</p>
+<p>For one example of CRD-based traffic management, see the LBC <a href="../../globalaccelerator/aga-controller/">Global Accelerator</a> documentation.</p>
+<p>Refer to your DNS provider or traffic management tooling for specifics.</p>
+<hr />
+<h2 id="step-6-cleanup">Step 6: Cleanup<a class="headerlink" href="#step-6-cleanup" title="Permanent link">&para;</a></h2>
+<p>After 100% traffic is on the Gateway ALBs and has been stable for your desired monitoring period:</p>
+<h3 id="delete-the-ingress">Delete the Ingress<a class="headerlink" href="#delete-the-ingress" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>delete<span class="w"> </span>ingress<span class="w"> </span>&lt;INGRESS_NAME&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;NAMESPACE&gt;
+</code></pre></div>
+<p>This triggers LBC to delete the Ingress ALB and its associated Target Groups.</p>
+<h3 id="delete-leftover-dry-run-gateways">Delete leftover dry-run Gateways<a class="headerlink" href="#delete-leftover-dry-run-gateways" title="Permanent link">&para;</a></h3>
+<p>If in Step 3 you used <strong>Option A</strong> (regenerated without dry-run and applied a fresh manifest), the original dry-run Gateway from Step 2 may still exist alongside the live Gateway. Delete it:</p>
+<p>If you used <strong>Option B</strong> (<code>kubectl annotate</code> to remove the <code>dry-run</code> annotation in place), the same Gateway object is now live — there is nothing extra to delete.</p>
+<h3 id="disable-the-ingressplanannotation-feature-gate">Disable the <code>IngressPlanAnnotation</code> feature gate<a class="headerlink" href="#disable-the-ingressplanannotation-feature-gate" title="Permanent link">&para;</a></h3>
+<p>If no other migrations are in progress, turn the gate off so the ingress controller cleans up the <code>dry-run-plan</code> annotation. With the official Helm chart:</p>
+<div class="highlight"><pre><span></span><code>helm<span class="w"> </span>upgrade<span class="w"> </span>aws-load-balancer-controller<span class="w"> </span>eks/aws-load-balancer-controller<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-n<span class="w"> </span>kube-system<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--reuse-values<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--set<span class="w"> </span>controllerConfig.featureGates.IngressPlanAnnotation<span class="o">=</span><span class="nb">false</span>
+</code></pre></div>
+<p>For non-Helm installs, drop <code>IngressPlanAnnotation=true</code> from the controller's <code>--feature-gates</code> argument and roll the pods.</p>
+<h3 id="clean-up-traffic-management-resources">Clean up traffic management resources<a class="headerlink" href="#clean-up-traffic-management-resources" title="Permanent link">&para;</a></h3>
+<p>Remove any resources you created in Step 5 to route traffic between the Ingress and Gateway ALBs once they are no longer needed. </p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<p>For troubleshooting dry-run issues, see <a href="../lbc_migrate_reference/#dry-run-mode">Dry-Run Mode</a>. For console-specific issues, see <a href="../in_cluster_console/#troubleshooting">Migration Console — Troubleshooting</a>.</p>
+<hr />
+<h2 id="further-reading">Further Reading<a class="headerlink" href="#further-reading" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><a href="../lbc_migrate_reference/">Migration Tool (lbc-migrate)</a></strong> — full flag reference, annotation support table, output format details</li>
+<li><strong><a href="../in_cluster_console/">Migration Console</a></strong> — UI walkthrough, diff classification, export, RBAC</li>
+<li><strong><a href="../../gateway/gateway/">Gateway API Overview</a></strong> — LBC's Gateway API support documentation</li>
+<li><strong><a href="../../globalaccelerator/aga-controller/">Global Accelerator</a></strong> — AGA CRD for traffic splitting</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "search.suggest", "search.highlight"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+    
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../../assets/javascripts/version-select.js"></script>
+    <script src="../../../assets/javascripts/announcements.js"></script>
+
+  </body>
+</html>
