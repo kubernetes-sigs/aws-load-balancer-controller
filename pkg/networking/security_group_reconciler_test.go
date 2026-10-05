@@ -3,14 +3,19 @@ package networking
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultSecurityGroupReconciler_shouldRetryWithoutCache(t *testing.T) {
@@ -591,5 +596,157 @@ func TestReconcileSGIngress_RehydrateCache(t *testing.T) {
 			ctrl.Finish()
 			assert.NoError(t, err)
 		})
+	}
+}
+
+// fakeStatefulSGManager simulates the EC2-side SecurityGroup rule state for concurrency tests.
+// It tracks how many manager calls run concurrently and whether a revoke ever left the
+// SecurityGroup without any rules.
+type fakeStatefulSGManager struct {
+	sgID string
+
+	mu    sync.Mutex
+	perms map[string]IPPermissionInfo
+
+	inFlight    int32
+	maxInFlight int32
+	wentEmpty   int32
+}
+
+// enter tracks call concurrency and sleeps briefly to widen any interleaving window.
+func (f *fakeStatefulSGManager) enter() {
+	cur := atomic.AddInt32(&f.inFlight, 1)
+	for {
+		max := atomic.LoadInt32(&f.maxInFlight)
+		if cur <= max || atomic.CompareAndSwapInt32(&f.maxInFlight, max, cur) {
+			break
+		}
+	}
+	time.Sleep(time.Millisecond)
+}
+
+func (f *fakeStatefulSGManager) exit() {
+	atomic.AddInt32(&f.inFlight, -1)
+}
+
+func (f *fakeStatefulSGManager) FetchSGInfosByID(ctx context.Context, sgIDs []string, opts ...FetchSGInfoOption) (map[string]SecurityGroupInfo, error) {
+	f.enter()
+	defer f.exit()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ingress := make([]IPPermissionInfo, 0, len(f.perms))
+	for _, perm := range f.perms {
+		ingress = append(ingress, perm)
+	}
+	return map[string]SecurityGroupInfo{
+		f.sgID: {
+			SecurityGroupID: f.sgID,
+			Ingress:         ingress,
+		},
+	}, nil
+}
+
+func (f *fakeStatefulSGManager) FetchSGInfosByRequest(ctx context.Context, req *ec2sdk.DescribeSecurityGroupsInput) (map[string]SecurityGroupInfo, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (f *fakeStatefulSGManager) AuthorizeSGIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error {
+	f.enter()
+	defer f.exit()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, perm := range permissions {
+		f.perms[perm.HashCode()] = perm
+	}
+	return nil
+}
+
+func (f *fakeStatefulSGManager) RevokeSGIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error {
+	f.enter()
+	defer f.exit()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, perm := range permissions {
+		delete(f.perms, perm.HashCode())
+	}
+	if len(f.perms) == 0 {
+		atomic.StoreInt32(&f.wentEmpty, 1)
+	}
+	return nil
+}
+
+// TestReconcileSGIngress_ConcurrentReconcilesAreSerializedPerSG is a regression test for
+// concurrent reconciles of the same SecurityGroup revoking rules without granting replacements.
+// Endpoint churn on the TargetGroupBinding that defines the boundary of the aggregated
+// port-range produces alternating desired permission sets reconciled concurrently; a reconcile
+// diffing against a snapshot taken mid-way through another reconcile's authorize/revoke
+// sequence can revoke the last remaining rule and leave the SecurityGroup empty.
+func TestReconcileSGIngress_ConcurrentReconcilesAreSerializedPerSG(t *testing.T) {
+	sgID := "sg-cluster"
+	wideRule := NewGroupIDIPPermission("tcp", awssdk.Int32(3000), awssdk.Int32(8025), "sg-backend", nil)
+	narrowRule := NewGroupIDIPPermission("tcp", awssdk.Int32(3000), awssdk.Int32(3008), "sg-backend", nil)
+
+	f := &fakeStatefulSGManager{
+		sgID:  sgID,
+		perms: map[string]IPPermissionInfo{wideRule.HashCode(): wideRule},
+	}
+	reconciler := &defaultSecurityGroupReconciler{
+		sgManager: f,
+		logger:    logr.New(&log.NullLogSink{}),
+	}
+
+	const reconcileCount = 10
+	var wg sync.WaitGroup
+	errs := make([]error, reconcileCount)
+	for i := 0; i < reconcileCount; i++ {
+		desired := []IPPermissionInfo{wideRule}
+		if i%2 == 1 {
+			desired = []IPPermissionInfo{narrowRule}
+		}
+		wg.Add(1)
+		go func(i int, desired []IPPermissionInfo) {
+			defer wg.Done()
+			errs[i] = reconciler.ReconcileIngress(context.Background(), sgID, desired)
+		}(i, desired)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		assert.NoError(t, err, "reconcile %d", i)
+	}
+	assert.EqualValues(t, 1, atomic.LoadInt32(&f.maxInFlight),
+		"concurrent reconciles of the same SecurityGroup must not interleave fetch/authorize/revoke calls")
+	assert.EqualValues(t, 0, atomic.LoadInt32(&f.wentEmpty),
+		"the managed permissions must never be fully revoked while a non-empty permission set is desired")
+	assert.Len(t, f.perms, 1, "the final state must converge to exactly one of the desired permission sets")
+}
+
+// TestReconcileSGIngress_LocksAreScopedPerSG verifies reconciles of different SecurityGroups
+// do not serialize against each other.
+func TestReconcileSGIngress_LocksAreScopedPerSG(t *testing.T) {
+	reconciler := &defaultSecurityGroupReconciler{}
+
+	unlockA := reconciler.lockSG("sg-a")
+	// must not block while sg-a is held; a shared lock would deadlock the test here.
+	unlockB := reconciler.lockSG("sg-b")
+	unlockB()
+
+	// re-acquiring sg-a must block until it is released.
+	acquired := make(chan struct{})
+	go func() {
+		unlock := reconciler.lockSG("sg-a")
+		unlock()
+		close(acquired)
+	}()
+	select {
+	case <-acquired:
+		t.Fatal("acquiring the lock for a SecurityGroup that is already locked must block")
+	case <-time.After(50 * time.Millisecond):
+	}
+	unlockA()
+	select {
+	case <-acquired:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the lock for a SecurityGroup must be acquirable after it is released")
 	}
 }
