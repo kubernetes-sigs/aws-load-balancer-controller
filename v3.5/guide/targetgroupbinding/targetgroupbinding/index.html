@@ -1166,6 +1166,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#availability-zones-for-cross-account-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Availability zones for cross-account targets
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2502,6 +2511,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#availability-zones-for-cross-account-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Availability zones for cross-account targets
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2569,6 +2587,16 @@ It automatically creates TargetGroupBinding in the same namespace of the Service
 <div class="codehilite"><pre><span></span><code>You can view all TargetGroupBindings in a namespace by `kubectl get targetgroupbindings -n &lt;your-namespace&gt; -o wide`
 </code></pre></div>
 
+<div class="admonition warning">
+<p class="admonition-title">Do not manually delete controller-generated TargetGroupBindings</p>
+</div>
+<p>Deleting a <code>TargetGroupBinding</code> that the controller generated for an Ingress, Service, or Gateway resource:</p>
+<ul>
+<li>deregisters every target from the associated AWS target group, and</li>
+<li>is <strong>not</strong> immediately reconciled by the controller.</li>
+</ul>
+<p>The controller watches the Ingress, Service, and Gateway resources that own the binding, but it does <strong>not</strong> watch the generated <code>TargetGroupBinding</code> itself. As a result, a deleted binding is only recreated when the owning resource is updated (for example, editing any annotation) or during the periodic resync (<code>--sync-period</code>, which defaults to <code>10h</code>). Until then, the load balancer forwards to zero registered targets.</p>
+<p>If you delete a controller-generated binding while troubleshooting, force an immediate reconcile by editing any annotation on the owning Ingress, Service, or Gateway resource, and verify that the binding and its targets are restored.</p>
 <div class="admonition question">
 <p class="admonition-title">EKS Auto Mode users</p>
 </div>
@@ -2656,7 +2684,8 @@ selector above</strong>.</p>
 - <strong>TargetGroup Owner (TGO)</strong>: The AWS account where the TargetGroup exists</p>
 <p><strong>Spec fields:</strong>
 * <code>iamRoleArnToAssume</code>: The ARN of the role in the TGO account that the controller will assume
-* <code>assumeRoleExternalId</code>: External ID for the assume role operation (optional but recommended to prevent the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html">confused deputy problem</a>)</p>
+* <code>assumeRoleExternalId</code>: External ID for the assume role operation (optional but recommended to prevent the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html">confused deputy problem</a>)
+* <code>registerTargetsWithPodAvailabilityZone</code>: Register cross-account IP targets with the availability zone of the pod's node instead of <code>all</code>. See <a href="#availability-zones-for-cross-account-targets">Availability zones for cross-account targets</a>. Requires <code>iamRoleArnToAssume</code>.</p>
 <h3 id="sample-yaml_1">Sample YAML<a class="headerlink" href="#sample-yaml_1" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
 <span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
@@ -2741,6 +2770,41 @@ selector above</strong>.</p>
 <span class="w">    </span><span class="nt">&quot;Resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
 <span class="p">}</span>
 </code></pre></div>
+<h3 id="availability-zones-for-cross-account-targets">Availability zones for cross-account targets<a class="headerlink" href="#availability-zones-for-cross-account-targets" title="Permanent link">&para;</a></h3>
+<p>By default, cross-account IP targets are registered with <code>AvailabilityZone: all</code>. Every zonal node of
+the load balancer can then forward to every target, so turning off cross-zone load balancing has no
+effect and inter-AZ data transfer charges are unavoidable.</p>
+<p>Set <code>registerTargetsWithPodAvailabilityZone: true</code> to register each target with the availability zone
+of the node its pod runs on. With cross-zone load balancing disabled, a zonal load balancer node then
+only forwards to targets in its own zone.</p>
+<p>Availability zone <em>names</em> are randomized per AWS account — <code>us-west-2a</code> in the CO account is usually a
+different physical zone than <code>us-west-2a</code> in the TGO account. Availability zone <em>IDs</em> (for example
+<code>usw2-az1</code>) are stable, so the controller resolves the pod's zone name to a zone ID in the CO account
+and then back to the matching zone name in the TGO account. Both lookups use
+<code>ec2:DescribeAvailabilityZones</code>, so the TGO role from Step 2 needs it:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;Effect&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Allow&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;Action&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="s2">&quot;ec2:DescribeAvailabilityZones&quot;</span>
+<span class="w">  </span><span class="p">],</span>
+<span class="w">  </span><span class="nt">&quot;Resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<div class="admonition note">
+<p>The zone must be one the load balancer has a subnet in. If a cluster runs nodes in a zone the load
+balancer does not use, registration is rejected and the TargetGroupBinding reports an error.</p>
+</div>
+<div class="admonition note">
+<p>If the zone cannot be translated — for instance when the TGO role is missing
+<code>ec2:DescribeAvailabilityZones</code> — the controller logs the failure and falls back to
+<code>AvailabilityZone: all</code> rather than failing registration.</p>
+</div>
+<div class="admonition note">
+<p>The setting only affects targets registered after it is set. Targets that are already registered
+keep their current availability zone (<code>all</code> or a zone name) until they are deregistered and
+registered again, for example when the pod is replaced. This avoids disrupting live traffic when
+the setting is toggled on an existing TargetGroupBinding.</p>
+</div>
 <h2 id="multicluster-targetgroup">MultiCluster TargetGroup<a class="headerlink" href="#multicluster-targetgroup" title="Permanent link">&para;</a></h2>
 <p>TargetGroupBinding CR supports sharing the same TargetGroup ARN among multiple TargetGroupBindings. Setting this flag allows
 TargetGroup ARNs among multiple clusters or services within the same cluster.</p>

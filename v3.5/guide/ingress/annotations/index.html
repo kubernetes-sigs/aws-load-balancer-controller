@@ -3035,7 +3035,7 @@ for key differences between the load balancing capability of EKS Auto Mode and t
 <tr>
 <td><a href="#frontend-nlb-eip-allocations">alb.ingress.kubernetes.io/frontend-nlb-eip-allocations</a></td>
 <td>stringList</td>
-<td>200</td>
+<td>N/A</td>
 <td>Ingress</td>
 <td>N/A</td>
 </tr>
@@ -3050,6 +3050,13 @@ for key differences between the load balancing capability of EKS Auto Mode and t
 <td><a href="#frontend-nlb-attributes">alb.ingress.kubernetes.io/frontend-nlb-attributes</a></td>
 <td>stringList</td>
 <td>N/A</td>
+<td>Ingress</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td><a href="#frontend-nlb-status-only">alb.ingress.kubernetes.io/frontend-nlb-status-only</a></td>
+<td>boolean</td>
+<td>false</td>
 <td>Ingress</td>
 <td>N/A</td>
 </tr>
@@ -3719,6 +3726,7 @@ It can be a either real serviceName or an annotation based action name when serv
 </li>
 <li>
 <p><a name="inbound-cidrs"><code>alb.ingress.kubernetes.io/inbound-cidrs</code></a> specifies the CIDRs that are allowed to access LoadBalancer.</p>
+<p>The Load Balancer Controller canonicalizes CIDRs.</p>
 <div class="admonition note">
 <p class="admonition-title">Merge Behavior</p>
 <p><code>inbound-cidrs</code> is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.</p>
@@ -3843,6 +3851,10 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 <p class="admonition-title">Example</p>
 <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/auth-idp-oidc: &#39;{&quot;issuer&quot;:&quot;https://example.com&quot;,&quot;authorizationEndpoint&quot;:&quot;https://authorization.example.com&quot;,&quot;tokenEndpoint&quot;:&quot;https://token.example.com&quot;,&quot;userInfoEndpoint&quot;:&quot;https://userinfo.example.com&quot;,&quot;secretName&quot;:&quot;my-k8s-secret&quot;}&#39;
 </code></pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Accessing OIDC secrets</p>
+<p>Anything that can create an Ingress in the same namespace as the secret that contains the OIDC information can use that secret to enable OIDC-based authentication on the Ingress. The AWS Load Balancer Controller uses its own RBAC permissions to retrieve the secret's contents in order to configure the ALB listener.</p>
 </div>
 </li>
 <li>
@@ -4591,6 +4603,40 @@ If specified on multiple Ingresses within IngressGroup, the values must match.</
 <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/frontend-nlb-attributes: dns_record.client_routing_policy=availability_zone_affinity
 </code></pre></div></li>
 </ul>
+</div>
+</li>
+<li>
+<p><a name="frontend-nlb-status-only"><code>alb.ingress.kubernetes.io/frontend-nlb-status-only</code></a> controls whether only the frontend NLB hostname is written to <code>status.loadBalancer.ingress</code> instead of both the ALB and NLB hostnames.</p>
+<p>By default, when a frontend NLB is enabled, both the ALB and NLB hostnames appear in the ingress status. When using <a href="https://github.com/kubernetes-sigs/external-dns">ExternalDNS</a> on AWS, only a DNS record for the first entry is created (see <a href="https://github.com/kubernetes-sigs/external-dns/issues/5661">external-dns#5661</a>), which means the NLB does not get a DNS record. Setting this annotation to <code>"true"</code> restricts the status to only the NLB hostname, so ExternalDNS creates a DNS record pointing at the NLB.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If <code>alb.ingress.kubernetes.io/enable-frontend-nlb</code> is not set, this annotation has no effect. If the NLB has not yet been provisioned or fails to provision, the ingress status is left empty until the NLB is ready, avoiding a transient DNS record pointing at the ALB.</p>
+</div>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">NLB only</label><label for="__tabbed_1_2">Both hostnames (default)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/enable-frontend-nlb</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<span class="nt">alb.ingress.kubernetes.io/frontend-nlb-status-only</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</code></pre></div>
+Resulting ingress status:
+<div class="highlight"><pre><span></span><code><span class="nt">status</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">loadBalancer</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ingress</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nlb-xxxx.elb.amazonaws.com</span>
+</code></pre></div></p>
+</div>
+<div class="tabbed-block">
+<p><div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/enable-frontend-nlb</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</code></pre></div>
+Resulting ingress status:
+<div class="highlight"><pre><span></span><code><span class="nt">status</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">loadBalancer</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ingress</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb-xxxx.elb.amazonaws.com</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nlb-xxxx.elb.amazonaws.com</span>
+</code></pre></div></p>
+</div>
+</div>
 </div>
 </li>
 </ul>
