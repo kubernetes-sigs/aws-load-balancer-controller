@@ -199,7 +199,7 @@ docs-preview: docs-dependencies
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v3.5 latest -p --update-aliases
+	pipenv run mike deploy v3.6 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:
