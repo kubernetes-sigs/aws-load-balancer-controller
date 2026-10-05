@@ -71,7 +71,7 @@ fi
 
 echo $REPO
 
-if [[ -z $(command -v gh) ]] || [[ ! $(gh --version) =~ $GH_CLI_VERSION ]]; then
+if [[ -z $(command -v gh) ]]; then
   mkdir -p "${BUILD_DIR}"/gh
   curl -Lo "${BUILD_DIR}"/gh/gh.tar.gz "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_${OS}_amd64.tar.gz"
   tar -C "${BUILD_DIR}"/gh -xvf "${BUILD_DIR}/gh/gh.tar.gz"
@@ -109,8 +109,11 @@ rm -rf "${SYNC_DIR}"
 mkdir -p "${SYNC_DIR}"
 
 cd "${SYNC_DIR}"
-gh repo fork $CHARTS_REPO --clone --remote
+gh repo fork $CHARTS_REPO --clone=false
+git clone "https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/${GITHUB_USERNAME}/${CHARTS_REPO_NAME}.git" "${FORK_DIR}"
 cd "${FORK_DIR}"
+git remote add upstream "https://github.com/${CHARTS_REPO}.git"
+git fetch upstream
 git remote set-url origin https://"${GITHUB_USERNAME}":"${GITHUB_TOKEN}"@github.com/"${GITHUB_USERNAME}"/"${CHARTS_REPO_NAME}".git
 DEFAULT_BRANCH=$(git rev-parse --abbrev-ref HEAD | tr -d '\n')
 
@@ -134,6 +137,9 @@ git checkout -b "${FORK_RELEASE_BRANCH}" upstream/"${DEFAULT_BRANCH}"
 
 rm -rf "${FORK_DIR}"/stable/${HELM_CHART_NAME}/
 cp -r "$HELM_CHART_DIR/" "${FORK_DIR}/stable/${HELM_CHART_NAME}/"
+
+# Strip editor/backup artifacts that shouldn't ship in the chart sync PR
+find "${FORK_DIR}/stable/${HELM_CHART_NAME}/" -type f \( -name "*.bak" -o -name "*~" -o -name "*.orig" \) -delete
 
 git add --all
 git commit -m "${BINARY_BASE}: ${VERSION}"
