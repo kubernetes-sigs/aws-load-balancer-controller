@@ -12,7 +12,7 @@ import (
 // InstallationManager is responsible for manage controller installation in cluster.
 type InstallationManager interface {
 	ResetController() error
-	UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool, enableCertificateManagement bool) error
+	UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool, enableCertificateManagement bool, enableLogDelivery bool) error
 }
 
 // NewDefaultInstallationManager constructs new defaultInstallationManager.
@@ -53,7 +53,8 @@ func (m *defaultInstallationManager) ResetController() error {
 	return err
 }
 
-func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool, enableCertificateManagement bool) error {
+// UpgradeController installs the selected image and feature gates, then waits for the controller rollout to finish.
+func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool, enableCertificateManagement bool, enableLogDelivery bool) error {
 	imageRepo, imageTag, err := splitImageRepoAndTag(controllerImage)
 	if err != nil {
 		return err
@@ -69,12 +70,17 @@ func (m *defaultInstallationManager) UpgradeController(controllerImage string, e
 	if enableEndPointSlices {
 		vals["enableEndpointSlices"] = true
 	}
-	if enableALBTargetControlAgent || enableCertificateManagement {
+	if enableALBTargetControlAgent || enableCertificateManagement || enableLogDelivery {
+		featureGates := map[string]interface{}{
+			"ALBTargetControlAgent":       enableALBTargetControlAgent,
+			"EnableCertificateManagement": enableCertificateManagement,
+		}
+		// Older controller images reject this gate even when its value is false.
+		if enableLogDelivery {
+			featureGates["LogDelivery"] = true
+		}
 		vals["controllerConfig"] = map[string]interface{}{
-			"featureGates": map[string]interface{}{
-				"ALBTargetControlAgent":       enableALBTargetControlAgent,
-				"EnableCertificateManagement": enableCertificateManagement,
-			},
+			"featureGates": featureGates,
 		}
 	}
 
