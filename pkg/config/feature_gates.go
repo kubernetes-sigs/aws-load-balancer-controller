@@ -42,6 +42,7 @@ const (
 	GatewayListenerSet            Feature = "GatewayListenerSet"
 	EnableCertificateManagement   Feature = "EnableCertificateManagement"
 	IngressPlanAnnotation         Feature = "IngressPlanAnnotation"
+	LogDelivery                   Feature = "LogDelivery"
 )
 
 type FeatureGates interface {
@@ -97,6 +98,7 @@ func NewFeatureGates() FeatureGates {
 			GatewayListenerSet:            generateDefaultFeatureStatus(true),
 			EnableCertificateManagement:   generateDefaultFeatureStatus(false),
 			IngressPlanAnnotation:         generateDefaultFeatureStatus(false),
+			LogDelivery:                   generateDefaultFeatureStatus(false),
 		},
 	}
 }

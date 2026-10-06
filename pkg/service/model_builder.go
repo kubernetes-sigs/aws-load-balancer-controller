@@ -260,6 +260,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	return err
 }
 
+// buildModel resolves Service networking and builds its load balancer, listeners and optional log deliveries with error metrics.
 func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
@@ -280,6 +281,10 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	err = t.buildListeners(ctx, scheme)
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_listeners_error", err, t.metricsCollector)
+	}
+	err = t.buildLogDeliveries(ctx)
+	if err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_log_delivery_error", err, t.metricsCollector)
 	}
 	return nil
 }

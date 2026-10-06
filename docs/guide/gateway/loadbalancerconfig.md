@@ -729,6 +729,34 @@ Only applies to Application LoadBalancer Gateways.
 
 **Default** false (No Shield enabled)
 
+### LogDelivery
+
+`logDelivery`
+
+```
+apiVersion: gateway.k8s.aws/v1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  logDelivery:
+    - logType: ALB_ACCESS_LOGS
+      destinationArn: arn:aws:logs:us-west-2:111122223333:log-group:/aws/vendedlogs/alb/echoserver
+      outputFormat: json
+    - logType: ALB_HEALTH_CHECK_LOGS
+      destinationArn: arn:aws:s3:::my-alb-logs
+      outputFormat: parquet
+      s3DeliveryConfiguration:
+        enableHiveCompatiblePath: true
+```
+
+Sends the load balancer's logs to CloudWatch Logs, S3 or Firehose through [CloudWatch Logs vended log delivery](../tasks/log_delivery.md). Application LoadBalancer Gateways support `ALB_ACCESS_LOGS`, `ALB_CONNECTION_LOGS` and `ALB_HEALTH_CHECK_LOGS`, Network LoadBalancer Gateways support `NLB_ACCESS_LOGS`.
+
+Requires the `LogDelivery` feature gate and the permissions in [iam_policy_log_delivery.json](../../install/iam_policy_log_delivery.json). When both the Gateway and the GatewayClass set `logDelivery`, the list from the configuration with priority is used as a whole.
+
+**Default** Empty list (No log delivery)
+
 
 #### DisableSecurityGroup
 
