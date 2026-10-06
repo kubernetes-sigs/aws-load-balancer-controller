@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	logdeliverymodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/logdelivery"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/controller"
 )
 
@@ -14,6 +15,11 @@ const (
 )
 
 var globalOptions Options
+
+// GetOptions returns the options bound to the test command's flags, without initializing AWS or Kubernetes clients.
+func GetOptions() Options {
+	return globalOptions
+}
 
 func init() {
 	globalOptions.BindFlags()
@@ -34,15 +40,21 @@ type Options struct {
 	ControllerImage string
 
 	// Additional parameters for e2e tests
-	S3BucketName         string
-	CertificateARNs      string
-	IPFamily             string
-	TestImageRegistry    string
-	ResolveImageTags     bool
-	EnableGatewayTests   bool
-	EnableAGATests       bool
-	EnableCertMgmtTests  bool
-	EnableMigrationTests bool
+	S3BucketName           string
+	CertificateARNs        string
+	IPFamily               string
+	TestImageRegistry      string
+	ResolveImageTags       bool
+	EnableGatewayTests     bool
+	EnableAGATests         bool
+	EnableCertMgmtTests    bool
+	EnableMigrationTests   bool
+	EnableLogDeliveryTests bool
+
+	// Pre-provisioned destinations used by the opt-in log delivery suite.
+	LogDeliveryLogGroupARN            string
+	LogDeliveryS3BucketARN            string
+	LogDeliveryExistingDestinationARN string
 
 	// ACM Certificate Management configuration for e2e test
 	Route53ValidationDomain string
@@ -78,6 +90,10 @@ func (options *Options) BindFlags() {
 	flag.BoolVar(&options.EnableAGATests, "enable-aga-tests", false, "enables AWS Global Accelerator tests")
 	flag.BoolVar(&options.EnableCertMgmtTests, "enable-cert-tests", false, "enables AWS ACM Certificate Management tests")
 	flag.BoolVar(&options.EnableMigrationTests, "enable-migration-tests", false, "enables ingress-to-gateway migration tests")
+	flag.BoolVar(&options.EnableLogDeliveryTests, "enable-log-delivery-tests", false, "enables CloudWatch Logs vended log delivery tests")
+	flag.StringVar(&options.LogDeliveryLogGroupARN, "log-delivery-log-group-arn", "", "pre-authorized CloudWatch Logs log group ARN for log delivery tests")
+	flag.StringVar(&options.LogDeliveryS3BucketARN, "log-delivery-s3-bucket-arn", "", "pre-authorized S3 bucket ARN (optionally with a prefix) for log delivery tests")
+	flag.StringVar(&options.LogDeliveryExistingDestinationARN, "log-delivery-existing-destination-arn", "", "optional existing delivery destination ARN in the test account for the ownership test")
 
 	flag.StringVar(&options.Route53ValidationDomain, "route53-validation-domain", "", `Route53 domain that can be used for requesting amazon_issued certificates`)
 	flag.StringVar(&options.PCAARN, "pca-arn", "", `PCA ARN of CA that can be used to request private certificates`)
@@ -106,6 +122,22 @@ func (options *Options) Validate() error {
 	}
 	if len(options.TestImageRegistry) == 0 {
 		return errors.Errorf("%s must be set!", "test-image-registry")
+	}
+	return options.validateLogDelivery()
+}
+
+func (options *Options) validateLogDelivery() error {
+	if !options.EnableLogDeliveryTests {
+		return nil
+	}
+	for _, destination := range []struct{ flag, arn, kind string }{
+		{"log-delivery-log-group-arn", options.LogDeliveryLogGroupARN, logdeliverymodel.DestinationTypeCloudWatchLogs},
+		{"log-delivery-s3-bucket-arn", options.LogDeliveryS3BucketARN, logdeliverymodel.DestinationTypeS3},
+	} {
+		kind, err := logdeliverymodel.DestinationType(destination.arn)
+		if err != nil || kind != destination.kind {
+			return errors.Errorf("--%s must be a valid %s destination ARN when --enable-log-delivery-tests is set", destination.flag, destination.kind)
+		}
 	}
 	return nil
 }

@@ -377,6 +377,10 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_addons", err, t.metricsCollector)
 	}
 
+	if err := t.buildLogDeliveries(ctx, lb); err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_log_delivery", err, t.metricsCollector)
+	}
+
 	if err := t.buildFrontendNlbModel(ctx, lb, listenerPortConfigByIngress); err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_frontend_nlb", err, t.metricsCollector)
 	}

@@ -333,6 +333,7 @@ The tool translates the following Ingress annotations to Gateway API equivalents
 | `alb.ingress.kubernetes.io/wafv2-acl-arn` | `LoadBalancerConfiguration.spec.wafv2ACLArn` | Supported |
 | `alb.ingress.kubernetes.io/wafv2-acl-name` | `LoadBalancerConfiguration.spec.wafv2ACLName` | Supported |
 | `alb.ingress.kubernetes.io/shield-advanced-protection` | `LoadBalancerConfiguration.spec.shieldAdvancedProtection` | Supported |
+| `alb.ingress.kubernetes.io/log-delivery` | `LoadBalancerConfiguration.spec.logDelivery` | Supported |
 | `alb.ingress.kubernetes.io/mutual-authentication` | `LoadBalancerConfiguration.spec.mutualAuthentication` | Supported |
 | `alb.ingress.kubernetes.io/load-balancer-name` | `LoadBalancerConfiguration.spec.name` | Supported |
 | `alb.ingress.kubernetes.io/customer-owned-ipv4-pool` | `LoadBalancerConfiguration.spec.customerOwnedIPv4Pool` | Supported |

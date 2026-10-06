@@ -125,6 +125,7 @@ var lbLevelAnnotationSuffixes = []string{
 	annotations.IngressSuffixWAFv2ACLARN,
 	annotations.IngressSuffixWAFv2ACLName,
 	annotations.IngressSuffixShieldAdvancedProtection,
+	annotations.IngressSuffixLogDelivery,
 	annotations.IngressSuffixLoadBalancerCapacityReservation,
 	annotations.IngressSuffixMutualAuthentication,
 }
