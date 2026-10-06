@@ -88,6 +88,7 @@ func (merger *loadBalancerConfigMergerImpl) mergeListenerConfig(merged *elbv2gw.
 
 }
 
+// performTakeOneMerges selects each non-merged field from the preferred configuration, falling back when that field is absent.
 func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
 	if highPriority.Spec.LoadBalancerName != nil {
 		merged.LoadBalancerName = highPriority.Spec.LoadBalancerName
@@ -177,6 +178,12 @@ func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw
 		merged.ShieldAdvanced = highPriority.Spec.ShieldAdvanced
 	} else {
 		merged.ShieldAdvanced = lowPriority.Spec.ShieldAdvanced
+	}
+
+	if highPriority.Spec.LogDelivery != nil {
+		merged.LogDelivery = highPriority.Spec.LogDelivery
+	} else {
+		merged.LogDelivery = lowPriority.Spec.LogDelivery
 	}
 
 	if highPriority.Spec.DisableSecurityGroup != nil {
