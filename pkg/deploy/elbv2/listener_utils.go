@@ -251,9 +251,13 @@ func buildSDKQueryStringConditionConfig(modelCfg elbv2model.QueryStringCondition
 }
 
 func buildSDKSourceIpConditionConfig(modelCfg elbv2model.SourceIPConditionConfig) *elbv2types.SourceIpConditionConfig {
-	return &elbv2types.SourceIpConditionConfig{
+	sdkObj := &elbv2types.SourceIpConditionConfig{
 		Values: modelCfg.Values,
 	}
+	if modelCfg.IpAddressType != nil {
+		sdkObj.IpAddressType = elbv2types.SourceIpAddressTypeEnum(string(*modelCfg.IpAddressType))
+	}
+	return sdkObj
 }
 
 func buildSDKTransforms(modelTransforms []elbv2model.Transform) []elbv2types.RuleTransform {
