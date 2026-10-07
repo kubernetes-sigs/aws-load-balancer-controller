@@ -1023,6 +1023,27 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 			wantErr: errors.New("failed to delete securityGroup: api error Something.Else: unable to delete SG"),
 		},
 		{
+			name: "SG delete returns InvalidGroup.NotFound is treated as success",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{},
+				},
+				deleteSGCalls: []deleteSecurityGroupWithContextCall{
+					{
+						req: &ec2sdk.DeleteSecurityGroupInput{
+							GroupId: awssdk.String("sg-autogen"),
+						},
+						err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: "The security group does not exist"},
+					},
+				},
+				inactiveIngresses: []*networking.Ingress{ing},
+			},
+		},
+		{
 			name: "k8s ingress list returns error",
 			fields: fields{
 				autogenSG: "sg-autogen",
