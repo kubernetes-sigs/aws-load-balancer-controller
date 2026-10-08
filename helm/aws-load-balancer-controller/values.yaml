@@ -291,6 +291,9 @@ lbStabilizationMonitorInterval:
 # Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
+# The duration that non-leader candidates will wait after observing a leadership renewal until attempting to acquire leadership of a led but unrenewed leader slot.
+leaderElectionLeaseDuration:
+
 # Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
 watchNamespace:
 
