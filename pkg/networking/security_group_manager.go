@@ -136,6 +136,8 @@ func (m *defaultSecurityGroupManager) AuthorizeSGIngress(ctx context.Context, sg
 		"securityGroupID", sgID,
 		"permission", sdkIPPermissions)
 	if _, err := m.ec2Client.AuthorizeSecurityGroupIngressWithContext(ctx, req); err != nil {
+		m.logger.Error(err, "failed to authorize securityGroup ingress",
+			"securityGroupID", sgID)
 		return err
 	}
 	m.logger.Info("authorized securityGroup ingress",
@@ -156,6 +158,8 @@ func (m *defaultSecurityGroupManager) RevokeSGIngress(ctx context.Context, sgID 
 		"securityGroupID", sgID,
 		"permission", sdkIPPermissions)
 	if _, err := m.ec2Client.RevokeSecurityGroupIngressWithContext(ctx, req); err != nil {
+		m.logger.Error(err, "failed to revoke securityGroup ingress",
+			"securityGroupID", sgID)
 		return err
 	}
 	m.logger.Info("revoked securityGroup ingress",
