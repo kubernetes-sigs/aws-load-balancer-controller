@@ -30,6 +30,9 @@ type Cloud interface {
 	// GlobalAccelerator provides API to AWS GlobalAccelerator
 	GlobalAccelerator() GlobalAccelerator
 
+	// CloudWatchLogs provides API to AWS CloudWatch Logs
+	CloudWatchLogs() CloudWatchLogs
+
 	// Region for the kubernetes cluster
 	Region() string
 

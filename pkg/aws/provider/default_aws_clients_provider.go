@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
@@ -28,6 +29,7 @@ type defaultAWSClientsProvider struct {
 	stsClient               *sts.Client
 	route53Client           *route53.Client
 	globalAcceleratorClient *globalaccelerator.Client
+	cloudWatchLogsClient    *cloudwatchlogs.Client
 
 	// used for dynamic creation of ELBv2 client
 	elbv2CustomEndpoint *string
@@ -47,6 +49,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 	stsCustomEndpoint := endpointsResolver.EndpointFor(sts.ServiceID)
 	globalAcceleratorCustomEndpoint := endpointsResolver.EndpointFor(globalaccelerator.ServiceID)
 	route53CustomEndpoint := endpointsResolver.EndpointFor(route53.ServiceID)
+	cloudWatchLogsCustomEndpoint := endpointsResolver.EndpointFor(cloudwatchlogs.ServiceID)
 
 	ec2Client := generateNewEC2ClientHelper(cfg, ec2CustomEndpoint)
 
@@ -99,6 +102,12 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		}
 	})
 
+	cloudWatchLogsClient := cloudwatchlogs.NewFromConfig(cfg, func(o *cloudwatchlogs.Options) {
+		if cloudWatchLogsCustomEndpoint != nil {
+			o.BaseEndpoint = cloudWatchLogsCustomEndpoint
+		}
+	})
+
 	return &defaultAWSClientsProvider{
 		ec2Client:               ec2Client,
 		elbv2Client:             elbv2Client,
@@ -110,6 +119,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		stsClient:               stsClient,
 		route53Client:           route53Client,
 		globalAcceleratorClient: globalAcceleratorClient,
+		cloudWatchLogsClient:    cloudWatchLogsClient,
 
 		elbv2CustomEndpoint: elbv2CustomEndpoint,
 		ec2CustomEndpoint:   ec2CustomEndpoint,
@@ -157,6 +167,10 @@ func (p *defaultAWSClientsProvider) GetRoute53Client(ctx context.Context, operat
 
 func (p *defaultAWSClientsProvider) GetGlobalAcceleratorClient(ctx context.Context, operationName string) (*globalaccelerator.Client, error) {
 	return p.globalAcceleratorClient, nil
+}
+
+func (p *defaultAWSClientsProvider) GetCloudWatchLogsClient(ctx context.Context, operationName string) (*cloudwatchlogs.Client, error) {
+	return p.cloudWatchLogsClient, nil
 }
 
 func (p *defaultAWSClientsProvider) GenerateNewELBv2Client(cfg aws.Config) *elasticloadbalancingv2.Client {
