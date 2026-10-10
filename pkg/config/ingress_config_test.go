@@ -53,6 +53,22 @@ func Test_IngressConfig_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "weighted policy with weight at upper bound 255 is valid",
+			cfg: IngressConfig{
+				Route53ValidationRecordRoutingPolicy: Route53RoutingPolicyWeighted,
+				Route53ValidationRecordWeight:        255,
+			},
+			wantErr: false,
+		},
+		{
+			name: "weighted policy with weight above 255 is invalid",
+			cfg: IngressConfig{
+				Route53ValidationRecordRoutingPolicy: Route53RoutingPolicyWeighted,
+				Route53ValidationRecordWeight:        256,
+			},
+			wantErr: true,
+		},
+		{
 			name: "unknown routing policy is invalid",
 			cfg: IngressConfig{
 				Route53ValidationRecordRoutingPolicy: "bogus",

@@ -204,6 +204,7 @@ spec:
         {{- end }}
         {{- if .Values.certManagement.defaultPCAARN }}
         - --default-pca-arn={{ .Values.certManagement.defaultPCAARN }}
+        {{- end }}
         {{- if .Values.route53ValidationRecordRoutingPolicy }}
         - --route53-validation-record-routing-policy={{ .Values.route53ValidationRecordRoutingPolicy }}
         {{- end }}
