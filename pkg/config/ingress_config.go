@@ -110,8 +110,8 @@ func (cfg *IngressConfig) Validate() error {
 		return errors.Errorf("invalid value %v for %v, must be one of: %v, %v",
 			cfg.Route53ValidationRecordRoutingPolicy, flagRoute53ValidationRecordRoutingPolicy, Route53RoutingPolicySimple, Route53RoutingPolicyWeighted)
 	}
-	if cfg.Route53ValidationRecordRoutingPolicy == Route53RoutingPolicyWeighted && cfg.Route53ValidationRecordWeight <= 0 {
-		return errors.Errorf("%v must be a positive integer when %v is %v, got %v",
+	if cfg.Route53ValidationRecordRoutingPolicy == Route53RoutingPolicyWeighted && (cfg.Route53ValidationRecordWeight <= 0 || cfg.Route53ValidationRecordWeight > 255) {
+		return errors.Errorf("%v must be between 1 and 255 when %v is %v, got %v",
 			flagRoute53ValidationRecordWeight, flagRoute53ValidationRecordRoutingPolicy, Route53RoutingPolicyWeighted, cfg.Route53ValidationRecordWeight)
 	}
 	return nil
