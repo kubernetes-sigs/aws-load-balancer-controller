@@ -438,6 +438,8 @@ controllerConfig:
 certManagement: {}
   # Default PCA ARN that will be applied to all Ingresses that do not have a PCA ARN set but added the cerate-acm-cert annotation
   # defaultPCAARN: ""
+  # Default key algorithm for certificates created by the controller, can be overridden by the acm-key-algorithm annotation
+  # defaultKeyAlgorithm: "RSA_2048"
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
