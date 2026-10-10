@@ -3,7 +3,6 @@ package routeutils
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -15,7 +14,6 @@ import (
 type ListenerSetStatusData struct {
 	ListenerSetStatusInfo ListenerSetStatusInfo
 	ListenerSetMetadata   ListenerSetMetadata
-	RetryCount            uint
 }
 
 type ListenerSetStatusInfo struct {
@@ -25,11 +23,6 @@ type ListenerSetStatusInfo struct {
 	Programmed        bool
 	ProgrammedReason  string
 	ProgrammedMessage string
-}
-
-type ListenerSetListenerInfo struct {
-	Version  time.Time
-	Statuses []gwv1.ListenerEntryStatus
 }
 
 type ListenerSetMetadata struct {
