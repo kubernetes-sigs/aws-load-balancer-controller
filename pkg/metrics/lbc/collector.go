@@ -22,6 +22,12 @@ type MetricCollector interface {
 	ObservePodReadinessGateReady(namespace string, tgbName string, duration time.Duration)
 	ObserveQUICTargetMissingServerId(namespace string, tgbName string)
 	ObserveControllerReconcileError(controller string, errorType string)
+	// ObserveControllerReconcileCondition tracks the per-resource reconcile condition, 1 when the last reconcile
+	// of the resource succeeded and 0 when it failed.
+	ObserveControllerReconcileCondition(controller string, namespace string, name string, reconciled bool)
+	// DeleteControllerReconcileCondition removes the reconcile condition series of a resource, so deleted
+	// resources don't report a frozen state forever and cardinality stays bounded to live resources.
+	DeleteControllerReconcileCondition(controller string, namespace string, name string)
 	ObserveControllerReconcileLatency(controller string, stage string, fn func())
 	ObserveWebhookValidationError(webhookName string, errorType string)
 	ObserveWebhookMutationError(webhookName string, errorType string)
@@ -45,6 +51,12 @@ func (n *noOpCollector) ObservePodReadinessGateReady(_ string, _ string, _ time.
 }
 
 func (n *noOpCollector) ObserveControllerReconcileError(_ string, _ string) {
+}
+
+func (n *noOpCollector) ObserveControllerReconcileCondition(_ string, _ string, _ string, _ bool) {
+}
+
+func (n *noOpCollector) DeleteControllerReconcileCondition(_ string, _ string, _ string) {
 }
 
 func (n *noOpCollector) ObserveWebhookValidationError(_ string, _ string) {
@@ -98,6 +110,26 @@ func (c *collector) ObserveControllerReconcileError(controller string, errorCate
 		labelController:    controller,
 		labelErrorCategory: errorCategory,
 	}).Inc()
+}
+
+func (c *collector) ObserveControllerReconcileCondition(controller string, namespace string, name string, reconciled bool) {
+	value := float64(0)
+	if reconciled {
+		value = 1
+	}
+	c.instruments.controllerReconcileCondition.With(prometheus.Labels{
+		labelController: controller,
+		labelNamespace:  namespace,
+		labelName:       name,
+	}).Set(value)
+}
+
+func (c *collector) DeleteControllerReconcileCondition(controller string, namespace string, name string) {
+	c.instruments.controllerReconcileCondition.Delete(prometheus.Labels{
+		labelController: controller,
+		labelNamespace:  namespace,
+		labelName:       name,
+	})
 }
 
 func (c *collector) ObserveControllerReconcileLatency(controller string, stage string, fn func()) {

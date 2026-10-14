@@ -55,6 +55,7 @@ Following metrics are added:
 | awslbc_webhook_validation_failures_total | Counter   | Number of validation errors by webhook type |
 | awslbc_webhook_mutation_failures_total | Counter   | Number of mutation errors by webhook type |
 | awslbc_top_talkers | Gauge     | Number of reconciliations by resource |
+| awslbc_controller_reconcile_condition | Gauge     | Per-resource reconcile condition, 1 when the last reconcile of the resource succeeded and 0 when it failed. The series is removed when the resource is deleted |
 
 
 ##  Accessing and Querying the Metrics in Prometheus UI
@@ -72,6 +73,7 @@ Once inside the Prometheus UI, you can use PromQL queries. Here are some example
 * Get the average reconcile duration for stage : `avg(awslbc_controller_reconcile_stage_duration_sum{controller="service", reconcile_stage="DNS_resolve"})`
 * Get the cached object: `sum(awslbc_cache_object_total)`
 * Enrich metrics with information about target group: `aws_target_group_info * on(target_group) group_left last_over_time(aws_applicationelb_healthy_host_count_minimum[20m])`
+* Find the resources that are failing to reconcile: `awslbc_controller_reconcile_condition == 0`
 
 
 ##  Visualizing Metrics

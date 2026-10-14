@@ -26,6 +26,8 @@ const (
 	MetricControllerTopTalkers = "controller_top_talkers"
 	// MetricQuicTargetMissingServerId tracks the total number of QUIC targets attempted to be registered without a generated server id.
 	MetricQuicTargetMissingServerId = "quic_target_missing_server_id"
+	// MetricControllerReconcileCondition tracks the per-resource reconcile condition, 1 for reconciled and 0 for failing.
+	MetricControllerReconcileCondition = "controller_reconcile_condition"
 )
 
 const (
@@ -47,6 +49,7 @@ type instruments struct {
 	webhookMutationFailure        *prometheus.CounterVec
 	controllerCacheObjectCount    *prometheus.GaugeVec
 	controllerReconcileTopTalkers *prometheus.GaugeVec
+	controllerReconcileCondition  *prometheus.GaugeVec
 }
 
 // newInstruments allocates and register new metrics to registerer
@@ -101,7 +104,13 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		Help:      "Counts the number of reconciliations triggered per resource",
 	}, []string{labelController, labelNamespace, labelName})
 
-	registerer.MustRegister(podReadinessFlipSeconds, controllerReconcileErrors, controllerReconcileStageDuration, webhookValidationFailure, webhookMutationFailure, controllerCacheObjectCount, controllerReconcileTopTalkers)
+	controllerReconcileCondition := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Subsystem: metricSubsystem,
+		Name:      MetricControllerReconcileCondition,
+		Help:      "Whether the last reconcile of the resource succeeded (1) or failed (0). The series is removed when the resource is deleted.",
+	}, []string{labelController, labelNamespace, labelName})
+
+	registerer.MustRegister(podReadinessFlipSeconds, controllerReconcileErrors, controllerReconcileStageDuration, webhookValidationFailure, webhookMutationFailure, controllerCacheObjectCount, controllerReconcileTopTalkers, controllerReconcileCondition)
 	return &instruments{
 		podReadinessFlipSeconds:       podReadinessFlipSeconds,
 		controllerReconcileErrors:     controllerReconcileErrors,
@@ -110,6 +119,7 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		webhookMutationFailure:        webhookMutationFailure,
 		controllerCacheObjectCount:    controllerCacheObjectCount,
 		controllerReconcileTopTalkers: controllerReconcileTopTalkers,
+		controllerReconcileCondition:  controllerReconcileCondition,
 		quicTargetsMissingServerId:    controllerQuicTargetMissingServerId,
 	}
 }

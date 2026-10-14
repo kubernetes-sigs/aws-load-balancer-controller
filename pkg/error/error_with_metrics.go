@@ -35,3 +35,8 @@ func NewErrorWithMetrics(resourceType string, errorCategory string, err error, m
 func (e *ErrorWithMetrics) Error() string {
 	return e.Err.Error()
 }
+
+// Unwrap exposes the wrapped error so errors.Is/errors.As can classify it, e.g. requeue detection.
+func (e *ErrorWithMetrics) Unwrap() error {
+	return e.Err
+}

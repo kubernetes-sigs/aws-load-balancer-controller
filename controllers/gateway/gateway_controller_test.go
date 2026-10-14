@@ -10,13 +10,16 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/testutils"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -181,4 +184,29 @@ func Test_updateGatewayStatusSuccess_normalizesDNSNameToLowercase(t *testing.T) 
 	assert.Equal(t, "mycamelbalancer-1234567890.eu-west-1.elb.amazonaws.com", updatedGW.Status.Addresses[0].Value)
 	assert.NotNil(t, updatedGW.Status.Addresses[0].Type)
 	assert.Equal(t, gwv1.HostnameAddressType, *updatedGW.Status.Addresses[0].Type)
+}
+
+// Test_reconcileHelper_NotFound covers the branch where the Gateway has already been deleted: the
+// fetch returns NotFound and reconcileHelper drops the condition series without erroring.
+func Test_reconcileHelper_NotFound(t *testing.T) {
+	k8sClient := testutils.GenerateTestClient()
+
+	collector := lbcmetrics.NewMockCollector()
+	reconciler := &gatewayReconciler{
+		k8sClient:        k8sClient,
+		logger:           logr.Discard(),
+		eventRecorder:    record.NewFakeRecorder(10),
+		controllerName:   "gateway.k8s.aws/nlb",
+		metricsCollector: collector,
+	}
+
+	// no Gateway seeded into the client, so the Get returns NotFound
+	err := reconciler.reconcileHelper(context.Background(), reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: "test-ns", Name: "gone-gw"},
+	})
+
+	assert.NoError(t, err)
+	// the resource's condition series is removed (a single delete invocation, no set)
+	mc := collector.(*lbcmetrics.MockCollector)
+	assert.Equal(t, 1, len(mc.Invocations[lbcmetrics.MetricControllerReconcileCondition]))
 }
