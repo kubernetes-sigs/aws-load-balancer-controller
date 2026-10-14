@@ -55,6 +55,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                                             | string                                        |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)                               | stringMap                                     |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)                                 | stringMap                                     |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [service.beta.kubernetes.io/aws-load-balancer-log-delivery](#log-delivery)                                           | json                                          |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                                     | stringList                                    |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)         | boolean                                       | true                     | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`.                                                                                                                                                                                                                                                             |
 | [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)   | string                                        |                          |                                                                                   
@@ -377,7 +378,18 @@ for proxy protocol v2 configuration.
         service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
 
-    
+
+- <a name="log-delivery">`service.beta.kubernetes.io/aws-load-balancer-log-delivery`</a> specifies the [CloudWatch Logs vended log deliveries](../tasks/log_delivery.md) of the NLB: `NLB_ACCESS_LOGS` to CloudWatch Logs, S3 or Firehose.
+
+    !!!note ""
+        - Requires the `LogDelivery` feature gate and the permissions in [iam_policy_log_delivery.json](../../install/iam_policy_log_delivery.json).
+        - Set the annotation to `'[]'` or remove it to remove the deliveries the controller created.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-log-delivery: '[{"logType": "NLB_ACCESS_LOGS", "destinationArn": "arn:aws:s3:::my-nlb-logs", "outputFormat": "parquet"}]'
+        ```
+
 - <a name="listener-attributes">`service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}`</a> specifies listener attributes that should be applied to the listener.
 
     !!!warning ""
