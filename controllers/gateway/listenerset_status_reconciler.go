@@ -32,97 +32,111 @@ func (n *NoopListenerSetStatusSubmitter) Enqueue(_ routeutils.ListenerSetStatusD
 
 var _ ListenerSetStatusSubmitter = &NoopListenerSetStatusSubmitter{}
 
-type listenerSetStatusReconcilerImpl struct {
-	queue                         workqueue.TypedDelayingInterface[routeutils.ListenerSetStatusData]
-	listenerSetListenerCache      map[types.NamespacedName]routeutils.ListenerSetListenerInfo
-	listenerSetListenerCacheMutex sync.RWMutex
-	k8sClient                     client.Client
-	logger                        logr.Logger
-}
-
-// NewListenerSetStatusReconciler
-// Responsible for updating the status of ListenerSet objects
-func NewListenerSetStatusReconciler(queue workqueue.TypedDelayingInterface[routeutils.ListenerSetStatusData], k8sClient client.Client, logger logr.Logger) ListenerSetStatusReconciler {
-	return &listenerSetStatusReconcilerImpl{
-		logger:                   logger,
-		queue:                    queue,
-		k8sClient:                k8sClient,
-		listenerSetListenerCache: make(map[types.NamespacedName]routeutils.ListenerSetListenerInfo),
-	}
-}
-
-func (statusUpdater *listenerSetStatusReconcilerImpl) Enqueue(status routeutils.ListenerSetStatusData, listenerStatuses []gwv1.ListenerEntryStatus) {
-	statusUpdater.listenerSetListenerCacheMutex.Lock()
-	statusUpdater.listenerSetListenerCache[types.NamespacedName{
-		Namespace: status.ListenerSetMetadata.ListenerSetNamespace,
-		Name:      status.ListenerSetMetadata.ListenerSetName,
-	}] = routeutils.ListenerSetListenerInfo{
-		Version:  time.Now(),
-		Statuses: listenerStatuses,
-	}
-	statusUpdater.listenerSetListenerCacheMutex.Unlock()
-	statusUpdater.queue.Add(status)
-}
-
-func (statusUpdater *listenerSetStatusReconcilerImpl) Run() {
-	for {
-		item, shutDown := statusUpdater.queue.Get()
-		if shutDown {
-			break
-		}
-		statusUpdater.handleItem(item)
-		statusUpdater.queue.Done(item)
-	}
-}
-
-func (statusUpdater *listenerSetStatusReconcilerImpl) handleItem(status routeutils.ListenerSetStatusData) {
-	nsn := types.NamespacedName{
-		Namespace: status.ListenerSetMetadata.ListenerSetNamespace,
-		Name:      status.ListenerSetMetadata.ListenerSetName,
-	}
-	statusUpdater.listenerSetListenerCacheMutex.RLock()
-	listenerData := statusUpdater.listenerSetListenerCache[nsn]
-	statusUpdater.listenerSetListenerCacheMutex.RUnlock()
-	err := statusUpdater.doStatusUpdate(status, listenerData)
-
-	if err != nil {
-		statusUpdater.handleItemError(status, err, "Failed to update listener set status")
-		return
-	}
-
-	statusUpdater.listenerSetListenerCacheMutex.Lock()
-
-	if statusUpdater.listenerSetListenerCache[nsn].Version.Equal(listenerData.Version) {
-		delete(statusUpdater.listenerSetListenerCache, nsn)
-	}
-
-	statusUpdater.listenerSetListenerCacheMutex.Unlock()
-}
-
 const (
 	maxRetryDelay  = 30 * time.Second
 	baseRetryDelay = 1 * time.Second
 	maxRetries     = 10
 )
 
-func (statusUpdater *listenerSetStatusReconcilerImpl) handleItemError(status routeutils.ListenerSetStatusData, err error, msg string) {
-	err = client.IgnoreNotFound(err)
-	if err != nil {
-		if status.RetryCount >= maxRetries {
-			statusUpdater.logger.Error(err, "Max retries exceeded, dropping item", "retries", status.RetryCount)
-			return
-		}
-		statusUpdater.logger.Error(err, msg)
-		delay := baseRetryDelay * time.Duration(1<<min(status.RetryCount, 5))
-		if delay > maxRetryDelay {
-			delay = maxRetryDelay
-		}
-		status.RetryCount++
-		statusUpdater.queue.AddAfter(status, delay)
+// NewListenerSetStatusRateLimiter returns the backoff used between failed status update attempts.
+func NewListenerSetStatusRateLimiter() workqueue.TypedRateLimiter[types.NamespacedName] {
+	return workqueue.NewTypedItemExponentialFailureRateLimiter[types.NamespacedName](baseRetryDelay, maxRetryDelay)
+}
+
+// pendingListenerSetStatus is the latest desired status for a ListenerSet.
+// version changes on every Enqueue and is used to detect whether a newer
+// status arrived while an update was in flight.
+type pendingListenerSetStatus struct {
+	version   uint64
+	data      routeutils.ListenerSetStatusData
+	listeners []gwv1.ListenerEntryStatus
+}
+
+// listenerSetStatusReconcilerImpl writes ListenerSet status asynchronously.
+// The queue only carries ListenerSet keys; the desired status lives in pending.
+// Multiple Enqueues for the same ListenerSet collapse into one sync of the
+// latest state, and retries always pick up the newest state rather than
+// replaying a stale one.
+type listenerSetStatusReconcilerImpl struct {
+	queue     workqueue.TypedRateLimitingInterface[types.NamespacedName]
+	mu        sync.Mutex
+	pending   map[types.NamespacedName]pendingListenerSetStatus
+	nextVer   uint64
+	k8sClient client.Client
+	logger    logr.Logger
+}
+
+// NewListenerSetStatusReconciler
+// Responsible for updating the status of ListenerSet objects
+func NewListenerSetStatusReconciler(queue workqueue.TypedRateLimitingInterface[types.NamespacedName], k8sClient client.Client, logger logr.Logger) ListenerSetStatusReconciler {
+	return &listenerSetStatusReconcilerImpl{
+		logger:    logger,
+		queue:     queue,
+		k8sClient: k8sClient,
+		pending:   make(map[types.NamespacedName]pendingListenerSetStatus),
 	}
 }
 
-func (statusUpdater *listenerSetStatusReconcilerImpl) doStatusUpdate(status routeutils.ListenerSetStatusData, info routeutils.ListenerSetListenerInfo) error {
+func (statusUpdater *listenerSetStatusReconcilerImpl) Enqueue(status routeutils.ListenerSetStatusData, listenerStatuses []gwv1.ListenerEntryStatus) {
+	nsn := types.NamespacedName{
+		Namespace: status.ListenerSetMetadata.ListenerSetNamespace,
+		Name:      status.ListenerSetMetadata.ListenerSetName,
+	}
+	statusUpdater.mu.Lock()
+	statusUpdater.nextVer++
+	statusUpdater.pending[nsn] = pendingListenerSetStatus{
+		version:   statusUpdater.nextVer,
+		data:      status,
+		listeners: listenerStatuses,
+	}
+	statusUpdater.mu.Unlock()
+	// Add after writing pending so the worker always finds this entry when it dequeues the key.
+	statusUpdater.queue.Add(nsn)
+}
+
+func (statusUpdater *listenerSetStatusReconcilerImpl) Run() {
+	for {
+		nsn, shutDown := statusUpdater.queue.Get()
+		if shutDown {
+			break
+		}
+		statusUpdater.handleItem(nsn)
+		statusUpdater.queue.Done(nsn)
+	}
+}
+
+func (statusUpdater *listenerSetStatusReconcilerImpl) handleItem(nsn types.NamespacedName) {
+	statusUpdater.mu.Lock()
+	snapshot, ok := statusUpdater.pending[nsn]
+	statusUpdater.mu.Unlock()
+	if !ok {
+		// Already synced by an earlier pass for this key.
+		statusUpdater.queue.Forget(nsn)
+		return
+	}
+
+	err := client.IgnoreNotFound(statusUpdater.doStatusUpdate(snapshot.data, snapshot.listeners))
+	if err != nil {
+		if statusUpdater.queue.NumRequeues(nsn) < maxRetries {
+			statusUpdater.logger.Error(err, "Failed to update listener set status", "listenerSet", nsn)
+			// The retry re-reads pending, so it writes whatever is latest at that time.
+			statusUpdater.queue.AddRateLimited(nsn)
+			return
+		}
+		statusUpdater.logger.Error(err, "Max retries exceeded, dropping item", "listenerSet", nsn, "retries", statusUpdater.queue.NumRequeues(nsn))
+	}
+
+	// Terminal outcome (success, NotFound, or retries exhausted): reset backoff and clean up.
+	statusUpdater.queue.Forget(nsn)
+	statusUpdater.mu.Lock()
+	if cur, ok := statusUpdater.pending[nsn]; ok && cur.version == snapshot.version {
+		delete(statusUpdater.pending, nsn)
+	}
+	// Otherwise a newer Enqueue arrived during the update; its key is already queued.
+	statusUpdater.mu.Unlock()
+}
+
+func (statusUpdater *listenerSetStatusReconcilerImpl) doStatusUpdate(status routeutils.ListenerSetStatusData, listenerStatuses []gwv1.ListenerEntryStatus) error {
 	currentListenerSet := &gwv1.ListenerSet{}
 	listenerSetNsn := types.NamespacedName{Namespace: status.ListenerSetMetadata.ListenerSetNamespace, Name: status.ListenerSetMetadata.ListenerSetName}
 	if err := statusUpdater.k8sClient.Get(context.Background(), listenerSetNsn, currentListenerSet); err != nil {
@@ -131,7 +145,7 @@ func (statusUpdater *listenerSetStatusReconcilerImpl) doStatusUpdate(status rout
 
 	oldListenerSet := currentListenerSet.DeepCopyObject().(*gwv1.ListenerSet)
 	currentListenerSet.Status.Conditions = statusUpdater.buildListenerSetConditions(status)
-	currentListenerSet.Status.Listeners = info.Statuses
+	currentListenerSet.Status.Listeners = listenerStatuses
 	if !statusUpdater.isStatusIdentical(oldListenerSet.Status, currentListenerSet.Status) {
 		if err := statusUpdater.k8sClient.Status().Patch(context.Background(), currentListenerSet, client.MergeFrom(oldListenerSet)); err != nil {
 			return err
