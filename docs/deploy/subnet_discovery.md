@@ -5,6 +5,14 @@ The AWS Load Balancer Controller (LBC) automatically discovers subnets for creat
 2. **Subnet Filtering**: The controller filters these candidates based on eligibility criteria
 3. **Final Selection**: The controller selects one subnet per availability zone
 
+!!!tip "Manual override"
+    Auto-discovery is a default — you can always pin a load balancer to a specific set of subnets with annotations:
+
+    * Ingress: [`alb.ingress.kubernetes.io/subnets`](../guide/ingress/annotations.md#subnets)
+    * Service: [`service.beta.kubernetes.io/aws-load-balancer-subnets`](../guide/service/annotations.md#subnets)
+
+    When either annotation is set, auto-discovery is skipped and the controller uses exactly the subnets you list.
+
 ## Candidate Subnet Determination
 The controller determines candidate subnets using the following process:
 
