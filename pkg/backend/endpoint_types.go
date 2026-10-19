@@ -4,6 +4,7 @@ import (
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	discv1 "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 )
@@ -22,6 +23,10 @@ type PodEndpoint struct {
 	QuicServerID *string
 	// Pod that provides this endpoint.
 	Pod k8s.PodInfo
+	// NodeReadyTime is the LastTransitionTime of the Ready condition of the pod's node. It is set
+	// only when the endpoint was not ready and was admitted because the pod's containers were
+	// ready and its node was Ready; otherwise it is zero.
+	NodeReadyTime metav1.Time
 }
 
 func (e PodEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string {

@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
@@ -184,14 +185,17 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				}
 
 				nodeReadyCondStatus := corev1.ConditionFalse
+				var nodeReadyTime metav1.Time
 				if readyCond := k8s.GetNodeCondition(node, corev1.NodeReady); readyCond != nil {
 					nodeReadyCondStatus = readyCond.Status
+					nodeReadyTime = readyCond.LastTransitionTime
 				}
 				switch nodeReadyCondStatus {
 				case corev1.ConditionTrue:
 					// start from 1.22+, terminating pods are included in endpointSlices,
 					// and we don't want to include these pods if the node is known to be healthy.
 					if ep.Conditions.Terminating == nil || !*ep.Conditions.Terminating {
+						podEndpoint.NodeReadyTime = nodeReadyTime
 						readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
 					}
 				case corev1.ConditionUnknown:
