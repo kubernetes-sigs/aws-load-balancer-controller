@@ -36,6 +36,11 @@ type enqueueRequestsForTLSRouteEvent struct {
 }
 
 func (h *enqueueRequestsForTLSRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.TLSRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	routeNew := e.Object
 	h.logger.V(1).Info("enqueue tlsroute create event", "tlsroute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)

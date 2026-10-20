@@ -47,6 +47,11 @@ type enqueueRequestsForTargetGroupConfigurationEvent struct {
 }
 
 func (h *enqueueRequestsForTargetGroupConfigurationEvent) Create(ctx context.Context, e event.TypedCreateEvent[*elbv2gw.TargetGroupConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	tgconfigNew := e.Object
 	h.logger.V(1).Info("enqueue targetgroupconfiguration create event", "targetgroupconfiguration", tgconfigNew.Name)
 	h.enqueueImpactedObject(ctx, tgconfigNew, queue)

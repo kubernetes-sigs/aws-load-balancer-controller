@@ -36,6 +36,11 @@ type enqueueRequestsForGatewayClassEvent struct {
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.GatewayClass], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	gwClassNew := e.Object
 	h.logger.V(1).Info("enqueue gatewayclass create event", "gatewayclass", gwClassNew.Name)
 	h.enqueueImpactedGateways(ctx, gwClassNew, queue)

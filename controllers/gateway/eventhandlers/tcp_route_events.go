@@ -35,6 +35,11 @@ type enqueueRequestsForTCPRouteEvent struct {
 }
 
 func (h *enqueueRequestsForTCPRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwv1.TCPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	routeNew := e.Object
 	h.logger.V(1).Info("enqueue tcproute create event", "tcproute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)

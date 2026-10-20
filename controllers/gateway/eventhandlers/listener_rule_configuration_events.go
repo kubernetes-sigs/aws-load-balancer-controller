@@ -35,6 +35,11 @@ type enqueueRequestsForListenerRuleConfigurationEvent struct {
 }
 
 func (h *enqueueRequestsForListenerRuleConfigurationEvent) Create(ctx context.Context, e event.TypedCreateEvent[*elbv2gw.ListenerRuleConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	ruleConfig := e.Object
 	h.logger.V(1).Info("enqueue listenerruleconfiguration create event", "listenerruleconfiguration", ruleConfig.Name)
 	h.enqueueImpactedRoutes(ctx, ruleConfig, queue)

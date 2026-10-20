@@ -35,6 +35,11 @@ type enqueueRequestsForGRPCRouteEvent struct {
 }
 
 func (h *enqueueRequestsForGRPCRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.GRPCRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	routeNew := e.Object
 	h.logger.V(1).Info("enqueue grpcroute create event", "grpcroute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)
