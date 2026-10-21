@@ -2563,6 +2563,11 @@
 <td>Gauge</td>
 <td>Number of reconciliations by resource</td>
 </tr>
+<tr>
+<td>awslbc_controller_reconcile_condition</td>
+<td>Gauge</td>
+<td>Per-resource reconcile condition, 1 when the last reconcile of the resource succeeded and 0 when it failed. The series is removed when the resource is deleted</td>
+</tr>
 </tbody>
 </table>
 <h2 id="accessing-and-querying-the-metrics-in-prometheus-ui">Accessing and Querying the Metrics in Prometheus UI<a class="headerlink" href="#accessing-and-querying-the-metrics-in-prometheus-ui" title="Permanent link">&para;</a></h2>
@@ -2576,6 +2581,7 @@
 <li>Get the average reconcile duration for stage : <code>avg(awslbc_controller_reconcile_stage_duration_sum{controller="service", reconcile_stage="DNS_resolve"})</code></li>
 <li>Get the cached object: <code>sum(awslbc_cache_object_total)</code></li>
 <li>Enrich metrics with information about target group: <code>aws_target_group_info * on(target_group) group_left last_over_time(aws_applicationelb_healthy_host_count_minimum[20m])</code></li>
+<li>Find the resources that are failing to reconcile: <code>awslbc_controller_reconcile_condition == 0</code></li>
 </ul>
 <h2 id="visualizing-metrics">Visualizing Metrics<a class="headerlink" href="#visualizing-metrics" title="Permanent link">&para;</a></h2>
 <p>If you want to further visualize there metrics, one of option is to use Grafana, For set up you can</p>
