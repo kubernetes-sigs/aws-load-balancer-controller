@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -41,11 +42,40 @@ func newTestK8sClient(scheme *runtime.Scheme, objs ...client.Object) client.Clie
 	return builder.Build()
 }
 
-func newTestReconciler(k8sClient client.Client) (*listenerSetStatusReconcilerImpl, workqueue.TypedDelayingInterface[routeutils.ListenerSetStatusData]) {
-	queue := workqueue.NewTypedDelayingQueue[routeutils.ListenerSetStatusData]()
+// newTestK8sClientWithInterceptor builds a fake client whose calls can be intercepted,
+// e.g. to inject errors or simulate a concurrent Enqueue during a Patch.
+func newTestK8sClientWithInterceptor(scheme *runtime.Scheme, funcs interceptor.Funcs, objs ...client.Object) client.Client {
+	builder := testclient.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(funcs)
+	if len(objs) > 0 {
+		builder = builder.WithStatusSubresource(objs...).WithObjects(objs...)
+	}
+	return builder.Build()
+}
+
+func newTestReconciler(k8sClient client.Client) (*listenerSetStatusReconcilerImpl, workqueue.TypedRateLimitingInterface[types.NamespacedName]) {
+	// Millisecond backoff keeps retry tests fast; production uses NewListenerSetStatusRateLimiter.
+	queue := workqueue.NewTypedRateLimitingQueue[types.NamespacedName](
+		workqueue.NewTypedItemExponentialFailureRateLimiter[types.NamespacedName](time.Millisecond, 10*time.Millisecond))
 	logger := logr.New(&log.NullLogSink{})
 	r := NewListenerSetStatusReconciler(queue, k8sClient, logger)
 	return r.(*listenerSetStatusReconcilerImpl), queue
+}
+
+// pendingFor returns the pending entry for nsn, if any.
+func pendingFor(r *listenerSetStatusReconcilerImpl, nsn types.NamespacedName) (pendingListenerSetStatus, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.pending[nsn]
+	return p, ok
+}
+
+// processNext dequeues one key and handles it, as Run() would.
+func processNext(t *testing.T, r *listenerSetStatusReconcilerImpl, queue workqueue.TypedRateLimitingInterface[types.NamespacedName]) {
+	t.Helper()
+	nsn, shutDown := queue.Get()
+	require.False(t, shutDown)
+	r.handleItem(nsn)
+	queue.Done(nsn)
 }
 
 func TestNewListenerSetStatusReconciler(t *testing.T) {
@@ -56,7 +86,7 @@ func TestNewListenerSetStatusReconciler(t *testing.T) {
 
 	assert.NotNil(t, reconciler.queue)
 	assert.NotNil(t, reconciler.k8sClient)
-	assert.NotNil(t, reconciler.listenerSetListenerCache)
+	assert.NotNil(t, reconciler.pending)
 	assert.NotNil(t, reconciler.logger)
 }
 
@@ -87,15 +117,14 @@ func TestListenerSetEnqueue(t *testing.T) {
 	reconciler.Enqueue(status, listenerStatuses)
 
 	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
-	reconciler.listenerSetListenerCacheMutex.RLock()
-	cached, exists := reconciler.listenerSetListenerCache[nsn]
-	reconciler.listenerSetListenerCacheMutex.RUnlock()
+	cached, exists := pendingFor(reconciler, nsn)
 
 	assert.True(t, exists)
-	assert.Len(t, cached.Statuses, 1)
-	assert.Equal(t, gwv1.SectionName("listener-1"), cached.Statuses[0].Name)
-	assert.Equal(t, int32(2), cached.Statuses[0].AttachedRoutes)
-	assert.False(t, cached.Version.IsZero())
+	assert.Equal(t, status, cached.data)
+	assert.Len(t, cached.listeners, 1)
+	assert.Equal(t, gwv1.SectionName("listener-1"), cached.listeners[0].Name)
+	assert.Equal(t, int32(2), cached.listeners[0].AttachedRoutes)
+	assert.NotZero(t, cached.version)
 	assert.Equal(t, 1, queue.Len())
 }
 
@@ -105,24 +134,28 @@ func TestListenerSetEnqueue_OverwritesPreviousEntry(t *testing.T) {
 	reconciler, queue := newTestReconciler(k8sClient)
 	defer queue.ShutDown()
 
-	status := routeutils.ListenerSetStatusData{
+	statusV1 := routeutils.ListenerSetStatusData{
 		ListenerSetMetadata: routeutils.ListenerSetMetadata{
 			ListenerSetName:      "test-ls",
 			ListenerSetNamespace: "test-ns",
+			Generation:           1,
 		},
 	}
+	statusV2 := statusV1
+	statusV2.ListenerSetMetadata.Generation = 2
 
-	reconciler.Enqueue(status, []gwv1.ListenerEntryStatus{{Name: "v1"}})
-	time.Sleep(time.Millisecond) // ensure different timestamp
-	reconciler.Enqueue(status, []gwv1.ListenerEntryStatus{{Name: "v2"}})
-
+	reconciler.Enqueue(statusV1, []gwv1.ListenerEntryStatus{{Name: "v1"}})
 	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
-	reconciler.listenerSetListenerCacheMutex.RLock()
-	cached := reconciler.listenerSetListenerCache[nsn]
-	reconciler.listenerSetListenerCacheMutex.RUnlock()
+	first, _ := pendingFor(reconciler, nsn)
+	reconciler.Enqueue(statusV2, []gwv1.ListenerEntryStatus{{Name: "v2"}})
 
-	assert.Len(t, cached.Statuses, 1)
-	assert.Equal(t, gwv1.SectionName("v2"), cached.Statuses[0].Name)
+	cached, _ := pendingFor(reconciler, nsn)
+	assert.Equal(t, int64(2), cached.data.ListenerSetMetadata.Generation)
+	assert.Len(t, cached.listeners, 1)
+	assert.Equal(t, gwv1.SectionName("v2"), cached.listeners[0].Name)
+	assert.NotEqual(t, first.version, cached.version)
+	// Both enqueues share one key, so the queue holds a single item.
+	assert.Equal(t, 1, queue.Len())
 }
 
 func TestHandleItem_SuccessfulStatusUpdate(t *testing.T) {
@@ -159,10 +192,7 @@ func TestHandleItem_SuccessfulStatusUpdate(t *testing.T) {
 
 	reconciler.Enqueue(status, listenerStatuses)
 
-	// Drain one item from the queue and process it
-	item, _ := queue.Get()
-	reconciler.handleItem(item)
-	queue.Done(item)
+	processNext(t, reconciler, queue)
 
 	// Verify the status was written to the API server
 	updated := &gwv1.ListenerSet{}
@@ -187,10 +217,9 @@ func TestHandleItem_SuccessfulStatusUpdate(t *testing.T) {
 
 	// Cache should be cleaned up after successful update
 	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
-	reconciler.listenerSetListenerCacheMutex.RLock()
-	_, exists := reconciler.listenerSetListenerCache[nsn]
-	reconciler.listenerSetListenerCacheMutex.RUnlock()
+	_, exists := pendingFor(reconciler, nsn)
 	assert.False(t, exists)
+	assert.Equal(t, 0, queue.Len())
 }
 
 func TestHandleItem_NotFoundListenerSet(t *testing.T) {
@@ -208,20 +237,41 @@ func TestHandleItem_NotFoundListenerSet(t *testing.T) {
 	}
 	reconciler.Enqueue(status, []gwv1.ListenerEntryStatus{{Name: "l1"}})
 
-	item, _ := queue.Get()
-	reconciler.handleItem(item)
-	queue.Done(item)
+	processNext(t, reconciler, queue)
 
 	// Should not requeue — NotFound is swallowed
+	assert.Equal(t, 0, queue.Len())
+	nsn := types.NamespacedName{Namespace: "test-ns", Name: "missing-ls"}
+	assert.Equal(t, 0, queue.NumRequeues(nsn))
+	// The pending entry for the deleted ListenerSet must not leak
+	_, exists := pendingFor(reconciler, nsn)
+	assert.False(t, exists, "pending entry should be removed for a deleted ListenerSet")
+}
+
+func TestHandleItem_NoPendingEntryIsNoop(t *testing.T) {
+	scheme := newTestScheme()
+	getCalls := 0
+	k8sClient := newTestK8sClientWithInterceptor(scheme, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			getCalls++
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+	reconciler, queue := newTestReconciler(k8sClient)
+	defer queue.ShutDown()
+
+	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
+	queue.Add(nsn)
+	processNext(t, reconciler, queue)
+
+	assert.Equal(t, 0, getCalls, "no API calls when there is nothing pending")
 	assert.Equal(t, 0, queue.Len())
 }
 
 func TestHandleItem_CachePreservedWhenVersionChanges(t *testing.T) {
-	// We test the version-guard logic by wrapping the k8s client so that
-	// during the Patch call (inside doStatusUpdate), we sneak a new version
-	// into the cache. This simulates a concurrent Enqueue arriving while
-	// the API write is in-flight.
-
+	// Simulate an Enqueue arriving while the status Patch is in flight: the
+	// interceptor calls Enqueue with newer data during the first Patch. The
+	// worker must keep the newer pending entry and sync it on the next pass.
 	scheme := newTestScheme()
 	ls := &gwv1.ListenerSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -230,10 +280,6 @@ func TestHandleItem_CachePreservedWhenVersionChanges(t *testing.T) {
 			Generation: 1,
 		},
 	}
-	k8sClient := newTestK8sClient(scheme, ls)
-	reconciler, queue := newTestReconciler(k8sClient)
-	defer queue.ShutDown()
-
 	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
 
 	status := routeutils.ListenerSetStatusData{
@@ -250,133 +296,171 @@ func TestHandleItem_CachePreservedWhenVersionChanges(t *testing.T) {
 		},
 	}
 
-	// Enqueue V1
-	reconciler.Enqueue(status, []gwv1.ListenerEntryStatus{{Name: "v1"}})
-	item, _ := queue.Get()
-
-	// Read the version that handleItem will see
-	reconciler.listenerSetListenerCacheMutex.RLock()
-	v1Version := reconciler.listenerSetListenerCache[nsn].Version
-	reconciler.listenerSetListenerCacheMutex.RUnlock()
-
-	// Now call handleItem. It will:
-	// 1. RLock → read V1 from cache
-	// 2. doStatusUpdate with V1
-	// 3. Lock → compare versions
-	// Since handleItem is synchronous, we can't interleave. But we CAN
-	// overwrite the cache entry with a different version right before
-	// handleItem runs, as long as we ensure the version differs.
-	//
-	// Trick: overwrite the cache with a DIFFERENT version but same key,
-	// then call handleItem. handleItem will read the NEW version from cache
-	// (since the RLock happens inside handleItem), do the update, and then
-	// compare. If we overwrite AGAIN after handleItem's RLock but before
-	// its cleanup Lock, the versions won't match.
-	//
-	// Since we can't do that synchronously, we test the invariant differently:
-	// We directly verify that when the version in the cache differs from
-	// what was read, the entry is preserved.
-
-	// Simulate: handleItem read V1, then someone wrote V2 before cleanup
-	reconciler.handleItem(item)
-	queue.Done(item)
-
-	// After handleItem with matching versions, cache should be cleaned
-	reconciler.listenerSetListenerCacheMutex.RLock()
-	_, exists := reconciler.listenerSetListenerCache[nsn]
-	reconciler.listenerSetListenerCacheMutex.RUnlock()
-	assert.False(t, exists, "cache should be cleaned when versions match")
-
-	// Now test the opposite: put V2 in cache, then manually verify the
-	// version guard by checking that a mismatched version is preserved.
-	v2Time := v1Version.Add(time.Second)
-	reconciler.listenerSetListenerCacheMutex.Lock()
-	reconciler.listenerSetListenerCache[nsn] = routeutils.ListenerSetListenerInfo{
-		Version:  v2Time,
-		Statuses: []gwv1.ListenerEntryStatus{{Name: "v2"}},
-	}
-	reconciler.listenerSetListenerCacheMutex.Unlock()
-
-	// Enqueue and process again — this reads V2, updates, and should delete V2
-	queue.Add(status)
-	item2, _ := queue.Get()
-	reconciler.handleItem(item2)
-	queue.Done(item2)
-
-	reconciler.listenerSetListenerCacheMutex.RLock()
-	_, exists = reconciler.listenerSetListenerCache[nsn]
-	reconciler.listenerSetListenerCacheMutex.RUnlock()
-	assert.False(t, exists, "cache should be cleaned when versions match on second pass")
-}
-
-func TestHandleItemError_RequeuesWithBackoff(t *testing.T) {
-	scheme := newTestScheme()
-	k8sClient := newTestK8sClient(scheme)
+	var reconciler *listenerSetStatusReconcilerImpl
+	patchCalls := 0
+	k8sClient := newTestK8sClientWithInterceptor(scheme, interceptor.Funcs{
+		SubResourcePatch: func(ctx context.Context, c client.Client, subResourceName string, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
+			patchCalls++
+			if patchCalls == 1 {
+				reconciler.Enqueue(status, []gwv1.ListenerEntryStatus{{Name: "v2"}})
+			}
+			return c.SubResource(subResourceName).Patch(ctx, obj, patch, opts...)
+		},
+	}, ls)
 	reconciler, queue := newTestReconciler(k8sClient)
 	defer queue.ShutDown()
 
-	status := routeutils.ListenerSetStatusData{
+	reconciler.Enqueue(status, []gwv1.ListenerEntryStatus{{Name: "v1"}})
+	processNext(t, reconciler, queue)
+
+	cached, exists := pendingFor(reconciler, nsn)
+	require.True(t, exists, "newer pending entry must survive the first pass")
+	assert.Equal(t, gwv1.SectionName("v2"), cached.listeners[0].Name)
+	assert.Equal(t, 1, queue.Len(), "key should be re-queued for the newer entry")
+
+	processNext(t, reconciler, queue)
+
+	_, exists = pendingFor(reconciler, nsn)
+	assert.False(t, exists, "pending entry should be cleaned after syncing the latest version")
+	updated := &gwv1.ListenerSet{}
+	require.NoError(t, k8sClient.Get(context.Background(), nsn, updated))
+	require.Len(t, updated.Status.Listeners, 1)
+	assert.Equal(t, gwv1.SectionName("v2"), updated.Status.Listeners[0].Name)
+}
+
+func TestHandleItem_RequeuesWithBackoffOnError(t *testing.T) {
+	scheme := newTestScheme()
+	k8sClient := newTestK8sClientWithInterceptor(scheme, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			return assert.AnError
+		},
+	})
+	reconciler, queue := newTestReconciler(k8sClient)
+	defer queue.ShutDown()
+
+	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
+	reconciler.Enqueue(routeutils.ListenerSetStatusData{
 		ListenerSetMetadata: routeutils.ListenerSetMetadata{
 			ListenerSetName:      "test-ls",
 			ListenerSetNamespace: "test-ns",
 		},
-		RetryCount: 0,
-	}
+	}, []gwv1.ListenerEntryStatus{{Name: "l1"}})
 
-	reconciler.handleItemError(status, assert.AnError, "test error")
+	processNext(t, reconciler, queue)
 
-	// handleItemError uses AddAfter (delayed), so we need to wait for the
-	// item to become available. The base delay is 1s, but the queue's
-	// internal clock should make it available after that delay.
-	// We poll with a timeout to avoid flakiness.
+	assert.Equal(t, 1, queue.NumRequeues(nsn))
+	_, exists := pendingFor(reconciler, nsn)
+	assert.True(t, exists, "pending entry must be kept for the retry")
 	assert.Eventually(t, func() bool {
 		return queue.Len() > 0
-	}, 5*time.Second, 100*time.Millisecond, "item should be requeued after delay")
+	}, 5*time.Second, 5*time.Millisecond, "item should be requeued after backoff")
 }
 
-func TestHandleItemError_DropsAfterMaxRetries(t *testing.T) {
+func TestHandleItem_DropsAfterMaxRetries(t *testing.T) {
 	scheme := newTestScheme()
-	k8sClient := newTestK8sClient(scheme)
+	getCalls := 0
+	k8sClient := newTestK8sClientWithInterceptor(scheme, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			getCalls++
+			return assert.AnError
+		},
+	})
 	reconciler, queue := newTestReconciler(k8sClient)
 	defer queue.ShutDown()
 
-	status := routeutils.ListenerSetStatusData{
+	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
+	reconciler.Enqueue(routeutils.ListenerSetStatusData{
 		ListenerSetMetadata: routeutils.ListenerSetMetadata{
 			ListenerSetName:      "test-ls",
 			ListenerSetNamespace: "test-ns",
 		},
-		RetryCount: maxRetries, // already at max
+	}, []gwv1.ListenerEntryStatus{{Name: "l1"}})
+
+	// Initial attempt plus maxRetries retries.
+	for i := 0; i <= maxRetries; i++ {
+		processNext(t, reconciler, queue)
 	}
 
-	reconciler.handleItemError(status, assert.AnError, "test error")
-
-	// Should NOT requeue
+	assert.Equal(t, maxRetries+1, getCalls)
+	assert.Equal(t, 0, queue.NumRequeues(nsn), "backoff should be reset after dropping")
+	_, exists := pendingFor(reconciler, nsn)
+	assert.False(t, exists, "pending entry should not leak after dropping")
+	// Nothing further should be scheduled.
+	time.Sleep(50 * time.Millisecond)
 	assert.Equal(t, 0, queue.Len())
 }
 
-func TestHandleItemError_IgnoresNotFound(t *testing.T) {
+func TestHandleItem_RetryUsesLatestStatus(t *testing.T) {
+	// The first update fails. Before the retry, a newer status is enqueued.
+	// The retry must write the newer status, never the stale one.
 	scheme := newTestScheme()
-	k8sClient := newTestK8sClient(scheme)
+	ls := &gwv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-ls",
+			Namespace:  "test-ns",
+			Generation: 2,
+		},
+	}
+	nsn := types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}
+
+	failNext := true
+	k8sClient := newTestK8sClientWithInterceptor(scheme, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if failNext {
+				failNext = false
+				return assert.AnError
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	}, ls)
 	reconciler, queue := newTestReconciler(k8sClient)
 	defer queue.ShutDown()
 
-	status := routeutils.ListenerSetStatusData{
+	stale := routeutils.ListenerSetStatusData{
 		ListenerSetMetadata: routeutils.ListenerSetMetadata{
 			ListenerSetName:      "test-ls",
 			ListenerSetNamespace: "test-ns",
+			Generation:           1,
 		},
-		RetryCount: 0,
+		ListenerSetStatusInfo: routeutils.ListenerSetStatusInfo{
+			Programmed:       false,
+			ProgrammedReason: "Pending",
+		},
 	}
+	latest := stale
+	latest.ListenerSetMetadata.Generation = 2
+	latest.ListenerSetStatusInfo.Programmed = true
+	latest.ListenerSetStatusInfo.ProgrammedReason = "Programmed"
 
-	// Construct a real NotFound error by getting a nonexistent object
-	ls := &gwv1.ListenerSet{}
-	getErr := k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "test-ns", Name: "nonexistent"}, ls)
-	require.Error(t, getErr)
+	reconciler.Enqueue(stale, []gwv1.ListenerEntryStatus{{Name: "stale"}})
+	processNext(t, reconciler, queue) // fails, schedules retry
 
-	reconciler.handleItemError(status, getErr, "test error")
+	reconciler.Enqueue(latest, []gwv1.ListenerEntryStatus{{Name: "latest"}})
+	processNext(t, reconciler, queue) // succeeds with latest
 
-	// NotFound should be ignored — no requeue
-	assert.Equal(t, 0, queue.Len())
+	updated := &gwv1.ListenerSet{}
+	require.NoError(t, k8sClient.Get(context.Background(), nsn, updated))
+	require.Len(t, updated.Status.Listeners, 1)
+	assert.Equal(t, gwv1.SectionName("latest"), updated.Status.Listeners[0].Name)
+	condMap := make(map[string]metav1.Condition)
+	for _, c := range updated.Status.Conditions {
+		condMap[c.Type] = c
+	}
+	assert.Equal(t, metav1.ConditionTrue, condMap[string(gwv1.ListenerSetConditionProgrammed)].Status)
+	assert.Equal(t, int64(2), condMap[string(gwv1.ListenerSetConditionProgrammed)].ObservedGeneration)
+
+	_, exists := pendingFor(reconciler, nsn)
+	assert.False(t, exists)
+	assert.Equal(t, 0, queue.NumRequeues(nsn))
+
+	// A delayed retry from the failed attempt may still fire; it must be a no-op.
+	time.Sleep(50 * time.Millisecond)
+	for queue.Len() > 0 {
+		processNext(t, reconciler, queue)
+	}
+	require.NoError(t, k8sClient.Get(context.Background(), nsn, updated))
+	require.Len(t, updated.Status.Listeners, 1)
+	assert.Equal(t, gwv1.SectionName("latest"), updated.Status.Listeners[0].Name)
 }
 
 func TestDoStatusUpdate_SkipsPatchWhenIdentical(t *testing.T) {
@@ -433,13 +517,10 @@ func TestDoStatusUpdate_SkipsPatchWhenIdentical(t *testing.T) {
 			ProgrammedMessage: "done",
 		},
 	}
-	info := routeutils.ListenerSetListenerInfo{
-		Version:  time.Now(),
-		Statuses: []gwv1.ListenerEntryStatus{{Name: "listener-1", AttachedRoutes: 3}},
-	}
+	listeners := []gwv1.ListenerEntryStatus{{Name: "listener-1", AttachedRoutes: 3}}
 
 	// This should not error — the patch is skipped because status is identical
-	err := reconciler.doStatusUpdate(status, info)
+	err := reconciler.doStatusUpdate(status, listeners)
 	assert.NoError(t, err)
 }
 
@@ -481,12 +562,9 @@ func TestDoStatusUpdate_PatchesWhenDifferent(t *testing.T) {
 			ProgrammedMessage: "not programmed",
 		},
 	}
-	info := routeutils.ListenerSetListenerInfo{
-		Version:  time.Now(),
-		Statuses: []gwv1.ListenerEntryStatus{{Name: "listener-1", AttachedRoutes: 0}},
-	}
+	listeners := []gwv1.ListenerEntryStatus{{Name: "listener-1", AttachedRoutes: 0}}
 
-	err := reconciler.doStatusUpdate(status, info)
+	err := reconciler.doStatusUpdate(status, listeners)
 	require.NoError(t, err)
 
 	updated := &gwv1.ListenerSet{}
@@ -791,4 +869,68 @@ func TestRun_StopsOnShutdown(t *testing.T) {
 	// Shut down the queue — Run() should exit
 	queue.ShutDown()
 	wg.Wait() // will hang if Run() doesn't exit
+}
+
+// Regression test: two Enqueue calls for the same ListenerSet with different status
+// data used to produce two queue items sharing one cache entry. Processing the first
+// deleted the entry written by the second, so the second patched Listeners to nil.
+func TestHandleItem_DistinctStatusesForSameListenerSet_PreserveListeners(t *testing.T) {
+	scheme := newTestScheme()
+	ls := &gwv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-ls",
+			Namespace:  "test-ns",
+			Generation: 1,
+		},
+	}
+	k8sClient := newTestK8sClient(scheme, ls)
+	reconciler, queue := newTestReconciler(k8sClient)
+	defer queue.ShutDown()
+
+	metadata := routeutils.ListenerSetMetadata{
+		ListenerSetName:      "test-ls",
+		ListenerSetNamespace: "test-ns",
+		Generation:           1,
+	}
+	// Reconcile #1: gateway not yet programmed.
+	statusA := routeutils.ListenerSetStatusData{
+		ListenerSetMetadata: metadata,
+		ListenerSetStatusInfo: routeutils.ListenerSetStatusInfo{
+			Accepted:          true,
+			AcceptedReason:    "Accepted",
+			AcceptedMessage:   "Accepted",
+			Programmed:        false,
+			ProgrammedReason:  "Pending",
+			ProgrammedMessage: "Parent gateway not yet programmed",
+		},
+	}
+	// Reconcile #2: gateway programmed.
+	statusB := statusA
+	statusB.ListenerSetStatusInfo.Programmed = true
+	statusB.ListenerSetStatusInfo.ProgrammedReason = "Programmed"
+	statusB.ListenerSetStatusInfo.ProgrammedMessage = "Programmed"
+
+	reconciler.Enqueue(statusA, []gwv1.ListenerEntryStatus{{Name: "listener-1", AttachedRoutes: 1}})
+	reconciler.Enqueue(statusB, []gwv1.ListenerEntryStatus{{Name: "listener-1", AttachedRoutes: 2}})
+	require.Equal(t, 1, queue.Len(), "enqueues for the same ListenerSet should collapse into one key")
+
+	// Drain the queue, as Run() would.
+	for queue.Len() > 0 {
+		processNext(t, reconciler, queue)
+	}
+
+	updated := &gwv1.ListenerSet{}
+	require.NoError(t, k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "test-ns", Name: "test-ls"}, updated))
+
+	// Final conditions should reflect the latest enqueue (B).
+	condMap := make(map[string]metav1.Condition)
+	for _, c := range updated.Status.Conditions {
+		condMap[c.Type] = c
+	}
+	assert.Equal(t, metav1.ConditionTrue, condMap[string(gwv1.ListenerSetConditionProgrammed)].Status)
+
+	// Final listener statuses should be the latest ones, not wiped.
+	require.Len(t, updated.Status.Listeners, 1, "listener statuses were wiped by the second queue item")
+	assert.Equal(t, gwv1.SectionName("listener-1"), updated.Status.Listeners[0].Name)
+	assert.Equal(t, int32(2), updated.Status.Listeners[0].AttachedRoutes)
 }
