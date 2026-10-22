@@ -107,10 +107,21 @@ type QueryStringConditionConfig struct {
 	Values []QueryStringKeyValuePair `json:"values"`
 }
 
+type SourceIPAddressType string
+
+const (
+	SourceIPAddressTypeIPv4 SourceIPAddressType = "ipv4"
+	SourceIPAddressTypeIPv6 SourceIPAddressType = "ipv6"
+)
+
 // Information about a source IP condition.
 type SourceIPConditionConfig struct {
-	// One or more source IP addresses, in CIDR format.
-	Values []string `json:"values"`
+	// One or more source IP addresses, in CIDR format. Used for ALB.
+	// +optional
+	Values []string `json:"values,omitempty"`
+	// The IP address type for NLB source-ip conditions.
+	// +optional
+	IpAddressType *SourceIPAddressType `json:"ipAddressType,omitempty"`
 }
 
 // Information about a condition for a rule.

@@ -35,7 +35,7 @@ func (t *defaultModelBuildTask) buildTargetGroupTuples(ctx context.Context, list
 	baseSvcWeight := action.ForwardConfig.BaseServiceWeight
 	baseSvcAnnotations := t.service.Annotations
 	// Build target group for the service that owns the load balancer (base service)
-	tg, err := t.buildTargetGroup(ctx, nil, t.service, baseSvcAnnotations, baseTgPort, baseTgProtocol, scheme)
+	tg, err := t.buildTargetGroup(ctx, nil, t.service, baseSvcAnnotations, baseTgPort, baseTgProtocol, scheme, "")
 	if err != nil {
 		return []elbv2model.TargetGroupTuple{}, err
 	}
@@ -71,7 +71,7 @@ func (t *defaultModelBuildTask) buildTargetGroupTuples(ctx context.Context, list
 
 			// This service doesn't have its own annotations, use the base service annotations
 			// Pass the base service (t.service) to ensure unique target group names for shared backend services (svc)
-			tg, err = t.buildTargetGroup(ctx, t.service, svc, baseSvcAnnotations, port, tgProtocol, scheme)
+			tg, err = t.buildTargetGroup(ctx, t.service, svc, baseSvcAnnotations, port, tgProtocol, scheme, "")
 			if err != nil {
 				return []elbv2model.TargetGroupTuple{}, err
 			}
@@ -89,9 +89,16 @@ func (t *defaultModelBuildTask) buildTargetGroupTuples(ctx context.Context, list
 // The service and annotations are passed in separately to accommodate weighted target group creation where services don't have their own annotations.
 // In that case we will apply the annotations of the base service to all services.
 // baseSvc is the service that owns the load balancer, which may be different from svc for weighted target groups
-func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, baseSvc *corev1.Service, svc *corev1.Service, baseSvcAnnotations map[string]string, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
+func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, baseSvc *corev1.Service, svc *corev1.Service, baseSvcAnnotations map[string]string, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme, overrideIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroup, error) {
 	svcPort := intstr.FromInt(int(port.Port))
-	tgResourceID := t.buildTargetGroupResourceID(k8s.NamespacedName(svc), svcPort)
+	// overrideIPAddressType, when non-empty, requests a specific family (dual-stack routing uses
+	// this to build distinct IPv4 and IPv6 TGs for the same port via separate resource IDs).
+	var tgResourceID string
+	if overrideIPAddressType == "" {
+		tgResourceID = t.buildTargetGroupResourceID(k8s.NamespacedName(svc), svcPort)
+	} else {
+		tgResourceID = t.buildTargetGroupResourceIDForIPFamily(k8s.NamespacedName(svc), svcPort, overrideIPAddressType)
+	}
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
 		return targetGroup, nil
 	}
@@ -111,7 +118,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, baseSvc *c
 	if err != nil {
 		return nil, err
 	}
-	tgSpec, err := t.buildTargetGroupSpec(ctx, baseSvc, svc, tgProtocol, targetType, port, healthCheckConfig, tgAttrs)
+	tgSpec, err := t.buildTargetGroupSpec(ctx, baseSvc, svc, tgProtocol, targetType, port, healthCheckConfig, tgAttrs, overrideIPAddressType)
 	if err != nil {
 		return nil, err
 	}
@@ -125,23 +132,36 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, baseSvc *c
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, baseSvc *corev1.Service, svc *corev1.Service, tgProtocol elbv2model.Protocol, targetType elbv2model.TargetType,
-	port corev1.ServicePort, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig, tgAttrs []elbv2model.TargetGroupAttribute) (elbv2model.TargetGroupSpec, error) {
+	port corev1.ServicePort, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig, tgAttrs []elbv2model.TargetGroupAttribute, overrideIPAddressType elbv2model.TargetGroupIPAddressType) (elbv2model.TargetGroupSpec, error) {
 	tags, err := t.buildTargetGroupTags(ctx)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	targetPort := t.buildTargetGroupPort(ctx, targetType, port)
-	tgName := t.buildTargetGroupName(ctx, baseSvc, svc, intstr.FromInt(int(port.Port)), targetPort, targetType, tgProtocol, healthCheckConfig)
-	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, svc)
-	if err != nil {
-		return elbv2model.TargetGroupSpec{}, err
-	}
+
+	// When overrideIPAddressType = "" it acts as a sentinel for creating backwards-compatible target group names,
+	// otherwise, an explict IP-family-based name is created
+	tgName := t.buildTargetGroupName(ctx, baseSvc, svc, intstr.FromInt(int(port.Port)), targetPort, targetType, tgProtocol, overrideIPAddressType, healthCheckConfig)
 
 	if targetPort == 0 {
 		if targetType == elbv2model.TargetTypeIP {
 			return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. Are you using the correct service type?")
 		}
 		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service be must of type 'NodePort' or 'LoadBalancer'")
+	}
+
+	// Derive default IP type from service spec (e.g. IPv6 for dual stack)
+	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, svc)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+	// If TG needs to be created with a non-default family (e.g. IPv4 for dual-stack routing)
+	if overrideIPAddressType != "" {
+		// Validate that the requested family is present on the service and use it
+		if err := validateIPAddressTypeForService(overrideIPAddressType, svc); err != nil {
+			return elbv2model.TargetGroupSpec{}, err
+		}
+		ipAddressType = overrideIPAddressType
 	}
 
 	return elbv2model.TargetGroupSpec{
@@ -246,7 +266,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, baseSvc *corev1.Service, svc *corev1.Service, svcPort intstr.IntOrString, tgPort int32,
-	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, hc *elbv2model.TargetGroupHealthCheckConfig) string {
+	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, ipAddressType elbv2model.TargetGroupIPAddressType, hc *elbv2model.TargetGroupHealthCheckConfig) string {
 	healthCheckProtocol := string(elbv2model.ProtocolTCP)
 	healthCheckInterval := strconv.FormatInt(int64(t.defaultHealthCheckInterval), 10)
 	if &hc.Protocol != nil {
@@ -265,6 +285,11 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, baseSvc 
 	_, _ = uuidHash.Write([]byte(svcPort.String()))
 	_, _ = uuidHash.Write([]byte(targetType))
 	_, _ = uuidHash.Write([]byte(tgProtocol))
+	// Only included when explicitly overridden; "" preserves the pre-existing hash for the
+	// default TG so enabling dual-stack routing does not rename already-deployed target groups.
+	if ipAddressType != "" {
+		_, _ = uuidHash.Write([]byte(ipAddressType))
+	}
 	_, _ = uuidHash.Write([]byte(healthCheckProtocol))
 	_, _ = uuidHash.Write([]byte(healthCheckInterval))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
@@ -834,12 +859,39 @@ func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context,
 		}
 	}
 	if ipv6Configured {
-		if elbv2model.IPAddressTypeDualStack != t.loadBalancer.Spec.IPAddressType { // todo khelle
+		if !isIPv6Supported(t.loadBalancer.Spec.IPAddressType) {
 			return "", errors.New("unsupported IPv6 configuration, lb not dual-stack")
 		}
 		return elbv2model.TargetGroupIPAddressTypeIPv6, nil
 	}
 	return elbv2model.TargetGroupIPAddressTypeIPv4, nil
+}
+
+func isIPv6Supported(ipAddressType elbv2model.IPAddressType) bool {
+	return ipAddressType == elbv2model.IPAddressTypeDualStack || ipAddressType == elbv2model.IPAddressTypeDualStackWithoutPublicIPV4
+}
+
+// validateIPAddressTypeForService returns an error when an explicit ipAddressType override
+// requests a family that is not present in the service's spec.ipFamilies.
+func validateIPAddressTypeForService(ipAddressType elbv2model.TargetGroupIPAddressType, svc *corev1.Service) error {
+	var required corev1.IPFamily
+	switch ipAddressType {
+	case elbv2model.TargetGroupIPAddressTypeIPv4:
+		required = corev1.IPv4Protocol
+	case elbv2model.TargetGroupIPAddressTypeIPv6:
+		required = corev1.IPv6Protocol
+	default:
+		return nil
+	}
+	if !hasIPFamily(svc, required) {
+		return errors.Errorf("IP address type %q is not available for service %s/%s: family not in spec.ipFamilies",
+			ipAddressType, svc.Namespace, svc.Name)
+	}
+	return nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupResourceIDForIPFamily(svcKey types.NamespacedName, port intstr.IntOrString, ipAddressType elbv2model.TargetGroupIPAddressType) string {
+	return fmt.Sprintf("%s/%s:%s:%s", svcKey.Namespace, svcKey.Name, port.String(), ipAddressType)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Context, baseSvcAnnotations map[string]string, targetType elbv2model.TargetType) (*metav1.LabelSelector, error) {
