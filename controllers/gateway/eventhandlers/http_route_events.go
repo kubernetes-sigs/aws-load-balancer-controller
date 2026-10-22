@@ -35,6 +35,11 @@ type enqueueRequestsForHTTPRouteEvent struct {
 }
 
 func (h *enqueueRequestsForHTTPRouteEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.HTTPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	routeNew := e.Object
 	h.logger.V(1).Info("enqueue httproute create event", "httproute", routeNew.Name)
 	h.enqueueImpactedGateways(ctx, routeNew, queue)

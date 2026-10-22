@@ -50,6 +50,11 @@ type enqueueRequestsForServiceEvent struct {
 }
 
 func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Service], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	svcNew := e.Object
 	h.logger.V(1).Info("enqueue service create event", "service", svcNew.Name)
 	h.enqueueImpactedRoutes(ctx, svcNew)

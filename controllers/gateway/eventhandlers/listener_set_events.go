@@ -44,6 +44,11 @@ type enqueueRequestsForListenerSetEvent struct {
 }
 
 func (h *enqueueRequestsForListenerSetEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gwv1.ListenerSet], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	ls := e.Object
 	h.logger.V(1).Info("enqueue listenerset create event", "listenerset", k8s.NamespacedName(ls))
 	h.enqueueParentGateway(ctx, ls, queue)

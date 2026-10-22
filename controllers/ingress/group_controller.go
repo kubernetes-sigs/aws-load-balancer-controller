@@ -315,7 +315,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		}
 	}
 
-frontendNlbStatusOnly := false
+	frontendNlbStatusOnly := false
 	if _, err := r.annotationParser.ParseBoolAnnotation(annotations.IngressSuffixFrontendNlbStatusOnly, &frontendNlbStatusOnly, ing.Annotations); err != nil {
 		return err
 	}

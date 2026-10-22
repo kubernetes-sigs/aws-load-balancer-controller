@@ -49,6 +49,11 @@ type enqueueRequestsForReferenceGrantEvent struct {
 }
 
 func (h *enqueueRequestsForReferenceGrantEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.ReferenceGrant], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	if e.IsInInitialList {
+		// Existing Gateways receive their own initial events and reconcile
+		// against the synced cache, so this fan-out is redundant.
+		return
+	}
 	referenceGrantNew := e.Object
 	h.logger.V(1).Info("enqueue reference grant create event", "reference grant", referenceGrantNew.Name)
 	h.enqueueImpactedRoutes(ctx, referenceGrantNew, nil)
