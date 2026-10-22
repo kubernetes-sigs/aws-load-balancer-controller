@@ -235,6 +235,12 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
 			WithPermissionSelector(permissionSelector),
 			WithAuthorizeOnly(!computedForAllTGBs)); err != nil {
+			// Log per securityGroup so a single failing securityGroup (for example an
+			// invalid securityGroup ID on one TargetGroupBinding) is identifiable. Without
+			// this the errors are only joined and returned, so the failing securityGroup is
+			// not visible in the logs while other TargetGroupBindings sharing the backend
+			// securityGroup stop reconciling.
+			m.logger.Error(err, "failed to reconcile securityGroup ingress", "securityGroupID", sgID)
 			sgReconciliationErrors = append(sgReconciliationErrors, err)
 			continue
 		}
