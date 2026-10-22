@@ -266,6 +266,72 @@ spec:
                   tag specified in the map key contains one of the values in the corresponding
                   value list.
                 type: object
+              logDelivery:
+                description: |-
+                  logDelivery configures CloudWatch Logs vended log delivery from the load balancer to CloudWatch Logs, S3 or Firehose.
+                  It requires the LogDelivery feature gate.
+                items:
+                  description: LogDeliveryConfiguration configures a CloudWatch Logs
+                    vended log delivery from the load balancer.
+                  properties:
+                    deliveryDestinationArn:
+                      description: |-
+                        deliveryDestinationArn is the ARN of an existing CloudWatch Logs delivery destination, for example one in a central logging account.
+                        The controller doesn't modify it.
+                      type: string
+                    destinationArn:
+                      description: |-
+                        destinationArn is the ARN of a CloudWatch Logs log group, an S3 bucket (optionally followed by a prefix) or a Firehose delivery stream.
+                        The controller creates and owns a delivery destination for it.
+                      type: string
+                    fieldDelimiter:
+                      description: 'fieldDelimiter separates fields in plain and w3c
+                        output: a tab, a space or a comma.'
+                      type: string
+                    logType:
+                      description: logType is the type of logs to deliver. ALB_* log
+                        types apply to Application Load Balancers and NLB_ACCESS_LOGS
+                        to Network Load Balancers.
+                      enum:
+                      - ALB_ACCESS_LOGS
+                      - ALB_CONNECTION_LOGS
+                      - ALB_HEALTH_CHECK_LOGS
+                      - NLB_ACCESS_LOGS
+                      type: string
+                    outputFormat:
+                      description: outputFormat is the format of the delivered logs.
+                        CloudWatch Logs accepts plain and json, Firehose plain, json
+                        and raw, and S3 plain, json, w3c and parquet.
+                      enum:
+                      - plain
+                      - json
+                      - w3c
+                      - raw
+                      - parquet
+                      type: string
+                    s3DeliveryConfiguration:
+                      description: s3DeliveryConfiguration configures the S3 object
+                        path. Only valid for S3 destinations.
+                      properties:
+                        enableHiveCompatiblePath:
+                          description: enableHiveCompatiblePath renders the path variables
+                            as key=value.
+                          type: boolean
+                        suffixPath:
+                          description: suffixPath is appended to the service-defined
+                            path, for example "{yyyy}/{MM}/{dd}".
+                          type: string
+                      type: object
+                  required:
+                  - logType
+                  type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of destinationArn or deliveryDestinationArn
+                      must be set
+                    rule: has(self.destinationArn) != has(self.deliveryDestinationArn)
+                  - message: outputFormat can only be set with destinationArn
+                    rule: '!has(self.outputFormat) || has(self.destinationArn)'
+                type: array
               manageBackendSecurityGroupRules:
                 description: |-
                   ManageBackendSecurityGroupRules [Application / Network LoadBalancer]
@@ -617,6 +683,72 @@ spec:
                   tag specified in the map key contains one of the values in the corresponding
                   value list.
                 type: object
+              logDelivery:
+                description: |-
+                  logDelivery configures CloudWatch Logs vended log delivery from the load balancer to CloudWatch Logs, S3 or Firehose.
+                  It requires the LogDelivery feature gate.
+                items:
+                  description: LogDeliveryConfiguration configures a CloudWatch Logs
+                    vended log delivery from the load balancer.
+                  properties:
+                    deliveryDestinationArn:
+                      description: |-
+                        deliveryDestinationArn is the ARN of an existing CloudWatch Logs delivery destination, for example one in a central logging account.
+                        The controller doesn't modify it.
+                      type: string
+                    destinationArn:
+                      description: |-
+                        destinationArn is the ARN of a CloudWatch Logs log group, an S3 bucket (optionally followed by a prefix) or a Firehose delivery stream.
+                        The controller creates and owns a delivery destination for it.
+                      type: string
+                    fieldDelimiter:
+                      description: 'fieldDelimiter separates fields in plain and w3c
+                        output: a tab, a space or a comma.'
+                      type: string
+                    logType:
+                      description: logType is the type of logs to deliver. ALB_* log
+                        types apply to Application Load Balancers and NLB_ACCESS_LOGS
+                        to Network Load Balancers.
+                      enum:
+                      - ALB_ACCESS_LOGS
+                      - ALB_CONNECTION_LOGS
+                      - ALB_HEALTH_CHECK_LOGS
+                      - NLB_ACCESS_LOGS
+                      type: string
+                    outputFormat:
+                      description: outputFormat is the format of the delivered logs.
+                        CloudWatch Logs accepts plain and json, Firehose plain, json
+                        and raw, and S3 plain, json, w3c and parquet.
+                      enum:
+                      - plain
+                      - json
+                      - w3c
+                      - raw
+                      - parquet
+                      type: string
+                    s3DeliveryConfiguration:
+                      description: s3DeliveryConfiguration configures the S3 object
+                        path. Only valid for S3 destinations.
+                      properties:
+                        enableHiveCompatiblePath:
+                          description: enableHiveCompatiblePath renders the path variables
+                            as key=value.
+                          type: boolean
+                        suffixPath:
+                          description: suffixPath is appended to the service-defined
+                            path, for example "{yyyy}/{MM}/{dd}".
+                          type: string
+                      type: object
+                  required:
+                  - logType
+                  type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of destinationArn or deliveryDestinationArn
+                      must be set
+                    rule: has(self.destinationArn) != has(self.deliveryDestinationArn)
+                  - message: outputFormat can only be set with destinationArn
+                    rule: '!has(self.outputFormat) || has(self.destinationArn)'
+                type: array
               manageBackendSecurityGroupRules:
                 description: |-
                   ManageBackendSecurityGroupRules [Application / Network LoadBalancer]

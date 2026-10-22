@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
@@ -27,6 +28,7 @@ type AWSClientsProvider interface {
 	GetRGTClient(ctx context.Context, operationName string) (*resourcegroupstaggingapi.Client, error)
 	GetSTSClient(ctx context.Context, operationName string) (*sts.Client, error)
 	GetGlobalAcceleratorClient(ctx context.Context, operationName string) (*globalaccelerator.Client, error)
+	GetCloudWatchLogsClient(ctx context.Context, operationName string) (*cloudwatchlogs.Client, error)
 	GenerateNewELBv2Client(cfg aws.Config) *elasticloadbalancingv2.Client
 	GenerateNewEC2Client(cfg aws.Config) *ec2.Client
 }

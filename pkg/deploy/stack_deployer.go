@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/logdelivery"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/shield"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/wafregional"
@@ -21,6 +22,7 @@ import (
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
+	logdeliverymodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/logdelivery"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -183,5 +185,27 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 		}
 	}
 
-	return nil
+	return d.deployLogDeliveries(ctx, stack, controllerName)
+}
+
+// deployLogDeliveries runs after the rest of the stack is reconciled, so a log delivery error,
+// such as a missing permission or a conflicting delivery source, can't block the cleanup in PostSynthesize above.
+func (d *defaultStackDeployer) deployLogDeliveries(ctx context.Context, stack core.Stack, controllerName string) error {
+	if !d.featureGates.Enabled(config.LogDelivery) {
+		var resLogDeliveries []*logdeliverymodel.LogDelivery
+		if err := stack.ListResources(&resLogDeliveries); err == nil && len(resLogDeliveries) > 0 {
+			d.logger.Info("ignoring log delivery configuration because the LogDelivery feature gate is disabled", "stackID", stack.StackID().String())
+		}
+		return nil
+	}
+	synthesizer := logdelivery.NewLogDeliverySynthesizer(d.cloud.CloudWatchLogs(), d.trackingProvider, d.controllerConfig.ClusterName, d.logger, stack)
+	synthesizerType := fmt.Sprintf("%T", synthesizer)
+	var err error
+	d.metricsCollector.ObserveControllerReconcileLatency(controllerName, synthesizerType, func() {
+		err = synthesizer.Synthesize(ctx)
+	})
+	if err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, synthesizerType, err, d.metricsCollector)
+	}
+	return synthesizer.PostSynthesize(ctx)
 }

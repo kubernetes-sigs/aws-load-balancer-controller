@@ -152,6 +152,49 @@ type WAFv2Configuration struct {
 	ACL string `json:"webACL"`
 }
 
+// LogDeliveryConfiguration configures a CloudWatch Logs vended log delivery from the load balancer.
+// +kubebuilder:validation:XValidation:rule="has(self.destinationArn) != has(self.deliveryDestinationArn)",message="exactly one of destinationArn or deliveryDestinationArn must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.outputFormat) || has(self.destinationArn)",message="outputFormat can only be set with destinationArn"
+type LogDeliveryConfiguration struct {
+	// logType is the type of logs to deliver. ALB_* log types apply to Application Load Balancers and NLB_ACCESS_LOGS to Network Load Balancers.
+	// +kubebuilder:validation:Enum=ALB_ACCESS_LOGS;ALB_CONNECTION_LOGS;ALB_HEALTH_CHECK_LOGS;NLB_ACCESS_LOGS
+	LogType string `json:"logType"`
+
+	// destinationArn is the ARN of a CloudWatch Logs log group, an S3 bucket (optionally followed by a prefix) or a Firehose delivery stream.
+	// The controller creates and owns a delivery destination for it.
+	// +optional
+	DestinationArn *string `json:"destinationArn,omitempty"`
+
+	// deliveryDestinationArn is the ARN of an existing CloudWatch Logs delivery destination, for example one in a central logging account.
+	// The controller doesn't modify it.
+	// +optional
+	DeliveryDestinationArn *string `json:"deliveryDestinationArn,omitempty"`
+
+	// outputFormat is the format of the delivered logs. CloudWatch Logs accepts plain and json, Firehose plain, json and raw, and S3 plain, json, w3c and parquet.
+	// +kubebuilder:validation:Enum=plain;json;w3c;raw;parquet
+	// +optional
+	OutputFormat *string `json:"outputFormat,omitempty"`
+
+	// fieldDelimiter separates fields in plain and w3c output: a tab, a space or a comma.
+	// +optional
+	FieldDelimiter *string `json:"fieldDelimiter,omitempty"`
+
+	// s3DeliveryConfiguration configures the S3 object path. Only valid for S3 destinations.
+	// +optional
+	S3DeliveryConfiguration *LogDeliveryS3Configuration `json:"s3DeliveryConfiguration,omitempty"`
+}
+
+// LogDeliveryS3Configuration configures the S3 object path of a log delivery.
+type LogDeliveryS3Configuration struct {
+	// suffixPath is appended to the service-defined path, for example "{yyyy}/{MM}/{dd}".
+	// +optional
+	SuffixPath *string `json:"suffixPath,omitempty"`
+
+	// enableHiveCompatiblePath renders the path variables as key=value.
+	// +optional
+	EnableHiveCompatiblePath *bool `json:"enableHiveCompatiblePath,omitempty"`
+}
+
 // +kubebuilder:validation:Pattern="^(HTTP|HTTPS|TLS|TCP|UDP|TCP_UDP)?:(6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]\\d{4}|[1-9]\\d{0,3})?$"
 type ProtocolPort string
 type ListenerConfiguration struct {
@@ -290,6 +333,11 @@ type LoadBalancerConfigurationSpec struct {
 	// ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer]
 	// +optional
 	ShieldAdvanced *ShieldConfiguration `json:"shieldConfiguration,omitempty"`
+
+	// logDelivery configures CloudWatch Logs vended log delivery from the load balancer to CloudWatch Logs, S3 or Firehose.
+	// It requires the LogDelivery feature gate.
+	// +optional
+	LogDelivery []LogDeliveryConfiguration `json:"logDelivery,omitempty"`
 
 	// defaultTargetGroupConfiguration references a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration.
 	// The referenced TGC provides default target group properties for all Service backends attached to the Gateway.

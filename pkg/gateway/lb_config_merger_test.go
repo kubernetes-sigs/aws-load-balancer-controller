@@ -520,3 +520,59 @@ func Test_Merge(t *testing.T) {
 		})
 	}
 }
+
+func Test_Merge_LogDelivery(t *testing.T) {
+	gwClassDeliveries := []elbv2gw.LogDeliveryConfiguration{
+		{LogType: "ALB_ACCESS_LOGS", DestinationArn: awssdk.String("arn:aws:s3:::class-logs")},
+	}
+	gwDeliveries := []elbv2gw.LogDeliveryConfiguration{
+		{LogType: "ALB_CONNECTION_LOGS", DestinationArn: awssdk.String("arn:aws:s3:::gateway-logs")},
+	}
+	preferGateway := elbv2gw.MergeModePreferGateway
+	testCases := []struct {
+		name            string
+		gwClassLbConfig elbv2gw.LoadBalancerConfiguration
+		gwLbConfig      elbv2gw.LoadBalancerConfiguration
+		expected        []elbv2gw.LogDeliveryConfiguration
+	}{
+		{
+			name:            "only the gateway class sets log delivery",
+			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: gwClassDeliveries}},
+			expected:        gwClassDeliveries,
+		},
+		{
+			name:       "only the gateway sets log delivery",
+			gwLbConfig: elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: gwDeliveries}},
+			expected:   gwDeliveries,
+		},
+		{
+			name:            "the gateway class wins by default",
+			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: gwClassDeliveries}},
+			gwLbConfig:      elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: gwDeliveries}},
+			expected:        gwClassDeliveries,
+		},
+		{
+			name: "the gateway wins with prefer-gateway merging",
+			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{
+				MergingMode: &preferGateway,
+				LogDelivery: gwClassDeliveries,
+			}},
+			gwLbConfig: elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: gwDeliveries}},
+			expected:   gwDeliveries,
+		},
+		{
+			name:            "an empty list on the higher priority config turns log delivery off",
+			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: []elbv2gw.LogDeliveryConfiguration{}}},
+			gwLbConfig:      elbv2gw.LoadBalancerConfiguration{Spec: elbv2gw.LoadBalancerConfigurationSpec{LogDelivery: gwDeliveries}},
+			expected:        []elbv2gw.LogDeliveryConfiguration{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			merger := NewLoadBalancerConfigMerger()
+			result := merger.Merge(tc.gwClassLbConfig, tc.gwLbConfig)
+			assert.Equal(t, tc.expected, result.Spec.LogDelivery)
+		})
+	}
+}

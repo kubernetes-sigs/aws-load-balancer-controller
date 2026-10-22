@@ -1,0 +1,52 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DescribeDeliverySources",
+                "logs:DescribeDeliveryDestinations",
+                "logs:DescribeDeliveries"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:PutDeliverySource",
+                "logs:GetDeliverySource",
+                "logs:DeleteDeliverySource",
+                "logs:PutDeliveryDestination",
+                "logs:GetDeliveryDestination",
+                "logs:DeleteDeliveryDestination",
+                "logs:TagResource"
+            ],
+            "Resource": [
+                "arn:aws:logs:*:*:delivery-source:k8s-*",
+                "arn:aws:logs:*:*:delivery-destination:k8s-*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateDelivery",
+                "logs:GetDelivery",
+                "logs:UpdateDeliveryConfiguration",
+                "logs:DeleteDelivery",
+                "logs:TagResource"
+            ],
+            "Resource": [
+                "arn:aws:logs:*:*:delivery:*",
+                "arn:aws:logs:*:*:delivery-source:k8s-*",
+                "arn:aws:logs:*:*:delivery-destination:*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:AllowVendedLogDeliveryForResource"
+            ],
+            "Resource": "arn:aws:elasticloadbalancing:*:*:loadbalancer/*"
+        }
+    ]
+}
