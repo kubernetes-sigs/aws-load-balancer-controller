@@ -281,6 +281,10 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_listeners_error", err, t.metricsCollector)
 	}
+	err = t.buildLogDeliveries(ctx)
+	if err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_log_delivery_error", err, t.metricsCollector)
+	}
 	return nil
 }
 

@@ -49,6 +49,15 @@ CONTROLLER_IAM_CERT_POLICY_ARN="" # will be fulfilled during setup_controller_ia
 ROUTE53_VALIDATION_DOMAIN=${ROUTE53_VALIDATION_DOMAIN:-""}
 PCA_ARN=${PCA_ARN:-""}
 
+# Vended log delivery tests use pre-provisioned, pre-authorized destinations.
+ENABLE_LOG_DELIVERY_TESTS=${ENABLE_LOG_DELIVERY_TESTS:-"false"}
+LOG_DELIVERY_LOG_GROUP_ARN=${LOG_DELIVERY_LOG_GROUP_ARN:-""}
+LOG_DELIVERY_S3_BUCKET_ARN=${LOG_DELIVERY_S3_BUCKET_ARN:-""}
+LOG_DELIVERY_EXISTING_DESTINATION_ARN=${LOG_DELIVERY_EXISTING_DESTINATION_ARN:-""}
+CONTROLLER_IAM_LOG_DELIVERY_POLICY_FILE="$(dirname "${BASH_SOURCE[0]}")/../docs/install/iam_policy_log_delivery.json"
+CONTROLLER_IAM_LOG_DELIVERY_POLICY_NAME="lb-controller-e2e-log-delivery-${PULL_NUMBER}-$BUILD_ID"
+CONTROLLER_IAM_LOG_DELIVERY_POLICY_ARN=""
+
 #######################################
 # Build and push ECR image for AWS Load Balancer Controller
 #
@@ -181,6 +190,11 @@ setup_controller_iam_sa() {
     CONTROLLER_IAM_POLICY_ARNS="${CONTROLLER_IAM_POLICY_ARN},${CONTROLLER_IAM_CERT_POLICY_ARN}"
   fi
 
+  if [[ "${ENABLE_LOG_DELIVERY_TESTS}" == "true" ]]; then
+    CONTROLLER_IAM_LOG_DELIVERY_POLICY_ARN=$(iam::create_policy "${CONTROLLER_IAM_LOG_DELIVERY_POLICY_NAME}" "${CONTROLLER_IAM_LOG_DELIVERY_POLICY_FILE}" "${AWS_REGION}")
+    CONTROLLER_IAM_POLICY_ARNS="${CONTROLLER_IAM_POLICY_ARNS},${CONTROLLER_IAM_LOG_DELIVERY_POLICY_ARN}"
+  fi
+
   if ! eksctl::create_iamserviceaccount "${CLUSTER_NAME}" "${AWS_REGION}" "${CONTROLLER_SA_NAMESPACE}" "${CONTROLLER_SA_NAME}" "${CONTROLLER_IAM_POLICY_ARNS}"; then
     echo "unable to create IAM role and service account for controller" >&2
     return 1
@@ -199,6 +213,9 @@ setup_controller_iam_sa() {
 #   None
 #######################################
 cleanup_controller_iam_sa() {
+  if [[ -n "${CONTROLLER_IAM_LOG_DELIVERY_POLICY_ARN}" ]]; then
+    iam::delete_policy "${CONTROLLER_IAM_LOG_DELIVERY_POLICY_ARN}" "${AWS_REGION}" || return 1
+  fi
   if [[ -n "${CONTROLLER_IAM_POLICY_ARN}" ]]; then
     echo "deleting IAM policy for controller"
 
@@ -241,7 +258,12 @@ test_controller_image() {
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
   echo "creating s3 bucket $S3_BUCKET"
   aws s3api create-bucket --bucket $S3_BUCKET --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION || true
-  ginkgo -timeout 3h -v -p -r test/e2e -- \
+  # Concurrent linkers can exceed the Prow runner's 8 GiB memory limit.
+  local -a ginkgo_args=(--timeout=3h -v -p -r --compilers=1)
+  if [[ "${ENABLE_LOG_DELIVERY_TESTS}" != "true" ]]; then
+    ginkgo_args+=(--skip-package=logdelivery)
+  fi
+  ginkgo "${ginkgo_args[@]}" test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
@@ -252,7 +274,11 @@ test_controller_image() {
     --certificate-arns=${CERTIFICATE_ARNS} \
     --enable-cert-tests=${ENABLE_CERT_MGMT_TESTS} \
     --route53-validation-domain=${ROUTE53_VALIDATION_DOMAIN} \
-    --pca-arn=${PCA_ARN}
+    --pca-arn=${PCA_ARN} \
+    --enable-log-delivery-tests="${ENABLE_LOG_DELIVERY_TESTS}" \
+    --log-delivery-log-group-arn="${LOG_DELIVERY_LOG_GROUP_ARN}" \
+    --log-delivery-s3-bucket-arn="${LOG_DELIVERY_S3_BUCKET_ARN}" \
+    --log-delivery-existing-destination-arn="${LOG_DELIVERY_EXISTING_DESTINATION_ARN}"
 }
 
 #######################################
@@ -290,10 +316,18 @@ cleanup() {
 #
 #######################################
 main() {
+  if [[ "${ENABLE_LOG_DELIVERY_TESTS}" != "true" && "${ENABLE_LOG_DELIVERY_TESTS}" != "false" ]]; then
+    echo "ENABLE_LOG_DELIVERY_TESTS must be true or false" >&2
+    return 1
+  fi
+  if [[ "${ENABLE_LOG_DELIVERY_TESTS}" == "true" && ( -z "${LOG_DELIVERY_LOG_GROUP_ARN}" || -z "${LOG_DELIVERY_S3_BUCKET_ARN}" ) ]]; then
+    echo "LOG_DELIVERY_LOG_GROUP_ARN and LOG_DELIVERY_S3_BUCKET_ARN must be set for log delivery tests" >&2
+    return 1
+  fi
   build_push_controller_image
 
   go install github.com/mikefarah/yq/v4@v4.6.1
-  go install github.com/onsi/ginkgo/v2/ginkgo@v2.3.1
+  go install github.com/onsi/ginkgo/v2/ginkgo
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa

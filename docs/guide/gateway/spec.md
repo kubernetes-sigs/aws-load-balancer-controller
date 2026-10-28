@@ -548,7 +548,7 @@ _Appears in:_
 | `disableSecurityGroup` _boolean_ | disableSecurityGroup provisions a load balancer with no security groups.<br />Allows an NLB to be provisioned with no security groups.<br />[Network Load Balancer] |  |  |
 | `securityGroups` _string_ | securityGroups an optional list of security group ids or names to apply to the LB |  |  |
 | `securityGroupPrefixes` _string_ | securityGroupPrefixes an optional list of prefixes that are allowed to access the LB. |  |  |
-| `sourceRanges` _string_ | sourceRanges an optional list of CIDRs that are allowed to access the LB. |  |  |
+| `sourceRanges` _string_ | sourceRanges an optional list of CIDRs that are allowed to access the LB.<br />IPv4 and IPv6 CIDRs are canonicalized. Defaults to 0.0.0.0/0 and ::/0. |  |  |
 | `loadBalancerAttributes` _[LoadBalancerAttribute](#loadbalancerattribute) array_ | LoadBalancerAttributes defines the attribute of LB |  |  |
 | `tags` _map[string]string_ | Tags the AWS Tags on all related resources to the gateway. |  |  |
 | `enableICMP` _boolean_ | EnableICMP [Network LoadBalancer]<br />enables the creation of security group rules to the managed security group<br />to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs |  |  |
@@ -556,6 +556,7 @@ _Appears in:_
 | `minimumLoadBalancerCapacity` _[MinimumLoadBalancerCapacity](#minimumloadbalancercapacity)_ | MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers |  |  |
 | `wafV2` _[WAFv2Configuration](#wafv2configuration)_ | WAFv2 define the AWS WAFv2 settings for a Gateway [Application Load Balancer] |  |  |
 | `shieldConfiguration` _[ShieldConfiguration](#shieldconfiguration)_ | ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer] |  |  |
+| `logDelivery` _[LogDeliveryConfiguration](#logdeliveryconfiguration) array_ | logDelivery configures CloudWatch Logs vended log delivery from the load balancer to CloudWatch Logs, S3 or Firehose.<br />It requires the LogDelivery feature gate. |  |  |
 | `defaultTargetGroupConfiguration` _[DefaultTargetGroupConfigurationReference](#defaulttargetgroupconfigurationreference)_ | defaultTargetGroupConfiguration references a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration.<br />The referenced TGC provides default target group properties for all Service backends attached to the Gateway.<br />Service-level TGCs override these defaults on a per-field basis. |  |  |
 
 
@@ -614,6 +615,44 @@ _Appears in:_
 | --- | --- |
 | `internal` |  |
 | `internet-facing` |  |
+
+
+#### LogDeliveryConfiguration
+
+
+
+LogDeliveryConfiguration configures a CloudWatch Logs vended log delivery from the load balancer.
+
+
+
+_Appears in:_
+- [LoadBalancerConfigurationSpec](#loadbalancerconfigurationspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `logType` _string_ | logType is the type of logs to deliver. ALB_* log types apply to Application Load Balancers and NLB_ACCESS_LOGS to Network Load Balancers. |  | Enum: [ALB_ACCESS_LOGS ALB_CONNECTION_LOGS ALB_HEALTH_CHECK_LOGS NLB_ACCESS_LOGS] <br /> |
+| `destinationArn` _string_ | destinationArn is the ARN of a CloudWatch Logs log group, an S3 bucket (optionally followed by a prefix) or a Firehose delivery stream.<br />The controller creates and owns a delivery destination for it. |  |  |
+| `deliveryDestinationArn` _string_ | deliveryDestinationArn is the ARN of an existing CloudWatch Logs delivery destination, for example one in a central logging account.<br />The controller doesn't modify it. |  |  |
+| `outputFormat` _string_ | outputFormat is the format of the delivered logs. CloudWatch Logs accepts plain and json, Firehose plain, json and raw, and S3 plain, json, w3c and parquet. |  | Enum: [plain json w3c raw parquet] <br /> |
+| `fieldDelimiter` _string_ | fieldDelimiter separates fields in plain and w3c output: a tab, a space or a comma. |  |  |
+| `s3DeliveryConfiguration` _[LogDeliveryS3Configuration](#logdeliverys3configuration)_ | s3DeliveryConfiguration configures the S3 object path. Only valid for S3 destinations. |  |  |
+
+
+#### LogDeliveryS3Configuration
+
+
+
+LogDeliveryS3Configuration configures the S3 object path of a log delivery.
+
+
+
+_Appears in:_
+- [LogDeliveryConfiguration](#logdeliveryconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `suffixPath` _string_ | suffixPath is appended to the service-defined path, for example "\{yyyy\}/\{MM\}/\{dd\}". |  |  |
+| `enableHiveCompatiblePath` _boolean_ | enableHiveCompatiblePath renders the path variables as key=value. |  |  |
 
 
 #### MinimumLoadBalancerCapacity
@@ -1599,7 +1638,7 @@ _Appears in:_
 | `disableSecurityGroup` _boolean_ | disableSecurityGroup provisions a load balancer with no security groups.<br />Allows an NLB to be provisioned with no security groups.<br />[Network Load Balancer] |  |  |
 | `securityGroups` _string_ | securityGroups an optional list of security group ids or names to apply to the LB |  |  |
 | `securityGroupPrefixes` _string_ | securityGroupPrefixes an optional list of prefixes that are allowed to access the LB. |  |  |
-| `sourceRanges` _string_ | sourceRanges an optional list of CIDRs that are allowed to access the LB. |  |  |
+| `sourceRanges` _string_ | sourceRanges an optional list of CIDRs that are allowed to access the LB.<br />IPv4 and IPv6 CIDRs are canonicalized. Defaults to 0.0.0.0/0 and ::/0. |  |  |
 | `loadBalancerAttributes` _[LoadBalancerAttribute](#loadbalancerattribute) array_ | LoadBalancerAttributes defines the attribute of LB |  |  |
 | `tags` _map[string]string_ | Tags the AWS Tags on all related resources to the gateway. |  |  |
 | `enableICMP` _boolean_ | EnableICMP [Network LoadBalancer]<br />enables the creation of security group rules to the managed security group<br />to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs |  |  |
@@ -1607,6 +1646,7 @@ _Appears in:_
 | `minimumLoadBalancerCapacity` _[MinimumLoadBalancerCapacity](#minimumloadbalancercapacity)_ | MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers |  |  |
 | `wafV2` _[WAFv2Configuration](#wafv2configuration)_ | WAFv2 define the AWS WAFv2 settings for a Gateway [Application Load Balancer] |  |  |
 | `shieldConfiguration` _[ShieldConfiguration](#shieldconfiguration)_ | ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer] |  |  |
+| `logDelivery` _[LogDeliveryConfiguration](#logdeliveryconfiguration) array_ | logDelivery configures CloudWatch Logs vended log delivery from the load balancer to CloudWatch Logs, S3 or Firehose.<br />It requires the LogDelivery feature gate. |  |  |
 | `defaultTargetGroupConfiguration` _[DefaultTargetGroupConfigurationReference](#defaulttargetgroupconfigurationreference)_ | defaultTargetGroupConfiguration references a TargetGroupConfiguration by name in the same namespace as this LoadBalancerConfiguration.<br />The referenced TGC provides default target group properties for all Service backends attached to the Gateway.<br />Service-level TGCs override these defaults on a per-field basis. |  |  |
 
 
@@ -1665,6 +1705,44 @@ _Appears in:_
 | --- | --- |
 | `internal` |  |
 | `internet-facing` |  |
+
+
+#### LogDeliveryConfiguration
+
+
+
+LogDeliveryConfiguration configures a CloudWatch Logs vended log delivery from the load balancer.
+
+
+
+_Appears in:_
+- [LoadBalancerConfigurationSpec](#loadbalancerconfigurationspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `logType` _string_ | logType is the type of logs to deliver. ALB_* log types apply to Application Load Balancers and NLB_ACCESS_LOGS to Network Load Balancers. |  | Enum: [ALB_ACCESS_LOGS ALB_CONNECTION_LOGS ALB_HEALTH_CHECK_LOGS NLB_ACCESS_LOGS] <br /> |
+| `destinationArn` _string_ | destinationArn is the ARN of a CloudWatch Logs log group, an S3 bucket (optionally followed by a prefix) or a Firehose delivery stream.<br />The controller creates and owns a delivery destination for it. |  |  |
+| `deliveryDestinationArn` _string_ | deliveryDestinationArn is the ARN of an existing CloudWatch Logs delivery destination, for example one in a central logging account.<br />The controller doesn't modify it. |  |  |
+| `outputFormat` _string_ | outputFormat is the format of the delivered logs. CloudWatch Logs accepts plain and json, Firehose plain, json and raw, and S3 plain, json, w3c and parquet. |  | Enum: [plain json w3c raw parquet] <br /> |
+| `fieldDelimiter` _string_ | fieldDelimiter separates fields in plain and w3c output: a tab, a space or a comma. |  |  |
+| `s3DeliveryConfiguration` _[LogDeliveryS3Configuration](#logdeliverys3configuration)_ | s3DeliveryConfiguration configures the S3 object path. Only valid for S3 destinations. |  |  |
+
+
+#### LogDeliveryS3Configuration
+
+
+
+LogDeliveryS3Configuration configures the S3 object path of a log delivery.
+
+
+
+_Appears in:_
+- [LogDeliveryConfiguration](#logdeliveryconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `suffixPath` _string_ | suffixPath is appended to the service-defined path, for example "\{yyyy\}/\{MM\}/\{dd\}". |  |  |
+| `enableHiveCompatiblePath` _boolean_ | enableHiveCompatiblePath renders the path variables as key=value. |  |  |
 
 
 #### MinimumLoadBalancerCapacity

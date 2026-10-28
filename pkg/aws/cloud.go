@@ -110,6 +110,7 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 		shield:            services.NewShield(awsClientsProvider),
 		rgt:               services.NewRGT(awsClientsProvider),
 		globalAccelerator: services.NewGlobalAccelerator(awsClientsProvider),
+		cloudWatchLogs:    services.NewCloudWatchLogs(awsClientsProvider),
 
 		awsConfigGenerator: awsConfigGenerator,
 
@@ -217,6 +218,7 @@ type defaultCloud struct {
 	shield            services.Shield
 	rgt               services.RGT
 	globalAccelerator services.GlobalAccelerator
+	cloudWatchLogs    services.CloudWatchLogs
 
 	clusterName string
 
@@ -372,6 +374,10 @@ func (c *defaultCloud) Route53() services.Route53 {
 
 func (c *defaultCloud) GlobalAccelerator() services.GlobalAccelerator {
 	return c.globalAccelerator
+}
+
+func (c *defaultCloud) CloudWatchLogs() services.CloudWatchLogs {
+	return c.cloudWatchLogs
 }
 
 func (c *defaultCloud) Region() string {

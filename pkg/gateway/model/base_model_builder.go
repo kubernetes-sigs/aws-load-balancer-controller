@@ -192,6 +192,13 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 		psa.AddToStack(stack, lb.LoadBalancerARN())
 	}
 
+	// On delete, leaving log deliveries out of the stack makes the deployer remove them.
+	if !isDelete {
+		if err := baseBuilder.buildLogDeliveries(stack, lb, lbConf.Spec.LogDelivery); err != nil {
+			return nil, nil, nil, false, nil, err
+		}
+	}
+
 	_ = elbv2model.NewFrontendNlbTargetGroupDesiredState(stack, tgBuilder.getLocalFrontendNlbData())
 
 	return stack, lb, newAddonConfig, securityGroups.backendSecurityGroupAllocated, secrets, nil

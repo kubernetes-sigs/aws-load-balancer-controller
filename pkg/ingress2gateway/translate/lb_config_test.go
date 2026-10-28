@@ -96,6 +96,33 @@ func TestBuildLoadBalancerConfigResource(t *testing.T) {
 			},
 		},
 		{
+			name: "log delivery",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/log-delivery": `[{"logType":"ALB_ACCESS_LOGS","destinationArn":"arn:aws:s3:::my-alb-logs","outputFormat":"parquet",` +
+					`"s3DeliveryConfiguration":{"enableHiveCompatiblePath":true}},` +
+					`{"logType":"ALB_CONNECTION_LOGS","deliveryDestinationArn":"arn:aws:logs:us-west-2:444455556666:delivery-destination:central"}]`,
+			},
+			ports: []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			check: func(t *testing.T, lbc *gatewayv1beta1.LoadBalancerConfiguration) {
+				require.Len(t, lbc.Spec.LogDelivery, 2)
+				assert.Equal(t, "ALB_ACCESS_LOGS", lbc.Spec.LogDelivery[0].LogType)
+				assert.Equal(t, "arn:aws:s3:::my-alb-logs", *lbc.Spec.LogDelivery[0].DestinationArn)
+				assert.Equal(t, "parquet", *lbc.Spec.LogDelivery[0].OutputFormat)
+				require.NotNil(t, lbc.Spec.LogDelivery[0].S3DeliveryConfiguration)
+				assert.True(t, *lbc.Spec.LogDelivery[0].S3DeliveryConfiguration.EnableHiveCompatiblePath)
+				assert.Equal(t, "ALB_CONNECTION_LOGS", lbc.Spec.LogDelivery[1].LogType)
+				assert.Equal(t, "arn:aws:logs:us-west-2:444455556666:delivery-destination:central", *lbc.Spec.LogDelivery[1].DeliveryDestinationArn)
+			},
+		},
+		{
+			name: "empty log delivery list is not carried over",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/log-delivery": `[]`,
+			},
+			ports:   []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			wantNil: true,
+		},
+		{
 			name: "subnets and security groups",
 			annos: map[string]string{
 				"alb.ingress.kubernetes.io/subnets":         "subnet-aaa,subnet-bbb",

@@ -36,6 +36,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/wafv2-acl-arn](#wafv2-acl-arn)                                             | string                                             |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)                                                   | string                                             |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/shield-advanced-protection](#shield-advanced-protection)                   | boolean                                            |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/log-delivery](#log-delivery)                                               | json                                               |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/listen-ports](#listen-ports)                                               | json                                               |'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'| Ingress         | Merge         |
 | [alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)                                               | integer                                            |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)                                             | stringList                                         |0.0.0.0/0, ::/0| Ingress         | Exclusive     |
@@ -1283,6 +1284,18 @@ Load balancer capacity unit reservation can be configured via following annotati
         - disable shield protection
             ```alb.ingress.kubernetes.io/shield-advanced-protection: 'false'
             ```
+
+- <a name="log-delivery">`alb.ingress.kubernetes.io/log-delivery`</a> specifies the [CloudWatch Logs vended log deliveries](../tasks/log_delivery.md) of the load balancer: `ALB_ACCESS_LOGS`, `ALB_CONNECTION_LOGS` and `ALB_HEALTH_CHECK_LOGS` to CloudWatch Logs, S3 or Firehose.
+
+    !!!note ""
+        - Requires the `LogDelivery` feature gate and the permissions in [iam_policy_log_delivery.json](../../install/iam_policy_log_delivery.json).
+        - Ingresses in the same IngressGroup that set this annotation must set the same value.
+        - Set the annotation to `'[]'` or remove it to remove the deliveries the controller created.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/log-delivery: '[{"logType": "ALB_ACCESS_LOGS", "destinationArn": "arn:aws:logs:us-west-2:111122223333:log-group:/aws/vendedlogs/alb/my-app", "outputFormat": "json"}]'
+        ```
 
 
 ## Enable frontend NLB
