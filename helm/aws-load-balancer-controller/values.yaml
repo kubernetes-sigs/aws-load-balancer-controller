@@ -503,6 +503,9 @@ serviceMutatorWebhookConfig:
   #   operator: <operator>
   #   values:
   #   - <value>
+  matchConditions: []
+  # - name: include-load-balancer-services
+  #   expression: object.spec.type == 'LoadBalancer'
   # which operations trigger the webhook
   operations:
   - CREATE
