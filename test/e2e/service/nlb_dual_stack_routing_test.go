@@ -148,7 +148,7 @@ var _ = Describe("NLB dual-stack routing", func() {
 		// Dual-stack pod networking (both IPv4 and IPv6 in spec.ipFamilies) is not
 		// supported by the Amazon VPC CNI, so this test cannot run on EKS.
 		// Re-enable once EKS supports dual-stack routing by passing --ip-family=DualStack.
-		//Skip("dual-stack routing requires a dual-stack cluster not yet supported by EKS; re-enable when EKS supports it")
+		Skip("dual-stack routing requires a dual-stack cluster not yet supported by EKS; re-enable when EKS supports it")
 
 		ctx = context.Background()
 		stack = TestDualStackNLBRoutingStack{}
