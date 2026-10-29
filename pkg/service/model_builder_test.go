@@ -7082,9 +7082,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Namespace: "default",
 					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":                  "external",
-						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type":       "instance",
-						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type":       "dualstack",
+						"service.beta.kubernetes.io/aws-load-balancer-type":               "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type":    "instance",
+						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type":    "dualstack",
 						"service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing": "true",
 					},
 				},

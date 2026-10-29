@@ -25,15 +25,9 @@ func (t *defaultModelBuildTask) buildDualStackIPv4ListenerRule(ctx context.Conte
 	if !t.shouldEnableDualStackRouting() {
 		return nil
 	}
-	tgProtocol, listenerProtocol, err := buildProtocols(port, cfg)
+	tgProtocol, _, err := buildProtocols(port, cfg)
 	if err != nil {
 		return fmt.Errorf("resolving protocol for dual-stack IPv4 rule: %w", err)
-	}
-	switch listenerProtocol {
-	case elbv2model.ProtocolTCP, elbv2model.ProtocolTLS:
-		// listener rules are supported
-	default:
-		return errors.Errorf("dual-stack routing is not supported on %v listeners", listenerProtocol)
 	}
 
 	targetType, err := t.buildTargetType(ctx, t.service, t.service.Annotations, port)
@@ -47,6 +41,11 @@ func (t *defaultModelBuildTask) buildDualStackIPv4ListenerRule(ctx context.Conte
 	tgIPv4, err := t.buildTargetGroup(ctx, nil, t.service, t.service.Annotations, port, tgProtocol, scheme, elbv2model.TargetGroupIPAddressTypeIPv4)
 	if err != nil {
 		return fmt.Errorf("building IPv4 target group for dual-stack routing: %w", err)
+	}
+
+	tags, err := t.buildListenerTags(ctx)
+	if err != nil {
+		return fmt.Errorf("building tags for dual-stack IPv4 listener rule: %w", err)
 	}
 
 	ipv4Type := elbv2model.SourceIPAddressTypeIPv4
@@ -71,6 +70,7 @@ func (t *defaultModelBuildTask) buildDualStackIPv4ListenerRule(ctx context.Conte
 				},
 			},
 		},
+		Tags: tags,
 	}
 	lrID := fmt.Sprintf("%v:ipv4-src", port.Port)
 	elbv2model.NewListenerRule(t.stack, lrID, ruleSpec)

@@ -886,6 +886,7 @@ func Test_buildListener_dualStackRoutingRegistersRule(t *testing.T) {
 	require.NotNil(t, rule.Spec.ListenerARN)
 	assert.Equal(t, ls.ListenerARN().Dependencies(), rule.Spec.ListenerARN.Dependencies())
 	assert.Equal(t, int32(1), rule.Spec.Priority)
+	assert.NotNil(t, rule.Spec.Tags, "listener rule must carry resource tags")
 }
 
 func Test_hasBothIPFamilies(t *testing.T) {
@@ -1014,7 +1015,7 @@ func Test_buildListenerSpec_dualStackRoutingAndActionsAnnotationError(t *testing
 			Annotations: map[string]string{
 				"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type":    "instance",
 				"service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing": "true",
-				"service.beta.kubernetes.io/actions.TCP-80":                        `{"type":"forward","forwardConfig":{"baseServiceWeight":1,"targetGroups":[]}}`,
+				"service.beta.kubernetes.io/actions.TCP-80":                       `{"type":"forward","forwardConfig":{"baseServiceWeight":1,"targetGroups":[]}}`,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -1065,14 +1066,14 @@ func Test_buildDualStackIPv4ListenerRule_ipTargetTypeError(t *testing.T) {
 	require.EqualError(t, err, "dual-stack routing is not supported with ip target type")
 }
 
-func Test_buildDualStackIPv4ListenerRule_udpProtocolRejected(t *testing.T) {
+func Test_buildDualStackIPv4ListenerRule_udpProtocol(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	task, stack, _ := newDualStackTask(t, ctrl, map[string]string{
 		"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type":    "instance",
 		"service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing": "true",
 	})
-	// Override service port to UDP
+	// UDP listeners support listener rules on dual-stack NLBs
 	task.service.Spec.Ports[0].Protocol = corev1.ProtocolUDP
 
 	ls := elbv2model.NewListener(stack, "80", elbv2model.ListenerSpec{
@@ -1080,7 +1081,11 @@ func Test_buildDualStackIPv4ListenerRule_udpProtocolRejected(t *testing.T) {
 	})
 	cfg := &listenerConfig{tcpUdpPortsSet: sets.New[int32](), tlsPortsSet: sets.New[string](), quicPortsSet: sets.New[string]()}
 	err := task.buildDualStackIPv4ListenerRule(context.Background(), ls, task.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
-	require.EqualError(t, err, "dual-stack routing is not supported on UDP listeners")
+	require.NoError(t, err)
+
+	var rules []*elbv2model.ListenerRule
+	require.NoError(t, stack.ListResources(&rules))
+	require.Len(t, rules, 1)
 }
 
 // Test_dualStackRoutingTGNameStability verifies that adding the dual-stack routing annotation
