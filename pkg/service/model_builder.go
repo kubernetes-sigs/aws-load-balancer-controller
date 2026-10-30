@@ -41,7 +41,7 @@ type ModelBuilder interface {
 }
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
-func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
+func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver, eipResolver networking.EIPResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
@@ -50,6 +50,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 	return &defaultModelBuilder{
 		annotationParser:           annotationParser,
 		subnetsResolver:            subnetsResolver,
+		eipResolver:                eipResolver,
 		vpcInfoProvider:            vpcInfoProvider,
 		trackingProvider:           trackingProvider,
 		elbv2TaggingManager:        elbv2TaggingManager,
@@ -81,6 +82,7 @@ var _ ModelBuilder = &defaultModelBuilder{}
 type defaultModelBuilder struct {
 	annotationParser           annotations.Parser
 	subnetsResolver            networking.SubnetsResolver
+	eipResolver                networking.EIPResolver
 	vpcInfoProvider            networking.VPCInfoProvider
 	backendSGProvider          networking.BackendSGProvider
 	sgResolver                 networking.SecurityGroupResolver
@@ -114,6 +116,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcID:                      b.vpcID,
 		annotationParser:           b.annotationParser,
 		subnetsResolver:            b.subnetsResolver,
+		eipResolver:                b.eipResolver,
 		backendSGProvider:          b.backendSGProvider,
 		sgResolver:                 b.sgResolver,
 		vpcInfoProvider:            b.vpcInfoProvider,
@@ -178,6 +181,7 @@ type defaultModelBuildTask struct {
 	vpcID                      string
 	annotationParser           annotations.Parser
 	subnetsResolver            networking.SubnetsResolver
+	eipResolver                networking.EIPResolver
 	vpcInfoProvider            networking.VPCInfoProvider
 	backendSGProvider          networking.BackendSGProvider
 	sgResolver                 networking.SecurityGroupResolver
