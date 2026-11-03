@@ -5,7 +5,9 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
@@ -2474,11 +2476,18 @@ type mockListenerRuleManager struct {
 	createErr    error
 	deleteErr    error
 	calls        []mockLRCall
+	// tgQuotaHitsRemaining makes Create fail with TooManyUniqueTargetGroupsPerLoadBalancer this many times
+	// before succeeding, simulating a load balancer that is at its unique target group quota.
+	tgQuotaHitsRemaining int
 }
 
 func (m *mockListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredActionsAndConditions *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error) {
 	if m.ruleCount == m.maxRuleCount {
 		return elbv2model.ListenerRuleStatus{}, &smithy.GenericAPIError{Code: "TooManyRules", Message: "some message"}
+	}
+	if m.tgQuotaHitsRemaining > 0 {
+		m.tgQuotaHitsRemaining--
+		return elbv2model.ListenerRuleStatus{}, &smithy.GenericAPIError{Code: "TooManyUniqueTargetGroupsPerLoadBalancer", Message: "some message"}
 	}
 	arn, _ := resLR.Spec.ListenerARN.Resolve(ctx)
 	m.calls = append(m.calls, mockLRCall{
@@ -2516,6 +2525,96 @@ func (m *mockListenerRuleManager) UpdateRulesTags(ctx context.Context, resLR *el
 
 func (m *mockListenerRuleManager) SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) error {
 	return nil
+}
+
+func Test_CreateAndDeleteRules_TooManyUniqueTargetGroupsPerLoadBalancer(t *testing.T) {
+	resLR := func(arn string) *elbv2model.ListenerRule {
+		return &elbv2model.ListenerRule{Spec: elbv2model.ListenerRuleSpec{ListenerARN: core.LiteralStringToken(arn)}}
+	}
+	sdkLR := func(arn string) ListenerRuleWithTags {
+		return ListenerRuleWithTags{ListenerRule: &elbv2types.Rule{RuleArn: awssdk.String(arn)}}
+	}
+
+	testCases := []struct {
+		name            string
+		tgQuotaHits     int
+		unmatchedResLRs []*elbv2model.ListenerRule
+		unmatchedSDKLRs []ListenerRuleWithTags
+		expectErrCode   string
+		expectedCalls   []mockLRCall
+	}{
+		{
+			name:            "quota hit once: deletes one stale rule, retries create, then deletes remaining stale rules",
+			tgQuotaHits:     1,
+			unmatchedResLRs: []*elbv2model.ListenerRule{resLR("new-1")},
+			unmatchedSDKLRs: []ListenerRuleWithTags{sdkLR("stale-1"), sdkLR("stale-2")},
+			expectedCalls: []mockLRCall{
+				{arn: "stale-1", op: deleteLR},
+				{arn: "new-1", op: createLR},
+				{arn: "stale-2", op: deleteLR},
+			},
+		},
+		{
+			name:            "quota hit twice: deletes two stale rules before the create succeeds",
+			tgQuotaHits:     2,
+			unmatchedResLRs: []*elbv2model.ListenerRule{resLR("new-1"), resLR("new-2")},
+			unmatchedSDKLRs: []ListenerRuleWithTags{sdkLR("stale-1"), sdkLR("stale-2"), sdkLR("stale-3")},
+			expectedCalls: []mockLRCall{
+				{arn: "stale-1", op: deleteLR},
+				{arn: "stale-2", op: deleteLR},
+				{arn: "new-1", op: createLR},
+				{arn: "new-2", op: createLR},
+				{arn: "stale-3", op: deleteLR},
+			},
+		},
+		{
+			name:            "quota hit with no stale rules left: returns the error",
+			tgQuotaHits:     1,
+			unmatchedResLRs: []*elbv2model.ListenerRule{resLR("new-1")},
+			expectErrCode:   "TooManyUniqueTargetGroupsPerLoadBalancer",
+		},
+		{
+			name:            "quota still hit after all stale rules are deleted: returns the error",
+			tgQuotaHits:     3,
+			unmatchedResLRs: []*elbv2model.ListenerRule{resLR("new-1")},
+			unmatchedSDKLRs: []ListenerRuleWithTags{sdkLR("stale-1"), sdkLR("stale-2")},
+			expectErrCode:   "TooManyUniqueTargetGroupsPerLoadBalancer",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mLRManager := &mockListenerRuleManager{
+				maxRuleCount:         100,
+				tgQuotaHitsRemaining: tc.tgQuotaHits,
+			}
+			s := &listenerRuleSynthesizer{
+				lrManager: mLRManager,
+				logger:    logr.Discard(),
+			}
+
+			// The listener already holds the stale rules (plus others), so start from a realistic rule count.
+			initialRuleCount := 10
+			mLRManager.ruleCount = initialRuleCount
+			err := s.createAndDeleteRules(context.Background(), initialRuleCount, map[*elbv2model.ListenerRule]*resLRDesiredRuleConfig{}, tc.unmatchedResLRs, tc.unmatchedSDKLRs)
+
+			if tc.expectErrCode != "" {
+				var apiErr smithy.APIError
+				assert.ErrorAs(t, err, &apiErr)
+				assert.Equal(t, tc.expectErrCode, apiErr.ErrorCode())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedCalls, mLRManager.calls)
+			}
+		})
+	}
+}
+
+func Test_isTooManyUniqueTargetGroupsErr(t *testing.T) {
+	assert.True(t, isTooManyUniqueTargetGroupsErr(&smithy.GenericAPIError{Code: "TooManyUniqueTargetGroupsPerLoadBalancer"}))
+	assert.False(t, isTooManyUniqueTargetGroupsErr(&smithy.GenericAPIError{Code: "TooManyRules"}))
+	assert.False(t, isTooManyUniqueTargetGroupsErr(errors.New("some error")))
+	assert.False(t, isTooManyUniqueTargetGroupsErr(nil))
 }
 
 func Test_synthesizeListenerRulesOnListener_TagsUpdatedForAllBuckets(t *testing.T) {
