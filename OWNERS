@@ -4,14 +4,12 @@
 # https://github.com/kubernetes/test-infra/blob/master/config/jobs/kubernetes-sigs/aws-load-balancer-controller/OWNERS
 
 approvers:
-- oliviassss
 - shraddhabang
 - wweiwei-li
 - zac-nixon
-- shuqz
+- bobert-2
 reviewers:
-- oliviassss
 - shraddhabang
 - wweiwei-li
 - zac-nixon
-- shuqz
+- bobert-2
