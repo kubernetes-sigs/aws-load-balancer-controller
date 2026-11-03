@@ -521,3 +521,15 @@ loadBalancerClass:
 
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
+
+# crds controls installation of Kubernetes standard Gateway API CRDs.
+# These are opt-in (default: false) to avoid conflicting with existing installations.
+# standard: all routes LBC supports (HTTPRoute, GRPCRoute, TLSRoute, TCPRoute, UDPRoute)
+# experimental: standard plus experimental features, with slightly stricter validation;
+#   replaces standard when enabled
+crds:
+  gatewayAPI:
+    standard:
+      enabled: false
+    experimental:
+      enabled: false
