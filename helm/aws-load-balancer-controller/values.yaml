@@ -525,7 +525,8 @@ loadBalancerClass:
 # crds controls installation of Kubernetes standard Gateway API CRDs.
 # These are opt-in (default: false) to avoid conflicting with existing installations.
 # standard: all routes LBC supports (HTTPRoute, GRPCRoute, TLSRoute, TCPRoute, UDPRoute)
-# experimental: experimental-channel features only; LBC doesn't need it as of Gateway API v1.6.0
+# experimental: standard plus experimental features, with slightly stricter validation;
+#   replaces standard when enabled
 crds:
   gatewayAPI:
     standard:
