@@ -24,8 +24,10 @@ type PodEndpoint struct {
 	// Pod that provides this endpoint.
 	Pod k8s.PodInfo
 	// NodeReadyTime is the LastTransitionTime of the Ready condition of the pod's node. It is set
-	// only when the endpoint was not ready and was admitted because the pod's containers were
-	// ready and its node was Ready; otherwise it is zero.
+	// for every returned endpoint whose node is Ready, including endpoints that were already ready:
+	// after a node NotReady blip the kubelet restores the pod's Ready condition with its original
+	// transition time, so this is the only signal of when the pod became eligible again.
+	// It is zero when the node is not Ready (fail-open endpoints) or could not be read.
 	NodeReadyTime metav1.Time
 }
 

@@ -170,6 +170,12 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)
 				// Recommendation from Kubernetes is to consider unknown ready status as ready (ready == nil)
 				if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
+					// The node only annotates the endpoint here; failing to read it must not drop a ready endpoint.
+					if node, err := r.getNode(ctx, pod.NodeName); err != nil {
+						r.logger.V(1).Info("unable to read node of ready pod endpoint, NodeReadyTime left unset", "podKey", podKey.String(), "error", err.Error())
+					} else {
+						podEndpoint.NodeReadyTime = nodeReadyTimeIfReady(node)
+					}
 					readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
 					continue
 				}
@@ -178,24 +184,22 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					continue
 				}
 
-				node := &corev1.Node{}
-				if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
+				node, err := r.getNode(ctx, pod.NodeName)
+				if err != nil {
 					r.logger.Error(err, "ignore pod Endpoint without non-exist nodeInfo", "podKey", podKey.String())
 					continue
 				}
 
 				nodeReadyCondStatus := corev1.ConditionFalse
-				var nodeReadyTime metav1.Time
 				if readyCond := k8s.GetNodeCondition(node, corev1.NodeReady); readyCond != nil {
 					nodeReadyCondStatus = readyCond.Status
-					nodeReadyTime = readyCond.LastTransitionTime
 				}
 				switch nodeReadyCondStatus {
 				case corev1.ConditionTrue:
 					// start from 1.22+, terminating pods are included in endpointSlices,
 					// and we don't want to include these pods if the node is known to be healthy.
 					if ep.Conditions.Terminating == nil || !*ep.Conditions.Terminating {
-						podEndpoint.NodeReadyTime = nodeReadyTime
+						podEndpoint.NodeReadyTime = nodeReadyTimeIfReady(node)
 						readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
 					}
 				case corev1.ConditionUnknown:
@@ -209,6 +213,22 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 		podEndpoints = unknownPodEndpoints
 	}
 	return podEndpoints, nil
+}
+
+func (r *defaultEndpointResolver) getNode(ctx context.Context, nodeName string) (*corev1.Node, error) {
+	node := &corev1.Node{}
+	if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+		return nil, err
+	}
+	return node, nil
+}
+
+// nodeReadyTimeIfReady returns the LastTransitionTime of the node's Ready condition when it is True, zero otherwise.
+func nodeReadyTimeIfReady(node *corev1.Node) metav1.Time {
+	if readyCond := k8s.GetNodeCondition(node, corev1.NodeReady); readyCond != nil && readyCond.Status == corev1.ConditionTrue {
+		return readyCond.LastTransitionTime
+	}
+	return metav1.Time{}
 }
 
 func (r *defaultEndpointResolver) findServiceAndServicePort(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString) (*corev1.Service, corev1.ServicePort, error) {

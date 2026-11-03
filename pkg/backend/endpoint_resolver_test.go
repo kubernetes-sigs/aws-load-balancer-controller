@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -2997,6 +2998,135 @@ func Test_convertCoreEndpointAddressToDiscoveryEndpoint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := convertCoreEndpointAddressToDiscoveryEndpoint(tt.args.endpoint, tt.args.ready)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultEndpointResolver_ResolvePodEndpoints_NodeReadyTime(t *testing.T) {
+	testNS := "test-ns"
+	// metav1.Time round-trips through the fake client at second granularity.
+	readyAt := metav1.NewTime(time.Now().Add(-10 * time.Minute).Truncate(time.Second))
+	unknownAt := metav1.NewTime(time.Now().Add(-5 * time.Minute).Truncate(time.Second))
+	newNode := func(name string, status corev1.ConditionStatus, at metav1.Time) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Status: corev1.NodeStatus{
+				Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: status, LastTransitionTime: at}},
+			},
+		}
+	}
+	newPod := func(name, nodeName, ip string, podReady corev1.ConditionStatus) k8s.PodInfo {
+		return k8s.PodInfo{
+			Key: types.NamespacedName{Namespace: testNS, Name: name},
+			Conditions: []corev1.PodCondition{
+				{Type: corev1.PodReady, Status: podReady},
+				{Type: corev1.ContainersReady, Status: corev1.ConditionTrue},
+			},
+			NodeName: nodeName,
+			PodIP:    ip,
+		}
+	}
+	addr := func(pod k8s.PodInfo) corev1.EndpointAddress {
+		return corev1.EndpointAddress{
+			IP:        pod.PodIP,
+			TargetRef: &corev1.ObjectReference{Kind: "Pod", Namespace: testNS, Name: pod.Key.Name},
+		}
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNS, Name: "svc-1"},
+		Spec: corev1.ServiceSpec{
+			Type:  corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{{Name: "http", Port: 80}},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		nodes             []*corev1.Node
+		pod               k8s.PodInfo
+		endpointReady     bool
+		failOpenEnabled   bool
+		wantNodeReadyTime metav1.Time
+	}{
+		{
+			name:              "ready endpoint on Ready node records node ready time",
+			nodes:             []*corev1.Node{newNode("node-a", corev1.ConditionTrue, readyAt)},
+			pod:               newPod("pod-1", "node-a", "192.168.1.1", corev1.ConditionTrue),
+			endpointReady:     true,
+			wantNodeReadyTime: readyAt,
+		},
+		{
+			name:          "ready endpoint on Unknown node is included without node ready time",
+			nodes:         []*corev1.Node{newNode("node-b", corev1.ConditionUnknown, unknownAt)},
+			pod:           newPod("pod-2", "node-b", "192.168.1.2", corev1.ConditionTrue),
+			endpointReady: true,
+		},
+		{
+			name:          "ready endpoint on NotReady node is included without node ready time",
+			nodes:         []*corev1.Node{newNode("node-c", corev1.ConditionFalse, unknownAt)},
+			pod:           newPod("pod-3", "node-c", "192.168.1.3", corev1.ConditionTrue),
+			endpointReady: true,
+		},
+		{
+			name:          "ready endpoint whose node cannot be read is still included",
+			pod:           newPod("pod-4", "node-missing", "192.168.1.4", corev1.ConditionTrue),
+			endpointReady: true,
+		},
+		{
+			name:              "not ready endpoint with ready containers on Ready node records node ready time",
+			nodes:             []*corev1.Node{newNode("node-a", corev1.ConditionTrue, readyAt)},
+			pod:               newPod("pod-5", "node-a", "192.168.1.5", corev1.ConditionFalse),
+			endpointReady:     false,
+			wantNodeReadyTime: readyAt,
+		},
+		{
+			name:            "fail-open endpoint on Unknown node has no node ready time",
+			nodes:           []*corev1.Node{newNode("node-b", corev1.ConditionUnknown, unknownAt)},
+			pod:             newPod("pod-6", "node-b", "192.168.1.6", corev1.ConditionFalse),
+			endpointReady:   false,
+			failOpenEnabled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			podInfoRepo := k8s.NewMockPodInfoRepo(ctrl)
+			podInfoRepo.EXPECT().Get(gomock.Any(), tt.pod.Key).Return(tt.pod, true, nil)
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+			ctx := context.Background()
+			for _, node := range tt.nodes {
+				assert.NoError(t, k8sClient.Create(ctx, node.DeepCopy()))
+			}
+			assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+			subset := corev1.EndpointSubset{Ports: []corev1.EndpointPort{{Name: "http", Port: 8080}}}
+			if tt.endpointReady {
+				subset.Addresses = []corev1.EndpointAddress{addr(tt.pod)}
+			} else {
+				subset.NotReadyAddresses = []corev1.EndpointAddress{addr(tt.pod)}
+			}
+			assert.NoError(t, k8sClient.Create(ctx, &corev1.Endpoints{
+				ObjectMeta: metav1.ObjectMeta{Namespace: testNS, Name: "svc-1"},
+				Subsets:    []corev1.EndpointSubset{subset},
+			}))
+
+			r := &defaultEndpointResolver{
+				k8sClient:       k8sClient,
+				podInfoRepo:     podInfoRepo,
+				failOpenEnabled: tt.failOpenEnabled,
+				logger:          logr.New(&log.NullLogSink{}),
+			}
+			got, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc), intstr.FromString("http"), "")
+			assert.NoError(t, err)
+			// NodeReadyTime only annotates endpoints; it never changes which ones are returned.
+			assert.Len(t, got, 1)
+			assert.Equal(t, tt.pod.PodIP, got[0].IP)
+			assert.True(t, tt.wantNodeReadyTime.Equal(&got[0].NodeReadyTime),
+				"NodeReadyTime: want %v, got %v", tt.wantNodeReadyTime, got[0].NodeReadyTime)
 		})
 	}
 }
