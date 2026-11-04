@@ -270,6 +270,7 @@ extraVolumes:
 defaultTags:
   default_tag1: value1
   default_tag2: value2
+  default_tag3: "owner: @platform-team #infra"
 
 # podDisruptionBudget specifies the disruption budget for the controller pods.
 # Disruption budget will be configured only when the replicaCount is greater than 1
