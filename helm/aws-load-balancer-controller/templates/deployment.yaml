@@ -24,10 +24,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 8 }}
-        {{- if .Values.podLabels }}
-        {{- toYaml .Values.podLabels | nindent 8 }}
-        {{- end }}
+        {{- include "aws-load-balancer-controller.podLabels" . | nindent 8 }}
       annotations:
         {{- if not .Values.serviceMonitor.enabled }}
         prometheus.io/scrape: "true"
