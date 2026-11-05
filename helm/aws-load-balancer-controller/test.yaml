@@ -359,3 +359,23 @@ serviceMutatorWebhookConfig:
 podMutatorWebhookConfig:
   # whether or not to fail the pod creation if the webhook fails
   failurePolicy: Ignore
+
+# podServerIdMutatorWebhookConfig contains configurations specific to the pod server id mutator webhook
+podServerIdMutatorWebhookConfig:
+  # whether or not to fail the pod creation if the webhook fails
+  failurePolicy: Ignore
+
+# tgbMutatorWebhookConfig contains configurations specific to the TargetGroupBinding mutator webhook
+tgbMutatorWebhookConfig:
+  # whether or not to fail the TargetGroupBinding creation if the webhook fails
+  failurePolicy: Ignore
+
+# ingressClassParamsValidatorWebhookConfig contains configurations specific to the IngressClassParams validator webhook
+ingressClassParamsValidatorWebhookConfig:
+  # whether or not to fail the IngressClassParams creation if the webhook fails
+  failurePolicy: Ignore
+
+# tgbValidatorWebhookConfig contains configurations specific to the TargetGroupBinding validator webhook
+tgbValidatorWebhookConfig:
+  # whether or not to fail the TargetGroupBinding creation if the webhook fails
+  failurePolicy: Ignore
