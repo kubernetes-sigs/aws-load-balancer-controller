@@ -64,7 +64,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-pod-server-id
-  failurePolicy: {{ .Values.podServerIdMutatorWebhookConfig.failurePolicy }}
+  failurePolicy: {{ (.Values.podServerIdMutatorWebhookConfig | default dict).failurePolicy | default "Fail" }}
   name: quicid.elbv2.k8s.aws
   admissionReviewVersions:
     - v1
@@ -226,7 +226,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
-  failurePolicy: {{ .Values.tgbMutatorWebhookConfig.failurePolicy }}
+  failurePolicy: {{ (.Values.tgbMutatorWebhookConfig | default dict).failurePolicy | default "Fail" }}
   name: mtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
   - v1
@@ -261,7 +261,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
-  failurePolicy: {{ .Values.ingressClassParamsValidatorWebhookConfig.failurePolicy }}
+  failurePolicy: {{ (.Values.ingressClassParamsValidatorWebhookConfig | default dict).failurePolicy | default "Fail" }}
   name: vingressclassparams.elbv2.k8s.aws
   admissionReviewVersions:
   - v1
@@ -290,7 +290,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
-  failurePolicy: {{ .Values.tgbValidatorWebhookConfig.failurePolicy }}
+  failurePolicy: {{ (.Values.tgbValidatorWebhookConfig | default dict).failurePolicy | default "Fail" }}
   name: vtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
   - v1
