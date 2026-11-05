@@ -359,3 +359,6 @@ serviceMutatorWebhookConfig:
 podMutatorWebhookConfig:
   # whether or not to fail the pod creation if the webhook fails
   failurePolicy: Ignore
+
+# leaderElectionLeaseDuration sets --leader-election-lease-duration on the controller
+leaderElectionLeaseDuration: 30s
