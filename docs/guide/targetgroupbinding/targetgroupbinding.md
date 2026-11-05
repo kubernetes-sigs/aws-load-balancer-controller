@@ -332,7 +332,7 @@ The controller only manages the targets. You create the Gateway Load Balancer, i
     - The Service port referenced by `serviceRef` must resolve to the pod port that receives GENEVE traffic (6081).
     - Enable the Gateway Load Balancer in every Availability Zone where the pods run. Targets in other zones show as `unused`, so their [pod readiness gate](../../deploy/pod_readiness_gate.md) never passes.
     - Health checks are configured on the TargetGroup and typically use a different port and protocol (for example TCP or HTTP). Make sure your pods listen on that port.
-    - If you use `networking`, allow UDP on the GENEVE port and the TargetGroup's health check port and protocol from the Gateway Load Balancer subnets.
+    - If you use `networking`, allow UDP on the GENEVE port (6081) and TCP on the TargetGroup's health check port from the Gateway Load Balancer subnets. `networking` rules only accept `TCP` or `UDP`, so TCP, HTTP and HTTPS health checks all need a `TCP` rule.
 
 ## Sample YAML with Gateway Load Balancer
 ```yaml
