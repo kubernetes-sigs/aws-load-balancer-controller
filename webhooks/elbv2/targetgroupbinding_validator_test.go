@@ -568,6 +568,39 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			},
 		},
 		{
+			name: "GENEVE (Gateway Load Balancer) protocol with ip target type but instance target group is rejected",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv4,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumGeneve,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &ipTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv4,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &geneveTgProtocol,
+					},
+				},
+			},
+			wantErr: errors.New("GENEVE protocol is only supported for IP target types."),
+		},
+		{
 			name: "GENEVE (Gateway Load Balancer) protocol with instance target type is rejected",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{

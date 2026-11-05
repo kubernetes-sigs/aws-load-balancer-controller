@@ -315,7 +315,8 @@ func (v *targetGroupBindingValidator) checkAssumeRoleConfig(tgb *elbv2api.Target
 	return nil
 }
 
-// checkTargetGroupVpcID ensures Target Group Protocol matches with that on the AWS target group
+// checkTargetGroupProtocol ensures spec.targetGroupProtocol, if set, matches the protocol of the AWS target group,
+// and that the protocol is supported for the binding's target type.
 func (v *targetGroupBindingValidator) checkTargetGroupProtocol(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
 	// Backwards compatibility -- nil is acceptable for legacy tgb
 	if tgb.Spec.TargetGroupProtocol == nil {
@@ -334,9 +335,15 @@ func (v *targetGroupBindingValidator) checkTargetGroupProtocol(tgb *elbv2api.Tar
 	}
 
 	// Gateway Load Balancer sends GENEVE to port 6081 on each target. Instance mode registers the
-	// service NodePort, which a GWLB target can't receive on, so only the ip target type is supported.
-	if tgProtocol == string(elbv2.ProtocolGENEVE) && (tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance) {
-		return errors.Errorf(geneveInstanceNotSupported)
+	// service NodePort, which a GWLB target can't receive on, so only the ip target type is supported,
+	// both in the binding and on the AWS target group.
+	if tgProtocol == string(elbv2.ProtocolGENEVE) {
+		if tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance {
+			return errors.Errorf(geneveInstanceNotSupported)
+		}
+		if tg := tgCache().tg; tg != nil && tg.TargetType != elbv2types.TargetTypeEnumIp {
+			return errors.Errorf(geneveInstanceNotSupported)
+		}
 	}
 
 	return nil
