@@ -241,6 +241,29 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
 
 ### IngressClassParams specification
 
+#### spec.logDelivery
+
+Cluster administrators can use `logDelivery` to configure [CloudWatch Logs vended log delivery](../tasks/log_delivery.md) for an IngressGroup. This requires the `LogDelivery` feature gate and the [additional IAM permissions](../../install/iam_policy_log_delivery.json).
+
+1. When set, this list takes precedence over `alb.ingress.kubernetes.io/log-delivery` on every Ingress in the group. Conflicting or malformed member annotations are ignored.
+2. An explicitly empty list (`logDelivery: []`) disables log delivery for the group, even when members set the annotation.
+3. When absent, the controller uses the annotations. Members that set the annotation must agree.
+4. If a group references multiple IngressClassParams with `logDelivery` set, those class settings must agree.
+
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: alb-logs
+spec:
+  group:
+    name: shared-apps
+  logDelivery:
+    - logType: ALB_ACCESS_LOGS
+      destinationArn: arn:aws:logs:us-west-2:111122223333:log-group:/aws/vendedlogs/alb/shared-apps
+      outputFormat: json
+```
+
 #### spec.loadBalancerName
 `loadBalancerName` is an optional setting.
 

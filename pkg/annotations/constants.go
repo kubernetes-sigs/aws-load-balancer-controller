@@ -27,6 +27,7 @@ const (
 	IngressSuffixWAFACLID                                      = "waf-acl-id"
 	IngressSuffixWebACLID                                      = "web-acl-id" // deprecated, use "waf-acl-id" instead.
 	IngressSuffixShieldAdvancedProtection                      = "shield-advanced-protection"
+	IngressSuffixLogDelivery                                   = "log-delivery"
 	IngressSuffixSecurityGroups                                = "security-groups"
 	IngressSuffixListenPorts                                   = "listen-ports"
 	IngressSuffixSSLRedirect                                   = "ssl-redirect"
@@ -120,6 +121,7 @@ const (
 	SvcLBSuffixALPNPolicy                                = "aws-load-balancer-alpn-policy"
 	SvcLBSuffixTargetNodeLabels                          = "aws-load-balancer-target-node-labels"
 	SvcLBSuffixLoadBalancerAttributes                    = "aws-load-balancer-attributes"
+	SvcLBSuffixLogDelivery                               = "aws-load-balancer-log-delivery"
 	SvcLBSuffixLoadBalancerSecurityGroups                = "aws-load-balancer-security-groups"
 	SvcLBSuffixManageSGRules                             = "aws-load-balancer-manage-backend-security-group-rules"
 	SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic = "aws-load-balancer-inbound-sg-rules-on-private-link-traffic"

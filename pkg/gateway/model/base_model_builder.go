@@ -123,6 +123,7 @@ type baseModelBuilder struct {
 	defaultIPType             elbv2model.IPAddressType
 }
 
+// Build constructs or removes the Gateway's load balancer stack and enabled integrations, respecting deletion protection.
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, listeners []gwv1.Listener, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, isDelete bool) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	if isDelete {
@@ -190,6 +191,13 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	for _, psa := range preStackAddons {
 		psa.AddToStack(stack, lb.LoadBalancerARN())
+	}
+
+	// On delete, leaving log deliveries out of the stack makes the deployer remove them.
+	if !isDelete {
+		if err := baseBuilder.buildLogDeliveries(stack, lb, lbConf.Spec.LogDelivery); err != nil {
+			return nil, nil, nil, false, nil, err
+		}
 	}
 
 	_ = elbv2model.NewFrontendNlbTargetGroupDesiredState(stack, tgBuilder.getLocalFrontendNlbData())
