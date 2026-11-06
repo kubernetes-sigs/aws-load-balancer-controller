@@ -157,6 +157,9 @@ service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 !!!note ""
     If you enable proxy protocol v2, NLB health checks with HTTP/HTTPS only work if the health check port supports proxy protocol v2. Due to this behavior, you shouldn't configure proxy protocol v2 with NLB instance mode and `externalTrafficPolicy` set to `Local`.
 
+!!!tip ""
+    For dual-stack NLBs, you can preserve client source IP for both IPv4 and IPv6 clients without enabling proxy protocol or changing `externalTrafficPolicy` to `Cluster` by using the [`aws-load-balancer-dual-stack-routing`](./annotations.md#dual-stack-routing) annotation.
+
 ## Subnet tagging requirements
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring Elastic Load Balancing for public or private placement.
 

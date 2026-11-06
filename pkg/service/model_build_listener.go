@@ -81,21 +81,42 @@ func (t *defaultModelBuildTask) buildListenersWithTCPUDPSupport(ctx context.Cont
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
 	scheme elbv2model.LoadBalancerScheme,
 ) (*elbv2model.Listener, error) {
+	if t.shouldEnableDualStackRouting() {
+		targetType, err := t.buildTargetType(ctx, t.service, t.service.Annotations, port)
+		if err != nil {
+			return nil, err
+		}
+		if targetType == elbv2model.TargetTypeIP {
+			return nil, errors.New("dual-stack routing is not supported with ip target type")
+		}
+		_, listenerProtocol, err := buildProtocols(port, cfg)
+		if err != nil {
+			return nil, err
+		}
+		actionsAnnotationExists, _, err := t.buildActionConfigViaAnnotation(t.service.Annotations, listenerProtocol, port.Port)
+		if err != nil {
+			return nil, err
+		}
+		if actionsAnnotationExists {
+			return nil, errors.New("dual-stack routing annotation is incompatible with the actions annotation")
+		}
+	}
 	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
 	if err != nil {
 		return nil, err
 	}
 	listenerResID := fmt.Sprintf("%v", port.Port)
+	// Listener must be created before buildDualStackIPv4ListenerRule so its ARN token is available for the rule spec.
 	ls := elbv2model.NewListener(t.stack, listenerResID, lsSpec)
+	if err := t.buildDualStackIPv4ListenerRule(ctx, ls, port, cfg, scheme); err != nil {
+		return nil, err
+	}
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
-	scheme elbv2model.LoadBalancerScheme,
-) (elbv2model.ListenerSpec, error) {
-	var tgProtocol elbv2model.Protocol
-	var listenerProtocol elbv2model.Protocol
-
+// buildProtocols resolves the target-group and listener protocols for a port, applying
+// TCP→UDP, TLS, and QUIC upgrades from the listener config.
+func buildProtocols(port corev1.ServicePort, cfg *listenerConfig) (tgProtocol, listenerProtocol elbv2model.Protocol, err error) {
 	if cfg != nil && cfg.tcpUdpPortsSet.Has(port.Port) {
 		tgProtocol = elbv2model.ProtocolTCP_UDP
 		listenerProtocol = elbv2model.ProtocolTCP_UDP
@@ -104,7 +125,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		listenerProtocol = elbv2model.Protocol(port.Protocol)
 	}
 
-	if (tgProtocol != elbv2model.ProtocolUDP && tgProtocol != elbv2model.ProtocolTCP_UDP) && len(cfg.certificates) != 0 && (cfg.tlsPortsSet.Len() == 0 ||
+	if cfg != nil && (tgProtocol != elbv2model.ProtocolUDP && tgProtocol != elbv2model.ProtocolTCP_UDP) && len(cfg.certificates) != 0 && (cfg.tlsPortsSet.Len() == 0 ||
 		cfg.tlsPortsSet.Has(port.Name) || cfg.tlsPortsSet.Has(strconv.Itoa(int(port.Port)))) {
 		if cfg.backendProtocol == "ssl" {
 			tgProtocol = elbv2model.ProtocolTLS
@@ -123,8 +144,18 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 			listenerProtocol = elbv2model.ProtocolTCP_QUIC
 			break
 		default:
-			return elbv2model.ListenerSpec{}, errors.Errorf("Unsupported QUIC upgrade for protocol %v", listenerProtocol)
+			return "", "", errors.Errorf("Unsupported QUIC upgrade for protocol %v", listenerProtocol)
 		}
+	}
+	return tgProtocol, listenerProtocol, nil
+}
+
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
+	scheme elbv2model.LoadBalancerScheme,
+) (elbv2model.ListenerSpec, error) {
+	tgProtocol, listenerProtocol, err := buildProtocols(port, cfg)
+	if err != nil {
+		return elbv2model.ListenerSpec{}, err
 	}
 
 	tags, err := t.buildListenerTags(ctx)
@@ -159,7 +190,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	} else {
 		// For standard (non-weighted) NLB configurations, we pass nil as the base service parameter
 		// as target group name uniqueness is already guaranteed by the service's own properties.
-		targetGroup, err := t.buildTargetGroup(ctx, nil, t.service, baseSvcAnnotations, port, tgProtocol, scheme)
+		targetGroup, err := t.buildTargetGroup(ctx, nil, t.service, baseSvcAnnotations, port, tgProtocol, scheme, "")
 		if err != nil {
 			return elbv2model.ListenerSpec{}, err
 		}
@@ -420,4 +451,41 @@ func (t *defaultModelBuildTask) isTCPUDPEnabledForService(svcAnnotations map[str
 		return nil
 	}
 	return &rawEnabled
+}
+
+// hasBothIPFamilies returns true when the Service explicitly lists both IPv4 and IPv6 in spec.ipFamilies.
+func hasBothIPFamilies(svc *corev1.Service) bool {
+	return hasIPFamily(svc, corev1.IPv4Protocol) && hasIPFamily(svc, corev1.IPv6Protocol)
+}
+
+// hasIPFamily returns true when the given IP family is present in the service's spec.ipFamilies.
+func hasIPFamily(svc *corev1.Service, family corev1.IPFamily) bool {
+	for _, f := range svc.Spec.IPFamilies {
+		if f == family {
+			return true
+		}
+	}
+	return false
+}
+
+// shouldEnableDualStackRouting returns true when the dual-stack routing mode should be activated:
+// the LB is dual-stack, the Service has both IP families, and the opt-in annotation is set.
+func (t *defaultModelBuildTask) shouldEnableDualStackRouting() bool {
+	var enabled bool
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixDualStackRouting, &enabled, t.service.Annotations)
+	if err != nil || !exists || !enabled {
+		return false
+	}
+	if !isIPv6Supported(t.loadBalancer.Spec.IPAddressType) {
+		t.logger.Info("dual-stack routing annotation is set but requires a dual-stack load balancer; annotation will be ignored",
+			"annotation", annotations.SvcLBSuffixDualStackRouting,
+			"lbIPAddressType", t.loadBalancer.Spec.IPAddressType)
+		return false
+	}
+	if !hasBothIPFamilies(t.service) {
+		t.logger.Info("dual-stack routing annotation is set but service does not have both IPv4 and IPv6 families; annotation will be ignored",
+			"annotation", annotations.SvcLBSuffixDualStackRouting)
+		return false
+	}
+	return true
 }

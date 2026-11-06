@@ -30,6 +30,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                                    | string                                        |                          | Set to `"*"` to enable                                                                                                                                                                                                                                                                                                                                                                                               |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group](#proxy-protocol-v2)                   | string                                        |                          | If specified,configures proxy protocol for the target groups corresponding to the ports mentioned and disables for the rest. For example, if you have services deployed on ports `"80, 443 and 22"`, the annotation value `"80, 443"` will enable proxy protocol for ports 80 and 443 only, and disable for port 22. This annotation is overriden by `"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"` |
 | [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                                     | string                                        | ipv4                     | ipv4 \| dualstack                                                                                                                                                                                                                                                                                                                                                                                                    |
+| [service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing](#dual-stack-routing)                         | boolean                                       | false                    | dualstack lb only. Enables per-address-family listener rules to route IPv4 clients to an IPv4 target group and IPv6 clients to an IPv6 target group                                                                                                                                                                                                                                                                  |
 | [service.beta.kubernetes.io/aws-load-balancer-access-log-enabled](#deprecated-attributes)                            | boolean                                       | false                    | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                                                                                                                                                                                                    |
 | [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name](#deprecated-attributes)                     | string                                        |                          | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                                                                                                                                                                                                    |
 | [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix](#deprecated-attributes)                   | string                                        |                          | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                                                                                                                                                                                                    |
@@ -258,6 +259,29 @@ Traffic Listening can be controlled with following annotations:
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
+        ```
+
+- <a name="dual-stack-routing">`service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing`</a> enables dual-stack routing for a dualstack NLB. When enabled, the controller creates two target groups per listener port — one IPv4 and one IPv6 — and adds a priority-1 listener rule to route IPv4 clients to the IPv4 target group. All other traffic (IPv6) falls through to the default action, which forwards to the IPv6 target group. This preserves the client's source IP address without requiring proxy protocol.
+
+    !!!note
+        - Requires `service.beta.kubernetes.io/aws-load-balancer-ip-address-type: dualstack`
+        - Requires both `IPv4` and `IPv6` in `spec.ipFamilies`
+        - Incompatible with IP target type (`service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip`); if both are set, reconciliation will fail
+        - Incompatible with the actions annotation (`service.beta.kubernetes.io/aws-load-balancer-actions.*`); if both are set, reconciliation will fail
+        - Health checks are executed using the same address family as the target group. When using `externalTrafficPolicy: Local`, ensure that kube-proxy is configured to serve the health check endpoint over IPv6
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-ip-address-type: dualstack
+        service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing: "true"
+        ```
+        ```yaml
+        spec:
+          ipFamilyPolicy: RequireDualStack
+          ipFamilies:
+          - IPv4
+          - IPv6
+          externalTrafficPolicy: Local
         ```
 
 ## Support UDP-based services over IPv6

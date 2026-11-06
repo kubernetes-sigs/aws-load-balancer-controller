@@ -3,7 +3,7 @@ module sigs.k8s.io/aws-load-balancer-controller/v3
 go 1.26.5
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.41.12
+	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.23
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.22
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.28
@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/appmesh v1.27.7
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.173.0
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.30.0
-	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.54.0
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.63.1
 	github.com/aws/aws-sdk-go-v2/service/globalaccelerator v1.26.3
 	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.62.1
@@ -20,7 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.2
 	github.com/aws/aws-sdk-go-v2/service/wafregional v1.23.3
 	github.com/aws/aws-sdk-go-v2/service/wafv2 v1.51.4
-	github.com/aws/smithy-go v1.27.1
+	github.com/aws/smithy-go v1.28.1
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/gavv/httpexpect/v2 v2.9.0
 	github.com/go-logr/logr v1.4.3
@@ -67,8 +67,8 @@ require (
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.28 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.28 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.29 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.28 // indirect
