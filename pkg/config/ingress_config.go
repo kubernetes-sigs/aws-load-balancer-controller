@@ -12,6 +12,7 @@ const (
 	flagAllowedCAArns                        = "allowed-certificate-authority-arns"
 	flagEnableACMCertificates                = "enable-acm-certificates"
 	flagDefaultPCAARN                        = "default-pca-arn"
+	flagDefaultCertificateKeyAlgorithm       = "default-certificate-key-algorithm"
 	defaultIngressClass                      = "alb"
 	defaultDisableIngressClassAnnotation     = false
 	defaultDisableIngressGroupNameAnnotation = false
@@ -19,6 +20,7 @@ const (
 	defaultTolerateNonExistentBackendService = true
 	defaultTolerateNonExistentBackendAction  = true
 	defaultDefaultPCAArn                     = ""
+	defaultDefaultCertificateKeyAlgorithm    = "RSA_2048"
 )
 
 // IngressConfig contains the configurations for the Ingress controller
@@ -52,6 +54,10 @@ type IngressConfig struct {
 
 	// ACM Certificates Management feature
 	DefaultPCAArn string
+
+	// DefaultCertificateKeyAlgorithm is the key algorithm used for ACM certificates created by the controller
+	// unless overridden by an ingress annotation.
+	DefaultCertificateKeyAlgorithm string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -70,4 +76,6 @@ func (cfg *IngressConfig) BindFlags(fs *pflag.FlagSet) {
 		"Tolerate rules that specify a non-existent backend action")
 	fs.StringSliceVar(&cfg.AllowedCertificateAuthorityARNs, flagAllowedCAArns, []string{}, "Specify an optional list of CA ARNs to filter on in cert discovery")
 	fs.StringVar(&cfg.DefaultPCAArn, flagDefaultPCAARN, defaultDefaultPCAArn, "Default PCA ARN to use for creating ACM certificates")
+	fs.StringVar(&cfg.DefaultCertificateKeyAlgorithm, flagDefaultCertificateKeyAlgorithm, defaultDefaultCertificateKeyAlgorithm,
+		"Default key algorithm to use for creating ACM certificates")
 }

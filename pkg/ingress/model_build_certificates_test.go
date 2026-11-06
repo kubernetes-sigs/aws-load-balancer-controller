@@ -14,8 +14,9 @@ import (
 
 func Test_buildACMCertificates(t *testing.T) {
 	type fields struct {
-		ingGroup     Group
-		defaultCAArn string
+		ingGroup                Group
+		defaultCAArn            string
+		defaultCertKeyAlgorithm string
 	}
 
 	tests := []struct {
@@ -75,7 +76,7 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
 		},
 		{
 			name: "Build certificate for multi-host ingress",
@@ -105,7 +106,7 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com", "otherexample.com", "yetanotherexample.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com", "otherexample.com", "yetanotherexample.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
 		},
 		{
 			name: "Build certificate for an all-wildcard ingress keeps the wildcard DomainName",
@@ -134,7 +135,7 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "*.app.example.com", SubjectAlternativeNames: []string{"*.app.example.com", "*.other.example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "*.app.example.com", SubjectAlternativeNames: []string{"*.app.example.com", "*.other.example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
 		},
 		{
 			name: "Build certificate for certificate-arn pinned ingress",
@@ -192,7 +193,7 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/ee8e7862-1c41-4722-87cb-9ae8e56e8d00", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/ee8e7862-1c41-4722-87cb-9ae8e56e8d00", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
 		},
 		{
 			name: "Build certificate for PCA ARN annotation ingress",
@@ -221,7 +222,7 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/ee8e7862-1c41-4722-87cb-9ae8e56e8d00", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/ee8e7862-1c41-4722-87cb-9ae8e56e8d00", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
 		},
 		{
 			name: "Build certificate for PCA ARN override annotation ingress",
@@ -251,16 +252,215 @@ func Test_buildACMCertificates(t *testing.T) {
 					},
 				},
 			},
-			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/bb4c0627-3ff4-439e-abb1-e5cc03426cc3", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, Tags: map[string]string{}},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/bb4c0627-3ff4-439e-abb1-e5cc03426cc3", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
+		},
+		{
+			name: "Build certificate with key algorithm annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert":   `true`,
+										"alb.ingress.kubernetes.io/acm-key-algorithm": `EC_prime256v1`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmEcPrime256v1, Tags: map[string]string{}},
+		},
+		{
+			name: "Build certificate with controller default key algorithm",
+			fields: fields{
+				defaultCertKeyAlgorithm: "EC_secp384r1",
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert": `true`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmEcSecp384r1, Tags: map[string]string{}},
+		},
+		{
+			name: "Build certificate with key algorithm annotation overriding controller default",
+			fields: fields{
+				defaultCertKeyAlgorithm: "EC_secp384r1",
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert":   `true`,
+										"alb.ingress.kubernetes.io/acm-key-algorithm": `RSA_2048`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypeAmazonIssued, DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa2048, Tags: map[string]string{}},
+		},
+		{
+			name: "Build private certificate with RSA_4096 key algorithm",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert":   `true`,
+										"alb.ingress.kubernetes.io/acm-pca-arn":       `arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/bb4c0627-3ff4-439e-abb1-e5cc03426cc3`,
+										"alb.ingress.kubernetes.io/acm-key-algorithm": `RSA_4096`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCertSpec: acmModel.CertificateSpec{Type: acmtypes.CertificateTypePrivate, CertificateAuthorityARN: "arn:aws:acm-pca:eu-central-1:134051052098:certificate-authority/bb4c0627-3ff4-439e-abb1-e5cc03426cc3", DomainName: "example.com", SubjectAlternativeNames: []string{"example.com"}, ValidationMethod: acmtypes.ValidationMethodDns, KeyAlgorithm: acmtypes.KeyAlgorithmRsa4096, Tags: map[string]string{}},
+		},
+		{
+			name: "Build certificate fails with unknown key algorithm",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert":   `true`,
+										"alb.ingress.kubernetes.io/acm-key-algorithm": `RSA_1337`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Build certificate fails with RSA_4096 for amazon issued certificate",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert":   `true`,
+										"alb.ingress.kubernetes.io/acm-key-algorithm": `RSA_4096`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Build certificate fails with RSA_3072 controller default for amazon issued certificate",
+			fields: fields{
+				defaultCertKeyAlgorithm: "RSA_3072",
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/create-acm-cert": `true`,
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{Host: "example.com"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{
-				ingGroup:         tt.fields.ingGroup,
-				defaultCAArn:     tt.fields.defaultCAArn,
-				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
-				stack:            core.NewDefaultStack(core.StackID(tt.fields.ingGroup.ID)),
+				ingGroup:                tt.fields.ingGroup,
+				defaultCAArn:            tt.fields.defaultCAArn,
+				defaultCertKeyAlgorithm: tt.fields.defaultCertKeyAlgorithm,
+				annotationParser:        annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				stack:                   core.NewDefaultStack(core.StackID(tt.fields.ingGroup.ID)),
 			}
 			got, err := task.buildACMCertificates(t.Context(), &tt.fields.ingGroup.Members[0])
 			if tt.wantErr {

@@ -61,7 +61,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
-	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, secretsManager k8s.SecretsManager, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
+	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, enableACMCertificates bool, defaultCAArn string, defaultCertKeyAlgorithm string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, secretsManager k8s.SecretsManager, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
 	certDiscovery certs.CertDiscovery,
 ) *defaultModelBuilder {
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
@@ -91,6 +91,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultTargetType:          elbv2model.TargetType(defaultTargetType),
 		defaultLoadBalancerScheme:  elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 		defaultCAArn:               defaultCAArn,
+		defaultCertKeyAlgorithm:    defaultCertKeyAlgorithm,
 		enableBackendSG:            enableBackendSG,
 		enableManageBackendSGRules: defaultEnableManageBackendSGRules,
 		enableACMCertificates:      enableACMCertificates,
@@ -135,6 +136,7 @@ type defaultModelBuilder struct {
 	defaultTargetType          elbv2model.TargetType
 	defaultLoadBalancerScheme  elbv2model.LoadBalancerScheme
 	defaultCAArn               string
+	defaultCertKeyAlgorithm    string
 	enableBackendSG            bool
 	enableManageBackendSGRules bool
 	enableACMCertificates      bool
@@ -200,6 +202,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		defaultHealthCheckMatcherHTTPCode:         "200",
 		defaultHealthCheckMatcherGRPCCode:         "12",
 		defaultCAArn:                              b.defaultCAArn,
+		defaultCertKeyAlgorithm:                   b.defaultCertKeyAlgorithm,
 
 		loadBalancer:               nil,
 		frontendNlb:                nil,
@@ -280,6 +283,7 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherHTTPCode         string
 	defaultHealthCheckMatcherGRPCCode         string
 	defaultCAArn                              string
+	defaultCertKeyAlgorithm                   string
 
 	loadBalancer               *elbv2model.LoadBalancer
 	tgByResID                  map[string]*elbv2model.TargetGroup

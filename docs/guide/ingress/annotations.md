@@ -1063,6 +1063,21 @@ Creation of TLS ceritficates can be controlled using the following annotations:
 
           ```
 
+- <a name="acm-key-algorithm">`alb.ingress.kubernetes.io/acm-key-algorithm`</a> specifies the key algorithm of the certificate created by the controller. It overrides the controller's `--default-certificate-key-algorithm` flag and falls back to `RSA_2048`.
+
+    Amazon issued certificates support `RSA_2048`, `EC_prime256v1` and `EC_secp384r1`. Private certificates issued by a PCA additionally support `RSA_3072` and `RSA_4096`.
+
+    !!!warning
+        Changing the key algorithm of an existing certificate causes the controller to request a new certificate and delete the old one once it is no longer in use.
+
+    !!!example
+          ```
+
+          alb.ingress.kubernetes.io/acm-key-algorithm: EC_prime256v1
+
+
+          ```
+
 
 
 ## Custom attributes
