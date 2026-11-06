@@ -2,9 +2,13 @@ package ingress
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
-	"testing"
 )
 
 func Test_defaultAuthConfigBuilder_Build(t *testing.T) {
@@ -193,6 +197,140 @@ func Test_defaultAuthConfigBuilder_Build(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func Test_defaultAuthConfigBuilder_buildAuthIDPConfigOIDC_discoveryEndpoint(t *testing.T) {
+	// Helper that starts a fake OIDC IdP (TLS) server returning the given body.
+	makeServer := func(statusCode int, body string) *httptest.Server {
+		return httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/.well-known/openid-configuration" {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(statusCode)
+			fmt.Fprint(w, body)
+		}))
+	}
+
+	tests := []struct {
+		name        string
+		serverBody  string
+		serverCode  int
+		useHTTPURL  bool // use a plain http:// discoveryEndpoint
+		want        *AuthIDPConfigOIDC
+		wantErrPart string // substring expected in error message, empty = no error
+	}{
+		{
+			name:       "discoveryEndpoint populates all four fields",
+			serverCode: http.StatusOK,
+			serverBody: `{
+				"issuer":                 "https://idp.example.com",
+				"authorization_endpoint": "https://idp.example.com/auth",
+				"token_endpoint":         "https://idp.example.com/token",
+				"userinfo_endpoint":      "https://idp.example.com/userinfo"
+			}`,
+			// annotation will be built dynamically after server starts
+			want: &AuthIDPConfigOIDC{
+				DiscoveryEndpoint:     "", // placeholder, set in test body
+				Issuer:                "https://idp.example.com",
+				AuthorizationEndpoint: "https://idp.example.com/auth",
+				TokenEndpoint:         "https://idp.example.com/token",
+				UserInfoEndpoint:      "https://idp.example.com/userinfo",
+				SecretName:            "my-k8s-secret",
+			},
+		},
+		{
+			name:       "explicit fields override discovery document values",
+			serverCode: http.StatusOK,
+			serverBody: `{
+				"issuer":                 "https://idp.example.com",
+				"authorization_endpoint": "https://idp.example.com/auth",
+				"token_endpoint":         "https://idp.example.com/token",
+				"userinfo_endpoint":      "https://idp.example.com/userinfo"
+			}`,
+			want: &AuthIDPConfigOIDC{
+				DiscoveryEndpoint:     "", // placeholder
+				Issuer:                "https://override.example.com",
+				AuthorizationEndpoint: "https://idp.example.com/auth",
+				TokenEndpoint:         "https://idp.example.com/token",
+				UserInfoEndpoint:      "https://idp.example.com/userinfo",
+				SecretName:            "my-k8s-secret",
+			},
+		},
+		{
+			name:        "discovery endpoint returns non-200 status",
+			serverCode:  http.StatusInternalServerError,
+			serverBody:  `internal error`,
+			wantErrPart: "returned status 500",
+		},
+		{
+			name:        "discovery endpoint returns invalid JSON",
+			serverCode:  http.StatusOK,
+			serverBody:  `not-json`,
+			wantErrPart: "failed to parse OIDC discovery document",
+		},
+		{
+			name:        "discoveryEndpoint must use https",
+			serverCode:  http.StatusOK,
+			serverBody:  `{}`,
+			useHTTPURL:  true,
+			wantErrPart: "must use https",
+		},
+		{
+			name:       "discovery document missing issuer",
+			serverCode: http.StatusOK,
+			serverBody: `{
+				"authorization_endpoint": "https://idp.example.com/auth",
+				"token_endpoint":         "https://idp.example.com/token",
+				"userinfo_endpoint":      "https://idp.example.com/userinfo"
+			}`,
+			wantErrPart: "missing 'issuer'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := makeServer(tt.serverCode, tt.serverBody)
+			defer server.Close()
+
+			// Build the annotation JSON using the test server's URL as discoveryEndpoint.
+			discoveryURL := server.URL
+			if tt.useHTTPURL {
+				discoveryURL = "http://idp.example.com"
+			}
+			var annotationJSON string
+			if tt.name == "explicit fields override discovery document values" {
+				annotationJSON = fmt.Sprintf(
+					`{"discoveryEndpoint":%q,"issuer":"https://override.example.com","secretName":"my-k8s-secret"}`,
+					discoveryURL,
+				)
+			} else {
+				annotationJSON = fmt.Sprintf(
+					`{"discoveryEndpoint":%q,"secretName":"my-k8s-secret"}`,
+					discoveryURL,
+				)
+			}
+
+			svcAndIngAnnotations := map[string]string{
+				"alb.ingress.kubernetes.io/auth-type":     "oidc",
+				"alb.ingress.kubernetes.io/auth-idp-oidc": annotationJSON,
+			}
+
+			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			b := &defaultAuthConfigBuilder{annotationParser: annotationParser, httpClient: server.Client()}
+			got, err := b.buildAuthIDPConfigOIDC(context.Background(), svcAndIngAnnotations)
+
+			if tt.wantErrPart != "" {
+				assert.ErrorContains(t, err, tt.wantErrPart)
+				return
+			}
+
+			assert.NoError(t, err)
+			// Patch the expected DiscoveryEndpoint with the actual test server URL.
+			tt.want.DiscoveryEndpoint = server.URL
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
