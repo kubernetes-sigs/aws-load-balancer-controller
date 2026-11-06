@@ -521,3 +521,11 @@ loadBalancerClass:
 
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
+
+# option to install gatewayAPI crds
+crds:
+  gatewayAPI:
+    standard:
+      enabled: false
+    experimental:
+      enabled: false
