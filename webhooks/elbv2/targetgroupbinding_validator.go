@@ -32,6 +32,7 @@ const (
 	vpcIDNotMatchErr                       = "invalid VpcID %v doesnt match VpcID from TargetGroup %v"
 	tgProtocolMismatch                     = "TargetGroup %v protocol differs (got %v, expected %v)"
 	quicInstanceNotSupported               = "QUIC protocol is not supported for Instance target types."
+	geneveInstanceNotSupported             = "GENEVE protocol is only supported for IP target types."
 )
 
 var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
@@ -314,7 +315,8 @@ func (v *targetGroupBindingValidator) checkAssumeRoleConfig(tgb *elbv2api.Target
 	return nil
 }
 
-// checkTargetGroupVpcID ensures Target Group Protocol matches with that on the AWS target group
+// checkTargetGroupProtocol ensures spec.targetGroupProtocol, if set, matches the protocol of the AWS target group,
+// and that the protocol is supported for the binding's target type.
 func (v *targetGroupBindingValidator) checkTargetGroupProtocol(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
 	// Backwards compatibility -- nil is acceptable for legacy tgb
 	if tgb.Spec.TargetGroupProtocol == nil {
@@ -330,6 +332,18 @@ func (v *targetGroupBindingValidator) checkTargetGroupProtocol(tgb *elbv2api.Tar
 
 	if (tgProtocol == string(elbv2.ProtocolQUIC) || tgProtocol == string(elbv2.ProtocolTCP_QUIC)) && (tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance) {
 		return errors.Errorf(quicInstanceNotSupported)
+	}
+
+	// Gateway Load Balancer sends GENEVE to port 6081 on each target. Instance mode registers the
+	// service NodePort, which a GWLB target can't receive on, so only the ip target type is supported,
+	// both in the binding and on the AWS target group.
+	if tgProtocol == string(elbv2.ProtocolGENEVE) {
+		if tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance {
+			return errors.Errorf(geneveInstanceNotSupported)
+		}
+		if tg := tgCache().tg; tg != nil && tg.TargetType != elbv2types.TargetTypeEnumIp {
+			return errors.Errorf(geneveInstanceNotSupported)
+		}
 	}
 
 	return nil

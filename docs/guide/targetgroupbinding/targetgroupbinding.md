@@ -1,5 +1,5 @@
 # TargetGroupBinding
-TargetGroupBinding is a [custom resource (CR)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) that can expose your pods using an existing [ALB TargetGroup](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) or [NLB TargetGroup](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html).
+TargetGroupBinding is a [custom resource (CR)](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) that can expose your pods using an existing [ALB TargetGroup](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html), [NLB TargetGroup](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html), or [GWLB TargetGroup](https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/target-groups.html).
 
 This allows you to provision the load balancer infrastructure completely outside of Kubernetes but still manage the targets with Kubernetes Service.
 
@@ -318,6 +318,44 @@ spec:
     port: 80
   targetGroupARN: <arn-to-targetGroup>
   multiClusterTargetGroup: true
+```
+
+
+## Gateway Load Balancer (GENEVE) TargetGroups
+TargetGroupBinding supports [Gateway Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/gateway/introduction.html) TargetGroups, which use the `GENEVE` protocol on port 6081.
+This lets you run inline network appliances (for example firewalls or transparent proxies) as pods, and have the controller keep the GWLB TargetGroup in sync with the pod lifecycle.
+
+The controller only manages the targets. You create the Gateway Load Balancer, its listener, and the GENEVE TargetGroup outside of Kubernetes.
+
+!!!note ""
+    - Only `targetType: ip` is supported. Instance mode registers the Service NodePort, but Gateway Load Balancer always sends GENEVE to port 6081 on the target.
+    - The Service port referenced by `serviceRef` must resolve to the pod port that receives GENEVE traffic (6081).
+    - Enable the Gateway Load Balancer in every Availability Zone where the pods run. Targets in other zones show as `unused`, so their [pod readiness gate](../../deploy/pod_readiness_gate.md) never passes.
+    - Health checks are configured on the TargetGroup and typically use a different port and protocol (for example TCP or HTTP). Make sure your pods listen on that port.
+    - If you use `networking`, allow UDP on the GENEVE port (6081) and TCP on the TargetGroup's health check port from the Gateway Load Balancer subnets. `networking` rules only accept `TCP` or `UDP`, so TCP, HTTP and HTTPS health checks all need a `TCP` rule.
+
+## Sample YAML with Gateway Load Balancer
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: my-appliance-tgb
+spec:
+  serviceRef:
+    name: my-appliance # Service exposing UDP port 6081 on the appliance pods
+    port: 6081
+  targetGroupARN: <arn-to-GENEVE-targetGroup>
+  targetType: ip
+  networking:
+    ingress:
+      - from:
+          - ipBlock:
+              cidr: <gwlb-subnet-cidr>
+        ports:
+          - protocol: UDP
+            port: 6081
+          - protocol: TCP
+            port: <health-check-port>
 ```
 
 
