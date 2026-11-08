@@ -11,6 +11,7 @@ import (
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/google/go-cmp/cmp"
@@ -1128,7 +1129,8 @@ func TestBuildCertificates(t *testing.T) {
 				certDiscovery: mockCertDiscovery,
 			}
 
-			got, err := builder.buildCertificates(context.Background(), tt.gateway, tt.port, tt.gwLsCfg, tt.lbLsCfg)
+			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "ns", Name: "gw"})
+			got, err := builder.buildCertificates(context.Background(), stack, tt.gateway, tt.port, elbv2gw.LoadBalancerConfiguration{}, tt.gwLsCfg, tt.lbLsCfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildCertificates() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1145,6 +1147,185 @@ func TestBuildCertificates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildCertificates_CreateCertificate(t *testing.T) {
+	gw := &gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web"}}
+	httpsCfg := func(hosts ...string) gwListenerConfig {
+		return gwListenerConfig{protocol: elbv2model.ProtocolHTTPS, hostnames: sets.New[string](hosts...)}
+	}
+	const pcaARN = "arn:aws:acm-pca:us-west-2:123456789012:certificate-authority/listener-ca"
+	const defaultPCAARN = "arn:aws:acm-pca:us-west-2:123456789012:certificate-authority/default-ca"
+
+	tests := []struct {
+		name             string
+		port             int32
+		gwLsCfg          gwListenerConfig
+		lbLsCfg          *elbv2gw.ListenerConfiguration
+		featureEnabled   bool
+		defaultPCAArn    string
+		tagErr           error
+		wantErrContains  string
+		wantExplicitARN  string
+		wantNoCert       bool
+		wantDomainName   string
+		wantSANs         []string
+		wantType         acmtypes.CertificateType
+		wantCAArn        string
+		wantResourceIDRe string
+	}{
+		{
+			name:             "requests one Amazon-issued certificate covering every listener hostname",
+			port:             443,
+			gwLsCfg:          httpsCfg("b.example.com", "*.example.com", "a.example.com"),
+			lbLsCfg:          &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)},
+			featureEnabled:   true,
+			wantDomainName:   "*.example.com",
+			wantSANs:         []string{"*.example.com", "a.example.com", "b.example.com"},
+			wantType:         acmtypes.CertificateTypeAmazonIssued,
+			wantResourceIDRe: `^amazon_issued/wildcard\.example\.com-[0-9a-f]{8}$`,
+		},
+		{
+			name:             "listener CA takes precedence over the controller default PCA",
+			port:             443,
+			gwLsCfg:          httpsCfg("api.example.com"),
+			lbLsCfg:          &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true), CertificateAuthorityArn: awssdk.String(pcaARN)},
+			featureEnabled:   true,
+			defaultPCAArn:    defaultPCAARN,
+			wantDomainName:   "api.example.com",
+			wantSANs:         []string{"api.example.com"},
+			wantType:         acmtypes.CertificateTypePrivate,
+			wantCAArn:        pcaARN,
+			wantResourceIDRe: `^private/api\.example\.com-[0-9a-f]{8}$`,
+		},
+		{
+			name:           "controller default PCA is used when the listener sets none",
+			port:           8443,
+			gwLsCfg:        gwListenerConfig{protocol: elbv2model.ProtocolTLS, hostnames: sets.New[string]("tls.example.com")},
+			lbLsCfg:        &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)},
+			featureEnabled: true,
+			defaultPCAArn:  defaultPCAARN,
+			wantDomainName: "tls.example.com",
+			wantSANs:       []string{"tls.example.com"},
+			wantType:       acmtypes.CertificateTypePrivate,
+			wantCAArn:      defaultPCAARN,
+		},
+		{
+			name:    "explicit certificates take precedence and nothing is created",
+			port:    443,
+			gwLsCfg: httpsCfg("a.example.com"),
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				CreateCertificate:  awssdk.Bool(true),
+				DefaultCertificate: awssdk.String("arn:aws:acm:us-west-2:123456789012:certificate/explicit"),
+			},
+			featureEnabled:  true,
+			wantExplicitARN: "arn:aws:acm:us-west-2:123456789012:certificate/explicit",
+		},
+		{
+			name:           "plain HTTP listeners never get a certificate",
+			port:           80,
+			gwLsCfg:        gwListenerConfig{protocol: elbv2model.ProtocolHTTP, hostnames: sets.New[string]("a.example.com")},
+			lbLsCfg:        &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)},
+			featureEnabled: true,
+			wantNoCert:     true,
+		},
+		{
+			name:            "feature gate disabled is an explicit error instead of silent discovery",
+			port:            443,
+			gwLsCfg:         httpsCfg("a.example.com"),
+			lbLsCfg:         &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)},
+			featureEnabled:  false,
+			wantErrContains: "EnableCertificateManagement",
+		},
+		{
+			name:            "listener without hostnames cannot request a certificate",
+			port:            443,
+			gwLsCfg:         httpsCfg(),
+			lbLsCfg:         &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)},
+			featureEnabled:  true,
+			wantErrContains: "no hostnames",
+		},
+		{
+			name:            "tag errors are propagated",
+			port:            443,
+			gwLsCfg:         httpsCfg("a.example.com"),
+			lbLsCfg:         &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)},
+			featureEnabled:  true,
+			tagErr:          errors.New("bad tags"),
+			wantErrContains: "bad tags",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			builder := &listenerBuilderImpl{
+				certDiscovery:               certs.NewMockCertDiscovery(ctrl), // must not be called
+				tagHelper:                   &mockTagHelper{tags: map[string]string{"team": "a"}, err: tt.tagErr},
+				enableCertificateManagement: tt.featureEnabled,
+				defaultPCAArn:               tt.defaultPCAArn,
+			}
+			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: gw.Namespace, Name: gw.Name})
+
+			got, err := builder.buildCertificates(context.Background(), stack, gw, tt.port, elbv2gw.LoadBalancerConfiguration{}, tt.gwLsCfg, tt.lbLsCfg)
+
+			var created []*acmModel.Certificate
+			assert.NoError(t, stack.ListResources(&created))
+			if tt.wantErrContains != "" {
+				assert.ErrorContains(t, err, tt.wantErrContains)
+				assert.Empty(t, created)
+				return
+			}
+			assert.NoError(t, err)
+			if tt.wantNoCert {
+				assert.Empty(t, got)
+				assert.Empty(t, created)
+				return
+			}
+			if tt.wantExplicitARN != "" {
+				assert.Empty(t, created)
+				assert.Len(t, got, 1)
+				arn, err := got[0].CertificateARN.Resolve(t.Context())
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantExplicitARN, arn)
+				return
+			}
+
+			assert.Len(t, created, 1)
+			cert := created[0]
+			assert.Equal(t, tt.wantDomainName, cert.Spec.DomainName)
+			assert.Equal(t, tt.wantSANs, cert.Spec.SubjectAlternativeNames)
+			assert.Equal(t, tt.wantType, cert.Spec.Type)
+			assert.Equal(t, tt.wantCAArn, cert.Spec.CertificateAuthorityARN)
+			assert.Equal(t, acmtypes.ValidationMethodDns, cert.Spec.ValidationMethod)
+			assert.Equal(t, map[string]string{"team": "a"}, cert.Spec.Tags)
+			if tt.wantResourceIDRe != "" {
+				assert.Regexp(t, tt.wantResourceIDRe, cert.ID())
+			}
+			// the listener references the managed certificate, so its ARN resolves once the synthesizer has created it
+			assert.Len(t, got, 1)
+			assert.Equal(t, []coremodel.Resource{cert}, got[0].CertificateARN.Dependencies())
+		})
+	}
+}
+
+func TestBuildCertificates_CreateCertificate_OneCertificatePerListenerPort(t *testing.T) {
+	builder := &listenerBuilderImpl{tagHelper: &mockTagHelper{}, enableCertificateManagement: true}
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "team-a", Name: "web"})
+	gw := &gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web"}}
+	cfg := gwListenerConfig{protocol: elbv2model.ProtocolHTTPS, hostnames: sets.New[string]("a.example.com")}
+	lsCfg := &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)}
+
+	_, err := builder.buildCertificates(context.Background(), stack, gw, 443, elbv2gw.LoadBalancerConfiguration{}, cfg, lsCfg)
+	assert.NoError(t, err)
+	_, err = builder.buildCertificates(context.Background(), stack, gw, 8443, elbv2gw.LoadBalancerConfiguration{}, cfg, lsCfg)
+	assert.NoError(t, err)
+
+	var created []*acmModel.Certificate
+	assert.NoError(t, stack.ListResources(&created))
+	assert.Len(t, created, 2)
+	assert.NotEqual(t, created[0].ID(), created[1].ID())
 }
 
 func Test_buildMutualAuthenticationAttributes(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/certs"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
@@ -47,6 +48,12 @@ type listenerBuilderImpl struct {
 	certDiscovery              certs.CertDiscovery
 	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
 	logger                     logr.Logger
+
+	// enableCertificateManagement is true when the EnableCertificateManagement feature gate is on,
+	// allowing listeners to request controller-managed ACM certificates.
+	enableCertificateManagement bool
+	// defaultPCAArn is the AWS Private CA used for controller-managed certificates when a listener doesn't set one.
+	defaultPCAArn string
 }
 
 func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, listeners []gwv1.Listener, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
@@ -89,7 +96,7 @@ func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack
 
 	var err error
 	if l.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-		listenerSpec, err = l.buildL7ListenerSpec(ctx, lb, gw, lbCfg, port, gwLsCfg, lbLsCfg)
+		listenerSpec, err = l.buildL7ListenerSpec(ctx, stack, lb, gw, lbCfg, port, gwLsCfg, lbLsCfg)
 	} else {
 		listenerSpec, err = l.buildL4ListenerSpec(ctx, stack, lb, gw, lbCfg, port, routes, gwLsCfg, lbLsCfg)
 	}
@@ -105,7 +112,7 @@ func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack
 	return elbv2model.NewListener(stack, lsResID, *listenerSpec), nil
 }
 
-func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	tags, err := l.buildListenerTags(lbCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
@@ -118,7 +125,7 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2mod
 	if sslPolicyErr != nil {
 		return &elbv2model.ListenerSpec{}, sslPolicyErr
 	}
-	certificates, certsErr := l.buildCertificates(ctx, gw, port, gwLsCfg, lbLsCfg)
+	certificates, certsErr := l.buildCertificates(ctx, stack, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if certsErr != nil {
 		return &elbv2model.ListenerSpec{}, certsErr
 	}
@@ -148,8 +155,8 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2mod
 	return listenerSpec, nil
 }
 
-func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
-	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
+func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+	listenerSpec, err := l.buildListenerSpec(ctx, stack, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
@@ -163,7 +170,7 @@ func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2m
 }
 
 func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
-	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
+	listenerSpec, err := l.buildListenerSpec(ctx, stack, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
@@ -356,7 +363,7 @@ func buildListenerAttributes(lsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model
 	return attributes, nil
 }
 
-func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gateway, port int32, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.Certificate, error) {
+func (l listenerBuilderImpl) buildCertificates(ctx context.Context, stack core.Stack, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.Certificate, error) {
 	if !isSecureProtocol(gwLsCfg.protocol) {
 		return []elbv2model.Certificate{}, nil
 	}
@@ -364,6 +371,14 @@ func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gat
 	// Build explict certs
 	if lbLsCfg != nil {
 		certs = append(certs, l.buildExplicitTLSCertARNs(ctx, *lbLsCfg)...)
+	}
+	// Explicit certs take precedence over requesting a new one, avoiding unnecessary certificate creation.
+	if len(certs) == 0 && lbLsCfg != nil && lbLsCfg.CreateCertificate != nil && *lbLsCfg.CreateCertificate {
+		cert, err := l.buildManagedCertificate(stack, gw, port, lbCfg, gwLsCfg, *lbLsCfg)
+		if err != nil {
+			return []elbv2model.Certificate{}, err
+		}
+		return []elbv2model.Certificate{{CertificateARN: cert.CertificateARN()}}, nil
 	}
 	// If any explicit certs are not found then build inferred certs using cert discovery
 	if len(certs) == 0 {
@@ -382,6 +397,29 @@ func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gat
 		}
 	}
 	return certs, nil
+}
+
+// buildManagedCertificate adds a controller-managed ACM certificate covering the listener hostnames to the stack.
+// The certificate synthesizer requests and validates it, and deletes it once no listener references it.
+func (l listenerBuilderImpl) buildManagedCertificate(stack core.Stack, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg elbv2gw.ListenerConfiguration) (*acmModel.Certificate, error) {
+	if !l.enableCertificateManagement {
+		return nil, errors.Errorf("listener %s:%v on gateway %s sets createCertificate, which requires the %s feature gate", gwLsCfg.protocol, port, k8s.NamespacedName(gw), config.EnableCertificateManagement)
+	}
+	if len(gwLsCfg.hostnames) == 0 {
+		return nil, errors.Errorf("listener %s:%v on gateway %s sets createCertificate but has no hostnames: set spec.listeners[].hostname on the Gateway", gwLsCfg.protocol, port, k8s.NamespacedName(gw))
+	}
+	caArn := l.defaultPCAArn
+	if lbLsCfg.CertificateAuthorityArn != nil && *lbLsCfg.CertificateAuthorityArn != "" {
+		caArn = *lbLsCfg.CertificateAuthorityArn
+	}
+	tags, err := l.tagHelper.getLoadBalancerTags(lbCfg)
+	if err != nil {
+		return nil, err
+	}
+	spec := certs.BuildCertificateRequestSpec(sets.List(gwLsCfg.hostnames), caArn, tags)
+	// One certificate per gateway listener port, so listeners sharing hostnames on other ports or gateways don't collide.
+	ownerKey := fmt.Sprintf("%s/%s:%d", gw.Namespace, gw.Name, port)
+	return acmModel.NewCertificate(stack, certs.BuildCertificateResourceID(spec, ownerKey), spec), nil
 }
 
 func (l listenerBuilderImpl) buildExplicitTLSCertARNs(ctx context.Context, listener elbv2gw.ListenerConfiguration) []elbv2model.Certificate {
@@ -626,18 +664,20 @@ func generateListenerPortKey(port int32, listener gwListenerConfig) string {
 	return fmt.Sprintf("%s:%d", strings.ToLower(string(listener.protocol)), port)
 }
 
-func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, certDiscovery certs.CertDiscovery, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, k8sClient client.Client, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
+func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, certDiscovery certs.CertDiscovery, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, k8sClient client.Client, secretsManager k8s.SecretsManager, enableCertificateManagement bool, defaultPCAArn string, logger logr.Logger) listenerBuilder {
 	return &listenerBuilderImpl{
-		elbv2Client:      elbv2Client,
-		k8sClient:        k8sClient,
-		loadBalancerType: loadBalancerType,
-		tgBuilder:        tgBuilder,
-		clusterName:      clusterName,
-		tagHelper:        tagHelper,
-		defaultSSLPolicy: defaultSSLPolicy,
-		secretsManager:   secretsManager,
-		certDiscovery:    certDiscovery,
-		logger:           logger,
+		elbv2Client:                 elbv2Client,
+		k8sClient:                   k8sClient,
+		loadBalancerType:            loadBalancerType,
+		tgBuilder:                   tgBuilder,
+		clusterName:                 clusterName,
+		tagHelper:                   tagHelper,
+		defaultSSLPolicy:            defaultSSLPolicy,
+		secretsManager:              secretsManager,
+		certDiscovery:               certDiscovery,
+		enableCertificateManagement: enableCertificateManagement,
+		defaultPCAArn:               defaultPCAArn,
+		logger:                      logger,
 	}
 }
 

@@ -1006,12 +1006,25 @@ spec:
                       - HTTP2Preferred
                       - None
                       type: string
+                    certificateAuthorityArn:
+                      description: |-
+                        certificateAuthorityArn is the ARN of the AWS Private CA that issues the certificate requested by
+                        createCertificate. When unset, the controller's --default-pca-arn is used if configured,
+                        otherwise a public Amazon-issued certificate is requested and validated through Route 53 DNS records.
+                      type: string
                     certificates:
                       description: certificates is the list of other certificates
                         to add to the listener.
                       items:
                         type: string
                       type: array
+                    createCertificate:
+                      description: |-
+                        createCertificate makes the controller request, validate and manage an ACM certificate covering
+                        the hostnames of the Gateway listeners on this port, like the create-acm-cert Ingress annotation.
+                        It applies to secure (HTTPS/TLS) listeners only and requires the EnableCertificateManagement feature gate.
+                        defaultCertificate and certificates take precedence: when either is set, no certificate is created.
+                      type: boolean
                     defaultCertificate:
                       description: defaultCertificate the cert arn to be used by default.
                       type: string
@@ -1357,12 +1370,25 @@ spec:
                       - HTTP2Preferred
                       - None
                       type: string
+                    certificateAuthorityArn:
+                      description: |-
+                        certificateAuthorityArn is the ARN of the AWS Private CA that issues the certificate requested by
+                        createCertificate. When unset, the controller's --default-pca-arn is used if configured,
+                        otherwise a public Amazon-issued certificate is requested and validated through Route 53 DNS records.
+                      type: string
                     certificates:
                       description: certificates is the list of other certificates
                         to add to the listener.
                       items:
                         type: string
                       type: array
+                    createCertificate:
+                      description: |-
+                        createCertificate makes the controller request, validate and manage an ACM certificate covering
+                        the hostnames of the Gateway listeners on this port, like the create-acm-cert Ingress annotation.
+                        It applies to secure (HTTPS/TLS) listeners only and requires the EnableCertificateManagement feature gate.
+                        defaultCertificate and certificates take precedence: when either is set, no certificate is created.
+                      type: boolean
                     defaultCertificate:
                       description: defaultCertificate the cert arn to be used by default.
                       type: string

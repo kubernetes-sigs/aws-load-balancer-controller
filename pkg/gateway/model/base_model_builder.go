@@ -75,6 +75,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 		externalManagedTags:      externalManagedTags,
 		defaultSSLPolicy:         defaultSSLPolicy,
 		defaultTags:              defaultTags,
+		defaultPCAArn:            lbcConfig.IngressConfig.DefaultPCAArn,
 		disableRestrictedSGRules: disableRestrictedSGRules,
 		addOnBuilder:             modelAddons.NewAddOnBuilder(logger, supportedAddons),
 
@@ -99,6 +100,7 @@ type baseModelBuilder struct {
 	enableIPTargetType         bool
 	enableManageBackendSGRules bool
 	defaultTags                map[string]string
+	defaultPCAArn              string
 	externalManagedTags        sets.Set[string]
 	defaultSSLPolicy           string
 	defaultTargetType          string
@@ -181,7 +183,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, baseBuilder.vpcID, spec.Scheme, lbConf.Spec.SourceRanges, securityGroups, subnets.ec2Result, baseBuilder.vpcInfoProvider)
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, tgbNetworkingBuilder, baseBuilder.tgPropertiesConstructor, baseBuilder.defaultTargetType, targetGroupNameToArnMapper)
-	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.certDiscovery, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.k8sClient, secretsManager, baseBuilder.logger)
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.certDiscovery, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.k8sClient, secretsManager, baseBuilder.featureGates.Enabled(config.EnableCertificateManagement), baseBuilder.defaultPCAArn, baseBuilder.logger)
 
 	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, gw, listeners, routes, lbConf)
 	if err != nil {

@@ -2,14 +2,12 @@ package ingress
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"strings"
 
-	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/certs"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 )
 
@@ -41,11 +39,7 @@ func (t *defaultModelBuildTask) buildACMCertificates(ctx context.Context, ing *C
 // buildCertificateResourceID builds a unique resource ID for a certificate.
 // The ID includes a hash of the ingress namespace/name to ensure each ingress gets its own certificate
 func (t *defaultModelBuildTask) buildCertificateResourceID(spec *acmModel.CertificateSpec, ing *ClassifiedIngress) string {
-	ingKey := fmt.Sprintf("%s/%s", ing.Ing.Namespace, ing.Ing.Name)
-	ingHash := fmt.Sprintf("%x", sha256.Sum256([]byte(ingKey)))[:8]
-	// The resourceID becomes a tag value, which rejects '*' (ACM pattern [\p{L}\p{Z}\p{N}_.:/=+\-@]*).
-	domainName := strings.ReplaceAll(spec.DomainName, "*", "wildcard")
-	return fmt.Sprintf("%s/%s-%s", strings.ToLower(string(spec.Type)), domainName, ingHash)
+	return certs.BuildCertificateResourceID(*spec, fmt.Sprintf("%s/%s", ing.Ing.Namespace, ing.Ing.Name))
 }
 
 func (t *defaultModelBuildTask) buildCertificateSpec(ctx context.Context, ing *ClassifiedIngress) (*acmModel.CertificateSpec, error) {
@@ -63,20 +57,8 @@ func (t *defaultModelBuildTask) buildCertificateSpec(ctx context.Context, ing *C
 		return nil, err
 	}
 
-	// if we have no reference to a CA it will be a public certificate
-	certType := acmtypes.CertificateTypePrivate
-	if caArn == "" {
-		certType = acmtypes.CertificateTypeAmazonIssued
-	}
-
-	return &acmModel.CertificateSpec{
-		Type:                    certType,
-		CertificateAuthorityARN: caArn,
-		DomainName:              hosts[0],
-		SubjectAlternativeNames: hosts,
-		ValidationMethod:        acmtypes.ValidationMethodDns, // currently we only support DNS based validation for AMAZON_ISSUED certificates
-		Tags:                    tags,
-	}, nil
+	spec := certs.BuildCertificateRequestSpec(hosts, caArn, tags)
+	return &spec, nil
 }
 
 func (t *defaultModelBuildTask) buildCertificateHosts(_ context.Context, ing *ClassifiedIngress) []string {
