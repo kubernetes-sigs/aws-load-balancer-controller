@@ -112,7 +112,9 @@ func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack
 	return elbv2model.NewListener(stack, lsResID, *listenerSpec), nil
 }
 
-func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+// buildListenerSpec builds the parts of the listener spec shared by L4 and L7 listeners. Certificates are added by the
+// callers once they know the listener will be created, because a controller-managed certificate is a stack resource.
+func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	tags, err := l.buildListenerTags(lbCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
@@ -125,11 +127,6 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, stack core.S
 	if sslPolicyErr != nil {
 		return &elbv2model.ListenerSpec{}, sslPolicyErr
 	}
-	certificates, certsErr := l.buildCertificates(ctx, stack, gw, port, lbCfg, gwLsCfg, lbLsCfg)
-	if certsErr != nil {
-		return &elbv2model.ListenerSpec{}, certsErr
-	}
-
 	// Apply QUIC protocol upgrade if enabled
 	protocol := gwLsCfg.protocol
 	if lbLsCfg != nil && lbLsCfg.QuicEnabled != nil && *lbLsCfg.QuicEnabled {
@@ -147,7 +144,6 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, stack core.S
 		LoadBalancerARN:    lb.LoadBalancerARN(),
 		Port:               port,
 		Protocol:           protocol,
-		Certificates:       certificates,
 		SSLPolicy:          sslPolicy,
 		Tags:               tags,
 		ListenerAttributes: lsAttributes,
@@ -156,10 +152,15 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, stack core.S
 }
 
 func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
-	listenerSpec, err := l.buildListenerSpec(ctx, stack, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
+	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
+	certificates, err := l.buildCertificates(ctx, stack, gw, port, lbCfg, gwLsCfg, lbLsCfg)
+	if err != nil {
+		return &elbv2model.ListenerSpec{}, err
+	}
+	listenerSpec.Certificates = certificates
 	listenerSpec.DefaultActions = buildL7ListenerDefaultActions()
 	mutualAuth, err := l.buildMutualAuthenticationAttributes(ctx, gwLsCfg, lbLsCfg)
 	if err != nil {
@@ -170,7 +171,7 @@ func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, stack core
 }
 
 func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
-	listenerSpec, err := l.buildListenerSpec(ctx, stack, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
+	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
@@ -189,6 +190,12 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		l.logger.Info("Skipping listener creation due to no backend references", "listener", fmt.Sprintf("%v:%v", listenerSpec.Protocol, port), "gateway", k8s.NamespacedName(gw))
 		return nil, nil
 	}
+	// Only now that the listener will exist, so a skipped listener never requests a managed certificate.
+	certificates, err := l.buildCertificates(ctx, stack, gw, port, lbCfg, gwLsCfg, lbLsCfg)
+	if err != nil {
+		return &elbv2model.ListenerSpec{}, err
+	}
+	listenerSpec.Certificates = certificates
 	listenerSpec.DefaultActions = buildL4ListenerDefaultActions(tgTuples, lbLsCfg)
 	return listenerSpec, nil
 }

@@ -1328,6 +1328,45 @@ func TestBuildCertificates_CreateCertificate_OneCertificatePerListenerPort(t *te
 	assert.NotEqual(t, created[0].ID(), created[1].ID())
 }
 
+func TestBuildListenerSpec_CreateCertificate_OnlyForListenersThatAreCreated(t *testing.T) {
+	gw := &gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "web"}}
+	lsCfg := &elbv2gw.ListenerConfiguration{CreateCertificate: awssdk.Bool(true)}
+	newBuilder := func(lbType elbv2model.LoadBalancerType) listenerBuilderImpl {
+		return listenerBuilderImpl{
+			loadBalancerType:            lbType,
+			tagHelper:                   &mockTagHelper{},
+			enableCertificateManagement: true,
+			logger:                      logr.Discard(),
+		}
+	}
+	countCerts := func(stack coremodel.Stack) int {
+		var created []*acmModel.Certificate
+		assert.NoError(t, stack.ListResources(&created))
+		return len(created)
+	}
+
+	t.Run("L4 TLS listener skipped for lack of backends requests no certificate", func(t *testing.T) {
+		stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: gw.Namespace, Name: gw.Name})
+		lb := elbv2model.NewLoadBalancer(stack, "LoadBalancer", elbv2model.LoadBalancerSpec{IPAddressType: elbv2model.IPAddressTypeIPV4})
+		cfg := gwListenerConfig{protocol: elbv2model.ProtocolTLS, hostnames: sets.New[string]("tls.example.com")}
+		spec, err := newBuilder(elbv2model.LoadBalancerTypeNetwork).buildL4ListenerSpec(context.Background(), stack, lb, gw, elbv2gw.LoadBalancerConfiguration{}, 443, nil, cfg, lsCfg)
+		assert.NoError(t, err)
+		assert.Nil(t, spec)
+		assert.Equal(t, 0, countCerts(stack))
+	})
+
+	t.Run("L7 HTTPS listener references the managed certificate", func(t *testing.T) {
+		stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: gw.Namespace, Name: gw.Name})
+		lb := elbv2model.NewLoadBalancer(stack, "LoadBalancer", elbv2model.LoadBalancerSpec{IPAddressType: elbv2model.IPAddressTypeIPV4})
+		cfg := gwListenerConfig{protocol: elbv2model.ProtocolHTTPS, hostnames: sets.New[string]("web.example.com")}
+		spec, err := newBuilder(elbv2model.LoadBalancerTypeApplication).buildL7ListenerSpec(context.Background(), stack, lb, gw, elbv2gw.LoadBalancerConfiguration{}, 443, cfg, lsCfg)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, countCerts(stack))
+		assert.Len(t, spec.Certificates, 1)
+		assert.Len(t, spec.Certificates[0].CertificateARN.Dependencies(), 1)
+	})
+}
+
 func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 	trueValue := true
 	falseValue := false
