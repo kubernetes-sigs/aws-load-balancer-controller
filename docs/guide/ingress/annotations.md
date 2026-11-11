@@ -1048,7 +1048,7 @@ Creation of TLS ceritficates can be controlled using the following annotations:
     !!!example
           ```
 
-          alb.ingress.kubernetes.io/create-acm-cert: true
+          alb.ingress.kubernetes.io/create-acm-cert: "true"
 
 
           ```
