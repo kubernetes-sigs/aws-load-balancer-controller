@@ -14,10 +14,10 @@ The controller will attempt to discover TLS certificates from the `tls` field in
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
-            namespace: default
-            name: ingress
-            annotations:
-              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+              namespace: default
+              name: ingress
+              annotations:
+                alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
             spec:
               ingressClassName: alb
               tls:
@@ -44,10 +44,10 @@ The controller will attempt to discover TLS certificates from the `tls` field in
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
-            namespace: default
-            name: ingress
-            annotations:
-              alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+              namespace: default
+              name: ingress
+              annotations:
+                alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
             spec:
               ingressClassName: alb
               rules:

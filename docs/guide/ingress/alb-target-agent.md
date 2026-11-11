@@ -22,7 +22,7 @@ kind: Ingress
 metadata:
   name: my-ingress
   annotations:
-    alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}: 3000 # Must match agent controlAddress port
+    alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}: "3000" # Must match agent controlAddress port
 spec:
 ```
 
