@@ -522,5 +522,8 @@ serviceTargetENISGTags:
 # Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
 loadBalancerClass:
 
+# Duration that non-leader candidates will wait to force acquire leadership, e.g. 30s. Must be greater than the renew deadline (10s). If unset, the controller-runtime default (15s) is used.
+leaderElectionLeaseDuration:
+
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
