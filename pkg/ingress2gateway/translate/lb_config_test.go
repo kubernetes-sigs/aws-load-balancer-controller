@@ -1,6 +1,7 @@
 package translate
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,6 +9,31 @@ import (
 	gatewayv1beta1 "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 )
+
+func TestBuildLoadBalancerConfigSpecWarnsOnInvalidLogDelivery(t *testing.T) {
+	for _, value := range []string{"not-json", `{"logType":"ALB_ACCESS_LOGS"}`} {
+		t.Run(value, func(t *testing.T) {
+			stderr, err := os.CreateTemp(t.TempDir(), "migration-stderr")
+			require.NoError(t, err)
+			originalStderr := os.Stderr
+			os.Stderr = stderr
+			defer func() { os.Stderr = originalStderr }()
+			spec := buildLoadBalancerConfigSpec(map[string]string{
+				"alb.ingress.kubernetes.io/scheme":       "internal",
+				"alb.ingress.kubernetes.io/log-delivery": value,
+			}, nil)
+			os.Stderr = originalStderr
+			require.NoError(t, stderr.Close())
+			output, err := os.ReadFile(stderr.Name())
+			require.NoError(t, err)
+			assert.Contains(t, string(output), "WARNING: ignoring invalid alb.ingress.kubernetes.io/log-delivery annotation:")
+			assert.Contains(t, string(output), "failed to parse json annotation")
+			assert.Empty(t, spec.LogDelivery)
+			require.NotNil(t, spec.Scheme)
+			assert.Equal(t, gatewayv1beta1.LoadBalancerSchemeInternal, *spec.Scheme)
+		})
+	}
+}
 
 func TestBuildLoadBalancerConfigResource(t *testing.T) {
 	tests := []struct {
@@ -94,6 +120,33 @@ func TestBuildLoadBalancerConfigResource(t *testing.T) {
 				require.NotNil(t, lbc.Spec.ShieldAdvanced)
 				assert.True(t, lbc.Spec.ShieldAdvanced.Enabled)
 			},
+		},
+		{
+			name: "log delivery",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/log-delivery": `[{"logType":"ALB_ACCESS_LOGS","destinationArn":"arn:aws:s3:::my-alb-logs","outputFormat":"parquet",` +
+					`"s3DeliveryConfiguration":{"enableHiveCompatiblePath":true}},` +
+					`{"logType":"ALB_CONNECTION_LOGS","deliveryDestinationArn":"arn:aws:logs:us-west-2:444455556666:delivery-destination:central"}]`,
+			},
+			ports: []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			check: func(t *testing.T, lbc *gatewayv1beta1.LoadBalancerConfiguration) {
+				require.Len(t, lbc.Spec.LogDelivery, 2)
+				assert.Equal(t, "ALB_ACCESS_LOGS", lbc.Spec.LogDelivery[0].LogType)
+				assert.Equal(t, "arn:aws:s3:::my-alb-logs", *lbc.Spec.LogDelivery[0].DestinationArn)
+				assert.Equal(t, "parquet", *lbc.Spec.LogDelivery[0].OutputFormat)
+				require.NotNil(t, lbc.Spec.LogDelivery[0].S3DeliveryConfiguration)
+				assert.True(t, *lbc.Spec.LogDelivery[0].S3DeliveryConfiguration.EnableHiveCompatiblePath)
+				assert.Equal(t, "ALB_CONNECTION_LOGS", lbc.Spec.LogDelivery[1].LogType)
+				assert.Equal(t, "arn:aws:logs:us-west-2:444455556666:delivery-destination:central", *lbc.Spec.LogDelivery[1].DeliveryDestinationArn)
+			},
+		},
+		{
+			name: "empty log delivery list is not carried over",
+			annos: map[string]string{
+				"alb.ingress.kubernetes.io/log-delivery": `[]`,
+			},
+			ports:   []listenPortEntry{{Protocol: "HTTP", Port: 80}},
+			wantNil: true,
 		},
 		{
 			name: "subnets and security groups",

@@ -114,6 +114,48 @@ type IPAMConfiguration struct {
 	IPv4IPAMPoolId *string `json:"ipv4IPAMPoolId,omitempty"`
 }
 
+// LogDeliveryConfiguration configures a CloudWatch Logs vended log delivery from an Application Load Balancer.
+// +kubebuilder:validation:XValidation:rule="has(self.destinationArn) != has(self.deliveryDestinationArn)",message="exactly one of destinationArn or deliveryDestinationArn must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.outputFormat) || has(self.destinationArn)",message="outputFormat can only be set with destinationArn"
+type LogDeliveryConfiguration struct {
+	// LogType is the type of logs to deliver.
+	// +kubebuilder:validation:Enum=ALB_ACCESS_LOGS;ALB_CONNECTION_LOGS;ALB_HEALTH_CHECK_LOGS
+	LogType string `json:"logType"`
+
+	// DestinationARN is the ARN of a CloudWatch Logs log group, an S3 bucket (optionally followed by a prefix) or a Firehose delivery stream.
+	// The controller creates and owns a delivery destination for it.
+	// +optional
+	DestinationARN *string `json:"destinationArn,omitempty"`
+
+	// DeliveryDestinationARN is the ARN of an existing CloudWatch Logs delivery destination. The controller doesn't modify it.
+	// +optional
+	DeliveryDestinationARN *string `json:"deliveryDestinationArn,omitempty"`
+
+	// OutputFormat is the format of the delivered logs. CloudWatch Logs accepts plain and json, Firehose plain, json and raw, and S3 plain, json, w3c and parquet.
+	// +kubebuilder:validation:Enum=plain;json;w3c;raw;parquet
+	// +optional
+	OutputFormat *string `json:"outputFormat,omitempty"`
+
+	// FieldDelimiter separates fields in plain and w3c output: a tab, a space or a comma.
+	// +optional
+	FieldDelimiter *string `json:"fieldDelimiter,omitempty"`
+
+	// S3DeliveryConfiguration configures the S3 object path. Only valid for S3 destinations.
+	// +optional
+	S3DeliveryConfiguration *LogDeliveryS3Configuration `json:"s3DeliveryConfiguration,omitempty"`
+}
+
+// LogDeliveryS3Configuration configures the S3 object path of a log delivery.
+type LogDeliveryS3Configuration struct {
+	// SuffixPath is appended to the service-defined path, for example "{yyyy}/{MM}/{dd}".
+	// +optional
+	SuffixPath *string `json:"suffixPath,omitempty"`
+
+	// EnableHiveCompatiblePath renders the path variables as key=value.
+	// +optional
+	EnableHiveCompatiblePath *bool `json:"enableHiveCompatiblePath,omitempty"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 // +kubebuilder:validation:XValidation:rule="!(has(self.prefixListsIDs) && has(self.PrefixListsIDs))", message="cannot specify both 'prefixListsIDs' and 'PrefixListsIDs' fields"
 type IngressClassParamsSpec struct {
@@ -168,6 +210,12 @@ type IngressClassParamsSpec struct {
 	// LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that that belong to IngressClass with this IngressClassParams.
 	// +optional
 	LoadBalancerAttributes []Attribute `json:"loadBalancerAttributes,omitempty"`
+
+	// LogDelivery defines log deliveries for the IngressGroup and takes precedence over log-delivery annotations on all group members.
+	// An explicitly empty list disables log delivery. When absent, the controller uses the annotations.
+	// It requires the LogDelivery feature gate.
+	// +optional
+	LogDelivery *[]LogDeliveryConfiguration `json:"logDelivery,omitempty"`
 
 	// Listeners define a list of listeners with their protocol, port and attributes.
 	// +optional

@@ -22,7 +22,7 @@ var _ = SynchronizedBeforeSuite(func() []byte {
 	Expect(err).NotTo(HaveOccurred())
 
 	if tf.Options.ControllerImage != "" {
-		err = tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, true, false)
+		err = tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, true, false, tf.Options.EnableLogDeliveryTests)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(60 * time.Second)
 	}

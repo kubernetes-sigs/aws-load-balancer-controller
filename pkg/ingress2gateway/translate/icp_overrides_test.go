@@ -36,6 +36,10 @@ func TestAllIngressClassParamsFieldsHandled(t *testing.T) {
 			Tags:                   []elbv2api.Tag{{Key: "Env", Value: "prod"}},
 			TargetType:             "ip",
 			LoadBalancerAttributes: []elbv2api.Attribute{{Key: "idle_timeout", Value: "120"}},
+			LogDelivery: &[]elbv2api.LogDeliveryConfiguration{{
+				LogType:        "ALB_ACCESS_LOGS",
+				DestinationARN: ptr.To("arn:aws:s3:::class-logs"),
+			}},
 			Listeners: []elbv2api.Listener{{
 				Protocol:           elbv2api.ListenerProtocolHTTPS,
 				Port:               443,
@@ -108,6 +112,8 @@ func TestAllIngressClassParamsFieldsHandled(t *testing.T) {
 			handled = lbSpec.Tags != nil
 		case "LoadBalancerAttributes":
 			handled = len(lbSpec.LoadBalancerAttributes) > 0
+		case "LogDelivery":
+			handled = len(lbSpec.LogDelivery) > 0
 		case "Subnets":
 			handled = lbSpec.LoadBalancerSubnets != nil || lbSpec.LoadBalancerSubnetsSelector != nil
 		case "PrefixListsIDs":

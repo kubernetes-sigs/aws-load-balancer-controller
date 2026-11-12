@@ -5,6 +5,7 @@ MOCKGEN=${MOCKGEN:-~/go/bin/mockgen}
 
 $MOCKGEN -package=mock_client -destination=./mocks/controller-runtime/client/client_mocks.go sigs.k8s.io/controller-runtime/pkg/client Client
 $MOCKGEN -package=services -destination=./pkg/aws/services/acm_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services ACM
+$MOCKGEN -package=services -destination=./pkg/aws/services/cloudwatchlogs_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services CloudWatchLogs
 $MOCKGEN -package=services -destination=./pkg/aws/services/ec2_metadata_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services EC2Metadata
 $MOCKGEN -package=services -destination=./pkg/aws/services/elbv2_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services ELBV2
 $MOCKGEN -package=services -destination=./pkg/aws/services/ec2_mocks.go sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services EC2
