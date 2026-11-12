@@ -3181,6 +3181,168 @@ func Test_defaultPodENIInfoResolver_isPodSupportedByNodeENI(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "direct IPv6 address without delegated prefixes",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8:1::1234"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:db8:1::1234")},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "direct IPv6 address outside delegated prefix",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8:2:ae00:0:b292:1c3a:7b0f"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:db8:2:ae00:0:b292:1c3a:7b0f")},
+					},
+					Ipv6Prefixes: []ec2types.InstanceIpv6Prefix{
+						{Ipv6Prefix: awssdk.String("2001:db8:2:ae00:3fa1::/80")},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "second direct IPv6 address outside delegated prefix",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8:2:ae02:0:4855:79c7:5b6f"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:db8:2:ae02:0:4855:79c7:5b6f")},
+					},
+					Ipv6Prefixes: []ec2types.InstanceIpv6Prefix{
+						{Ipv6Prefix: awssdk.String("2001:db8:2:ae02:ebcb::/80")},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "equivalent IPv6 address representations",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8:1::abcd"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:0db8:0001:0000:0000:0000:0000:ABCD")},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "delegated IPv6 prefix",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8:2:ae00:3fa1::1234"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:db8:2:ae00::1")},
+					},
+					Ipv6Prefixes: []ec2types.InstanceIpv6Prefix{
+						{Ipv6Prefix: awssdk.String("2001:db8:2:ae00:3fa1::/80")},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "unrelated IPv6 address",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8:2:ae00:4::1"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:db8:2:ae00::1")},
+					},
+					Ipv6Prefixes: []ec2types.InstanceIpv6Prefix{
+						{Ipv6Prefix: awssdk.String("2001:db8:2:ae00:3fa1::/80")},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "missing IPv6 address does not match invalid pod IP",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "invalid"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: nil},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "invalid IPv6 address does not match invalid pod IP",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "invalid"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("invalid")},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "invalid delegated IPv6 prefix",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8::1"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{
+						{Ipv6Address: awssdk.String("2001:db8:ffff::1")},
+						{Ipv6Address: awssdk.String("2001:db8::2")},
+					},
+					Ipv6Prefixes: []ec2types.InstanceIpv6Prefix{
+						{Ipv6Prefix: awssdk.String("invalid")},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "empty pod IP does not match missing IPv6 address",
+			args: args{
+				pod: k8s.PodInfo{PodIP: ""},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{{Ipv6Address: nil}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "valid pod IP does not match missing IPv6 address",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8::1"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{{Ipv6Address: nil}},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "valid pod IP does not match malformed IPv6 address",
+			args: args{
+				pod: k8s.PodInfo{PodIP: "2001:db8::1"},
+				nodeENI: ec2types.InstanceNetworkInterface{
+					Ipv6Addresses: []ec2types.InstanceIpv6Address{{Ipv6Address: awssdk.String("invalid")}},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
