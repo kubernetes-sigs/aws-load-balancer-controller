@@ -429,17 +429,28 @@ type AuthIDPConfigCognito struct {
 
 // configuration for IDP of OIDC
 type AuthIDPConfigOIDC struct {
+	// The OIDC discovery endpoint of the IdP (e.g. https://example.com).
+	// When set, the controller fetches {discoveryEndpoint}/.well-known/openid-configuration
+	// and automatically populates Issuer, AuthorizationEndpoint, TokenEndpoint, and UserInfoEndpoint.
+	// Either discoveryEndpoint OR all four individual endpoint fields must be provided.
+	// +optional
+	DiscoveryEndpoint string `json:"discoveryEndpoint,omitempty"`
+
 	// The OIDC issuer identifier of the IdP.
-	Issuer string `json:"issuer"`
+	// +optional when discoveryEndpoint is set
+	Issuer string `json:"issuer,omitempty"`
 
 	// The authorization endpoint of the IdP.
-	AuthorizationEndpoint string `json:"authorizationEndpoint"`
+	// +optional when discoveryEndpoint is set
+	AuthorizationEndpoint string `json:"authorizationEndpoint,omitempty"`
 
 	// The token endpoint of the IdP.
-	TokenEndpoint string `json:"tokenEndpoint"`
+	// +optional when discoveryEndpoint is set
+	TokenEndpoint string `json:"tokenEndpoint,omitempty"`
 
 	// The user info endpoint of the IdP.
-	UserInfoEndpoint string `json:"userInfoEndpoint"`
+	// +optional when discoveryEndpoint is set
+	UserInfoEndpoint string `json:"userInfoEndpoint,omitempty"`
 
 	// The k8s secretName.
 	SecretName string `json:"secretName"`
