@@ -583,7 +583,7 @@ You can configure TLS support via the following annotations:
         service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, custom-port
         ```
 
-- <a name="ssl-negotiation-policy">`service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies) for NLB frontend connections, allowing you to control the protocol and ciphers.
+- <a name="ssl-negotiation-policy">`service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies) for NLB frontend connections, allowing you to control the protocol and ciphers. See the recommended SSL policies [here](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html#:~:text=.-,AWS%20recommends,-implementing%20the%20new).
 
     !!!example
         ```

@@ -166,6 +166,8 @@ type ListenerConfiguration struct {
 	Certificates []*string `json:"certificates,omitempty"`
 
 	// sslPolicy is the security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener].
+	// Recommended security policies for ALB: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html.
+	// Recommended security policies for NLB: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html.
 	SslPolicy *string `json:"sslPolicy,omitempty"`
 
 	// alpnPolicy an optional string that allows you to configure ALPN policies on your Load Balancer
