@@ -50,7 +50,7 @@ func Test_Synthesizer(t *testing.T) {
 
 				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
 
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{}, nil)
 
 				mockTracking.EXPECT().ResourceIDTagKey().Return("foo")
@@ -133,7 +133,7 @@ func Test_Synthesizer(t *testing.T) {
 
 				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
 
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{{
 						CertificateArn:                  awssdk.String("arn-1"),
 						DomainName:                      awssdk.String("example.com"),
@@ -183,7 +183,7 @@ func Test_Synthesizer(t *testing.T) {
 
 				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
 
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{{
 						CertificateArn:                  awssdk.String("arn-1"),
 						DomainName:                      awssdk.String("example.com"),
@@ -320,7 +320,7 @@ func Test_Synthesizer(t *testing.T) {
 
 				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
 
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{{
 						CertificateArn:                  awssdk.String("arn-1"),
 						DomainName:                      awssdk.String("example.com"),
@@ -455,7 +455,7 @@ func Test_Synthesizer(t *testing.T) {
 
 				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
 
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{{
 						CertificateArn:                  awssdk.String("arn-1"),
 						DomainName:                      awssdk.String("example.com"),
@@ -509,7 +509,7 @@ func Test_Synthesizer(t *testing.T) {
 				mockTracking.EXPECT().StackTags(gomock.Any()).Return(map[string]string(nil))
 				mockTracking.EXPECT().StackTagsLegacy(gomock.Any()).Return(map[string]string(nil))
 
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{}, nil)
 
 				// Pre-check: GetPublicHostedZoneID fails — no cert should be requested
@@ -950,6 +950,80 @@ func Test_matchResAndSDKCertificates(t *testing.T) {
 				assert.Equal(t, tt.want1, got1)
 				assert.Equal(t, tt.want2, got2)
 			}
+		})
+	}
+}
+
+func Test_isSDKCertificateRequiresReplacement(t *testing.T) {
+	tests := []struct {
+		name            string
+		sdkSANs         []string
+		sdkKeyAlgorithm acmtypes.KeyAlgorithm
+		resSANs         []string
+		resKeyAlgorithm acmtypes.KeyAlgorithm
+		want            bool
+	}{
+		{
+			name:            "identical SANs and key algorithm",
+			sdkSANs:         []string{"example.com"},
+			sdkKeyAlgorithm: acmtypes.KeyAlgorithmEcPrime256v1,
+			resSANs:         []string{"example.com"},
+			resKeyAlgorithm: acmtypes.KeyAlgorithmEcPrime256v1,
+			want:            false,
+		},
+		{
+			name:            "different SANs",
+			sdkSANs:         []string{"example.com"},
+			sdkKeyAlgorithm: acmtypes.KeyAlgorithmRsa2048,
+			resSANs:         []string{"example.com", "www.example.com"},
+			resKeyAlgorithm: acmtypes.KeyAlgorithmRsa2048,
+			want:            true,
+		},
+		{
+			name:            "different key algorithm",
+			sdkSANs:         []string{"example.com"},
+			sdkKeyAlgorithm: acmtypes.KeyAlgorithmRsa2048,
+			resSANs:         []string{"example.com"},
+			resKeyAlgorithm: acmtypes.KeyAlgorithmEcPrime256v1,
+			want:            true,
+		},
+		{
+			name:            "empty desired key algorithm matches RSA_2048",
+			sdkSANs:         []string{"example.com"},
+			sdkKeyAlgorithm: acmtypes.KeyAlgorithmRsa2048,
+			resSANs:         []string{"example.com"},
+			want:            false,
+		},
+		{
+			name:            "empty desired key algorithm does not match EC certificate",
+			sdkSANs:         []string{"example.com"},
+			sdkKeyAlgorithm: acmtypes.KeyAlgorithmEcSecp384r1,
+			resSANs:         []string{"example.com"},
+			want:            true,
+		},
+		{
+			name:            "unknown sdk key algorithm is not replaced",
+			sdkSANs:         []string{"example.com"},
+			resSANs:         []string{"example.com"},
+			resKeyAlgorithm: acmtypes.KeyAlgorithmEcPrime256v1,
+			want:            false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sdkCert := CertificateWithTags{
+				Certificate: &acmtypes.CertificateSummary{
+					SubjectAlternativeNameSummaries: tt.sdkSANs,
+					KeyAlgorithm:                    tt.sdkKeyAlgorithm,
+				},
+			}
+			resCert := &acmModel.Certificate{
+				Spec: acmModel.CertificateSpec{
+					SubjectAlternativeNames: tt.resSANs,
+					KeyAlgorithm:            tt.resKeyAlgorithm,
+				},
+			}
+			assert.Equal(t, tt.want, isSDKCertificateRequiresReplacement(sdkCert, resCert))
 		})
 	}
 }

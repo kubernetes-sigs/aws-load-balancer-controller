@@ -82,6 +82,7 @@ const (
 	IngressSuffixTargetControlPort                             = "target-control-port"
 	IngressSuffixCreateCertificate                             = "create-acm-cert"
 	IngressSuffixACMCaARN                                      = "acm-pca-arn"
+	IngressSuffixACMKeyAlgorithm                               = "acm-key-algorithm"
 	IngressSuffixDryRunPlan                                    = "dry-run-plan"
 
 	// NLB annotation suffixes

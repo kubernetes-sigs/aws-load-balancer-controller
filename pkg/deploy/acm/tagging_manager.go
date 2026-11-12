@@ -60,7 +60,12 @@ type defaultTaggingManager struct {
 }
 
 func (m *defaultTaggingManager) ListCertificates(ctx context.Context, tagFilters ...tracking.TagFilter) ([]CertificateWithTags, error) {
-	req := &acmsdk.ListCertificatesInput{}                            // no option to add filters directly
+	req := &acmsdk.ListCertificatesInput{ // no option to add tag filters directly
+		// by default ACM only lists RSA_2048 certificates
+		Includes: &acmtypes.Filters{
+			KeyTypes: acmtypes.KeyAlgorithm("").Values(),
+		},
+	}
 	certificates, err := m.acmClient.ListCertificatesAsList(ctx, req) // this will lookup all certs there are
 	if err != nil {
 		return nil, err
