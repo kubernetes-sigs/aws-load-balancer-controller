@@ -2130,3 +2130,39 @@ func (m *mockSGReconciler) ReconcileIngress(ctx context.Context, sgID string, de
 	})
 	return nil
 }
+
+func Test_defaultNetworkingManager_NetworkingOptOut(t *testing.T) {
+	mockReconciler := &mockSGReconciler{}
+	m := &defaultNetworkingManager{
+		ingressPermissionsPerSGByTGB: make(map[types.NamespacedName]map[string][]IPPermissionInfo),
+		trackedEndpointSGs:           sets.NewString(),
+		sgReconciler:                 mockReconciler,
+	}
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "test-tgb",
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			Networking: nil,
+		},
+	}
+
+	ctx := context.Background()
+
+	// ReconcileForPodEndpoints with Spec.Networking nil should be a no-op
+	err := m.ReconcileForPodEndpoints(ctx, tgb, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(mockReconciler.calls), "ReconcileForPodEndpoints should not invoke sgReconciler when Spec.Networking is nil")
+
+	// ReconcileForNodePortEndpoints with Spec.Networking nil should be a no-op
+	err = m.ReconcileForNodePortEndpoints(ctx, tgb, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(mockReconciler.calls), "ReconcileForNodePortEndpoints should not invoke sgReconciler when Spec.Networking is nil")
+
+	// Cleanup with Spec.Networking nil should be a no-op
+	err = m.Cleanup(ctx, tgb)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(mockReconciler.calls), "Cleanup should not invoke sgReconciler when Spec.Networking is nil")
+}
