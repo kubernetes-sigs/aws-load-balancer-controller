@@ -165,6 +165,19 @@ type ListenerConfiguration struct {
 	// +optional
 	Certificates []*string `json:"certificates,omitempty"`
 
+	// createCertificate makes the controller request, validate and manage an ACM certificate covering
+	// the hostnames of the Gateway listeners on this port, like the create-acm-cert Ingress annotation.
+	// It applies to secure (HTTPS/TLS) listeners only and requires the EnableCertificateManagement feature gate.
+	// defaultCertificate and certificates take precedence: when either is set, no certificate is created.
+	// +optional
+	CreateCertificate *bool `json:"createCertificate,omitempty"`
+
+	// certificateAuthorityArn is the ARN of the AWS Private CA that issues the certificate requested by
+	// createCertificate. When unset, the controller's --default-pca-arn is used if configured,
+	// otherwise a public Amazon-issued certificate is requested and validated through Route 53 DNS records.
+	// +optional
+	CertificateAuthorityArn *string `json:"certificateAuthorityArn,omitempty"`
+
 	// sslPolicy is the security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener].
 	SslPolicy *string `json:"sslPolicy,omitempty"`
 

@@ -425,6 +425,31 @@ A list of cert ARNs to accept on this listener.
 
 **Default** Empty list
 
+#### CreateCertificate
+
+`createCertificate`
+
+When `true`, the controller requests an ACM certificate for the listener, validates it and attaches it as the listener's default certificate, the same way the [create-acm-cert](../ingress/annotations.md#create-acm-cert) annotation works for Ingresses. The hostnames of all Gateway listeners on this port become Subject Alternative Names, and the first one in sorted order becomes the Domain Name. Each Gateway listener port gets its own certificate, which the controller deletes once it is no longer referenced.
+
+This applies only to secure (HTTPS and TLS) listeners, requires the `EnableCertificateManagement` [feature gate](../../deploy/configurations.md#feature-gates) and the additional [IAM permissions](../../install/iam_policy_acm_certs.json), and every Gateway listener on the port must set a `hostname`. `defaultCertificate` and `certificates` take precedence: when either is set, no certificate is created. See [ACM Certificate Management](../ingress/certificate_management.md) for validation and PCA details.
+
+```yaml
+spec:
+  listenerConfigurations:
+    - protocolPort: HTTPS:443
+      createCertificate: true
+```
+
+**Default** false
+
+#### CertificateAuthorityArn
+
+`certificateAuthorityArn`
+
+The ARN of an AWS Private CA that issues the certificate requested with `createCertificate`. When unset, the controller's `--default-pca-arn` is used if it is configured, otherwise a public Amazon-issued certificate is requested and validated with Route 53 DNS records.
+
+**Default** The controller's `--default-pca-arn`, or an Amazon-issued certificate
+
 #### SslPolicy
 
 `sslPolicy`

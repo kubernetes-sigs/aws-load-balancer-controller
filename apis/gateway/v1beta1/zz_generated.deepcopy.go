@@ -388,6 +388,16 @@ func (in *ListenerConfiguration) DeepCopyInto(out *ListenerConfiguration) {
 			}
 		}
 	}
+	if in.CreateCertificate != nil {
+		in, out := &in.CreateCertificate, &out.CreateCertificate
+		*out = new(bool)
+		**out = **in
+	}
+	if in.CertificateAuthorityArn != nil {
+		in, out := &in.CertificateAuthorityArn, &out.CertificateAuthorityArn
+		*out = new(string)
+		**out = **in
+	}
 	if in.SslPolicy != nil {
 		in, out := &in.SslPolicy, &out.SslPolicy
 		*out = new(string)

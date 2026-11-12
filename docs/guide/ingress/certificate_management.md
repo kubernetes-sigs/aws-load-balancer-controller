@@ -22,6 +22,10 @@ Use the [create-acm-cert annotation](annotations.md#create-acm-cert) to enable a
 !!!info
     This annotation **disables** certificate discovery. Any existing certificates are detached from the ALB Listeners during reconciliation.
 
+## Create TLS certificates for Gateway listeners
+
+With the Gateway API, set [createCertificate](../gateway/loadbalancerconfig.md#createcertificate) on a listener in a `LoadBalancerConfiguration`. The hostnames of the Gateway listeners on that port are used the same way as Ingress hosts, and `certificateAuthorityArn` selects a Private CA. Explicit `defaultCertificate` or `certificates` on the listener take precedence.
+
 ### Conflict with explicitly configured certificate ARNs
 
 Explicitly configured Certificate ARNs such as the [certificate-arn annotation](annotations.md#certificate-arn) or the [certificateArn field](ingress_class.md#speccertificatearn) on the IngressClass take precedence over this feature. No new certificate is created if one of these settings is present.
