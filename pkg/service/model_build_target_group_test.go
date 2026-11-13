@@ -2561,3 +2561,71 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuilderTask_buildTargetGroupIPAddressType(t *testing.T) {
+	stack := core.NewDefaultStack(core.StackID{Name: "test-stack"})
+	tests := []struct {
+		name         string
+		lbIPAddrType elbv2.IPAddressType
+		svcFamilies  []corev1.IPFamily
+		want         elbv2.TargetGroupIPAddressType
+		wantErr      bool
+	}{
+		{
+			name:         "IPv4-only service, IPv4-only LB",
+			lbIPAddrType: elbv2.IPAddressTypeIPV4,
+			svcFamilies:  []corev1.IPFamily{corev1.IPv4Protocol},
+			want:         elbv2.TargetGroupIPAddressTypeIPv4,
+		},
+		{
+			name:         "IPv4-only service, dual-stack LB",
+			lbIPAddrType: elbv2.IPAddressTypeDualStack,
+			svcFamilies:  []corev1.IPFamily{corev1.IPv4Protocol},
+			want:         elbv2.TargetGroupIPAddressTypeIPv4,
+		},
+		{
+			name:         "IPv6 service, dual-stack LB",
+			lbIPAddrType: elbv2.IPAddressTypeDualStack,
+			svcFamilies:  []corev1.IPFamily{corev1.IPv6Protocol},
+			want:         elbv2.TargetGroupIPAddressTypeIPv6,
+		},
+		{
+			name:         "IPv6 service, dualstack-without-public-ipv4 LB",
+			lbIPAddrType: elbv2.IPAddressTypeDualStackWithoutPublicIPV4,
+			svcFamilies:  []corev1.IPFamily{corev1.IPv6Protocol},
+			want:         elbv2.TargetGroupIPAddressTypeIPv6,
+		},
+		{
+			name:         "IPv6 service, IPv4-only LB — error",
+			lbIPAddrType: elbv2.IPAddressTypeIPV4,
+			svcFamilies:  []corev1.IPFamily{corev1.IPv6Protocol},
+			wantErr:      true,
+		},
+		{
+			name:         "both families, dual-stack LB — IPv6 wins (first match)",
+			lbIPAddrType: elbv2.IPAddressTypeDualStack,
+			svcFamilies:  []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+			want:         elbv2.TargetGroupIPAddressTypeIPv6,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lb := elbv2.NewLoadBalancer(stack, "LB", elbv2.LoadBalancerSpec{
+				IPAddressType: tt.lbIPAddrType,
+			})
+			task := &defaultModelBuildTask{
+				loadBalancer: lb,
+			}
+			svc := &corev1.Service{
+				Spec: corev1.ServiceSpec{IPFamilies: tt.svcFamilies},
+			}
+			got, err := task.buildTargetGroupIPAddressType(context.Background(), svc)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
