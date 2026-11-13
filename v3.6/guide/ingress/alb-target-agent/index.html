@@ -2680,7 +2680,7 @@
 <span class="nt">metadata</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-ingress</span>
 <span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
-<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3000</span><span class="w"> </span><span class="c1"># Must match agent controlAddress port</span>
+<span class="w">    </span><span class="l l-Scalar l-Scalar-Plain">alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="s">&quot;3000&quot;</span><span class="w"> </span><span class="c1"># Must match agent controlAddress port</span>
 <span class="nt">spec</span><span class="p">:</span>
 </code></pre></div>
 <p><strong>Step 2: Deploy the ALB Target Control Agent</strong></p>

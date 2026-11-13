@@ -2326,10 +2326,10 @@
 <span class="w">    </span><span class="nv">apiVersion</span>:<span class="w"> </span><span class="nv">networking</span>.<span class="nv">k8s</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">v1</span>
 <span class="w">    </span><span class="nv">kind</span>:<span class="w"> </span><span class="nv">Ingress</span>
 <span class="w">    </span><span class="nv">metadata</span>:
-<span class="w">    </span><span class="nv">namespace</span>:<span class="w"> </span><span class="nv">default</span>
-<span class="w">    </span><span class="nv">name</span>:<span class="w"> </span><span class="nv">ingress</span>
-<span class="w">    </span><span class="nv">annotations</span>:
-<span class="w">      </span><span class="nv">alb</span>.<span class="nv">ingress</span>.<span class="nv">kubernetes</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">listen</span><span class="o">-</span><span class="nv">ports</span>:<span class="w"> </span><span class="s1">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="w">      </span><span class="nv">namespace</span>:<span class="w"> </span><span class="nv">default</span>
+<span class="w">      </span><span class="nv">name</span>:<span class="w"> </span><span class="nv">ingress</span>
+<span class="w">      </span><span class="nv">annotations</span>:
+<span class="w">        </span><span class="nv">alb</span>.<span class="nv">ingress</span>.<span class="nv">kubernetes</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">listen</span><span class="o">-</span><span class="nv">ports</span>:<span class="w"> </span><span class="s1">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
 <span class="w">    </span><span class="nv">spec</span>:
 <span class="w">      </span><span class="nv">ingressClassName</span>:<span class="w"> </span><span class="nv">alb</span>
 <span class="w">      </span><span class="nv">tls</span>:
@@ -2357,10 +2357,10 @@
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
-    namespace: default
-    name: ingress
-    annotations:
-      alb.ingress.kubernetes.io/listen-ports: &#39;[{&quot;HTTPS&quot;:443}]&#39;
+      namespace: default
+      name: ingress
+      annotations:
+        alb.ingress.kubernetes.io/listen-ports: &#39;[{&quot;HTTPS&quot;:443}]&#39;
     spec:
       ingressClassName: alb
       rules:
