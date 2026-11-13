@@ -257,6 +257,20 @@ func (s *listenerRuleSynthesizer) createAndDeleteRules(ctx context.Context, init
 					s.logger.V(1).Info("Enabling delete / create cycle")
 					continue
 				}
+				// Deleting a stale rule detaches its target group from the load balancer, which frees a slot in the
+				// unique target groups per load balancer quota. The stale target group itself is removed afterwards
+				// by targetGroupSynthesizer.PostSynthesize. Stale rules are deleted later in this loop.
+				if isTooManyUniqueTargetGroupsErr(err) && len(unmatchedSDKLRs) > sdkLRIndex {
+					sdkLR := unmatchedSDKLRs[sdkLRIndex]
+					s.logger.V(1).Info("TooManyUniqueTargetGroupsPerLoadBalancer: deleting stale rule before retrying create",
+						"ruleARN", awssdk.ToString(sdkLR.ListenerRule.RuleArn))
+					if err := s.lrManager.Delete(ctx, sdkLR); err != nil {
+						return err
+					}
+					ruleCounter--
+					sdkLRIndex++
+					continue
+				}
 				return err
 			}
 			// If we get here, the creation succeeded. We must advance the creation index and update the current number of rules
@@ -318,6 +332,15 @@ func isTooManyRulesErr(err error) bool {
 	if errors.As(err, &apiErr) {
 		code := apiErr.ErrorCode()
 		return code == "TooManyRules"
+	}
+	return false
+}
+
+// Mirrors isTooManyRulesErr
+func isTooManyUniqueTargetGroupsErr(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "TooManyUniqueTargetGroupsPerLoadBalancer"
 	}
 	return false
 }
