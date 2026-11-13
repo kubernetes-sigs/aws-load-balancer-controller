@@ -154,7 +154,24 @@ func main() {
 		setupLog.Error(err, "unable to build REST config")
 		os.Exit(1)
 	}
-	rtOpts, err := config.BuildRuntimeOptions(controllerCFG.RuntimeConfig, scheme)
+	clientSet, err := kubernetes.NewForConfig(restCFG)
+	if err != nil {
+		setupLog.Error(err, "unable to obtain clientSet")
+		os.Exit(1)
+	}
+	watchedNamespaces, err := config.ResolveWatchedNamespaces(context.Background(), clientSet, controllerCFG.RuntimeConfig)
+	if err != nil {
+		setupLog.Error(err, "unable to resolve watched namespaces")
+		os.Exit(1)
+	}
+	if controllerCFG.RuntimeConfig.NamespaceSelector != "" {
+		setupLog.Info("watching namespaces matching namespace-selector",
+			"selector", controllerCFG.RuntimeConfig.NamespaceSelector,
+			"count", len(watchedNamespaces))
+	} else if len(watchedNamespaces) > 0 {
+		setupLog.Info("watching namespace", "namespace", watchedNamespaces[0])
+	}
+	rtOpts, err := config.BuildRuntimeOptions(controllerCFG.RuntimeConfig, scheme, watchedNamespaces)
 	if err != nil {
 		setupLog.Error(err, "unable to build runtime options")
 		os.Exit(1)
@@ -168,12 +185,6 @@ func main() {
 	reconcileCounters := metricsutil.NewReconcileCounters()
 	lbcMetricsCollector := lbcmetrics.NewCollector(metrics.Registry, mgr, reconcileCounters, ctrl.Log.WithName("controller_metrics"))
 	targetGroupCollector := awsmetrics.NewTargetGroupCollector(metrics.Registry)
-
-	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		setupLog.Error(err, "unable to obtain clientSet")
-		os.Exit(1)
-	}
 
 	// Gateway API CRD auto-detection: check which CRDs are installed and disable
 	// feature flags for missing CRDs before any controller setup reads them.

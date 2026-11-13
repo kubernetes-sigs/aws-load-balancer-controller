@@ -291,8 +291,14 @@ lbStabilizationMonitorInterval:
 # Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
-# Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
+# Namespace the controller watches for updates to Kubernetes objects. If empty, all namespaces are watched.
+# Mutually exclusive with namespaceSelector.
 watchNamespace:
+
+# Label selector for namespaces to watch (standard Kubernetes label selector syntax).
+# Examples: "!tenant", "team=platform", "env!=production"
+# Mutually exclusive with watchNamespace. Resolved once at controller startup.
+namespaceSelector:
 
 # disableIngressClassAnnotation disables the usage of kubernetes.io/ingress.class annotation, false by default
 disableIngressClassAnnotation:
