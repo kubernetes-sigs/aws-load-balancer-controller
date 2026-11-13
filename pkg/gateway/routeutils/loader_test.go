@@ -52,6 +52,7 @@ type mockRoute struct {
 	generation                int64
 	hostnames                 []gwv1.Hostname
 	CompatibleHostnamesByPort map[int32][]gwv1.Hostname
+	rawRoute                  interface{}
 }
 
 func (m *mockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
@@ -97,8 +98,7 @@ func (m *mockRoute) GetRouteGeneration() int64 {
 }
 
 func (m *mockRoute) GetRawRoute() interface{} {
-	//TODO implement me
-	panic("implement me")
+	return m.rawRoute
 }
 
 func (m *mockRoute) GetAttachedRules() []RouteRule {

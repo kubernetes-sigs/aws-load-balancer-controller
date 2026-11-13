@@ -131,6 +131,13 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		}
 	}
 
+	// Clean up status entries we previously wrote for parents the route no longer references.
+	for _, route := range loadedRoutes {
+		for _, staleRef := range findStaleParentStatuses(route, controllerName) {
+			routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(false, true, RouteStatusInfoParentRefRemovedReason, RouteStatusInfoParentRefRemovedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), staleRef))
+		}
+	}
+
 	gatewayListeners := allListeners{
 		GatewayListeners:     gw.Spec.Listeners,
 		ListenerSetListeners: listenerSetListeners,
