@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"testing"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
@@ -18,7 +19,9 @@ import (
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/equality"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func Test_defaultGroupLoader_Load(t *testing.T) {
@@ -3074,23 +3077,21 @@ func Test_validateGroupName(t *testing.T) {
 	}
 }
 
-func Test_defaultGroupLoader_loadGroupIDIfAnyHelper_namespaceTerminating(t *testing.T) {
-	awesomeGroupID := GroupID{Name: "awesome-group"}
-	ing := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ing-ns",
-			Name:      "ing-name",
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class":          "alb",
-				"alb.ingress.kubernetes.io/group.name": "awesome-group",
-			},
-		},
+func Test_isIngressNamespaceTerminating(t *testing.T) {
+	deletedAt := metav1.NewTime(time.Now().Add(-time.Hour).Truncate(time.Second))
+	ingCreatedBefore := metav1.NewTime(deletedAt.Add(-time.Hour))
+	ingCreatedAfter := metav1.NewTime(deletedAt.Add(time.Minute))
+	terminatingNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ing-ns", DeletionTimestamp: &deletedAt, Finalizers: []string{"unit-test/keep"}},
+		Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating},
 	}
 	tests := []struct {
-		name        string
-		ns          *corev1.Namespace
-		deleteNS    bool
-		wantGroupID *GroupID
+		name       string
+		ns         *corev1.Namespace
+		ingCreated metav1.Time
+		getErr     error
+		want       bool
+		wantErr    string
 	}{
 		{
 			name: "namespace is active",
@@ -3098,32 +3099,106 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper_namespaceTerminating(t *test
 				ObjectMeta: metav1.ObjectMeta{Name: "ing-ns"},
 				Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceActive},
 			},
-			wantGroupID: &awesomeGroupID,
+			ingCreated: ingCreatedBefore,
+			want:       false,
 		},
 		{
-			name:        "namespace not found",
-			ns:          nil,
-			wantGroupID: &awesomeGroupID,
+			name:       "namespace not found",
+			ingCreated: ingCreatedBefore,
+			want:       false,
 		},
 		{
-			name: "namespace in Terminating phase",
-			ns: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: "ing-ns"},
-				Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating},
+			name:       "namespace is terminating",
+			ns:         terminatingNS,
+			ingCreated: ingCreatedBefore,
+			want:       true,
+		},
+		{
+			name:       "Ingress is newer than the cached terminating namespace",
+			ns:         terminatingNS,
+			ingCreated: ingCreatedAfter,
+			want:       false,
+		},
+		{
+			name:       "namespace lookup fails",
+			ingCreated: ingCreatedBefore,
+			getErr:     errors.New("cache not ready"),
+			wantErr:    "cache not ready",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			builder := testclient.NewClientBuilder().WithScheme(k8sSchema)
+			if tt.ns != nil {
+				builder = builder.WithObjects(tt.ns.DeepCopy())
+			}
+			if tt.getErr != nil {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						return tt.getErr
+					},
+				})
+			}
+			ing := &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "ing-ns", Name: "ing", CreationTimestamp: tt.ingCreated},
+			}
+			got, err := isIngressNamespaceTerminating(context.Background(), builder.Build(), ing)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultGroupLoader_Load_namespaceTerminating(t *testing.T) {
+	newIng := func(namespace string, groupName string, finalizers ...string) *networking.Ingress {
+		annotations := map[string]string{"kubernetes.io/ingress.class": "alb"}
+		if groupName != "" {
+			annotations["alb.ingress.kubernetes.io/group.name"] = groupName
+		}
+		return &networking.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:   namespace,
+				Name:        "ing",
+				Annotations: annotations,
+				Finalizers:  finalizers,
 			},
-			wantGroupID: nil,
+		}
+	}
+	explicitMember := newIng("ns-active", "awesome-group", "group.ingress.k8s.aws/awesome-group")
+	explicitLeaving := newIng("ns-terminating", "awesome-group", "group.ingress.k8s.aws/awesome-group")
+	implicitLeaving := newIng("ns-terminating-2", "", "ingress.k8s.aws/resources")
+	notYetMember := newIng("ns-terminating-3", "awesome-group")
+
+	tests := []struct {
+		name    string
+		groupID GroupID
+		want    Group
+	}{
+		{
+			// The Ingress in the terminating namespace leaves the group, so its resources and finalizer get
+			// cleaned up instead of being rebuilt, and the other member keeps reconciling. An Ingress that
+			// never joined the group (no finalizer) is left out.
+			name:    "explicit group",
+			groupID: GroupID{Name: "awesome-group"},
+			want: Group{
+				ID:              GroupID{Name: "awesome-group"},
+				Members:         []ClassifiedIngress{{Ing: explicitMember, IngClassConfig: ClassConfiguration{}}},
+				InactiveMembers: []*networking.Ingress{explicitLeaving},
+			},
 		},
 		{
-			name: "namespace has deletionTimestamp",
-			ns: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "ing-ns",
-					Finalizers: []string{"unit-test/keep"},
-				},
-				Status: corev1.NamespaceStatus{Phase: corev1.NamespaceActive},
+			name:    "implicit group",
+			groupID: GroupID{Namespace: "ns-terminating-2", Name: "ing"},
+			want: Group{
+				ID:              GroupID{Namespace: "ns-terminating-2", Name: "ing"},
+				InactiveMembers: []*networking.Ingress{implicitLeaving},
 			},
-			deleteNS:    true,
-			wantGroupID: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -3132,11 +3207,16 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper_namespaceTerminating(t *test
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
-			if tt.ns != nil {
-				assert.NoError(t, k8sClient.Create(context.Background(), tt.ns.DeepCopy()))
-				if tt.deleteNS {
-					assert.NoError(t, k8sClient.Delete(context.Background(), tt.ns.DeepCopy()))
-				}
+			for _, ns := range []*corev1.Namespace{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns-active"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceActive}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating-2"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating-3"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
+			} {
+				assert.NoError(t, k8sClient.Create(context.Background(), ns))
+			}
+			for _, ing := range []*networking.Ingress{explicitMember, explicitLeaving, implicitLeaving, notYetMember} {
+				assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
 			}
 			m := &defaultGroupLoader{
 				client:                             k8sClient,
@@ -3145,59 +3225,10 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper_namespaceTerminating(t *test
 				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher("alb"),
 				manageIngressesWithoutIngressClass: false,
 			}
-			_, gotGroupID, err := m.loadGroupIDIfAnyHelper(context.Background(), ing.DeepCopy())
+			got, err := m.Load(context.Background(), tt.groupID)
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantGroupID, gotGroupID)
+			opt := cmp.Options{equality.IgnoreFakeClientPopulatedFields()}
+			assert.True(t, cmp.Equal(tt.want, got, opt), "diff: %v", cmp.Diff(tt.want, got, opt))
 		})
 	}
-}
-
-func Test_defaultGroupLoader_Load_namespaceTerminating(t *testing.T) {
-	groupID := GroupID{Name: "awesome-group"}
-	newIng := func(namespace string) *networking.Ingress {
-		return &networking.Ingress{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      "ing",
-				Annotations: map[string]string{
-					"kubernetes.io/ingress.class":          "alb",
-					"alb.ingress.kubernetes.io/group.name": "awesome-group",
-				},
-				Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
-			},
-		}
-	}
-	k8sSchema := runtime.NewScheme()
-	clientgoscheme.AddToScheme(k8sSchema)
-	elbv2api.AddToScheme(k8sSchema)
-	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
-	for _, ns := range []*corev1.Namespace{
-		{ObjectMeta: metav1.ObjectMeta{Name: "ns-active"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceActive}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
-	} {
-		assert.NoError(t, k8sClient.Create(context.Background(), ns))
-	}
-	activeIng, terminatingIng := newIng("ns-active"), newIng("ns-terminating")
-	assert.NoError(t, k8sClient.Create(context.Background(), activeIng.DeepCopy()))
-	assert.NoError(t, k8sClient.Create(context.Background(), terminatingIng.DeepCopy()))
-
-	m := &defaultGroupLoader{
-		client:                             k8sClient,
-		annotationParser:                   annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
-		classLoader:                        NewDefaultClassLoader(k8sClient, true),
-		classAnnotationMatcher:             NewDefaultClassAnnotationMatcher("alb"),
-		manageIngressesWithoutIngressClass: false,
-	}
-	got, err := m.Load(context.Background(), groupID)
-	assert.NoError(t, err)
-
-	// The Ingress in the terminating namespace leaves the group, so its resources and finalizer get
-	// cleaned up instead of being rebuilt, and the other member keeps reconciling.
-	want := Group{
-		ID:              groupID,
-		Members:         []ClassifiedIngress{{Ing: activeIng, IngClassConfig: ClassConfiguration{}}},
-		InactiveMembers: []*networking.Ingress{terminatingIng},
-	}
-	opt := cmp.Options{equality.IgnoreFakeClientPopulatedFields()}
-	assert.True(t, cmp.Equal(want, got, opt), "diff: %v", cmp.Diff(want, got, opt))
 }

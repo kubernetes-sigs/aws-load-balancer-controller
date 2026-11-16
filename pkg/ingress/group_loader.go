@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
@@ -42,6 +41,7 @@ type GroupLoader interface {
 
 	// LoadGroupIDIfAny loads the groupID for Ingress if Ingress belong to any IngressGroup.
 	// Ingresses that is not managed by this controller or in deletion state won't have a groupID.
+	// An Ingress whose namespace is being deleted is in deletion state as well.
 	LoadGroupIDIfAny(ctx context.Context, ing *networking.Ingress) (*GroupID, error)
 
 	// LoadGroupIDsPendingFinalization returns groupIDs that have associated finalizer on Ingress.
@@ -180,10 +180,10 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 	if !ing.DeletionTimestamp.IsZero() {
 		return ClassifiedIngress{}, nil, nil
 	}
-	// Ingress no longer belong to any IngressGroup when its namespace is being deleted.
-	// The namespace controller deletes the Ingress later, and until it does, the API server rejects
-	// every object the controller tries to create in that namespace (e.g. TargetGroupBinding).
-	nsTerminating, err := m.isNamespaceTerminating(ctx, ing.Namespace)
+	// An Ingress whose namespace is being deleted no longer belongs to any IngressGroup.
+	// The namespace controller deletes the Ingress later. Until then, the API server rejects
+	// any new object in that namespace, such as a TargetGroupBinding.
+	nsTerminating, err := isIngressNamespaceTerminating(ctx, m.client, ing)
 	if err != nil {
 		return ClassifiedIngress{}, nil, err
 	}
@@ -205,20 +205,23 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 	return classifiedIngress, &groupID, nil
 }
 
-// isNamespaceTerminating checks whether the namespace is being deleted.
-// A namespace that cannot be found is treated as not terminating, to keep the existing behavior.
-func (m *defaultGroupLoader) isNamespaceTerminating(ctx context.Context, namespace string) (bool, error) {
-	if namespace == "" {
+// isIngressNamespaceTerminating checks whether the namespace of the Ingress is being deleted.
+// It uses the condition of NamespaceLifecycle admission, which rejects new objects in a namespace
+// whose phase is Terminating. A namespace that is not found is treated as not terminating.
+func isIngressNamespaceTerminating(ctx context.Context, k8sClient client.Client, ing *networking.Ingress) (bool, error) {
+	ns := &corev1.Namespace{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: ing.Namespace}, ns); err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+	if ns.Status.Phase != corev1.NamespaceTerminating {
 		return false, nil
 	}
-	ns := &corev1.Namespace{}
-	if err := m.client.Get(ctx, types.NamespacedName{Name: namespace}, ns); err != nil {
-		if apierrors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, err
+	// The Namespace cache can lag behind the Ingress cache. An Ingress created after the cached
+	// namespace started terminating belongs to a newer namespace with the same name.
+	if ns.DeletionTimestamp != nil && ing.CreationTimestamp.After(ns.DeletionTimestamp.Time) {
+		return false, nil
 	}
-	return !ns.DeletionTimestamp.IsZero() || ns.Status.Phase == corev1.NamespaceTerminating, nil
+	return true, nil
 }
 
 // classifyIngress will classify the Ingress resource and returns whether it should be managed by this controller, along with the ClassifiedIngress object.

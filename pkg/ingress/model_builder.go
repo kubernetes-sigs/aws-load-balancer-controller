@@ -296,7 +296,17 @@ type defaultModelBuildTask struct {
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	for _, inactiveMember := range t.ingGroup.InactiveMembers {
-		if !inactiveMember.DeletionTimestamp.IsZero() {
+		beingDeleted := !inactiveMember.DeletionTimestamp.IsZero()
+		if !beingDeleted {
+			// An Ingress in a terminating namespace leaves its group before it gets a deletionTimestamp.
+			// Treat it as being deleted here as well, so deletion protection still applies.
+			nsTerminating, err := isIngressNamespaceTerminating(ctx, t.k8sClient, inactiveMember)
+			if err != nil {
+				return err
+			}
+			beingDeleted = nsTerminating
+		}
+		if beingDeleted {
 			deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(inactiveMember)
 			if err != nil {
 				return err

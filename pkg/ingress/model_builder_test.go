@@ -459,7 +459,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		err     error
 	}
 	type env struct {
-		svcs []*corev1.Service
+		svcs       []*corev1.Service
+		namespaces []*corev1.Namespace
 	}
 	type listLoadBalancersCall struct {
 		matchedLBs []elbv2.LoadBalancerWithTags
@@ -3072,6 +3073,39 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			wantMetric: false,
 		},
 		{
+			name: "Ingress - deletion protection enabled error when its namespace is terminating",
+			env: env{
+				namespaces: []*corev1.Namespace{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "terminating-ns"},
+						Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating},
+					},
+				},
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "terminating-ns", Name: "hello-ingress"},
+					InactiveMembers: []*networking.Ingress{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "terminating-ns",
+								Name:      "hello-ingress",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class":                        "alb",
+									"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=true",
+								},
+								Finalizers: []string{
+									"ingress.k8s.aws/resources",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    "deletion_protection is enabled, cannot delete the ingress: hello-ingress",
+			wantMetric: false,
+		},
+		{
 			name: "Ingress - with SG annotation",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
@@ -4777,6 +4811,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+			}
+			for _, ns := range tt.env.namespaces {
+				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}
 			eventRecorder := record.NewFakeRecorder(10)
 			vpcID := "vpc-dummy"
