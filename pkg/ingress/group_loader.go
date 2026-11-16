@@ -9,7 +9,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
@@ -177,6 +180,16 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 	if !ing.DeletionTimestamp.IsZero() {
 		return ClassifiedIngress{}, nil, nil
 	}
+	// Ingress no longer belong to any IngressGroup when its namespace is being deleted.
+	// The namespace controller deletes the Ingress later, and until it does, the API server rejects
+	// every object the controller tries to create in that namespace (e.g. TargetGroupBinding).
+	nsTerminating, err := m.isNamespaceTerminating(ctx, ing.Namespace)
+	if err != nil {
+		return ClassifiedIngress{}, nil, err
+	}
+	if nsTerminating {
+		return ClassifiedIngress{}, nil, nil
+	}
 	classifiedIngress, matchesIngressClass, err := m.classifyIngress(ctx, ing)
 	if err != nil {
 		return ClassifiedIngress{}, nil, err
@@ -190,6 +203,22 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 		return ClassifiedIngress{}, nil, err
 	}
 	return classifiedIngress, &groupID, nil
+}
+
+// isNamespaceTerminating checks whether the namespace is being deleted.
+// A namespace that cannot be found is treated as not terminating, to keep the existing behavior.
+func (m *defaultGroupLoader) isNamespaceTerminating(ctx context.Context, namespace string) (bool, error) {
+	if namespace == "" {
+		return false, nil
+	}
+	ns := &corev1.Namespace{}
+	if err := m.client.Get(ctx, types.NamespacedName{Name: namespace}, ns); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return !ns.DeletionTimestamp.IsZero() || ns.Status.Phase == corev1.NamespaceTerminating, nil
 }
 
 // classifyIngress will classify the Ingress resource and returns whether it should be managed by this controller, along with the ClassifiedIngress object.
