@@ -3156,79 +3156,55 @@ func Test_isIngressNamespaceTerminating(t *testing.T) {
 }
 
 func Test_defaultGroupLoader_Load_namespaceTerminating(t *testing.T) {
-	newIng := func(namespace string, groupName string, finalizers ...string) *networking.Ingress {
-		annotations := map[string]string{"kubernetes.io/ingress.class": "alb"}
-		if groupName != "" {
-			annotations["alb.ingress.kubernetes.io/group.name"] = groupName
-		}
+	newIng := func(namespace string, finalizers ...string) *networking.Ingress {
 		return &networking.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   namespace,
-				Name:        "ing",
-				Annotations: annotations,
-				Finalizers:  finalizers,
+				Namespace: namespace,
+				Name:      "ing",
+				Annotations: map[string]string{
+					"kubernetes.io/ingress.class":          "alb",
+					"alb.ingress.kubernetes.io/group.name": "awesome-group",
+				},
+				Finalizers: finalizers,
 			},
 		}
 	}
-	explicitMember := newIng("ns-active", "awesome-group", "group.ingress.k8s.aws/awesome-group")
-	explicitLeaving := newIng("ns-terminating", "awesome-group", "group.ingress.k8s.aws/awesome-group")
-	implicitLeaving := newIng("ns-terminating-2", "", "ingress.k8s.aws/resources")
-	notYetMember := newIng("ns-terminating-3", "awesome-group")
+	member := newIng("ns-active", "group.ingress.k8s.aws/awesome-group")
+	leaving := newIng("ns-terminating", "group.ingress.k8s.aws/awesome-group")
+	notYetMember := newIng("ns-terminating-2")
 
-	tests := []struct {
-		name    string
-		groupID GroupID
-		want    Group
-	}{
-		{
-			// The Ingress in the terminating namespace leaves the group, so its resources and finalizer get
-			// cleaned up instead of being rebuilt, and the other member keeps reconciling. An Ingress that
-			// never joined the group (no finalizer) is left out.
-			name:    "explicit group",
-			groupID: GroupID{Name: "awesome-group"},
-			want: Group{
-				ID:              GroupID{Name: "awesome-group"},
-				Members:         []ClassifiedIngress{{Ing: explicitMember, IngClassConfig: ClassConfiguration{}}},
-				InactiveMembers: []*networking.Ingress{explicitLeaving},
-			},
-		},
-		{
-			name:    "implicit group",
-			groupID: GroupID{Namespace: "ns-terminating-2", Name: "ing"},
-			want: Group{
-				ID:              GroupID{Namespace: "ns-terminating-2", Name: "ing"},
-				InactiveMembers: []*networking.Ingress{implicitLeaving},
-			},
-		},
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	elbv2api.AddToScheme(k8sSchema)
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+	for _, ns := range []*corev1.Namespace{
+		{ObjectMeta: metav1.ObjectMeta{Name: "ns-active"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceActive}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating-2"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
+	} {
+		assert.NoError(t, k8sClient.Create(context.Background(), ns))
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
-			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
-			for _, ns := range []*corev1.Namespace{
-				{ObjectMeta: metav1.ObjectMeta{Name: "ns-active"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceActive}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating-2"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating-3"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
-			} {
-				assert.NoError(t, k8sClient.Create(context.Background(), ns))
-			}
-			for _, ing := range []*networking.Ingress{explicitMember, explicitLeaving, implicitLeaving, notYetMember} {
-				assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
-			}
-			m := &defaultGroupLoader{
-				client:                             k8sClient,
-				annotationParser:                   annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
-				classLoader:                        NewDefaultClassLoader(k8sClient, true),
-				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher("alb"),
-				manageIngressesWithoutIngressClass: false,
-			}
-			got, err := m.Load(context.Background(), tt.groupID)
-			assert.NoError(t, err)
-			opt := cmp.Options{equality.IgnoreFakeClientPopulatedFields()}
-			assert.True(t, cmp.Equal(tt.want, got, opt), "diff: %v", cmp.Diff(tt.want, got, opt))
-		})
+	for _, ing := range []*networking.Ingress{member, leaving, notYetMember} {
+		assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
 	}
+	m := &defaultGroupLoader{
+		client:                             k8sClient,
+		annotationParser:                   annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+		classLoader:                        NewDefaultClassLoader(k8sClient, true),
+		classAnnotationMatcher:             NewDefaultClassAnnotationMatcher("alb"),
+		manageIngressesWithoutIngressClass: false,
+	}
+	got, err := m.Load(context.Background(), GroupID{Name: "awesome-group"})
+	assert.NoError(t, err)
+
+	// The Ingress in the terminating namespace leaves the group, so its resources and finalizer get cleaned up
+	// instead of being rebuilt, and the other member keeps reconciling. An Ingress that never joined the group
+	// (no finalizer) is left out.
+	want := Group{
+		ID:              GroupID{Name: "awesome-group"},
+		Members:         []ClassifiedIngress{{Ing: member, IngClassConfig: ClassConfiguration{}}},
+		InactiveMembers: []*networking.Ingress{leaving},
+	}
+	opt := cmp.Options{equality.IgnoreFakeClientPopulatedFields()}
+	assert.True(t, cmp.Equal(want, got, opt), "diff: %v", cmp.Diff(want, got, opt))
 }

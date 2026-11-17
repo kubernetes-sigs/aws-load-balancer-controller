@@ -3106,6 +3106,49 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			wantMetric: false,
 		},
 		{
+			name: "Ingress - deletion protection not checked when an inactive member's namespace is active",
+			env: env{
+				namespaces: []*corev1.Namespace{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "active-ns"},
+						Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceActive},
+					},
+				},
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					InactiveMembers: []*networking.Ingress{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "active-ns",
+								Name:      "hello-ingress",
+								Annotations: map[string]string{
+									"kubernetes.io/ingress.class":                        "alb",
+									"alb.ingress.kubernetes.io/load-balancer-attributes": "deletion_protection.enabled=true",
+								},
+								Finalizers: []string{
+									"ingress.k8s.aws/resources",
+								},
+							},
+						},
+					},
+				},
+			},
+			// No active members, so the stack has no AWS resources.
+			wantStackPatch: `
+{
+    "resources": {
+        "AWS::EC2::SecurityGroup": null,
+        "AWS::ElasticLoadBalancingV2::Listener": null,
+        "AWS::ElasticLoadBalancingV2::ListenerRule": null,
+        "AWS::ElasticLoadBalancingV2::LoadBalancer": null,
+        "AWS::ElasticLoadBalancingV2::TargetGroup": null,
+        "K8S::ElasticLoadBalancingV2::TargetGroupBinding": null
+    }
+}`,
+		},
+		{
 			name: "Ingress - with SG annotation",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},

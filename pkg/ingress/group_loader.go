@@ -176,18 +176,12 @@ func (m *defaultGroupLoader) checkGroupMembershipType(ctx context.Context, group
 
 // loadGroupIDIfAnyHelper loads the groupID for Ingress if Ingress belong to any IngressGroup, along with the ClassifiedIngress object.
 func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *networking.Ingress) (ClassifiedIngress, *GroupID, error) {
-	// Ingress no longer belong to any IngressGroup when it's been deleted.
-	if !ing.DeletionTimestamp.IsZero() {
-		return ClassifiedIngress{}, nil, nil
-	}
-	// An Ingress whose namespace is being deleted no longer belongs to any IngressGroup.
-	// The namespace controller deletes the Ingress later. Until then, the API server rejects
-	// any new object in that namespace, such as a TargetGroupBinding.
-	nsTerminating, err := isIngressNamespaceTerminating(ctx, m.client, ing)
+	// An Ingress no longer belongs to any IngressGroup when it, or its namespace, is being deleted.
+	beingDeleted, err := isIngressBeingDeleted(ctx, m.client, ing)
 	if err != nil {
 		return ClassifiedIngress{}, nil, err
 	}
-	if nsTerminating {
+	if beingDeleted {
 		return ClassifiedIngress{}, nil, nil
 	}
 	classifiedIngress, matchesIngressClass, err := m.classifyIngress(ctx, ing)
@@ -203,6 +197,16 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 		return ClassifiedIngress{}, nil, err
 	}
 	return classifiedIngress, &groupID, nil
+}
+
+// isIngressBeingDeleted checks whether the Ingress has a deletionTimestamp or its namespace is being deleted.
+// For a terminating namespace, the namespace controller deletes the Ingress later. Until then, the API server
+// rejects any new object in that namespace, such as a TargetGroupBinding.
+func isIngressBeingDeleted(ctx context.Context, k8sClient client.Client, ing *networking.Ingress) (bool, error) {
+	if !ing.DeletionTimestamp.IsZero() {
+		return true, nil
+	}
+	return isIngressNamespaceTerminating(ctx, k8sClient, ing)
 }
 
 // isIngressNamespaceTerminating checks whether the namespace of the Ingress is being deleted.

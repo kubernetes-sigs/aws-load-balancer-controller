@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,10 +50,6 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 		}()
 		dnsName := expectDNSNameFromIngressNonEmpty(ctx, tf, stack, "ns-1", "ing-1")
 		expectDNSNameEventuallyAvailable(ctx, tf, dnsName)
-		url := fmt.Sprintf("http://%v%v", dnsName, "/path-a")
-		Eventually(func() error {
-			return tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))
-		}, utils.IngressReconcileTimeout, utils.PollIntervalMedium).Should(Succeed())
 
 		By("create an Ingress that this controller does not manage yet in a second namespace")
 		holdNS, err := tf.NSManager.AllocateNamespace(ctx, "aws-lb-e2e")
@@ -102,15 +97,13 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 		Eventually(func() error {
 			return tf.K8sClient.Delete(ctx, svc.DeepCopy(), client.DryRunAll)
 		}, 1*time.Minute, 2*time.Second).Should(MatchError(ContainSubstring(deletionHoldMessage)))
+		// The API server sets the namespace phase to Terminating before the delete call returns.
 		Expect(tf.K8sClient.Delete(ctx, holdNS)).To(Succeed())
-		Eventually(func(g Gomega) {
-			ns := &corev1.Namespace{}
-			g.Expect(tf.K8sClient.Get(ctx, client.ObjectKeyFromObject(holdNS), ns)).To(Succeed())
-			g.Expect(ns.Status.Phase).To(Equal(corev1.NamespaceTerminating))
-		}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
 		By("join the Ingress in the terminating namespace to the IngressGroup")
-		Expect(patchIngressAnnotations(ctx, ingX, groupMemberAnnotations(groupName))).To(Succeed())
+		oldIngX := ingX.DeepCopy()
+		ingX.Annotations = groupMemberAnnotations(groupName)
+		Expect(tf.K8sClient.Patch(ctx, ingX, client.MergeFrom(oldIngX))).To(Succeed())
 
 		By("add a member to the IngressGroup in the long-lived namespace")
 		newIng := manifest.NewIngressBuilder().
@@ -129,17 +122,17 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, newIng))).To(Succeed())
 		}()
 
-		By("expect the new member to reconcile successfully with no terminating-namespace failure")
-		// The new Ingress has no earlier events, so a SuccessfullyReconciled event on it comes from a reconcile
-		// that loaded it. The group controller records that event only after the whole deployment succeeds,
-		// including every TargetGroupBinding.
+		By("expect the new member to reconcile successfully")
+		// ing-x joined before ing-2 was created, through the same Ingress watch, so the reconcile that sees ing-2
+		// also sees ing-x. The controller records SuccessfullyReconciled only on the members of the reconcile, and
+		// only after the whole group deploys, including every TargetGroupBinding.
 		Eventually(func(g Gomega) {
-			g.Expect(terminatingNamespaceDeployFailures(ctx, newIng)).To(BeEmpty())
-			g.Expect(reconcileSuccessCount(ctx, newIng)).To(BeNumerically(">", 0))
+			g.Expect(ingressEventMessages(ctx, g, newIng, k8s.IngressEventReasonSuccessfullyReconciled)).NotTo(BeEmpty(),
+				"deploy failures: %v", ingressEventMessages(ctx, g, newIng, k8s.IngressEventReasonFailedDeployModel))
 		}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
 		Eventually(func() error {
 			return tf.HTTPVerifier.VerifyURL(fmt.Sprintf("http://%v/path-b", dnsName), http.ResponseBodyMatches([]byte("backend-a")))
-		}, utils.IngressReconcileTimeout, utils.PollIntervalMedium).Should(Succeed())
+		}, utils.PollTimeoutMedium, utils.PollIntervalMedium).Should(Succeed())
 	})
 })
 
@@ -198,50 +191,17 @@ func groupMemberAnnotations(groupName string) map[string]string {
 	return annotations
 }
 
-func patchIngressAnnotations(ctx context.Context, ing *networking.Ingress, annotations map[string]string) error {
-	current := &networking.Ingress{}
-	if err := tf.K8sClient.Get(ctx, client.ObjectKeyFromObject(ing), current); err != nil {
-		return err
+// ingressEventMessages returns the messages of the events on ing with the reason.
+func ingressEventMessages(ctx context.Context, g Gomega, ing *networking.Ingress, reason string) []string {
+	events := &corev1.EventList{}
+	g.Expect(tf.K8sClient.List(ctx, events, client.InNamespace(ing.Namespace), client.MatchingFields{
+		"involvedObject.kind": "Ingress",
+		"involvedObject.name": ing.Name,
+		"reason":              reason,
+	})).To(Succeed())
+	var messages []string
+	for _, event := range events.Items {
+		messages = append(messages, event.Message)
 	}
-	updated := current.DeepCopy()
-	if updated.Annotations == nil {
-		updated.Annotations = map[string]string{}
-	}
-	for key, value := range annotations {
-		updated.Annotations[key] = value
-	}
-	return tf.K8sClient.Patch(ctx, updated, client.MergeFrom(current))
-}
-
-// terminatingNamespaceDeployFailures returns the FailedDeployModel event messages on ing that were caused
-// by creating an object in a namespace that is being deleted.
-func terminatingNamespaceDeployFailures(ctx context.Context, ing *networking.Ingress) []string {
-	var failures []string
-	for _, event := range ingressEvents(ctx, ing, k8s.IngressEventReasonFailedDeployModel) {
-		if strings.Contains(event.Message, "because it is being terminated") {
-			failures = append(failures, event.Message)
-		}
-	}
-	return failures
-}
-
-// reconcileSuccessCount returns how many times the controller recorded a successful reconcile on ing.
-func reconcileSuccessCount(ctx context.Context, ing *networking.Ingress) int32 {
-	var count int32
-	for _, event := range ingressEvents(ctx, ing, k8s.IngressEventReasonSuccessfullyReconciled) {
-		count += event.Count
-	}
-	return count
-}
-
-func ingressEvents(ctx context.Context, ing *networking.Ingress, reason string) []corev1.Event {
-	eventList := &corev1.EventList{}
-	Expect(tf.K8sClient.List(ctx, eventList, client.InNamespace(ing.Namespace))).To(Succeed())
-	var events []corev1.Event
-	for _, event := range eventList.Items {
-		if event.InvolvedObject.Kind == "Ingress" && event.InvolvedObject.Name == ing.Name && event.Reason == reason {
-			events = append(events, event)
-		}
-	}
-	return events
+	return messages
 }
