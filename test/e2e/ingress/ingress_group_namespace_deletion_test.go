@@ -59,6 +59,12 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 		By("create an Ingress that this controller does not manage yet in a second namespace")
 		holdNS, err := tf.NSManager.AllocateNamespace(ctx, "aws-lb-e2e")
 		Expect(err).NotTo(HaveOccurred())
+		defer func() {
+			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, holdNS))).To(Succeed())
+			waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+			defer cancel()
+			Expect(tf.NSManager.WaitUntilNamespaceDeleted(waitCtx, holdNS)).To(Succeed())
+		}()
 		svc := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{Namespace: holdNS.Name, Name: "backend-x"},
 			Spec: corev1.ServiceSpec{
@@ -83,16 +89,15 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 		Expect(tf.K8sClient.Create(ctx, ingX)).To(Succeed())
 
 		By("hold the second namespace in Terminating")
+		// Deferred calls run in reverse order: the binding goes first, so the namespace can finish deleting.
 		policy, binding := buildDeletionHoldPolicy(holdNS.Name)
 		Expect(tf.K8sClient.Create(ctx, policy)).To(Succeed())
+		defer func() {
+			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, policy))).To(Succeed())
+		}()
 		Expect(tf.K8sClient.Create(ctx, binding)).To(Succeed())
 		defer func() {
 			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, binding))).To(Succeed())
-			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, policy))).To(Succeed())
-			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, holdNS))).To(Succeed())
-			waitCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			defer cancel()
-			Expect(tf.NSManager.WaitUntilNamespaceDeleted(waitCtx, holdNS)).To(Succeed())
 		}()
 		Eventually(func() error {
 			return tf.K8sClient.Delete(ctx, svc.DeepCopy(), client.DryRunAll)
@@ -103,6 +108,9 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 			g.Expect(tf.K8sClient.Get(ctx, client.ObjectKeyFromObject(holdNS), ns)).To(Succeed())
 			g.Expect(ns.Status.Phase).To(Equal(corev1.NamespaceTerminating))
 		}, 1*time.Minute, 2*time.Second).Should(Succeed())
+
+		remainingIng := stack.FindIngress("ns-1", "ing-1")
+		successesBeforeJoin := reconcileSuccessCount(ctx, remainingIng)
 
 		By("join the Ingress in the terminating namespace to the IngressGroup")
 		joinAnnotations := map[string]string{
@@ -117,7 +125,6 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 		Expect(patchIngressAnnotations(ctx, ingX, joinAnnotations)).To(Succeed())
 
 		By("change the long-lived member and expect the change to reach the load balancer")
-		remainingIng := stack.FindIngress("ns-1", "ing-1")
 		triggerValue := utils.RandomDNS1123Label(8)
 		Expect(patchIngressAnnotations(ctx, remainingIng, map[string]string{
 			"alb.ingress.kubernetes.io/tags": "e2e-trigger=" + triggerValue,
@@ -130,12 +137,14 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 			g.Expect(tags).To(ContainElement(HaveField("Value", HaveValue(Equal(triggerValue)))))
 		}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
 
-		By("expect no deploy failure caused by the terminating namespace")
-		// A failing reconcile applies the load balancer tags before it creates the TargetGroupBinding, and
-		// records the failure on every member right after. Watch for that failure for a short while.
-		Consistently(func() []string {
-			return terminatingNamespaceDeployFailures(ctx, remainingIng)
-		}, 30*time.Second, utils.PollIntervalShort).Should(BeEmpty())
+		By("expect the IngressGroup to reconcile successfully with no terminating-namespace failure")
+		// A failing reconcile applies the load balancer tags before it creates the TargetGroupBinding, so the tags
+		// alone do not prove success. The group controller records SuccessfullyReconciled only after the whole
+		// deployment succeeds.
+		Eventually(func(g Gomega) {
+			g.Expect(terminatingNamespaceDeployFailures(ctx, remainingIng)).To(BeEmpty())
+			g.Expect(reconcileSuccessCount(ctx, remainingIng)).To(BeNumerically(">", successesBeforeJoin))
+		}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
 		Expect(tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))).To(Succeed())
 	})
 })
@@ -199,15 +208,32 @@ func patchIngressAnnotations(ctx context.Context, ing *networking.Ingress, annot
 // terminatingNamespaceDeployFailures returns the FailedDeployModel event messages on ing that were caused
 // by creating an object in a namespace that is being deleted.
 func terminatingNamespaceDeployFailures(ctx context.Context, ing *networking.Ingress) []string {
-	eventList := &corev1.EventList{}
-	Expect(tf.K8sClient.List(ctx, eventList, client.InNamespace(ing.Namespace))).To(Succeed())
 	var failures []string
-	for _, event := range eventList.Items {
-		if event.InvolvedObject.Kind == "Ingress" && event.InvolvedObject.Name == ing.Name &&
-			event.Reason == k8s.IngressEventReasonFailedDeployModel &&
-			strings.Contains(event.Message, "because it is being terminated") {
+	for _, event := range ingressEvents(ctx, ing, k8s.IngressEventReasonFailedDeployModel) {
+		if strings.Contains(event.Message, "because it is being terminated") {
 			failures = append(failures, event.Message)
 		}
 	}
 	return failures
+}
+
+// reconcileSuccessCount returns how many times the controller recorded a successful reconcile on ing.
+func reconcileSuccessCount(ctx context.Context, ing *networking.Ingress) int32 {
+	var count int32
+	for _, event := range ingressEvents(ctx, ing, k8s.IngressEventReasonSuccessfullyReconciled) {
+		count += event.Count
+	}
+	return count
+}
+
+func ingressEvents(ctx context.Context, ing *networking.Ingress, reason string) []corev1.Event {
+	eventList := &corev1.EventList{}
+	Expect(tf.K8sClient.List(ctx, eventList, client.InNamespace(ing.Namespace))).To(Succeed())
+	var events []corev1.Event
+	for _, event := range eventList.Items {
+		if event.InvolvedObject.Kind == "Ingress" && event.InvolvedObject.Name == ing.Name && event.Reason == reason {
+			events = append(events, event)
+		}
+	}
+	return events
 }
