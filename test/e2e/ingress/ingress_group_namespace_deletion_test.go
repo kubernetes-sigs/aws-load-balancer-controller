@@ -26,7 +26,7 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 	// While a namespace is Terminating, the API server rejects new objects in it, but its Ingress has no
 	// deletionTimestamp until the namespace controller reaches it. The test holds a namespace in that state
 	// with a ValidatingAdmissionPolicy that blocks deleting its Ingress and Service, joins its Ingress to an
-	// IngressGroup, and then changes another member. The group must keep reconciling.
+	// IngressGroup, and then adds a member in another namespace. The group must keep reconciling.
 	It("other members keep reconciling while a member's namespace is terminating", func() {
 		ctx := context.Background()
 		groupName := fmt.Sprintf("e2e-group.%v", utils.RandomDNS1123Label(8))
@@ -109,43 +109,37 @@ var _ = Describe("IngressGroup member namespace deletion", func() {
 			g.Expect(ns.Status.Phase).To(Equal(corev1.NamespaceTerminating))
 		}, 1*time.Minute, 2*time.Second).Should(Succeed())
 
-		remainingIng := stack.FindIngress("ns-1", "ing-1")
-		successesBeforeJoin := reconcileSuccessCount(ctx, remainingIng)
-
 		By("join the Ingress in the terminating namespace to the IngressGroup")
-		joinAnnotations := map[string]string{
-			"kubernetes.io/ingress.class":           "alb",
-			"alb.ingress.kubernetes.io/scheme":      "internet-facing",
-			"alb.ingress.kubernetes.io/target-type": "ip",
-			"alb.ingress.kubernetes.io/group.name":  groupName,
-		}
-		if tf.Options.IPFamily == framework.IPv6 {
-			joinAnnotations["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
-		}
-		Expect(patchIngressAnnotations(ctx, ingX, joinAnnotations)).To(Succeed())
+		Expect(patchIngressAnnotations(ctx, ingX, groupMemberAnnotations(groupName))).To(Succeed())
 
-		By("change the long-lived member and expect the change to reach the load balancer")
-		triggerValue := utils.RandomDNS1123Label(8)
-		Expect(patchIngressAnnotations(ctx, remainingIng, map[string]string{
-			"alb.ingress.kubernetes.io/tags": "e2e-trigger=" + triggerValue,
-		})).To(Succeed())
-		lbARN, err := tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
-		Expect(err).NotTo(HaveOccurred())
-		Eventually(func(g Gomega) {
-			tags, err := tf.LBManager.GetLoadBalancerResourceTags(ctx, lbARN)
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(tags).To(ContainElement(HaveField("Value", HaveValue(Equal(triggerValue)))))
-		}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
+		By("add a member to the IngressGroup in the long-lived namespace")
+		newIng := manifest.NewIngressBuilder().
+			WithAnnotations(groupMemberAnnotations(groupName)).
+			AddHTTPRoute("", networking.HTTPIngressPath{
+				Path:     "/path-b",
+				PathType: &exact,
+				Backend: networking.IngressBackend{Service: &networking.IngressServiceBackend{
+					Name: "backend-a",
+					Port: networking.ServiceBackendPort{Number: 80},
+				}},
+			}).
+			Build(stack.FindIngress("ns-1", "ing-1").Namespace, "ing-2")
+		Expect(tf.K8sClient.Create(ctx, newIng)).To(Succeed())
+		defer func() {
+			Expect(client.IgnoreNotFound(tf.K8sClient.Delete(ctx, newIng))).To(Succeed())
+		}()
 
-		By("expect the IngressGroup to reconcile successfully with no terminating-namespace failure")
-		// A failing reconcile applies the load balancer tags before it creates the TargetGroupBinding, so the tags
-		// alone do not prove success. The group controller records SuccessfullyReconciled only after the whole
-		// deployment succeeds.
+		By("expect the new member to reconcile successfully with no terminating-namespace failure")
+		// The new Ingress has no earlier events, so a SuccessfullyReconciled event on it comes from a reconcile
+		// that loaded it. The group controller records that event only after the whole deployment succeeds,
+		// including every TargetGroupBinding.
 		Eventually(func(g Gomega) {
-			g.Expect(terminatingNamespaceDeployFailures(ctx, remainingIng)).To(BeEmpty())
-			g.Expect(reconcileSuccessCount(ctx, remainingIng)).To(BeNumerically(">", successesBeforeJoin))
+			g.Expect(terminatingNamespaceDeployFailures(ctx, newIng)).To(BeEmpty())
+			g.Expect(reconcileSuccessCount(ctx, newIng)).To(BeNumerically(">", 0))
 		}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
-		Expect(tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-a")))).To(Succeed())
+		Eventually(func() error {
+			return tf.HTTPVerifier.VerifyURL(fmt.Sprintf("http://%v/path-b", dnsName), http.ResponseBodyMatches([]byte("backend-a")))
+		}, utils.IngressReconcileTimeout, utils.PollIntervalMedium).Should(Succeed())
 	})
 })
 
@@ -188,6 +182,20 @@ func buildDeletionHoldPolicy(namespace string) (*admissionregistrationv1.Validat
 		},
 	}
 	return policy, binding
+}
+
+// groupMemberAnnotations makes an Ingress an internet-facing member of the IngressGroup.
+func groupMemberAnnotations(groupName string) map[string]string {
+	annotations := map[string]string{
+		"kubernetes.io/ingress.class":           "alb",
+		"alb.ingress.kubernetes.io/scheme":      "internet-facing",
+		"alb.ingress.kubernetes.io/target-type": "ip",
+		"alb.ingress.kubernetes.io/group.name":  groupName,
+	}
+	if tf.Options.IPFamily == framework.IPv6 {
+		annotations["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+	}
+	return annotations
 }
 
 func patchIngressAnnotations(ctx context.Context, ing *networking.Ingress, annotations map[string]string) error {
