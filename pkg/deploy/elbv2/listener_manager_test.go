@@ -7,6 +7,7 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
@@ -1207,6 +1208,65 @@ func Test_areListenerAttributesSupported(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := areListenerAttributesSupported(tc.protocol)
 			assert.Equal(t, tc.result, res)
+		})
+	}
+}
+
+func Test_buildSDKCertificates(t *testing.T) {
+	cert := func(arn string) elbv2model.Certificate {
+		return elbv2model.Certificate{CertificateARN: acmModel.NewExistingCertificate(arn).CertificateARN()}
+	}
+	sdkCert := func(arn string) elbv2types.Certificate {
+		return elbv2types.Certificate{CertificateArn: awssdk.String(arn)}
+	}
+	tests := []struct {
+		name                     string
+		modelCerts               []elbv2model.Certificate
+		addDefaultCertToCertList bool
+		wantDefault              []elbv2types.Certificate
+		wantExtra                []elbv2types.Certificate
+	}{
+		{
+			name:                     "no certificates",
+			addDefaultCertToCertList: true,
+		},
+		{
+			name:                     "single certificate is also an extra certificate by default",
+			modelCerts:               []elbv2model.Certificate{cert("cert-arn1")},
+			addDefaultCertToCertList: true,
+			wantDefault:              []elbv2types.Certificate{sdkCert("cert-arn1")},
+			wantExtra:                []elbv2types.Certificate{sdkCert("cert-arn1")},
+		},
+		{
+			name:                     "multiple certificates are all extra certificates by default",
+			modelCerts:               []elbv2model.Certificate{cert("cert-arn1"), cert("cert-arn2")},
+			addDefaultCertToCertList: true,
+			wantDefault:              []elbv2types.Certificate{sdkCert("cert-arn1")},
+			wantExtra:                []elbv2types.Certificate{sdkCert("cert-arn1"), sdkCert("cert-arn2")},
+		},
+		{
+			name:                     "single certificate has no extra certificates when the feature gate is disabled",
+			modelCerts:               []elbv2model.Certificate{cert("cert-arn1")},
+			addDefaultCertToCertList: false,
+			wantDefault:              []elbv2types.Certificate{sdkCert("cert-arn1")},
+		},
+		{
+			name:                     "default certificate is left out of the extra certificates when the feature gate is disabled",
+			modelCerts:               []elbv2model.Certificate{cert("cert-arn1"), cert("cert-arn2")},
+			addDefaultCertToCertList: false,
+			wantDefault:              []elbv2types.Certificate{sdkCert("cert-arn1")},
+			wantExtra:                []elbv2types.Certificate{sdkCert("cert-arn2")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			featureGates := config.NewFeatureGates()
+			if !tt.addDefaultCertToCertList {
+				featureGates.Disable(config.DefaultCertInCertificateList)
+			}
+			gotDefault, gotExtra := buildSDKCertificates(tt.modelCerts, featureGates)
+			assert.Equal(t, tt.wantDefault, gotDefault)
+			assert.Equal(t, tt.wantExtra, gotExtra)
 		})
 	}
 }

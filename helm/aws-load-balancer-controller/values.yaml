@@ -433,6 +433,7 @@ controllerConfig:
   # EnableDefaultTagsLowPriority: false
   # ALBTargetControlAgent: false
   # EnableCertificateManagement: false
+  # DefaultCertInCertificateList: true
 
 # see https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/certificate_management/
 certManagement: {}

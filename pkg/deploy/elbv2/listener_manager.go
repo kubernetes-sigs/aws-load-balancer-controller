@@ -158,7 +158,7 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	desiredDefaultCerts, _ := buildSDKCertificates(resLS.Spec.Certificates)
+	desiredDefaultCerts, _ := buildSDKCertificates(resLS.Spec.Certificates, m.featureGates)
 	desiredDefaultMutualAuthentication := buildSDKMutualAuthenticationConfig(resLS.Spec.MutualAuthentication)
 	if !m.isSDKListenerSettingsDrifted(resLS.Spec, sdkLS, desiredDefaultActions, desiredDefaultCerts, desiredDefaultMutualAuthentication) {
 		return nil
@@ -197,7 +197,7 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 	}
 
 	desiredExtraCertARNs := sets.NewString()
-	_, desiredExtraCerts := buildSDKCertificates(resLS.Spec.Certificates)
+	_, desiredExtraCerts := buildSDKCertificates(resLS.Spec.Certificates, m.featureGates)
 	for _, cert := range desiredExtraCerts {
 		desiredExtraCertARNs.Insert(awssdk.ToString(cert.CertificateArn))
 	}
@@ -387,7 +387,7 @@ func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates co
 		return nil, err
 	}
 	sdkObj.DefaultActions = defaultActions
-	sdkObj.Certificates, _ = buildSDKCertificates(lsSpec.Certificates)
+	sdkObj.Certificates, _ = buildSDKCertificates(lsSpec.Certificates, featureGates)
 	sdkObj.SslPolicy = lsSpec.SSLPolicy
 	if len(lsSpec.ALPNPolicy) != 0 {
 		sdkObj.AlpnPolicy = lsSpec.ALPNPolicy
@@ -422,9 +422,12 @@ func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultA
 
 // buildSDKCertificates builds the certificate list for listener.
 // returns the default certificates and extra certificates.
-// All certs are included in the extra list to ensure the default cert remains
+// By default all certs are included in the extra list to ensure the default cert remains
 // attached as an additional cert for auto-discovery (e.g., ECDSA/RSA selection).
-func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Certificate, []elbv2types.Certificate) {
+// When the DefaultCertInCertificateList feature gate is disabled, the default cert is left out
+// of the extra list, so a listener with a single certificate never needs AddListenerCertificates. This is
+// for environments where the ELB API does not support a listener certificate list.
+func buildSDKCertificates(modelCerts []elbv2model.Certificate, featureGates config.FeatureGates) ([]elbv2types.Certificate, []elbv2types.Certificate) {
 	if len(modelCerts) == 0 {
 		return nil, nil
 	}
@@ -432,7 +435,11 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Cer
 	var defaultSDKCerts []elbv2types.Certificate
 	var extraSDKCerts []elbv2types.Certificate
 	defaultSDKCerts = append(defaultSDKCerts, buildSDKCertificate(modelCerts[0]))
-	for _, cert := range modelCerts {
+	extraModelCerts := modelCerts
+	if !featureGates.Enabled(config.DefaultCertInCertificateList) {
+		extraModelCerts = modelCerts[1:]
+	}
+	for _, cert := range extraModelCerts {
 		extraSDKCerts = append(extraSDKCerts, buildSDKCertificate(cert))
 	}
 	return defaultSDKCerts, extraSDKCerts
