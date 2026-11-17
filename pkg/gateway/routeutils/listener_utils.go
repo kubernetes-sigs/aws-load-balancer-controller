@@ -210,6 +210,7 @@ func getSupportedKinds(controllerName string, listener gwv1.Listener) ([]gwv1.Ro
 				Kind:  gwv1.Kind(routeKind),
 			})
 		}
+		return supportedKinds, isKindSupported
 	}
 	for _, routeGroup := range listener.AllowedRoutes.Kinds {
 		if controllerName == gateway_constants.ALBGatewayController {
