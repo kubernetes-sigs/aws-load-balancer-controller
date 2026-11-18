@@ -296,7 +296,13 @@ type defaultModelBuildTask struct {
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	for _, inactiveMember := range t.ingGroup.InactiveMembers {
-		if !inactiveMember.DeletionTimestamp.IsZero() {
+		// Use the same rule as the group loader, so deletion protection applies to every Ingress that left
+		// its group because it is being deleted.
+		beingDeleted, err := isIngressBeingDeleted(ctx, t.k8sClient, inactiveMember)
+		if err != nil {
+			return err
+		}
+		if beingDeleted {
 			deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(inactiveMember)
 			if err != nil {
 				return err

@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
@@ -39,6 +41,7 @@ type GroupLoader interface {
 
 	// LoadGroupIDIfAny loads the groupID for Ingress if Ingress belong to any IngressGroup.
 	// Ingresses that is not managed by this controller or in deletion state won't have a groupID.
+	// An Ingress whose namespace is being deleted is in deletion state as well.
 	LoadGroupIDIfAny(ctx context.Context, ing *networking.Ingress) (*GroupID, error)
 
 	// LoadGroupIDsPendingFinalization returns groupIDs that have associated finalizer on Ingress.
@@ -173,8 +176,12 @@ func (m *defaultGroupLoader) checkGroupMembershipType(ctx context.Context, group
 
 // loadGroupIDIfAnyHelper loads the groupID for Ingress if Ingress belong to any IngressGroup, along with the ClassifiedIngress object.
 func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *networking.Ingress) (ClassifiedIngress, *GroupID, error) {
-	// Ingress no longer belong to any IngressGroup when it's been deleted.
-	if !ing.DeletionTimestamp.IsZero() {
+	// An Ingress no longer belongs to any IngressGroup when it, or its namespace, is being deleted.
+	beingDeleted, err := isIngressBeingDeleted(ctx, m.client, ing)
+	if err != nil {
+		return ClassifiedIngress{}, nil, err
+	}
+	if beingDeleted {
 		return ClassifiedIngress{}, nil, nil
 	}
 	classifiedIngress, matchesIngressClass, err := m.classifyIngress(ctx, ing)
@@ -190,6 +197,35 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 		return ClassifiedIngress{}, nil, err
 	}
 	return classifiedIngress, &groupID, nil
+}
+
+// isIngressBeingDeleted checks whether the Ingress has a deletionTimestamp or its namespace is being deleted.
+// For a terminating namespace, the namespace controller deletes the Ingress later. Until then, the API server
+// rejects any new object in that namespace, such as a TargetGroupBinding.
+func isIngressBeingDeleted(ctx context.Context, k8sClient client.Client, ing *networking.Ingress) (bool, error) {
+	if !ing.DeletionTimestamp.IsZero() {
+		return true, nil
+	}
+	return isIngressNamespaceTerminating(ctx, k8sClient, ing)
+}
+
+// isIngressNamespaceTerminating checks whether the namespace of the Ingress is being deleted.
+// It uses the condition of NamespaceLifecycle admission, which rejects new objects in a namespace
+// whose phase is Terminating. A namespace that is not found is treated as not terminating.
+func isIngressNamespaceTerminating(ctx context.Context, k8sClient client.Client, ing *networking.Ingress) (bool, error) {
+	ns := &corev1.Namespace{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: ing.Namespace}, ns); err != nil {
+		return false, client.IgnoreNotFound(err)
+	}
+	if ns.Status.Phase != corev1.NamespaceTerminating {
+		return false, nil
+	}
+	// The Namespace cache can lag behind the Ingress cache. An Ingress created after the cached
+	// namespace started terminating belongs to a newer namespace with the same name.
+	if ns.DeletionTimestamp != nil && ing.CreationTimestamp.After(ns.DeletionTimestamp.Time) {
+		return false, nil
+	}
+	return true, nil
 }
 
 // classifyIngress will classify the Ingress resource and returns whether it should be managed by this controller, along with the ClassifiedIngress object.
