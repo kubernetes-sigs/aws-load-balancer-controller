@@ -76,6 +76,7 @@ const (
 	ProtocolTCP_UDP  Protocol = "TCP_UDP"
 	ProtocolQUIC     Protocol = "QUIC"
 	ProtocolTCP_QUIC Protocol = "TCP_QUIC"
+	ProtocolGENEVE   Protocol = "GENEVE"
 )
 
 type ProtocolVersion string

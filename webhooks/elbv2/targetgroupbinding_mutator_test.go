@@ -52,6 +52,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		obj *elbv2api.TargetGroupBinding
 	}
 	httpProtocol := elbv2.ProtocolHTTP
+	geneveProtocol := elbv2.ProtocolGENEVE
 	tests := []struct {
 		name       string
 		fields     fields
@@ -353,6 +354,42 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					IPAddressType:       &targetGroupIPAddressTypeIPv4,
 					VpcID:               "vpcid-01",
 					TargetGroupProtocol: &httpProtocol,
+				},
+			},
+		},
+		{
+			name: "targetGroupBinding with protocol absent will be defaulted via AWS API - GENEVE (Gateway Load Balancer)",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-1"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								Protocol: elbv2types.ProtocolEnumGeneve,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+						VpcID:          "vpcid-01",
+					},
+				},
+			},
+			want: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN:      "tg-1",
+					TargetType:          &ipTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					VpcID:               "vpcid-01",
+					TargetGroupProtocol: &geneveProtocol,
 				},
 			},
 		},
