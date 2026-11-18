@@ -75,6 +75,7 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 	testCases := []struct {
 		name                string
 		storedService       *corev1.Service
+		storedNamespace     *corev1.Namespace
 		storedTGConfigs     []elbv2gw.TargetGroupConfiguration
 		referenceGrants     []gwv1.ReferenceGrant
 		backendRef          gwv1.BackendRef
@@ -84,8 +85,50 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 		expectWarning       bool
 		expectFatal         bool
 		expectNoResult      bool
+		expectedRouteReason gwv1.RouteConditionReason
 		expectedTargetGroup *elbv2gw.TargetGroupProps
 	}{
+		{
+			// The API server would reject the TargetGroupBinding in the Service namespace. The Route is in a
+			// different namespace, so without this check the whole Gateway would fail to deploy.
+			name: "service in a terminating namespace is treated as not found",
+			routeIdentifier: types.NamespacedName{
+				Namespace: "route-ns",
+				Name:      routeNameToUse,
+			},
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Name:      gwv1.ObjectName(svcNameToUse),
+					Namespace: (*gwv1.Namespace)(&namespaceToUse),
+					Port:      portConverter(80),
+				},
+			},
+			referenceGrants: []gwv1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespaceToUse, Name: "grant1"},
+					Spec: gwv1.ReferenceGrantSpec{
+						From: []gwv1.ReferenceGrantFrom{{Group: gatewayAPIGroup, Kind: gwbeta1.Kind(kind), Namespace: "route-ns"}},
+						To:   []gwv1.ReferenceGrantTo{{Group: "", Kind: serviceKind}},
+					},
+				},
+			},
+			storedNamespace: &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: namespaceToUse},
+				Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating},
+			},
+			storedService: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceToUse,
+					Name:      svcNameToUse,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{Name: "port-80", Port: 80}},
+				},
+			},
+			expectWarning:       true,
+			expectNoResult:      true,
+			expectedRouteReason: gwv1.RouteReasonBackendNotFound,
+		},
 		{
 			name: "backend ref without namespace",
 			routeIdentifier: types.NamespacedName{
@@ -360,6 +403,9 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			k8sClient := testutils.GenerateTestClient()
 
+			if tc.storedNamespace != nil {
+				assert.NoError(t, k8sClient.Create(context.Background(), tc.storedNamespace))
+			}
 			if tc.storedService != nil {
 				err := k8sClient.Create(context.Background(), tc.storedService)
 				assert.NoError(t, err)
@@ -386,6 +432,13 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 			} else {
 				assert.NoError(t, warningErr)
 				assert.NoError(t, fatalErr)
+			}
+
+			if tc.expectedRouteReason != "" {
+				loaderErr, ok := warningErr.(LoaderError)
+				if assert.True(t, ok) {
+					assert.Equal(t, tc.expectedRouteReason, loaderErr.GetRouteReason())
+				}
 			}
 
 			if tc.expectNoResult {

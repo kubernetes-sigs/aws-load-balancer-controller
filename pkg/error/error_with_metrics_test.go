@@ -3,6 +3,10 @@ package ctrlerrors
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	"testing"
 	"time"
@@ -11,6 +15,10 @@ import (
 func Test_NewErrorWithMetrics(t *testing.T) {
 	resourceType := "test-resource"
 	category := "test-category"
+	// The error that NamespaceLifecycle admission returns for a create in a terminating namespace.
+	nsTerminatingErr := apierrors.NewForbidden(schema.GroupResource{Group: "elbv2.k8s.aws", Resource: "targetgroupbindings"}, "tgb",
+		errors.New("unable to create new content in namespace ns because it is being terminated"))
+	nsTerminatingErr.ErrStatus.Details.Causes = []metav1.StatusCause{{Type: corev1.NamespaceTerminatingCause}}
 	testCases := []struct {
 		name                string
 		err                 error
@@ -28,6 +36,10 @@ func Test_NewErrorWithMetrics(t *testing.T) {
 		{
 			name: "requeue needed after error",
 			err:  &RequeueNeededAfter{},
+		},
+		{
+			name: "create rejected in a terminating namespace",
+			err:  errors.Wrap(nsTerminatingErr, "failed to create targetGroupBinding"),
 		},
 	}
 
