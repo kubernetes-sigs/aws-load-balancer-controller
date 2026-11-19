@@ -174,7 +174,7 @@ type ControllerConfig struct {
 // BindFlags binds the command line flags to the fields in the config object
 func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.LogLevel, flagLogLevel, defaultLogLevel,
-		"Set the controller log level - info(default), debug")
+		"Set the controller log level - debug, info(default), warn, error")
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
