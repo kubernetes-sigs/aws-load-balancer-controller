@@ -24,11 +24,26 @@ spec:
   duration: {{ .Values.certManager.rootCert.duration | default "43800h0m0s" | quote }}
   issuerRef:
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
-  commonName: "ca.webhook.aws-load-balancer-controller"
+  {{- $rootCert := .Values.certManager.rootCert | default dict }}
+  {{- $commonName := "ca.webhook.aws-load-balancer-controller" }}
+  {{- if hasKey $rootCert "commonName" }}
+  {{- $commonName = $rootCert.commonName }}
+  {{- end }}
+  {{- with $commonName }}
+  commonName: {{ . | quote }}
+  {{- else }}
+  # cert-manager needs a commonName or at least one SAN.
+  uris:
+    - urn:aws-load-balancer-controller:webhook-ca
+  {{- end }}
   isCA: true
   subject:
     organizations:
       - aws-load-balancer-controller
+  {{- with .Values.certManager.privateKey }}
+  privateKey:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 ---
 # Create an Issuer that uses the above generated CA certificate to issue certs
 apiVersion: cert-manager.io/v1

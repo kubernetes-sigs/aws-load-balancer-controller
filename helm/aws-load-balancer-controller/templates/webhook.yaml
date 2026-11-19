@@ -421,6 +421,10 @@ spec:
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-root-issuer
     {{- end }}
   secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
+  {{- with .Values.certManager.privateKey }}
+  privateKey:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- with .Values.certManager -}}
   {{ if .duration }}
   duration: {{ .duration | default "8760h0m0s" | quote }}

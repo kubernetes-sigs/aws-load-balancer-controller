@@ -122,9 +122,19 @@ certManager:
   renewBefore: "720h0m0s"  # 30 days
   revisionHistoryLimit:
 
+  # Private key settings for both the root CA and the webhook serving certificate.
+  # Same shape as cert-manager's Certificate spec.privateKey. Empty uses cert-manager defaults (RSA 2048).
+  privateKey: {}
+  #   algorithm: ECDSA
+  #   size: 256
+
   # Root CA certificate configuration
   rootCert:
     duration: "43800h0m0s"  # 5 years
+    # Common name of the root CA certificate. Set to "" to omit it: the root then gets the URI SAN
+    # urn:aws-load-balancer-controller:webhook-ca (cert-manager needs a commonName or a SAN), and
+    # the subject keeps O=aws-load-balancer-controller.
+    commonName: "ca.webhook.aws-load-balancer-controller"
 
   # Optional: custom issuer reference
   # issuerRef:
