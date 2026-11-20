@@ -219,3 +219,31 @@ func TestControllerConfig_validateManageBackendSecurityGroupRulesConfiguration(t
 		})
 	}
 }
+
+func TestControllerConfig_validateDefaultCertificateKeyAlgorithm(t *testing.T) {
+	tests := []struct {
+		name         string
+		keyAlgorithm string
+		wantErr      bool
+	}{
+		{name: "empty", keyAlgorithm: ""},
+		{name: "RSA_2048", keyAlgorithm: "RSA_2048"},
+		{name: "EC_prime256v1", keyAlgorithm: "EC_prime256v1"},
+		{name: "EC_secp384r1", keyAlgorithm: "EC_secp384r1"},
+		{name: "RSA_3072", keyAlgorithm: "RSA_3072"},
+		{name: "RSA_4096", keyAlgorithm: "RSA_4096"},
+		{name: "RSA_1024 is not supported", keyAlgorithm: "RSA_1024", wantErr: true},
+		{name: "unknown", keyAlgorithm: "foo", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ControllerConfig{IngressConfig: IngressConfig{DefaultCertificateKeyAlgorithm: tt.keyAlgorithm}}
+			err := cfg.validateDefaultCertificateKeyAlgorithm()
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

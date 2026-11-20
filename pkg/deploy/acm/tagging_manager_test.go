@@ -39,7 +39,7 @@ func Test_defaultTaggingManager_ListCertificates(t *testing.T) {
 		{
 			name: "successfully retrieve tags from ACM",
 			setupExpectations: func() {
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{{
 						CertificateArn: awssdk.String("arn:aws:acm:eu-central-1:134051052098:certificate/0983b834-dc36-4253-8f8c-2e21525d1185"),
 					}}, nil)
@@ -83,7 +83,7 @@ func Test_defaultTaggingManager_ListCertificates(t *testing.T) {
 		{
 			name: "list tags for certificate with wrong tagfilters",
 			setupExpectations: func() {
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{{
 						CertificateArn: awssdk.String("arn:aws:acm:eu-central-1:134051052098:certificate/0983b834-dc36-4253-8f8c-2e21525d1185"),
 					}}, nil)
@@ -111,7 +111,7 @@ func Test_defaultTaggingManager_ListCertificates(t *testing.T) {
 		{
 			name: "empty certificates list",
 			setupExpectations: func() {
-				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{})).
+				mockACM.EXPECT().ListCertificatesAsList(gomock.Any(), gomock.Eq(&acm.ListCertificatesInput{Includes: &acmtypes.Filters{KeyTypes: acmtypes.KeyAlgorithm("").Values()}})).
 					Return([]acmtypes.CertificateSummary{}, nil)
 			},
 			want: []CertificateWithTags(nil),

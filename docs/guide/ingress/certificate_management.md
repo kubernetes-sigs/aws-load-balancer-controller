@@ -63,6 +63,15 @@ Deleting one ingress from the group removes only its managed certificate. The ot
 !!!note "Same hostname across multiple ingresses"
     Each ingress in a group gets its own certificate, even if multiple ingresses share the same hostname. If two ingresses both have `create-acm-cert: "true"` with the same host, two separate certificates are created and both are attached to the listener. To avoid duplicate certificates for the same domain, only enable `create-acm-cert` on one ingress per hostname — the other ingresses with the same hostname can omit the annotation and will still have their listener rules created on the shared ALB.
 
+## Key Algorithm
+
+By default certificates are requested with an `RSA_2048` key. The key algorithm can be configured on two different levels:
+
+- controller flag: `--default-certificate-key-algorithm` sets the key algorithm for all certificates created by the controller.
+- ingress annotation: the [acm-key-algorithm annotation](annotations.md#acm-key-algorithm) overrides the controller default for a single ingress object.
+
+Amazon issued certificates support `RSA_2048`, `EC_prime256v1` and `EC_secp384r1`. Private certificates issued by a PCA additionally support `RSA_3072` and `RSA_4096`. Changing the key algorithm causes the controller to reissue the certificate.
+
 ## PCA-Support
 
 If you don't want Amazon Issued certificates you can issue certificates from an existing PCA in your AWS account.

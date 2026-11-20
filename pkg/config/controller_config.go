@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -9,10 +10,12 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/inject/quic"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 
+	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
@@ -263,6 +266,9 @@ func (cfg *ControllerConfig) Validate() error {
 	if err := cfg.validateRequiredSecretsLabel(); err != nil {
 		return err
 	}
+	if err := cfg.validateDefaultCertificateKeyAlgorithm(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -339,6 +345,18 @@ func (cfg *ControllerConfig) validateRequiredSecretsLabel() error {
 			cfg.RequiredSecretsLabel, flagRequiredSecretsLabel)
 	}
 	return nil
+}
+
+func (cfg *ControllerConfig) validateDefaultCertificateKeyAlgorithm() error {
+	keyAlgorithm := cfg.IngressConfig.DefaultCertificateKeyAlgorithm
+	if keyAlgorithm == "" {
+		return nil
+	}
+	if slices.Contains(acm.PrivateKeyAlgorithms, acmtypes.KeyAlgorithm(keyAlgorithm)) {
+		return nil
+	}
+	return errors.Errorf("invalid value %v for --%v: must be one of %v",
+		keyAlgorithm, flagDefaultCertificateKeyAlgorithm, acm.PrivateKeyAlgorithms)
 }
 
 // ParseRequiredSecretsLabel splits a "key=value" string into its key and value parts.
