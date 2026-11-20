@@ -1043,6 +1043,45 @@ spec:
                           - "on"
                           - "off"
                           type: string
+                        clientCertificateIdentityFilters:
+                          description: (NLB only) Allows you to control which authenticated
+                            clients can access your service based on specific attributes
+                            in the client certificate. The load balancer evaluates
+                            the client certificate against the filters you define.
+                            Filters are evaluated using OR logic.
+                          items:
+                            properties:
+                              action:
+                                description: Action to take when there is a match.
+                                enum:
+                                - accept
+                                type: string
+                              field:
+                                description: Field in the client certificate.
+                                enum:
+                                - subject-cn
+                                - subject-ou
+                                - san-dns
+                                - san-uri
+                                type: string
+                              matchType:
+                                description: Method for matching the value.
+                                enum:
+                                - exact
+                                - prefix
+                                type: string
+                              value:
+                                description: Value to match against.
+                                maxLength: 256
+                                minLength: 1
+                                type: string
+                            required:
+                            - action
+                            - field
+                            - matchType
+                            - value
+                            type: object
+                          type: array
                         ignoreClientCertificateExpiry:
                           description: Indicates whether expired client certificates
                             are ignored.
@@ -1074,6 +1113,9 @@ spec:
                       - message: Mutual Authentication mode 'off' or 'passthrough'
                           does not support 'advertiseTrustStoreCaNames'
                         rule: '!(self.mode != ''verify'' && has(self.advertiseTrustStoreCaNames))'
+                      - message: Mutual Authentication mode 'off' or 'passthrough'
+                          does not support 'clientCertificateIdentityFilters'
+                        rule: '!(self.mode != ''verify'' && has(self.clientCertificateIdentityFilters))'
                     protocolPort:
                       description: protocolPort is identifier for the listener on
                         load balancer. It should be of the form PROTOCOL:PORT

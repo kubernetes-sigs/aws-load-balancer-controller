@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 	"strings"
 	"time"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/test/framework/verifier"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/onsi/ginkgo/v2"
@@ -830,6 +831,188 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 						Expect(arn1).ToNot(Equal(arn2))
 					}
 				}
+			})
+		})
+	})
+
+	Context("with NLB mutual authentication", func() {
+		var annotations map[string]string
+		var svc *corev1.Service
+
+		BeforeEach(func() {
+			if strings.Contains(tf.Options.AWSRegion, "-iso-") || tf.Options.AWSRegion == "eusc-de-east-1" {
+				Skip("Skipping test, NLB mutual authentication not supported in this region")
+			}
+			if tf.Options.CertificateARNs == "" || tf.Options.TrustStoreARN == "" {
+				Skip("Skipping test, certArns and trustStoreARN not set")
+			}
+			annotations = map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-type":     "nlb-ip",
+				"service.beta.kubernetes.io/aws-load-balancer-scheme":   "internet-facing",
+				"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": tf.Options.CertificateARNs,
+			}
+			if tf.Options.IPFamily == framework.IPv6 {
+				annotations["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+		})
+
+		It("should provision TLS listener with mutual authentication verify mode", func() {
+			By("deploying stack", func() {
+				annotations["service.beta.kubernetes.io/mutual-authentication"] = fmt.Sprintf("[{\"port\": 80, \"mode\": \"verify\", \"trustStore\": \"%s\"}]", tf.Options.TrustStoreARN)
+				svc = &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        name,
+						Annotations: annotations,
+					},
+					Spec: corev1.ServiceSpec{
+						Type:     corev1.ServiceTypeLoadBalancer,
+						Selector: labels,
+						Ports: []corev1.ServicePort{
+							{
+								Port:       80,
+								TargetPort: intstr.FromInt(80),
+								Protocol:   corev1.ProtocolTCP,
+							},
+						},
+					},
+				}
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking service status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS load balancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying service with AWS", func() {
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:      "network",
+					Scheme:    "internet-facing",
+					Listeners: map[string]string{"80": "TLS"},
+					TargetGroups: []verifier.ExpectedTargetGroup{
+						{
+							Protocol:   "TCP",
+							Port:       80,
+							NumTargets: int(numReplicas),
+							TargetType: "ip",
+							TargetGroupHC: &verifier.TargetGroupHC{
+								Protocol:           "TCP",
+								Port:               "traffic-port",
+								Interval:           10,
+								Timeout:            10,
+								HealthyThreshold:   3,
+								UnhealthyThreshold: 3,
+							},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedMutualAuthConfig := &verifier.MutualAuthenticationExpectation{
+					Mode:                             "verify",
+					TrustStoreARN:                    tf.Options.TrustStoreARN,
+					IgnoreClientCertificateExpiry:    false,
+					AdvertiseTrustStoreCaNames:       "off",
+					ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{}, // API returns empty list by default
+				}
+				err = verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 80, &verifier.ListenerExpectation{
+					ProtocolPort:          "TLS:80",
+					DefaultCertificateARN: tf.Options.CertificateARNs,
+					MutualAuthentication:  expectedMutualAuthConfig,
+					Attributes:            nil,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		It("should provision TLS listener with mutual authentication verify mode and client certificate identity filters", func() {
+			By("deploying stack", func() {
+				annotations["service.beta.kubernetes.io/mutual-authentication"] = fmt.Sprintf("[{\"port\": 80, \"mode\": \"verify\", \"trustStore\": \"%s\", \"advertiseTrustStoreCaNames\": \"on\",\"ignoreClientCertificateExpiry\" : true, \"clientCertificateIdentityFilters\": [{\"field\": \"subject-cn\", \"action\": \"accept\", \"matchType\": \"exact\", \"value\": \"www.example.com\"}]}]", tf.Options.TrustStoreARN)
+				svc = &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        name,
+						Annotations: annotations,
+					},
+					Spec: corev1.ServiceSpec{
+						Type:     corev1.ServiceTypeLoadBalancer,
+						Selector: labels,
+						Ports: []corev1.ServicePort{
+							{
+								Port:       80,
+								TargetPort: intstr.FromInt(80),
+								Protocol:   corev1.ProtocolTCP,
+							},
+						},
+					},
+				}
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, nil, map[string]string{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking service status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS load balancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying service with AWS", func() {
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:      "network",
+					Scheme:    "internet-facing",
+					Listeners: map[string]string{"80": "TLS"},
+					TargetGroups: []verifier.ExpectedTargetGroup{
+						{
+							Protocol:   "TCP",
+							Port:       80,
+							NumTargets: int(numReplicas),
+							TargetType: "ip",
+							TargetGroupHC: &verifier.TargetGroupHC{
+								Protocol:           "TCP",
+								Port:               "traffic-port",
+								Interval:           10,
+								Timeout:            10,
+								HealthyThreshold:   3,
+								UnhealthyThreshold: 3,
+							},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedMutualAuthConfig := &verifier.MutualAuthenticationExpectation{
+					Mode:                          "verify",
+					TrustStoreARN:                 tf.Options.TrustStoreARN,
+					IgnoreClientCertificateExpiry: true,
+					AdvertiseTrustStoreCaNames:    "on",
+					ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+						{
+							Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+							Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectCn,
+							MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypeExact,
+							Value:     awssdk.String("www.example.com"),
+						},
+					},
+				}
+				err = verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 80, &verifier.ListenerExpectation{
+					ProtocolPort:          "TLS:80",
+					DefaultCertificateARN: tf.Options.CertificateARNs,
+					MutualAuthentication:  expectedMutualAuthConfig,
+				})
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

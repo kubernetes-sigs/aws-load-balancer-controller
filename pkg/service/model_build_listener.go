@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -11,6 +12,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 )
 
 var validMultiProtocolSet = sets.New(string(elbv2model.ProtocolTCP), string(elbv2model.ProtocolUDP))
@@ -28,8 +30,13 @@ func (t *defaultModelBuildTask) buildListenersLegacy(ctx context.Context, scheme
 		return err
 	}
 
+	mutualAuthenticationAttributes, err := t.computeServiceMutualAuthentication(ctx)
+	if err != nil {
+		return err
+	}
+
 	for _, port := range t.service.Spec.Ports {
-		_, err = t.buildListener(ctx, port, cfg, scheme)
+		_, err = t.buildListener(ctx, port, cfg, scheme, mutualAuthenticationAttributes[port.Port])
 		if err != nil {
 			return err
 		}
@@ -66,10 +73,15 @@ func (t *defaultModelBuildTask) buildListenersWithTCPUDPSupport(ctx context.Cont
 		return err
 	}
 
+	mutualAuthenticationAttributes, err := t.computeServiceMutualAuthentication(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Finally, build the listeners.
 	// This code loops over port map 3 times! But the port map should be relatively small.
 	for _, servicePorts := range portMap {
-		_, err = t.buildListener(ctx, servicePorts[0], cfg, scheme)
+		_, err = t.buildListener(ctx, servicePorts[0], cfg, scheme, mutualAuthenticationAttributes[servicePorts[0].Port])
 		if err != nil {
 			return err
 		}
@@ -79,7 +91,7 @@ func (t *defaultModelBuildTask) buildListenersWithTCPUDPSupport(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
-	scheme elbv2model.LoadBalancerScheme,
+	scheme elbv2model.LoadBalancerScheme, mutualAuthentication *elbv2model.MutualAuthenticationAttributes,
 ) (*elbv2model.Listener, error) {
 	if t.shouldEnableDualStackRouting() {
 		targetType, err := t.buildTargetType(ctx, t.service, t.service.Annotations, port)
@@ -101,7 +113,7 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 			return nil, errors.New("dual-stack routing annotation is incompatible with the actions annotation")
 		}
 	}
-	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
+	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme, mutualAuthentication)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +163,7 @@ func buildProtocols(port corev1.ServicePort, cfg *listenerConfig) (tgProtocol, l
 }
 
 func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
-	scheme elbv2model.LoadBalancerScheme,
+	scheme elbv2model.LoadBalancerScheme, mutualAuthentication *elbv2model.MutualAuthenticationAttributes,
 ) (elbv2model.ListenerSpec, error) {
 	tgProtocol, listenerProtocol, err := buildProtocols(port, cfg)
 	if err != nil {
@@ -213,16 +225,20 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	if attributesErr != nil {
 		return elbv2model.ListenerSpec{}, attributesErr
 	}
+	if mutualAuthentication != nil && listenerProtocol != elbv2model.ProtocolTLS {
+		return elbv2model.ListenerSpec{}, errors.Errorf("mutual authentication requires a TLS listener on port %d, got %s", port.Port, listenerProtocol)
+	}
 	return elbv2model.ListenerSpec{
-		LoadBalancerARN:    t.loadBalancer.LoadBalancerARN(),
-		Port:               port.Port,
-		Protocol:           listenerProtocol,
-		Certificates:       certificates,
-		SSLPolicy:          sslPolicy,
-		ALPNPolicy:         alpnPolicy,
-		DefaultActions:     defaultActions,
-		Tags:               tags,
-		ListenerAttributes: lsAttributes,
+		LoadBalancerARN:      t.loadBalancer.LoadBalancerARN(),
+		Port:                 port.Port,
+		Protocol:             listenerProtocol,
+		Certificates:         certificates,
+		SSLPolicy:            sslPolicy,
+		ALPNPolicy:           alpnPolicy,
+		DefaultActions:       defaultActions,
+		MutualAuthentication: mutualAuthentication,
+		Tags:                 tags,
+		ListenerAttributes:   lsAttributes,
 	}, nil
 }
 
@@ -397,6 +413,30 @@ func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context, tcpUdpP
 		sslPolicy:       sslPolicy,
 		backendProtocol: backendProtocol,
 	}, nil
+}
+
+// Returns a map of port to Mutual Authentication attributes
+func (t *defaultModelBuildTask) computeServiceMutualAuthentication(ctx context.Context) (map[int32]*elbv2model.MutualAuthenticationAttributes, error) {
+	var rawMtlsConfigString string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixMutualAuthentication, &rawMtlsConfigString, t.service.Annotations); !exists {
+		return nil, nil
+	}
+
+	var annotationEntries []shared_utils.MutualAuthenticationConfig
+
+	if err := json.Unmarshal([]byte(rawMtlsConfigString), &annotationEntries); err != nil {
+		return nil, errors.Wrapf(err, "failed to parse mutualAuthentication configuration from service annotation: `%s`", rawMtlsConfigString)
+	}
+	if len(annotationEntries) == 0 {
+		return nil, errors.Errorf("empty mutualAuthentication configuration from service annotation: `%s`", rawMtlsConfigString)
+	}
+
+	portAndMtlsAttributesMap, err := shared_utils.ParseMtlsConfigEntries(ctx, t.elbv2Client, annotationEntries, elbv2model.ProtocolTLS)
+	if err != nil {
+		return nil, err
+	}
+
+	return portAndMtlsAttributesMap, nil
 }
 
 func (t *defaultModelBuildTask) buildListenerTags(ctx context.Context) (map[string]string, error) {

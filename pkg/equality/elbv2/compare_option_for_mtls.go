@@ -12,6 +12,9 @@ func CompareOptionsForMTLS() cmp.Options {
 		cmpopts.IgnoreUnexported(elbv2types.MutualAuthenticationAttributes{}),
 		cmpopts.IgnoreUnexported(elbv2.MutualAuthenticationAttributes{}),
 		cmpopts.EquateComparable(elbv2types.Certificate{}),
+		cmpopts.IgnoreUnexported(elbv2types.ClientCertificateIdentityFilter{}),
+		// nil and empty lists are treated as equal
+		cmpopts.EquateEmpty(),
 		cmpopts.IgnoreFields(elbv2types.MutualAuthenticationAttributes{}, "TrustStoreAssociationStatus"),
 	}
 }

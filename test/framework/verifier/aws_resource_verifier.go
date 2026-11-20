@@ -59,10 +59,11 @@ type ListenerExpectation struct {
 
 // MutualAuthenticationExpectation contains expected mTLS settings
 type MutualAuthenticationExpectation struct {
-	Mode                          string
-	TrustStoreARN                 string
-	IgnoreClientCertificateExpiry bool
-	AdvertiseTrustStoreCaNames    string
+	Mode                             string
+	TrustStoreARN                    string
+	IgnoreClientCertificateExpiry    bool
+	AdvertiseTrustStoreCaNames       string
+	ClientCertificateIdentityFilters []elbv2types.ClientCertificateIdentityFilter
 }
 
 type ListenerRuleExpectation struct {
@@ -412,10 +413,20 @@ func VerifyLoadBalancerListener(ctx context.Context, f *framework.Framework, lbA
 }
 
 // TODO: Add "verify mode" verification later after adding a trust-store to the prow test account
-func VerifyListenerMutualAuthentication(lsMutualAuth *elbv2types.MutualAuthenticationAttributes, expectedListenerMutualAuthentication *MutualAuthenticationExpectation) error {
-	if expectedListenerMutualAuthentication != nil {
-		Expect(awssdk.ToString(lsMutualAuth.Mode)).To(Equal(expectedListenerMutualAuthentication.Mode))
+func VerifyListenerMutualAuthentication(actualConfig *elbv2types.MutualAuthenticationAttributes, expectedConfig *MutualAuthenticationExpectation) error {
+	if expectedConfig == nil {
+		return nil
 	}
+
+	Expect(awssdk.ToString(actualConfig.Mode)).To(Equal(expectedConfig.Mode))
+
+	if expectedConfig.Mode == "verify" && expectedConfig.TrustStoreARN != "" {
+		Expect(awssdk.ToString(actualConfig.TrustStoreArn)).To(Equal(expectedConfig.TrustStoreARN))
+		Expect(string(actualConfig.AdvertiseTrustStoreCaNames)).To(Equal(expectedConfig.AdvertiseTrustStoreCaNames))
+		Expect(awssdk.ToBool(actualConfig.IgnoreClientCertificateExpiry)).To(Equal(expectedConfig.IgnoreClientCertificateExpiry))
+		Expect(actualConfig.ClientCertificateIdentityFilters).To(Equal(expectedConfig.ClientCertificateIdentityFilters))
+	}
+
 	return nil
 }
 

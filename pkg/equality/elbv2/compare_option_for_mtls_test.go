@@ -1,11 +1,12 @@
 package elbv2
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestCompareOptionsForMTLS(t *testing.T) {
@@ -112,6 +113,100 @@ func TestCompareOptionsForMTLS(t *testing.T) {
 			attrs2: &elbv2types.MutualAuthenticationAttributes{
 				Mode:                          awssdk.String("verify"),
 				IgnoreClientCertificateExpiry: awssdk.Bool(false),
+			},
+		},
+		{
+			name:     "same client certificate identity filters should be equal",
+			expected: true,
+			attrs1: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectOu,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypePrefix,
+						Value:     awssdk.String("value-1"),
+					},
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSanDns,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypeExact,
+						Value:     awssdk.String("value-2"),
+					},
+				},
+			},
+			attrs2: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectOu,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypePrefix,
+						Value:     awssdk.String("value-1"),
+					},
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSanDns,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypeExact,
+						Value:     awssdk.String("value-2"),
+					},
+				},
+			},
+		},
+		{
+			name:     "different client certificate identity filters should not be equal",
+			expected: false,
+			attrs1: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectOu,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypePrefix,
+						Value:     awssdk.String("value-1"),
+					},
+				},
+			},
+			attrs2: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectOu,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypePrefix,
+						Value:     awssdk.String("value-2"),
+					},
+				},
+			},
+		},
+		{
+			name:     "missing client certificate identity filters should not be equal",
+			expected: false,
+			attrs1: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+					{
+						Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2types.ClientCertificateIdentityFilterFieldSanDns,
+						MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypeExact,
+						Value:     awssdk.String("value-1"),
+					},
+				},
+			},
+			attrs2: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+			},
+		},
+		{
+			name:     "nil and empty client certificate identity filters should be equal",
+			expected: true,
+			attrs1: &elbv2types.MutualAuthenticationAttributes{
+				Mode:                             awssdk.String("verify"),
+				ClientCertificateIdentityFilters: nil,
+			},
+			attrs2: &elbv2types.MutualAuthenticationAttributes{
+				Mode:                             awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{},
 			},
 		},
 	}

@@ -451,9 +451,10 @@ func buildSDKMutualAuthenticationConfig(modelMutualAuthenticationCfg *elbv2model
 		return nil
 	}
 	attributes := &elbv2types.MutualAuthenticationAttributes{
-		IgnoreClientCertificateExpiry: modelMutualAuthenticationCfg.IgnoreClientCertificateExpiry,
-		Mode:                          awssdk.String(modelMutualAuthenticationCfg.Mode),
-		TrustStoreArn:                 modelMutualAuthenticationCfg.TrustStoreArn,
+		IgnoreClientCertificateExpiry:    modelMutualAuthenticationCfg.IgnoreClientCertificateExpiry,
+		Mode:                             awssdk.String(modelMutualAuthenticationCfg.Mode),
+		TrustStoreArn:                    modelMutualAuthenticationCfg.TrustStoreArn,
+		ClientCertificateIdentityFilters: translateClientCertificateIdentityFiltersToSdk(modelMutualAuthenticationCfg.ClientCertificateIdentityFilters),
 	}
 
 	if modelMutualAuthenticationCfg.Mode == string(elbv2model.MutualAuthenticationVerifyMode) {
@@ -510,4 +511,21 @@ func translateAdvertiseCAToEnum(s *string) elbv2types.AdvertiseTrustStoreCaNames
 		return elbv2types.AdvertiseTrustStoreCaNamesEnumOff
 	}
 	return elbv2types.AdvertiseTrustStoreCaNamesEnum(*s)
+}
+
+func translateClientCertificateIdentityFiltersToSdk(modelFilters []elbv2model.ClientCertificateIdentityFilter) []elbv2types.ClientCertificateIdentityFilter {
+	if modelFilters == nil {
+		return nil
+	}
+
+	sdkFilters := make([]elbv2types.ClientCertificateIdentityFilter, 0, len(modelFilters))
+	for _, filter := range modelFilters {
+		sdkFilters = append(sdkFilters, elbv2types.ClientCertificateIdentityFilter{
+			Action:    elbv2types.ClientCertificateIdentityFilterAction(filter.Action),
+			Field:     elbv2types.ClientCertificateIdentityFilterField(filter.Field),
+			MatchType: elbv2types.ClientCertificateIdentityFilterMatchType(filter.MatchType),
+			Value:     awssdk.String(filter.Value),
+		})
+	}
+	return sdkFilters
 }
