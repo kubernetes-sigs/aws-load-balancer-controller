@@ -74,6 +74,12 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 				if err = s.lbManager.Delete(ctx, sdkLB); err != nil {
 					return err
 				}
+			} else if strings.Contains(errMessage, "ResourceInUse") {
+				// A load balancer that is still in use cannot be deleted. The common cause is
+				// an NLB with active VPC endpoint service (PrivateLink) associations. If this
+				// delete is part of replacing the load balancer to apply an immutable property
+				// change (e.g. scheme or Elastic IP allocations), it cannot proceed automatically.
+				return errors.Wrapf(err, "unable to delete load balancer %v because it is still in use; if this is a replacement to apply an immutable property change (such as scheme or Elastic IP allocations), remove its VPC endpoint service (PrivateLink) associations or migrate manually", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 			} else {
 				return err
 			}
@@ -224,6 +230,46 @@ func isSDKLoadBalancerRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elb
 	}
 	if &resLB.Spec.Scheme != nil && string(resLB.Spec.Scheme) != string(sdkLB.LoadBalancer.Scheme) {
 		return true
+	}
+	// Elastic IP allocations and private IPv4 addresses are immutable on an existing NLB;
+	// changing them requires replacement rather than an in-place SetSubnets call.
+	if isSDKLoadBalancerSubnetAddressesRequiresReplacement(sdkLB, resLB) {
+		return true
+	}
+	return false
+}
+
+// isSDKLoadBalancerSubnetAddressesRequiresReplacement reports whether the desired subnet
+// mappings change the Elastic IP allocation or private IPv4 address of a subnet that is
+// already attached to the load balancer. These per-subnet address bindings cannot be
+// modified in place, so such a change forces replacement. Newly added subnets are attached
+// in place by SetSubnets and are not considered here; mappings without a requested address,
+// and ALBs, never trigger it.
+func isSDKLoadBalancerSubnetAddressesRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) bool {
+	currentSubnets := sets.NewString()
+	currentAllocationBySubnet := make(map[string]string)
+	currentPrivateIPv4BySubnet := make(map[string]string)
+	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
+		subnetID := awssdk.ToString(az.SubnetId)
+		currentSubnets.Insert(subnetID)
+		if len(az.LoadBalancerAddresses) == 0 {
+			continue
+		}
+		currentAllocationBySubnet[subnetID] = awssdk.ToString(az.LoadBalancerAddresses[0].AllocationId)
+		currentPrivateIPv4BySubnet[subnetID] = awssdk.ToString(az.LoadBalancerAddresses[0].PrivateIPv4Address)
+	}
+	for _, mapping := range resLB.Spec.SubnetMappings {
+		// A newly added subnet is attached in place by SetSubnets; only an address change
+		// on an already-attached subnet requires replacement.
+		if !currentSubnets.Has(mapping.SubnetID) {
+			continue
+		}
+		if mapping.AllocationID != nil && awssdk.ToString(mapping.AllocationID) != currentAllocationBySubnet[mapping.SubnetID] {
+			return true
+		}
+		if mapping.PrivateIPv4Address != nil && awssdk.ToString(mapping.PrivateIPv4Address) != currentPrivateIPv4BySubnet[mapping.SubnetID] {
+			return true
+		}
 	}
 	return false
 }
