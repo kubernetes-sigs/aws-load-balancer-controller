@@ -82,6 +82,10 @@ func (tlsRoute *tlsRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return tlsRoute.route.Spec.ParentRefs
 }
 
+func (tlsRoute *tlsRouteDescription) GetParentStatuses() []gwv1.RouteParentStatus {
+	return tlsRoute.route.Status.Parents
+}
+
 func (tlsRoute *tlsRouteDescription) GetRouteKind() RouteKind {
 	return TLSRouteKind
 }

@@ -22,15 +22,15 @@ const (
 // Enqueuing a status update for these parentRefs lets the route reconciler, which rebuilds status.parents
 // from spec.parentRefs, drop the stale entry.
 func findStaleParentStatuses(route preLoadRouteDescriptor, controllerName string) []gwv1.ParentReference {
-	specParentRefs, parentStatuses := getRouteParentRefsAndStatuses(route.GetRawRoute())
+	parentStatuses := route.GetParentStatuses()
 	if len(parentStatuses) == 0 {
 		return nil
 	}
 
 	routeNamespace := route.GetRouteNamespacedName().Namespace
 	referenced := sets.New[string]()
-	for _, ref := range specParentRefs {
-		referenced.Insert(parentRefKey(ref, routeNamespace))
+	for _, ref := range route.GetParentRefs() {
+		referenced.Insert(ParentRefKey(ref, routeNamespace))
 	}
 
 	var stale []gwv1.ParentReference
@@ -38,33 +38,17 @@ func findStaleParentStatuses(route preLoadRouteDescriptor, controllerName string
 		if string(status.ControllerName) != controllerName {
 			continue
 		}
-		if !referenced.Has(parentRefKey(status.ParentRef, routeNamespace)) {
+		if !referenced.Has(ParentRefKey(status.ParentRef, routeNamespace)) {
 			stale = append(stale, status.ParentRef)
 		}
 	}
 	return stale
 }
 
-// getRouteParentRefsAndStatuses returns spec.parentRefs and status.parents of the underlying route object.
-func getRouteParentRefsAndStatuses(rawRoute interface{}) ([]gwv1.ParentReference, []gwv1.RouteParentStatus) {
-	switch r := rawRoute.(type) {
-	case *gwv1.HTTPRoute:
-		return r.Spec.ParentRefs, r.Status.Parents
-	case *gwv1.GRPCRoute:
-		return r.Spec.ParentRefs, r.Status.Parents
-	case *gwv1.TLSRoute:
-		return r.Spec.ParentRefs, r.Status.Parents
-	case *gwv1.TCPRoute:
-		return r.Spec.ParentRefs, r.Status.Parents
-	case *gwv1.UDPRoute:
-		return r.Spec.ParentRefs, r.Status.Parents
-	}
-	return nil, nil
-}
-
-// parentRefKey identifies a parentRef the same way the route status reconciler does, so that an entry
-// considered stale here is exactly an entry the reconciler will drop.
-func parentRefKey(ref gwv1.ParentReference, routeNamespace string) string {
+// ParentRefKey returns a unique key for a parentRef, defaulting an unset namespace to the route namespace.
+// It is shared by the route loader and the route status reconciler: an entry considered stale here must be
+// exactly an entry the reconciler drops, so both sides must key parentRefs identically.
+func ParentRefKey(ref gwv1.ParentReference, routeNamespace string) string {
 	group := ""
 	if ref.Group != nil {
 		group = string(*ref.Group)

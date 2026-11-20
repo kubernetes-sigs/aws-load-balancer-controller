@@ -24,78 +24,47 @@ func Test_findStaleParentStatuses(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		rawRoute interface{}
-		expected []gwv1.ParentReference
+		name       string
+		parentRefs []gwv1.ParentReference
+		statuses   []gwv1.RouteParentStatus
+		expected   []gwv1.ParentReference
 	}{
 		{
-			name:     "no raw route",
-			rawRoute: nil,
+			name:       "no status",
+			parentRefs: []gwv1.ParentReference{albGW},
 		},
 		{
-			name: "no status",
-			rawRoute: &gwv1.HTTPRoute{
-				Spec: gwv1.HTTPRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{albGW}}},
-			},
+			name:       "our status entry is still referenced",
+			parentRefs: []gwv1.ParentReference{albGW},
+			statuses:   []gwv1.RouteParentStatus{statusFor(albGW, gateway_constants.ALBGatewayController)},
 		},
 		{
-			name: "our status entry is still referenced",
-			rawRoute: &gwv1.HTTPRoute{
-				Spec: gwv1.HTTPRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{albGW}}},
-				Status: gwv1.HTTPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-					statusFor(albGW, gateway_constants.ALBGatewayController),
-				}}},
-			},
-		},
-		{
-			name: "route moved to a gateway of another controller",
-			rawRoute: &gwv1.HTTPRoute{
-				Spec: gwv1.HTTPRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{otherGW}}},
-				Status: gwv1.HTTPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-					statusFor(otherGW, "example.com/other-controller"),
-					statusFor(albGW, gateway_constants.ALBGatewayController),
-				}}},
+			name:       "route moved to a gateway of another controller",
+			parentRefs: []gwv1.ParentReference{otherGW},
+			statuses: []gwv1.RouteParentStatus{
+				statusFor(otherGW, "example.com/other-controller"),
+				statusFor(albGW, gateway_constants.ALBGatewayController),
 			},
 			expected: []gwv1.ParentReference{albGW},
 		},
 		{
-			name: "entries owned by other controllers are ignored",
-			rawRoute: &gwv1.HTTPRoute{
-				Status: gwv1.HTTPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-					statusFor(otherGW, "example.com/other-controller"),
-				}}},
-			},
+			name:     "entries owned by other controllers are ignored",
+			statuses: []gwv1.RouteParentStatus{statusFor(otherGW, "example.com/other-controller")},
 		},
 		{
-			name: "parentRef without namespace defaults to the route namespace",
-			rawRoute: &gwv1.GRPCRoute{
-				Spec: gwv1.GRPCRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
-					{Name: "local-gw", Namespace: (*gwv1.Namespace)(new("route-ns"))},
-				}}},
-				Status: gwv1.GRPCRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-					statusFor(localGW, gateway_constants.ALBGatewayController),
-				}}},
-			},
+			name:       "parentRef without namespace defaults to the route namespace",
+			parentRefs: []gwv1.ParentReference{{Name: "local-gw", Namespace: (*gwv1.Namespace)(new("route-ns"))}},
+			statuses:   []gwv1.RouteParentStatus{statusFor(localGW, gateway_constants.ALBGatewayController)},
 		},
 		{
-			name: "section name changed",
-			rawRoute: &gwv1.HTTPRoute{
-				Spec: gwv1.HTTPRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
-					{Name: "alb-gw", Namespace: (*gwv1.Namespace)(new("kube-system")), SectionName: (*gwv1.SectionName)(new("http"))},
-				}}},
-				Status: gwv1.HTTPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-					statusFor(albGW, gateway_constants.ALBGatewayController),
-				}}},
-			},
-			expected: []gwv1.ParentReference{albGW},
+			name:       "section name changed",
+			parentRefs: []gwv1.ParentReference{{Name: "alb-gw", Namespace: (*gwv1.Namespace)(new("kube-system")), SectionName: (*gwv1.SectionName)(new("http"))}},
+			statuses:   []gwv1.RouteParentStatus{statusFor(albGW, gateway_constants.ALBGatewayController)},
+			expected:   []gwv1.ParentReference{albGW},
 		},
 		{
-			name: "nlb route kinds are supported",
-			rawRoute: &gwv1.TCPRoute{
-				Status: gwv1.TCPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-					statusFor(albGW, gateway_constants.ALBGatewayController),
-				}}},
-			},
+			name:     "all parentRefs removed",
+			statuses: []gwv1.RouteParentStatus{statusFor(albGW, gateway_constants.ALBGatewayController)},
 			expected: []gwv1.ParentReference{albGW},
 		},
 	}
@@ -105,9 +74,31 @@ func Test_findStaleParentStatuses(t *testing.T) {
 			route := &mockRoute{
 				namespacedName: types.NamespacedName{Namespace: "route-ns", Name: "route"},
 				routeKind:      HTTPRouteKind,
-				rawRoute:       tc.rawRoute,
+				parentRefs:     tc.parentRefs,
+				parentStatuses: tc.statuses,
 			}
 			assert.Equal(t, tc.expected, findStaleParentStatuses(route, gateway_constants.ALBGatewayController))
+		})
+	}
+}
+
+func Test_routeDescriptors_GetParentStatuses(t *testing.T) {
+	parents := []gwv1.RouteParentStatus{{
+		ParentRef:      gwv1.ParentReference{Name: "gw"},
+		ControllerName: gwv1.GatewayController(gateway_constants.NLBGatewayController),
+	}}
+	routeStatus := gwv1.RouteStatus{Parents: parents}
+
+	descriptors := map[string]preLoadRouteDescriptor{
+		"HTTPRoute": convertHTTPRoute(gwv1.HTTPRoute{Status: gwv1.HTTPRouteStatus{RouteStatus: routeStatus}}),
+		"GRPCRoute": convertGRPCRoute(gwv1.GRPCRoute{Status: gwv1.GRPCRouteStatus{RouteStatus: routeStatus}}),
+		"TLSRoute":  convertTLSRoute(gwv1.TLSRoute{Status: gwv1.TLSRouteStatus{RouteStatus: routeStatus}}),
+		"TCPRoute":  convertTCPRoute(gwv1.TCPRoute{Status: gwv1.TCPRouteStatus{RouteStatus: routeStatus}}),
+		"UDPRoute":  convertUDPRoute(gwv1.UDPRoute{Status: gwv1.UDPRouteStatus{RouteStatus: routeStatus}}),
+	}
+	for kind, d := range descriptors {
+		t.Run(kind, func(t *testing.T) {
+			assert.Equal(t, parents, d.GetParentStatuses())
 		})
 	}
 }
@@ -118,19 +109,14 @@ func Test_LoadRoutesForGateway_enqueuesStaleParentStatusCleanup(t *testing.T) {
 		namespacedName: types.NamespacedName{Namespace: "app-ns", Name: "detached"},
 		routeKind:      HTTPRouteKind,
 		generation:     5,
-		rawRoute: &gwv1.HTTPRoute{
-			Spec: gwv1.HTTPRouteSpec{CommonRouteSpec: gwv1.CommonRouteSpec{ParentRefs: []gwv1.ParentReference{
-				{Name: "nginx-gw", Namespace: (*gwv1.Namespace)(new("nginx"))},
-			}}},
-			Status: gwv1.HTTPRouteStatus{RouteStatus: gwv1.RouteStatus{Parents: []gwv1.RouteParentStatus{
-				{ParentRef: staleRef, ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController)},
-			}}},
+		parentRefs:     []gwv1.ParentReference{{Name: "nginx-gw", Namespace: (*gwv1.Namespace)(new("nginx"))}},
+		parentStatuses: []gwv1.RouteParentStatus{
+			{ParentRef: staleRef, ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController)},
 		},
 	}
 	unrelatedRoute := &mockRoute{
 		namespacedName: types.NamespacedName{Namespace: "app-ns", Name: "unrelated"},
 		routeKind:      HTTPRouteKind,
-		rawRoute:       &gwv1.HTTPRoute{},
 	}
 	preLoaded := []preLoadRouteDescriptor{detachedRoute, unrelatedRoute}
 

@@ -91,6 +91,10 @@ func (grpcRoute *grpcRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return grpcRoute.route.Spec.ParentRefs
 }
 
+func (grpcRoute *grpcRouteDescription) GetParentStatuses() []gwv1.RouteParentStatus {
+	return grpcRoute.route.Status.Parents
+}
+
 func (grpcRoute *grpcRouteDescription) GetRouteKind() RouteKind {
 	return GRPCRouteKind
 }

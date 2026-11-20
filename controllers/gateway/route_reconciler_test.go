@@ -289,7 +289,7 @@ func Test_isRouteStatusIdentical(t *testing.T) {
 	}
 }
 
-func Test_getParentStatusKey(t *testing.T) {
+func Test_ParentRefKey(t *testing.T) {
 	portPtr := func(p gwv1.PortNumber) *gwv1.PortNumber {
 		return &p
 	}
@@ -357,9 +357,9 @@ func Test_getParentStatusKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getParentStatusKey(tt.status.ParentRef, routeNamespace)
+			got := routeutils.ParentRefKey(tt.status.ParentRef, routeNamespace)
 			if got != tt.want {
-				t.Errorf("getParentStatusKey() = %v, want %v", got, tt.want)
+				t.Errorf("ParentRefKey() = %v, want %v", got, tt.want)
 			}
 		})
 	}
