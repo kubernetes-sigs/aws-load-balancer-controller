@@ -110,8 +110,9 @@ var _ = Describe("test ALB Gateway with Trust Store for mTLS", func() {
 					ProtocolPort:          "HTTPS:443",
 					DefaultCertificateARN: awssdk.ToString(lsConfig.DefaultCertificate),
 					MutualAuthentication: &verifier.MutualAuthenticationExpectation{
-						Mode:          "verify",
-						TrustStoreARN: tf.Options.TrustStoreARN,
+						Mode:                       "verify",
+						TrustStoreARN:              tf.Options.TrustStoreARN,
+						AdvertiseTrustStoreCaNames: string(elbv2gw.AdvertiseTrustStoreCaNamesEnumOn),
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())

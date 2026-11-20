@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 	"strconv"
 	"sync"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_constants"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
@@ -43,7 +44,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, elbv2Client services.ELBV2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool, defaultEnableManageBackendSGRules bool,
 	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, tcpUdpEnabled bool, enhancedBackendBuilder EnhancedBackendBuilder) *defaultModelBuilder {
@@ -66,6 +67,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		backendSGProvider:          backendSGProvider,
 		sgResolver:                 sgResolver,
 		ec2Client:                  ec2Client,
+		elbv2Client:                elbv2Client,
 		enableBackendSG:            enableBackendSG,
 		enableManageBackendSGRules: defaultEnableManageBackendSGRules,
 		disableRestrictedSGRules:   disableRestrictedSGRules,
@@ -89,6 +91,7 @@ type defaultModelBuilder struct {
 	featureGates               config.FeatureGates
 	serviceUtils               ServiceUtils
 	ec2Client                  services.EC2
+	elbv2Client                services.ELBV2
 	enableBackendSG            bool
 	enableManageBackendSGRules bool
 	disableRestrictedSGRules   bool
@@ -123,6 +126,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		serviceUtils:               b.serviceUtils,
 		enableIPTargetType:         b.enableIPTargetType,
 		ec2Client:                  b.ec2Client,
+		elbv2Client:                b.elbv2Client,
 		enableBackendSG:            b.enableBackendSG,
 		enableManageBackendSGRules: b.enableManageBackendSGRules,
 		disableRestrictedSGRules:   b.disableRestrictedSGRules,
@@ -188,6 +192,7 @@ type defaultModelBuildTask struct {
 	enableIPTargetType         bool
 	enableManageBackendSGRules bool
 	ec2Client                  services.EC2
+	elbv2Client                services.ELBV2
 	logger                     logr.Logger
 	metricsCollector           lbcmetrics.MetricCollector
 

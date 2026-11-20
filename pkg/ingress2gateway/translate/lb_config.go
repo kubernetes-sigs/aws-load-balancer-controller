@@ -10,6 +10,7 @@ import (
 	annotations "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
 
 // buildLoadBalancerConfigResource builds a LoadBalancerConfiguration from annotations.
@@ -198,6 +199,18 @@ func buildListenerConfigurations(annos map[string]string, listenPorts []listenPo
 					v := gatewayv1beta1.AdvertiseTrustStoreCaNamesEnum(ma.AdvertiseTrustStoreCaNames)
 					maCfg.AdvertiseTrustStoreCaNames = &v
 				}
+				if ma.ClientCertificateIdentityFilters != nil && len(ma.ClientCertificateIdentityFilters) > 0 {
+					maCfg.ClientCertificateIdentityFilters = []gatewayv1beta1.ClientCertificateIdentityFilter{}
+					for _, filter := range ma.ClientCertificateIdentityFilters {
+						filterCfg := gatewayv1beta1.ClientCertificateIdentityFilter{
+							Action:    gatewayv1beta1.ClientCertificateIdentityFilterAction(filter.Action),
+							Field:     gatewayv1beta1.ClientCertificateIdentityFilterField(filter.Field),
+							MatchType: gatewayv1beta1.ClientCertificateIdentityFilterMatchType(filter.MatchType),
+							Value:     filter.Value,
+						}
+						maCfg.ClientCertificateIdentityFilters = append(maCfg.ClientCertificateIdentityFilters, filterCfg)
+					}
+				}
 				lc.MutualAuthentication = &maCfg
 				break
 			}
@@ -212,9 +225,10 @@ func buildListenerConfigurations(annos map[string]string, listenPorts []listenPo
 }
 
 type mutualAuthEntry struct {
-	Port                          int32  `json:"port"`
-	Mode                          string `json:"mode"`
-	TrustStore                    string `json:"trustStore"`
-	IgnoreClientCertificateExpiry bool   `json:"ignoreClientCertificateExpiry"`
-	AdvertiseTrustStoreCaNames    string `json:"advertiseTrustStoreCaNames"`
+	Port                             int32                                        `json:"port"`
+	Mode                             string                                       `json:"mode"`
+	TrustStore                       string                                       `json:"trustStore"`
+	IgnoreClientCertificateExpiry    bool                                         `json:"ignoreClientCertificateExpiry"`
+	AdvertiseTrustStoreCaNames       string                                       `json:"advertiseTrustStoreCaNames"`
+	ClientCertificateIdentityFilters []elbv2model.ClientCertificateIdentityFilter `json:"clientCertificateIdentityFilters"`
 }

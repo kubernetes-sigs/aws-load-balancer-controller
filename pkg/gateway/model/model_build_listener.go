@@ -183,6 +183,13 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		return nil, nil
 	}
 	listenerSpec.DefaultActions = buildL4ListenerDefaultActions(tgTuples, lbLsCfg)
+
+	mutualAuth, err := l.buildMutualAuthenticationAttributes(ctx, gwLsCfg, lbLsCfg)
+	if err != nil {
+		return &elbv2model.ListenerSpec{}, err
+	}
+	listenerSpec.MutualAuthentication = mutualAuth
+
 	return listenerSpec, nil
 }
 
@@ -489,13 +496,34 @@ func (l listenerBuilderImpl) buildMutualAuthenticationAttributes(ctx context.Con
 		ignoreClientCert = awssdk.Bool(false)
 	}
 
+	// Build client certificate identity filters
+	clientCertificateIdentityFilters := translateClientCertificateIdentityFiltersToSdk(lbLsCfg.MutualAuthentication.ClientCertificateIdentityFilters)
+
 	// Build the complete mutual authentication configuration
 	return &elbv2model.MutualAuthenticationAttributes{
-		Mode:                          mode,
-		TrustStoreArn:                 trustStoreArn,
-		IgnoreClientCertificateExpiry: ignoreClientCert,
-		AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNames,
+		Mode:                             mode,
+		TrustStoreArn:                    trustStoreArn,
+		IgnoreClientCertificateExpiry:    ignoreClientCert,
+		AdvertiseTrustStoreCaNames:       &advertiseTrustStoreCaNames,
+		ClientCertificateIdentityFilters: clientCertificateIdentityFilters,
 	}, nil
+}
+
+func translateClientCertificateIdentityFiltersToSdk(filters []elbv2gw.ClientCertificateIdentityFilter) []elbv2model.ClientCertificateIdentityFilter {
+	if filters == nil {
+		return nil
+	}
+	filtersSdk := make([]elbv2model.ClientCertificateIdentityFilter, 0, len(filters))
+	for _, f := range filters {
+		filtersSdk = append(filtersSdk,
+			elbv2model.ClientCertificateIdentityFilter{
+				Action:    elbv2model.ClientCertificateIdentityFilterAction(f.Action),
+				Field:     elbv2model.ClientCertificateIdentityFilterField(f.Field),
+				MatchType: elbv2model.ClientCertificateIdentityFilterMatchType(f.MatchType),
+				Value:     f.Value,
+			})
+	}
+	return filtersSdk
 }
 
 func (l listenerBuilderImpl) buildSSLPolicy(gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*string, error) {

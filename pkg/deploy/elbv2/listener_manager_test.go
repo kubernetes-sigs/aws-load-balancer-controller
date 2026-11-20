@@ -1210,3 +1210,58 @@ func Test_areListenerAttributesSupported(t *testing.T) {
 		})
 	}
 }
+
+func Test_translateClientCertificateIdentityFiltersToSdk(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []elbv2model.ClientCertificateIdentityFilter
+		want  []elbv2types.ClientCertificateIdentityFilter
+	}{
+		{
+			name:  "nil filters",
+			input: nil,
+			want:  nil,
+		},
+		{
+			name:  "empty filters",
+			input: []elbv2model.ClientCertificateIdentityFilter{},
+			want:  []elbv2types.ClientCertificateIdentityFilter{},
+		},
+		{
+			name: "multiple filters",
+			input: []elbv2model.ClientCertificateIdentityFilter{
+				{
+					Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+					Field:     elbv2model.ClientCertificateIdentityFilterFieldSubjectCn,
+					MatchType: elbv2model.MatchTypeExact,
+					Value:     "www.example.com",
+				},
+				{
+					Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+					Field:     elbv2model.ClientCertificateIdentityFilterFieldSanDns,
+					MatchType: elbv2model.MatchTypePrefix,
+					Value:     "api.",
+				},
+			},
+			want: []elbv2types.ClientCertificateIdentityFilter{
+				{
+					Action:    elbv2types.ClientCertificateIdentityFilterAction("accept"),
+					Field:     elbv2types.ClientCertificateIdentityFilterField("subject-cn"),
+					MatchType: elbv2types.ClientCertificateIdentityFilterMatchType("exact"),
+					Value:     awssdk.String("www.example.com"),
+				},
+				{
+					Action:    elbv2types.ClientCertificateIdentityFilterAction("accept"),
+					Field:     elbv2types.ClientCertificateIdentityFilterField("san-dns"),
+					MatchType: elbv2types.ClientCertificateIdentityFilterMatchType("prefix"),
+					Value:     awssdk.String("api."),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, translateClientCertificateIdentityFiltersToSdk(tt.input))
+		})
+	}
+}

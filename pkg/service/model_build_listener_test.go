@@ -809,7 +809,7 @@ func Test_buildListener_dualStackRoutingTGs(t *testing.T) {
 	cfg := &listenerConfig{tcpUdpPortsSet: sets.New[int32](), tlsPortsSet: sets.New[string](), quicPortsSet: sets.New[string]()}
 
 	ctx := context.Background()
-	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal)
+	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 	require.NotNil(t, ls)
 
@@ -869,7 +869,7 @@ func Test_buildListener_dualStackRoutingRegistersRule(t *testing.T) {
 
 	ctx := context.Background()
 	port := task.service.Spec.Ports[0]
-	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal)
+	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 	require.NotNil(t, ls)
 
@@ -1044,7 +1044,7 @@ func Test_buildListenerSpec_dualStackRoutingAndActionsAnnotationError(t *testing
 		tcpUdpPortsSet: sets.New[int32](),
 	}
 
-	_, err := task.buildListener(context.Background(), svc.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
+	_, err := task.buildListener(context.Background(), svc.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.EqualError(t, err, "dual-stack routing annotation is incompatible with the actions annotation")
 }
 
@@ -1115,11 +1115,11 @@ func Test_dualStackRoutingTGNameStability(t *testing.T) {
 	dualStackAnnotations["service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing"] = "true"
 
 	legacyTask, _, _ := newDualStackTask(t, ctrl, baseAnnotations)
-	_, err := legacyTask.buildListener(ctx, legacyTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
+	_, err := legacyTask.buildListener(ctx, legacyTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 
 	dualStackTask, _, _ := newDualStackTask(t, ctrl, dualStackAnnotations)
-	_, err = dualStackTask.buildListener(ctx, dualStackTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
+	_, err = dualStackTask.buildListener(ctx, dualStackTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 
 	defaultResID := "default/mysvc:80"

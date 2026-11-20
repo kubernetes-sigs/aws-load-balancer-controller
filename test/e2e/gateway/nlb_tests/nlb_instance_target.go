@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/test/e2e/gateway/test_resources"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -926,5 +927,247 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				}, utils.PollTimeoutLong, utils.PollIntervalMedium).Should(BeTrue())
 			})
 		})
+	})
+
+	Context("with NLB mutual authentication", func() {
+		var certARN string
+		var trustStoreARN string
+		var advertiseTrustStoreCaNamesOn elbv2gw.AdvertiseTrustStoreCaNamesEnum
+		var schemeInternetFacing elbv2gw.LoadBalancerScheme
+
+		BeforeEach(func() {
+			if len(tf.Options.CertificateARNs) == 0 || tf.Options.TrustStoreARN == "" {
+				Skip("Skipping test, certificate ARNs and trust store ARN must be specified")
+			}
+
+			certARN = strings.Split(tf.Options.CertificateARNs, ",")[0]
+			trustStoreARN = tf.Options.TrustStoreARN
+
+			advertiseTrustStoreCaNamesOn = elbv2gw.AdvertiseTrustStoreCaNamesEnumOn
+			schemeInternetFacing = elbv2gw.LoadBalancerSchemeInternetFacing
+		})
+
+		It("should provision TLS listener with mutual auth verify mode", func() {
+			By("deploying stack", func() {
+				lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+					Scheme: &schemeInternetFacing,
+				}
+
+				lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
+					{
+						DefaultCertificate: &certARN,
+						ProtocolPort:       "TLS:443",
+						MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+							Mode:                          elbv2gw.MutualAuthenticationVerifyMode,
+							TrustStore:                    &trustStoreARN,
+							AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNamesOn,
+							IgnoreClientCertificateExpiry: awssdk.Bool(true),
+						},
+					},
+				}
+				instanceTargetType := elbv2gw.TargetTypeInstance
+				tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+					DefaultConfiguration: elbv2gw.TargetGroupProps{
+						TargetType: &instanceTargetType,
+					},
+				}
+
+				err := stack.Deploy(ctx, tf, nil, lbcSpec, tgSpec, true, gwv1.TLSModeTerminate, false)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS load balancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS load balancer resources", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:      "network",
+					Scheme:    "internet-facing",
+					Listeners: stack.Resources.GetListenersPortMap(),
+					TargetGroups: []verifier.ExpectedTargetGroup{
+						{
+							Protocol:   "TCP",
+							Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
+							NumTargets: len(nodeList),
+							TargetType: "instance",
+						},
+						{
+							Protocol:   "UDP",
+							Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
+							NumTargets: len(nodeList),
+							TargetType: "instance",
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				err = verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 443, &verifier.ListenerExpectation{
+					ProtocolPort:          "TLS:443",
+					DefaultCertificateARN: certARN,
+					MutualAuthentication: &verifier.MutualAuthenticationExpectation{
+						Mode:                             "verify",
+						TrustStoreARN:                    trustStoreARN,
+						AdvertiseTrustStoreCaNames:       "on",
+						IgnoreClientCertificateExpiry:    true,
+						ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{}, // API returns empty list by default
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+				err = verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending http request to the lb", func() {
+				url := fmt.Sprintf("http://%v/any-path", dnsName)
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		It("should provision TLS listener with mutual auth verify mode and client certificate identity filters", func() {
+			By("deploying stack", func() {
+				lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+					Scheme: &schemeInternetFacing,
+				}
+				lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
+					{
+						DefaultCertificate: &certARN,
+						ProtocolPort:       "TLS:443",
+						MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+							Mode:       elbv2gw.MutualAuthenticationVerifyMode,
+							TrustStore: &trustStoreARN,
+							ClientCertificateIdentityFilters: []elbv2gw.ClientCertificateIdentityFilter{
+								{
+									Action:    elbv2gw.ClientCertificateIdentityFilterActionAccept,
+									Field:     elbv2gw.ClientCertificateIdentityFilterFieldSubjectOu,
+									MatchType: elbv2gw.MatchTypePrefix,
+									Value:     "value-1",
+								},
+								{
+									Action:    elbv2gw.ClientCertificateIdentityFilterActionAccept,
+									Field:     elbv2gw.ClientCertificateIdentityFilterFieldSanDns,
+									MatchType: elbv2gw.MatchTypeExact,
+									Value:     "value-2",
+								},
+							},
+						},
+					},
+				}
+				instanceTargetType := elbv2gw.TargetTypeInstance
+				tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+					DefaultConfiguration: elbv2gw.TargetGroupProps{
+						TargetType: &instanceTargetType,
+					},
+				}
+
+				err := stack.Deploy(ctx, tf, nil, lbcSpec, tgSpec, true, gwv1.TLSModeTerminate, false)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS load balancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS load balancer resources", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:      "network",
+					Scheme:    "internet-facing",
+					Listeners: stack.Resources.GetListenersPortMap(),
+					TargetGroups: []verifier.ExpectedTargetGroup{
+						{
+							Protocol:   "TCP",
+							Port:       stack.Resources.CommonStack.Svcs[0].Spec.Ports[0].NodePort,
+							NumTargets: len(nodeList),
+							TargetType: "instance",
+						},
+						{
+							Protocol:   "UDP",
+							Port:       stack.Resources.CommonStack.Svcs[1].Spec.Ports[1].NodePort,
+							NumTargets: len(nodeList),
+							TargetType: "instance",
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				err = verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 443, &verifier.ListenerExpectation{
+					ProtocolPort:          "TLS:443",
+					DefaultCertificateARN: certARN,
+					MutualAuthentication: &verifier.MutualAuthenticationExpectation{
+						Mode:                          "verify",
+						TrustStoreARN:                 trustStoreARN,
+						AdvertiseTrustStoreCaNames:    "off",
+						IgnoreClientCertificateExpiry: false,
+						ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{
+							{
+								Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+								Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectOu,
+								MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypePrefix,
+								Value:     awssdk.String("value-1"),
+							},
+							{
+								Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+								Field:     elbv2types.ClientCertificateIdentityFilterFieldSanDns,
+								MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypeExact,
+								Value:     awssdk.String("value-2"),
+							},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+				err = verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("sending http request to the lb", func() {
+				url := fmt.Sprintf("http://%v/any-path", dnsName)
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
 	})
 })
