@@ -19,6 +19,7 @@ type routeMetadataDescriptor interface {
 	GetRouteIdentifier() string
 	GetHostnames() []gwv1.Hostname
 	GetParentRefs() []gwv1.ParentReference
+	GetParentStatuses() []gwv1.RouteParentStatus
 	GetRawRoute() interface{}
 	GetBackendRefs() []gwv1.BackendRef
 	GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference

@@ -102,6 +102,10 @@ func (tcpRoute *tcpRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return tcpRoute.route.Spec.ParentRefs
 }
 
+func (tcpRoute *tcpRouteDescription) GetParentStatuses() []gwv1.RouteParentStatus {
+	return tcpRoute.route.Status.Parents
+}
+
 func (tcpRoute *tcpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	backendRefs := make([]gwv1.BackendRef, 0)
 	if tcpRoute.route.Spec.Rules != nil {

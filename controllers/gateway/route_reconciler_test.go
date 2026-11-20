@@ -12,6 +12,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -288,7 +289,7 @@ func Test_isRouteStatusIdentical(t *testing.T) {
 	}
 }
 
-func Test_getParentStatusKey(t *testing.T) {
+func Test_ParentRefKey(t *testing.T) {
 	portPtr := func(p gwv1.PortNumber) *gwv1.PortNumber {
 		return &p
 	}
@@ -356,9 +357,9 @@ func Test_getParentStatusKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getParentStatusKey(tt.status.ParentRef, routeNamespace)
+			got := routeutils.ParentRefKey(tt.status.ParentRef, routeNamespace)
 			if got != tt.want {
-				t.Errorf("getParentStatusKey() = %v, want %v", got, tt.want)
+				t.Errorf("ParentRefKey() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -921,6 +922,59 @@ func Test_updateRouteStatus(t *testing.T) {
 				udpRoute := route.(*gwv1.UDPRoute)
 				assert.Len(t, udpRoute.Status.Parents, 1)
 				validateGw(udpRoute.Status.Parents[0], "test-gateway")
+			},
+		},
+		{
+			name: "update HTTPRoute status - stale parent ref no longer in spec is removed",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Name:      "other-gateway",
+								Namespace: &testNamespace,
+							},
+						},
+					},
+				},
+				Status: gwv1.HTTPRouteStatus{
+					RouteStatus: gwv1.RouteStatus{
+						Parents: []gwv1.RouteParentStatus{
+							{
+								ParentRef:      gwv1.ParentReference{Name: "other-gateway", Namespace: &testNamespace},
+								ControllerName: "example.com/other-controller",
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue}},
+							},
+							{
+								ParentRef:      gwv1.ParentReference{Name: "test-gateway", Namespace: &testNamespace},
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue}},
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     false,
+					ResolvedRefs: true,
+					Reason:       routeutils.RouteStatusInfoParentRefRemovedReason,
+					Message:      routeutils.RouteStatusInfoParentRefRemovedMessage,
+				},
+				ParentRef: gwv1.ParentReference{
+					Name:      "test-gateway",
+					Namespace: &testNamespace,
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.Len(t, httpRoute.Status.Parents, 1)
+				assert.Equal(t, gwv1.ObjectName("other-gateway"), httpRoute.Status.Parents[0].ParentRef.Name)
+				assert.Equal(t, gwv1.GatewayController("example.com/other-controller"), httpRoute.Status.Parents[0].ControllerName)
 			},
 		},
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -107,7 +106,7 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
-		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
+		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFromWithOptions(routeOld, client.MergeFromWithOptimisticLock{})); err != nil {
 			d.logger.Error(err, "Failed to patch route status", "route", route)
 			return err
 		}
@@ -162,7 +161,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 	var newRouteStatus []gwv1.RouteParentStatus
 	originalRouteStatusMap := createOriginalRouteStatusMap(originalRouteStatus, routeNamespace)
 	for _, parentRef := range ParentRefs {
-		parentRefKey := getParentStatusKey(parentRef, routeNamespace)
+		parentRefKey := routeutils.ParentRefKey(parentRef, routeNamespace)
 		// Generate key for routeData's parentRef
 		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
 		if parentRefKey != routeDataParentRefKey {
@@ -180,7 +179,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 			Conditions:     []metav1.Condition{},
 		}
 		// if status related to parentRef exists, keep the condition first
-		if status, exists := originalRouteStatusMap[getParentStatusKey(parentRef, routeNamespace)]; exists {
+		if status, exists := originalRouteStatusMap[routeutils.ParentRefKey(parentRef, routeNamespace)]; exists {
 			newRouteParentStatus.Conditions = status.Conditions
 		}
 
@@ -332,12 +331,12 @@ func (d *routeReconcilerImpl) isRouteStatusIdentical(routeOld client.Object, rou
 
 	// build maps, key is a string which is combined from parentRef fields
 	for _, status := range routeOldStatus {
-		key := getParentStatusKey(status.ParentRef, routeOld.GetNamespace())
+		key := routeutils.ParentRefKey(status.ParentRef, routeOld.GetNamespace())
 		oldStatusMap[key] = status
 	}
 
 	for _, status := range routeNewStatus {
-		key := getParentStatusKey(status.ParentRef, route.GetNamespace())
+		key := routeutils.ParentRefKey(status.ParentRef, route.GetNamespace())
 		newStatusMap[key] = status
 	}
 
@@ -381,48 +380,9 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 	return routeStatus
 }
 
-// Helper function to generate key from RouteData's ParentReference, use same format as getParentStatusKey
+// Helper function to generate key from RouteData's ParentReference, use same format as routeutils.ParentRefKey
 func getParentRefKeyFromRouteData(parentRef gwv1.ParentReference, routeNamespace string) string {
-	return getParentStatusKey(parentRef, routeNamespace)
-}
-
-// Helper function to generate a unique key for a RouteParentStatus
-func getParentStatusKey(ref gwv1.ParentReference, routeNamespace string) string {
-	group := ""
-	if ref.Group != nil {
-		group = string(*ref.Group)
-	}
-	kind := ""
-	if ref.Kind != nil {
-		kind = string(*ref.Kind)
-	}
-
-	namespace := ""
-	if ref.Namespace != nil {
-		namespace = string(*ref.Namespace)
-	} else {
-		namespace = routeNamespace
-	}
-
-	sectionName := ""
-	if ref.SectionName != nil {
-		sectionName = string(*ref.SectionName)
-	}
-
-	port := ""
-	if ref.Port != nil {
-		port = strconv.Itoa(int(*ref.Port))
-	}
-
-	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s",
-		group,
-		kind,
-		namespace,
-		string(ref.Name),
-		sectionName,
-		port)
-
-	return key
+	return routeutils.ParentRefKey(parentRef, routeNamespace)
 }
 
 // Helper function to compare conditions
@@ -458,7 +418,7 @@ func areConditionsEqual(oldConditions, newConditions []metav1.Condition) bool {
 func createOriginalRouteStatusMap(originalRouteStatus []gwv1.RouteParentStatus, routeNamespace string) map[string]gwv1.RouteParentStatus {
 	originalStatusMap := make(map[string]gwv1.RouteParentStatus)
 	for i := range originalRouteStatus {
-		key := getParentStatusKey(originalRouteStatus[i].ParentRef, routeNamespace)
+		key := routeutils.ParentRefKey(originalRouteStatus[i].ParentRef, routeNamespace)
 		originalStatusMap[key] = originalRouteStatus[i]
 	}
 	return originalStatusMap

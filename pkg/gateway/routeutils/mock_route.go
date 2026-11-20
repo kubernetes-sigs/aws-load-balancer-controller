@@ -75,6 +75,10 @@ func (m *MockRoute) GetParentRefs() []gwv1.ParentReference {
 	panic("implement me")
 }
 
+func (m *MockRoute) GetParentStatuses() []gwv1.RouteParentStatus {
+	panic("implement me")
+}
+
 func (m *MockRoute) GetRawRoute() interface{} {
 	//TODO implement me
 	panic("implement me")
