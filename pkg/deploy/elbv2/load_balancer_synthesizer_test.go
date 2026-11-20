@@ -590,6 +590,168 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "adding EIP allocation to an NLB with AWS-assigned addresses needs replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{}}},
+							{SubnetId: awssdk.String("subnet-b"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: schemaInternetFacing,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", AllocationID: awssdk.String("eipalloc-1")},
+							{SubnetID: "subnet-b", AllocationID: awssdk.String("eipalloc-2")},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "changing an existing EIP allocation needs replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-old")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: schemaInternetFacing,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", AllocationID: awssdk.String("eipalloc-new")},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "unchanged EIP allocation does not need replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-1")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: schemaInternetFacing,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", AllocationID: awssdk.String("eipalloc-1")},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "NLB with no requested addresses does not need replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-aws-owned")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: schemaInternetFacing,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a"},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "changing a private IPv4 address on an internal NLB needs replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternal,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{PrivateIPv4Address: awssdk.String("10.0.0.5")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: elbv2model.LoadBalancerSchemeInternal,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", PrivateIPv4Address: awssdk.String("10.0.0.9")},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "dualstack NLB with unchanged EIP allocation does not need replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						IpAddressType:    elbv2types.IpAddressTypeDualstack,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-1"), IPv6Address: awssdk.String("2600:1f13::1")}}},
+							{SubnetId: awssdk.String("subnet-b"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-2"), IPv6Address: awssdk.String("2600:1f13::2")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:          elbv2model.LoadBalancerTypeNetwork,
+						Scheme:        schemaInternetFacing,
+						IPAddressType: elbv2model.IPAddressTypeDualStack,
+						Name:          "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", AllocationID: awssdk.String("eipalloc-1"), IPv6Address: awssdk.String("2600:1f13::1")},
+							{SubnetID: "subnet-b", AllocationID: awssdk.String("eipalloc-2"), IPv6Address: awssdk.String("2600:1f13::2")},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

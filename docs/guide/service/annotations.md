@@ -173,6 +173,9 @@ on the load balancer.
         - You must specify the same number of eip allocations as load balancer subnets [annotation](#subnets)
         - NLB must be internet-facing
 
+    !!!warning "Elastic IP allocations are immutable"
+        AWS does not allow the Elastic IP allocations of an existing NLB to be changed in place. If you add, remove, or change this annotation on a Service whose NLB already exists, the controller must **replace** the load balancer (delete and recreate it) to apply the new allocations. Replacement creates a new NLB with a new DNS name and briefly interrupts traffic, so plan a traffic migration. An NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted; in that case remove the associations first or migrate manually.
+
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
@@ -186,6 +189,9 @@ on the load balancer.
         - This configuration is optional, and you can use it to assign static IPv4 addresses to your NLB
         - You must specify the same number of private IPv4 addresses as load balancer subnets [annotation](#subnets)
         - You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges
+
+    !!!warning "Private IPv4 addresses are immutable"
+        AWS does not allow the private IPv4 addresses of an existing NLB to be changed in place. Changing this annotation on a Service whose NLB already exists causes the controller to **replace** the load balancer (delete and recreate it), which creates a new NLB with a new DNS name and briefly interrupts traffic. Plan a traffic migration, and note that an NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted until those associations are removed.
 
     !!!example
         ```
@@ -650,6 +656,9 @@ Load balancer access can be controlled via following annotations:
         ```
 
 - <a name="lb-scheme">`service.beta.kubernetes.io/aws-load-balancer-scheme`</a> specifies whether the NLB will be internet-facing or internal.  Valid values are `internal`, `internet-facing`. If not specified, default is `internal`.
+
+    !!!warning "Scheme is immutable"
+        AWS cannot change the scheme of an existing load balancer in place. Changing this annotation on a Service whose NLB already exists causes the controller to **replace** the load balancer (delete and recreate it), which creates a new NLB with a new DNS name and briefly interrupts traffic. Plan a traffic migration, and note that an NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted until those associations are removed.
 
     !!!example
         ```
