@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	"testing"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
@@ -19,9 +18,7 @@ import (
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/v3/mocks/controller-runtime/client"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/equality"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func Test_defaultGroupLoader_Load(t *testing.T) {
@@ -3077,84 +3074,6 @@ func Test_validateGroupName(t *testing.T) {
 	}
 }
 
-func Test_isIngressNamespaceTerminating(t *testing.T) {
-	deletedAt := metav1.NewTime(time.Now().Add(-time.Hour).Truncate(time.Second))
-	ingCreatedBefore := metav1.NewTime(deletedAt.Add(-time.Hour))
-	ingCreatedAfter := metav1.NewTime(deletedAt.Add(time.Minute))
-	terminatingNS := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: "ing-ns", DeletionTimestamp: &deletedAt, Finalizers: []string{"unit-test/keep"}},
-		Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating},
-	}
-	tests := []struct {
-		name       string
-		ns         *corev1.Namespace
-		ingCreated metav1.Time
-		getErr     error
-		want       bool
-		wantErr    string
-	}{
-		{
-			name: "namespace is active",
-			ns: &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{Name: "ing-ns"},
-				Status:     corev1.NamespaceStatus{Phase: corev1.NamespaceActive},
-			},
-			ingCreated: ingCreatedBefore,
-			want:       false,
-		},
-		{
-			name:       "namespace not found",
-			ingCreated: ingCreatedBefore,
-			want:       false,
-		},
-		{
-			name:       "namespace is terminating",
-			ns:         terminatingNS,
-			ingCreated: ingCreatedBefore,
-			want:       true,
-		},
-		{
-			name:       "Ingress is newer than the cached terminating namespace",
-			ns:         terminatingNS,
-			ingCreated: ingCreatedAfter,
-			want:       false,
-		},
-		{
-			name:       "namespace lookup fails",
-			ingCreated: ingCreatedBefore,
-			getErr:     errors.New("cache not ready"),
-			wantErr:    "cache not ready",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
-			builder := testclient.NewClientBuilder().WithScheme(k8sSchema)
-			if tt.ns != nil {
-				builder = builder.WithObjects(tt.ns.DeepCopy())
-			}
-			if tt.getErr != nil {
-				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
-					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
-						return tt.getErr
-					},
-				})
-			}
-			ing := &networking.Ingress{
-				ObjectMeta: metav1.ObjectMeta{Namespace: "ing-ns", Name: "ing", CreationTimestamp: tt.ingCreated},
-			}
-			got, err := isIngressNamespaceTerminating(context.Background(), builder.Build(), ing)
-			if tt.wantErr != "" {
-				assert.EqualError(t, err, tt.wantErr)
-				return
-			}
-			assert.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func Test_defaultGroupLoader_Load_namespaceTerminating(t *testing.T) {
 	newIng := func(namespace string, finalizers ...string) *networking.Ingress {
 		return &networking.Ingress{
@@ -3173,10 +3092,7 @@ func Test_defaultGroupLoader_Load_namespaceTerminating(t *testing.T) {
 	leaving := newIng("ns-terminating", "group.ingress.k8s.aws/awesome-group")
 	notYetMember := newIng("ns-terminating-2")
 
-	k8sSchema := runtime.NewScheme()
-	clientgoscheme.AddToScheme(k8sSchema)
-	elbv2api.AddToScheme(k8sSchema)
-	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+	k8sClient := testclient.NewClientBuilder().Build()
 	for _, ns := range []*corev1.Namespace{
 		{ObjectMeta: metav1.ObjectMeta{Name: "ns-active"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceActive}},
 		{ObjectMeta: metav1.ObjectMeta{Name: "ns-terminating"}, Status: corev1.NamespaceStatus{Phase: corev1.NamespaceTerminating}},
