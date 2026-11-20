@@ -188,9 +188,10 @@ spec:
                         QUIC protocol.
                       type: boolean
                     sslPolicy:
-                      description: sslPolicy is the security policy that defines which
-                        protocols and ciphers are supported for secure listeners [HTTPS
-                        or TLS listener].
+                      description: |-
+                        sslPolicy is the security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener].
+                        Recommended security policies for ALB: https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html.
+                        Recommended security policies for NLB: https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html.
                       type: string
                     targetGroupStickiness:
                       description: targetGroupStickiness [Network LoadBalancer] enables
