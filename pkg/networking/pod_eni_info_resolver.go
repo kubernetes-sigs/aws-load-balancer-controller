@@ -480,8 +480,17 @@ func (r *defaultPodENIInfoResolver) isPodSupportedByNodeENI(pod k8s.PodInfo, nod
 		}
 	}
 
+	podIP := net.ParseIP(pod.PodIP)
+	if podIP != nil {
+		for _, ipv6Address := range nodeENI.Ipv6Addresses {
+			if podIP.Equal(net.ParseIP(awssdk.ToString(ipv6Address.Ipv6Address))) {
+				return true
+			}
+		}
+	}
+
 	if len(nodeENI.Ipv4Prefixes) > 0 || len(nodeENI.Ipv6Prefixes) > 0 {
-		if podIP := net.ParseIP(pod.PodIP); podIP != nil {
+		if podIP != nil {
 			for _, ipv4Prefix := range nodeENI.Ipv4Prefixes {
 				if _, ipv4CIDR, err := net.ParseCIDR(awssdk.ToString(ipv4Prefix.Ipv4Prefix)); err == nil && ipv4CIDR.Contains(podIP) {
 					return true
