@@ -7074,6 +7074,278 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 }
 `,
 		},
+		{
+			testName: "dual-stack routing for NLB",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nlbipsvc",
+					Namespace: "default",
+					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":               "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type":    "instance",
+						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type":    "dualstack",
+						"service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:           corev1.ServiceTypeLoadBalancer,
+					Selector:       map[string]string{"app": "hello"},
+					IPFamilies:     []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol},
+					IPFamilyPolicy: (*corev1.IPFamilyPolicy)(awssdk.String(string(corev1.IPFamilyPolicyRequireDualStack))),
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32332,
+						},
+					},
+				},
+			},
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
+							{
+								CidrBlock: awssdk.String("192.168.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
+								},
+							},
+						},
+						Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
+							{
+								Ipv6CidrBlock: awssdk.String("2600:1fe3:3c0:1d00::/56"),
+								Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantNumResources:         7,
+			featureGates: map[config.Feature]bool{
+				config.NLBSecurityGroup: false,
+			},
+			wantValue: `
+{
+  "id": "default/nlbipsvc",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "80": {
+        "spec": {
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+          },
+          "port": 80,
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "type": "forward",
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlbipsvc:80/status/targetGroupARN"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::ListenerRule": {
+      "80:ipv4-src": {
+        "spec": {
+          "listenerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+          },
+          "priority": 1,
+          "actions": [
+            {
+              "type": "forward",
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlbipsvc:80:ipv4/status/targetGroupARN"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "conditions": [
+            {
+              "field": "source-ip",
+              "sourceIPConfig": {
+                "ipAddressType": "ipv4"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "LoadBalancer": {
+        "spec": {
+          "name": "k8s-default-nlbipsvc-6b0ba8ff70",
+          "type": "network",
+          "scheme": "internal",
+          "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
+          "subnetMapping": [
+            {
+              "subnetID": "subnet-1"
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "default/nlbipsvc:80": {
+        "spec": {
+          "name": "k8s-default-nlbipsvc-a9f22549bb",
+          "targetType": "instance",
+          "port": 32332,
+          "protocol": "TCP",
+          "ipAddressType": "ipv6",
+          "healthCheckConfig": {
+            "port": "traffic-port",
+            "protocol": "TCP",
+            "intervalSeconds": 10,
+            "timeoutSeconds": 10,
+            "healthyThresholdCount": 3,
+            "unhealthyThresholdCount": 3
+          },
+          "targetGroupAttributes": [
+            {
+              "key": "proxy_protocol_v2.enabled",
+              "value": "false"
+            }
+          ]
+        }
+      },
+      "default/nlbipsvc:80:ipv4": {
+        "spec": {
+          "name": "k8s-default-nlbipsvc-87f3cabd16",
+          "targetType": "instance",
+          "port": 32332,
+          "protocol": "TCP",
+          "ipAddressType": "ipv4",
+          "healthCheckConfig": {
+            "port": "traffic-port",
+            "protocol": "TCP",
+            "intervalSeconds": 10,
+            "timeoutSeconds": 10,
+            "healthyThresholdCount": 3,
+            "unhealthyThresholdCount": 3
+          },
+          "targetGroupAttributes": [
+            {
+              "key": "proxy_protocol_v2.enabled",
+              "value": "false"
+            }
+          ]
+        }
+      }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
+      "default/nlbipsvc:80": {
+        "spec": {
+          "template": {
+            "metadata": {
+              "name": "k8s-default-nlbipsvc-a9f22549bb",
+              "namespace": "default"
+            },
+            "spec": {
+              "targetGroupARN": {
+                "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlbipsvc:80/status/targetGroupARN"
+              },
+              "targetType": "instance",
+              "serviceRef": {
+                "name": "nlbipsvc",
+                "port": 80
+              },
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "2600:1fe3:3c0:1d00::/56"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "protocol": "TCP",
+                        "port": 32332
+                      }
+                    ]
+                  }
+                ]
+              },
+              "ipAddressType": "ipv6",
+              "vpcID": "vpc-xxx",
+              "targetGroupProtocol": "TCP"
+            }
+          }
+        }
+      },
+      "default/nlbipsvc:80:ipv4": {
+        "spec": {
+          "template": {
+            "metadata": {
+              "name": "k8s-default-nlbipsvc-87f3cabd16",
+              "namespace": "default"
+            },
+            "spec": {
+              "targetGroupARN": {
+                "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlbipsvc:80:ipv4/status/targetGroupARN"
+              },
+              "targetType": "instance",
+              "serviceRef": {
+                "name": "nlbipsvc",
+                "port": 80
+              },
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "192.168.0.0/16"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "protocol": "TCP",
+                        "port": 32332
+                      }
+                    ]
+                  }
+                ]
+              },
+              "ipAddressType": "ipv4",
+              "vpcID": "vpc-xxx",
+              "targetGroupProtocol": "TCP"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

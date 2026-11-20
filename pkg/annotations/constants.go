@@ -133,6 +133,7 @@ const (
 	SvcLBSuffixEnableTCPUDPListener                      = "aws-load-balancer-enable-tcp-udp-listener"
 	SvcLBSuffixDisableNLBSG                              = "aws-load-balancer-disable-nlb-sg"
 	SvcLBSuffixQUICEnabledPorts                          = "aws-load-balancer-quic-enabled-ports"
+	SvcLBSuffixDualStackRouting                          = "aws-load-balancer-dual-stack-routing"
 )
 
 const (
