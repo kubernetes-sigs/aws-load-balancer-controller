@@ -240,22 +240,30 @@ func isSDKLoadBalancerRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elb
 }
 
 // isSDKLoadBalancerSubnetAddressesRequiresReplacement reports whether the desired subnet
-// mappings request Elastic IP allocations or private IPv4 addresses that differ from the
-// live load balancer. These per-subnet address bindings cannot be modified in place, so a
-// change forces replacement. Mappings that don't request an address are ignored, so this
-// never fires for ALBs or for NLBs left with AWS-assigned addresses.
+// mappings change the Elastic IP allocation or private IPv4 address of a subnet that is
+// already attached to the load balancer. These per-subnet address bindings cannot be
+// modified in place, so such a change forces replacement. Newly added subnets are attached
+// in place by SetSubnets and are not considered here; mappings without a requested address,
+// and ALBs, never trigger it.
 func isSDKLoadBalancerSubnetAddressesRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) bool {
+	currentSubnets := sets.NewString()
 	currentAllocationBySubnet := make(map[string]string)
 	currentPrivateIPv4BySubnet := make(map[string]string)
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
+		subnetID := awssdk.ToString(az.SubnetId)
+		currentSubnets.Insert(subnetID)
 		if len(az.LoadBalancerAddresses) == 0 {
 			continue
 		}
-		subnetID := awssdk.ToString(az.SubnetId)
 		currentAllocationBySubnet[subnetID] = awssdk.ToString(az.LoadBalancerAddresses[0].AllocationId)
 		currentPrivateIPv4BySubnet[subnetID] = awssdk.ToString(az.LoadBalancerAddresses[0].PrivateIPv4Address)
 	}
 	for _, mapping := range resLB.Spec.SubnetMappings {
+		// A newly added subnet is attached in place by SetSubnets; only an address change
+		// on an already-attached subnet requires replacement.
+		if !currentSubnets.Has(mapping.SubnetID) {
+			continue
+		}
 		if mapping.AllocationID != nil && awssdk.ToString(mapping.AllocationID) != currentAllocationBySubnet[mapping.SubnetID] {
 			return true
 		}

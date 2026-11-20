@@ -174,7 +174,7 @@ on the load balancer.
         - NLB must be internet-facing
 
     !!!warning "Elastic IP allocations are immutable"
-        AWS does not allow the Elastic IP allocations of an existing NLB to be changed in place. If you add, remove, or change this annotation on a Service whose NLB already exists, the controller must **replace** the load balancer (delete and recreate it) to apply the new allocations. Replacement creates a new NLB with a new DNS name and briefly interrupts traffic, so plan a traffic migration. An NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted; in that case remove the associations first or migrate manually.
+        AWS does not allow the Elastic IP allocation of a subnet already attached to an existing NLB to be changed in place. If you change the allocation for an already-attached subnet to a different value, the controller must **replace** the load balancer (delete and recreate it). Adding a new subnet with its own allocation, removing this annotation, or setting an allocation that matches the live NLB does not replace the load balancer. Replacement creates a new NLB with a new DNS name and briefly interrupts traffic, so plan a traffic migration. An NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted; in that case remove the associations first or migrate manually.
 
     !!!example
         ```
@@ -191,7 +191,7 @@ on the load balancer.
         - You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges
 
     !!!warning "Private IPv4 addresses are immutable"
-        AWS does not allow the private IPv4 addresses of an existing NLB to be changed in place. Changing this annotation on a Service whose NLB already exists causes the controller to **replace** the load balancer (delete and recreate it), which creates a new NLB with a new DNS name and briefly interrupts traffic. Plan a traffic migration, and note that an NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted until those associations are removed.
+        AWS does not allow the private IPv4 address of a subnet already attached to an existing NLB to be changed in place. If you change the address for an already-attached subnet to a different value, the controller must **replace** the load balancer (delete and recreate it), which creates a new NLB with a new DNS name and briefly interrupts traffic. Adding a new subnet with its own address, removing this annotation, or setting an address that matches the live NLB does not replace the load balancer. Plan a traffic migration, and note that an NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted until those associations are removed.
 
     !!!example
         ```

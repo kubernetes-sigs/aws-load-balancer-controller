@@ -752,6 +752,60 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "adding a new subnet with its own EIP does not need replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-1")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: schemaInternetFacing,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", AllocationID: awssdk.String("eipalloc-1")},
+							{SubnetID: "subnet-b", AllocationID: awssdk.String("eipalloc-2")},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "changing an existing subnet's EIP while adding a new subnet needs replacement",
+			args: args{
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumNetwork,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternetFacing,
+						LoadBalancerName: awssdk.String("my-lb"),
+						AvailabilityZones: []elbv2types.AvailabilityZone{
+							{SubnetId: awssdk.String("subnet-a"), LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{AllocationId: awssdk.String("eipalloc-1")}}},
+						},
+					},
+				},
+				resLB: &elbv2model.LoadBalancer{
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:   elbv2model.LoadBalancerTypeNetwork,
+						Scheme: schemaInternetFacing,
+						Name:   "my-lb",
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{SubnetID: "subnet-a", AllocationID: awssdk.String("eipalloc-9")},
+							{SubnetID: "subnet-b", AllocationID: awssdk.String("eipalloc-2")},
+						},
+					},
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
