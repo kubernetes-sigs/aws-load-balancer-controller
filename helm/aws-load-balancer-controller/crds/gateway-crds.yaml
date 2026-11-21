@@ -413,6 +413,69 @@ spec:
                 description: Tags are the AWS resource tags to be applied to all AWS
                   resources created for this rule.
                 type: object
+              transforms:
+                description: |-
+                  Transforms defines the set of transforms to apply to the request before forwarding.
+                  Transforms allow modifying request attributes such as the Host header
+                  using regex-based rewrite rules.
+                items:
+                  description: ListenerRuleTransform defines a transform to apply
+                    to the request
+                  properties:
+                    hostHeaderRewriteConfig:
+                      description: Information for a host header rewrite transform.
+                      properties:
+                        rewrites:
+                          description: Rewrites defines the regex-based rewrite rules
+                            for the Host header.
+                          items:
+                            description: ListenerRuleRewriteConfig defines a regex-based
+                              rewrite rule
+                            properties:
+                              regex:
+                                description: Regex expression to match against the
+                                  header value
+                                minLength: 1
+                                type: string
+                              replace:
+                                description: |-
+                                  Replacement expression to use when the regex matches.
+                                  When SourceHeader is specified, this field supports referencing the matched value
+                                  from the source header using regex capture groups (e.g., "$1").
+                                type: string
+                            required:
+                            - regex
+                            - replace
+                            type: object
+                          minItems: 1
+                          type: array
+                        sourceHeader:
+                          description: |-
+                            SourceHeader specifies the name of the incoming request header whose value
+                            should be used to rewrite the Host header. When specified, the Host header
+                            will be set based on the value of this source header, processed through
+                            the regex/replace rules defined in Rewrites.
+                            For example, setting SourceHeader to "X-School-Domain" will use the value
+                            of the X-School-Domain header as input for the rewrite rules.
+                          type: string
+                      required:
+                      - rewrites
+                      type: object
+                    type:
+                      description: The type of transform
+                      enum:
+                      - host-header-rewrite
+                      type: string
+                  required:
+                  - type
+                  type: object
+                  x-kubernetes-validations:
+                  - message: hostHeaderRewriteConfig must be specified only when type
+                      is 'host-header-rewrite'
+                    rule: 'has(self.type) && self.type == ''host-header-rewrite''
+                      ? has(self.hostHeaderRewriteConfig) : !has(self.hostHeaderRewriteConfig)'
+                maxItems: 1
+                type: array
             type: object
             x-kubernetes-validations:
             - message: At least one action must be specified if actions field is present
