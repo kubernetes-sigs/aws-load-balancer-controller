@@ -157,9 +157,21 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 	}
 	routeNamespace := route.GetNamespace()
 
+	// Entries written by other controllers are not ours to rebuild or drop: keep them as they are and
+	// rebuild only our own entries from spec.parentRefs. Start from a non-nil slice so that dropping every
+	// entry patches status.parents to [] instead of removing the required field.
+	newRouteStatus := []gwv1.RouteParentStatus{}
+	var ownRouteStatus []gwv1.RouteParentStatus
+	for _, status := range originalRouteStatus {
+		if string(status.ControllerName) == controllerName {
+			ownRouteStatus = append(ownRouteStatus, status)
+		} else {
+			newRouteStatus = append(newRouteStatus, status)
+		}
+	}
+
 	// set conditions
-	var newRouteStatus []gwv1.RouteParentStatus
-	originalRouteStatusMap := createOriginalRouteStatusMap(originalRouteStatus, routeNamespace)
+	originalRouteStatusMap := createOriginalRouteStatusMap(ownRouteStatus, routeNamespace)
 	for _, parentRef := range ParentRefs {
 		parentRefKey := routeutils.ParentRefKey(parentRef, routeNamespace)
 		// Generate key for routeData's parentRef
@@ -168,6 +180,15 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 			// This parent ref is not the one we are looking for.
 			status, ok := originalRouteStatusMap[parentRefKey]
 			if ok {
+				newRouteStatus = append(newRouteStatus, status)
+			}
+			continue
+		}
+
+		if routeData.RouteStatusInfo.Reason == routeutils.RouteStatusInfoParentRefRemovedReason {
+			// A cleanup trigger for a parent the route references again (detached, then reattached before
+			// the cleanup ran). Leave its entry for the regular status update instead of marking it removed.
+			if status, ok := originalRouteStatusMap[parentRefKey]; ok {
 				newRouteStatus = append(newRouteStatus, status)
 			}
 			continue
@@ -329,14 +350,15 @@ func (d *routeReconcilerImpl) isRouteStatusIdentical(routeOld client.Object, rou
 	oldStatusMap := make(map[string]gwv1.RouteParentStatus)
 	newStatusMap := make(map[string]gwv1.RouteParentStatus)
 
-	// build maps, key is a string which is combined from parentRef fields
+	// build maps, key is the controller name plus a string combined from parentRef fields: two controllers
+	// can each hold an entry for the same parentRef
 	for _, status := range routeOldStatus {
-		key := routeutils.ParentRefKey(status.ParentRef, routeOld.GetNamespace())
+		key := string(status.ControllerName) + "|" + routeutils.ParentRefKey(status.ParentRef, routeOld.GetNamespace())
 		oldStatusMap[key] = status
 	}
 
 	for _, status := range routeNewStatus {
-		key := routeutils.ParentRefKey(status.ParentRef, route.GetNamespace())
+		key := string(status.ControllerName) + "|" + routeutils.ParentRefKey(status.ParentRef, route.GetNamespace())
 		newStatusMap[key] = status
 	}
 

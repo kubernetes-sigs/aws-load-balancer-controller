@@ -718,7 +718,7 @@ func Test_updateRouteStatus(t *testing.T) {
 									Name:      "test-gateway",
 									Namespace: &testNamespace,
 								},
-								ControllerName: "example.com/controller",
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
 								Conditions: []metav1.Condition{
 									{
 										Type:               string(gwv1.RouteConditionResolvedRefs),
@@ -805,7 +805,7 @@ func Test_updateRouteStatus(t *testing.T) {
 									Name:      "test-gateway-2",
 									Namespace: &testNamespace,
 								},
-								ControllerName: "example.com/controller",
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
 								Conditions: []metav1.Condition{
 									{
 										Type:               string(gwv1.RouteConditionResolvedRefs),
@@ -975,6 +975,143 @@ func Test_updateRouteStatus(t *testing.T) {
 				assert.Len(t, httpRoute.Status.Parents, 1)
 				assert.Equal(t, gwv1.ObjectName("other-gateway"), httpRoute.Status.Parents[0].ParentRef.Name)
 				assert.Equal(t, gwv1.GatewayController("example.com/other-controller"), httpRoute.Status.Parents[0].ControllerName)
+			},
+		},
+		{
+			name: "update HTTPRoute status - removing the last parent ref leaves an empty, non-nil list",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-namespace"},
+				Status: gwv1.HTTPRouteStatus{
+					RouteStatus: gwv1.RouteStatus{
+						Parents: []gwv1.RouteParentStatus{
+							{
+								ParentRef:      gwv1.ParentReference{Name: "test-gateway", Namespace: &testNamespace},
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue}},
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     false,
+					ResolvedRefs: true,
+					Reason:       routeutils.RouteStatusInfoParentRefRemovedReason,
+					Message:      routeutils.RouteStatusInfoParentRefRemovedMessage,
+				},
+				ParentRef: gwv1.ParentReference{Name: "test-gateway", Namespace: &testNamespace},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.NotNil(t, httpRoute.Status.Parents)
+				assert.Len(t, httpRoute.Status.Parents, 0)
+			},
+		},
+		{
+			name: "update HTTPRoute status - cleanup keeps other controllers' entries, including one for the same parent ref",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-namespace"},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{{Name: "gateway-q", Namespace: &testNamespace}},
+					},
+				},
+				Status: gwv1.HTTPRouteStatus{
+					RouteStatus: gwv1.RouteStatus{
+						Parents: []gwv1.RouteParentStatus{
+							{
+								ParentRef:      gwv1.ParentReference{Name: "gateway-p", Namespace: &testNamespace},
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue}},
+							},
+							{
+								ParentRef:      gwv1.ParentReference{Name: "gateway-q", Namespace: &testNamespace},
+								ControllerName: "example.com/other-controller",
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionFalse, Reason: "Foreign"}},
+							},
+							{
+								ParentRef:      gwv1.ParentReference{Name: "gateway-q", Namespace: &testNamespace},
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: "Ours"}},
+							},
+							{
+								ParentRef:      gwv1.ParentReference{Name: "gateway-c", Namespace: &testNamespace},
+								ControllerName: "example.com/other-controller",
+								Conditions:     []metav1.Condition{{Type: string(gwv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: "ForeignNotInSpec"}},
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     false,
+					ResolvedRefs: true,
+					Reason:       routeutils.RouteStatusInfoParentRefRemovedReason,
+					Message:      routeutils.RouteStatusInfoParentRefRemovedMessage,
+				},
+				ParentRef: gwv1.ParentReference{Name: "gateway-p", Namespace: &testNamespace},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.Len(t, httpRoute.Status.Parents, 3)
+				got := map[string]string{}
+				for _, s := range httpRoute.Status.Parents {
+					got[string(s.ControllerName)+"|"+string(s.ParentRef.Name)] = s.Conditions[0].Reason
+				}
+				assert.Equal(t, map[string]string{
+					"example.com/other-controller|gateway-q":              "Foreign",
+					"example.com/other-controller|gateway-c":              "ForeignNotInSpec",
+					gateway_constants.ALBGatewayController + "|gateway-q": "Ours",
+				}, got)
+			},
+		},
+		{
+			name: "update HTTPRoute status - cleanup processed after the parent ref is reattached keeps its conditions",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-namespace", Generation: 3},
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{{Name: "test-gateway", Namespace: &testNamespace}},
+					},
+				},
+				Status: gwv1.HTTPRouteStatus{
+					RouteStatus: gwv1.RouteStatus{
+						Parents: []gwv1.RouteParentStatus{
+							{
+								ParentRef:      gwv1.ParentReference{Name: "test-gateway", Namespace: &testNamespace},
+								ControllerName: gwv1.GatewayController(gateway_constants.ALBGatewayController),
+								Conditions: []metav1.Condition{{
+									Type:               string(gwv1.RouteConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             string(gwv1.RouteReasonAccepted),
+									ObservedGeneration: 1,
+								}},
+							},
+						},
+					},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     false,
+					ResolvedRefs: true,
+					Reason:       routeutils.RouteStatusInfoParentRefRemovedReason,
+					Message:      routeutils.RouteStatusInfoParentRefRemovedMessage,
+				},
+				ParentRef:     gwv1.ParentReference{Name: "test-gateway", Namespace: &testNamespace},
+				RouteMetadata: routeutils.RouteMetadata{RouteGeneration: 2},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				assert.Len(t, httpRoute.Status.Parents, 1)
+				assert.Equal(t, []metav1.Condition{{
+					Type:               string(gwv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					Reason:             string(gwv1.RouteReasonAccepted),
+					ObservedGeneration: 1,
+				}}, httpRoute.Status.Parents[0].Conditions)
 			},
 		},
 	}
