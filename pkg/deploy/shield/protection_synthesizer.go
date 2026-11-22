@@ -60,25 +60,37 @@ func (s *protectionSynthesizer) synthesizeProtectionsOnLB(ctx context.Context, l
 		return errors.Errorf("[should never happen] should be exactly one shield protection desired on LoadBalancer: %v", lbARN)
 	}
 	enableProtection := resProtections[0].Spec.Enabled
-	protectionInfo, err := s.protectionManager.GetProtection(ctx, lbARN)
+	// Shield Advanced does not accept NLB ARNs directly; an NLB is protected through
+	// the allocation ARNs of its associated Elastic IP addresses.
+	resourceARNs, err := s.protectionManager.ResolveProtectionResourceARNs(ctx, lbARN)
 	if err != nil {
-		return errors.Wrap(err, "failed to get shield protection on LoadBalancer")
+		return errors.Wrap(err, "failed to resolve shield protection resource ARNs for LoadBalancer")
 	}
-	switch {
-	case !enableProtection && protectionInfo != nil:
-		managedProtectionNames := sets.NewString(protectionNameManaged, protectionNameManagedLegacy)
-		if managedProtectionNames.Has(protectionInfo.Name) {
-			if err := s.protectionManager.DeleteProtection(ctx, lbARN, protectionInfo.ID); err != nil {
-				return errors.Wrap(err, "failed to delete shield protection on LoadBalancer")
-			}
-		} else {
-			s.logger.Info("ignoring unmanaged shield protection",
-				"protectionName", protectionInfo.Name,
-				"protectionID", protectionInfo.ID)
+	if enableProtection && len(resourceARNs) == 0 {
+		return errors.Errorf("NLB %s has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection", lbARN)
+	}
+	managedProtectionNames := sets.NewString(protectionNameManaged, protectionNameManagedLegacy)
+	for _, resourceARN := range resourceARNs {
+		protectionInfo, err := s.protectionManager.GetProtection(ctx, resourceARN)
+		if err != nil {
+			return errors.Wrap(err, "failed to get shield protection on LoadBalancer")
 		}
-	case enableProtection && protectionInfo == nil:
-		if _, err := s.protectionManager.CreateProtection(ctx, lbARN, protectionNameManaged); err != nil {
-			return errors.Wrap(err, "failed to create shield protection on LoadBalancer")
+		switch {
+		case !enableProtection && protectionInfo != nil:
+			if managedProtectionNames.Has(protectionInfo.Name) {
+				if err := s.protectionManager.DeleteProtection(ctx, resourceARN, protectionInfo.ID); err != nil {
+					return errors.Wrap(err, "failed to delete shield protection on LoadBalancer")
+				}
+			} else {
+				s.logger.Info("ignoring unmanaged shield protection",
+					"resourceARN", resourceARN,
+					"protectionName", protectionInfo.Name,
+					"protectionID", protectionInfo.ID)
+			}
+		case enableProtection && protectionInfo == nil:
+			if _, err := s.protectionManager.CreateProtection(ctx, resourceARN, protectionNameManaged); err != nil {
+				return errors.Wrap(err, "failed to create shield protection on LoadBalancer")
+			}
 		}
 	}
 	return nil

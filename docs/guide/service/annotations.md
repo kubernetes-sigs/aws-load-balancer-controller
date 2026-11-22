@@ -24,6 +24,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists](#lb-security-group-prefix-lists)          | stringList                                    |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                                        | string                                        |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                                     | string                                        |                          | default `instance` in case of LoadBalancerClass                                                                                                                                                                                                                                                                                                                                                                      |
+| [service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection](#shield-advanced-protection)           | boolean                                       | false                    | Enable/disable AWS Shield Advanced protection on the NLB. When absent, protection settings are left unchanged.                                                                                                                                                                                                                                                                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                                             | string                                        |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                                                | boolean                                       | false                    | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)                                                                                                                                                                                                                                                                                                                                                       |
 | [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                                    | string                                        | internal                 |                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -625,6 +626,28 @@ You can configure TLS support via the following annotations:
         service.beta.kubernetes.io/aws-load-balancer-backend-protocol: ssl
         ```
 
+
+## Shield Advanced protection
+
+- <a name="shield-advanced-protection">`service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection`</a> turns on/off AWS Shield Advanced protection for the Network Load Balancer.
+
+    !!!note ""
+        When this annotation is absent, the controller will keep the Load Balancer's Shield protection settings unchanged.
+        To disable Shield protection, explicitly set the annotation value to `'false'`.
+
+    !!!warning ""
+        Shield Advanced protection is only supported on Network Load Balancers. Setting the annotation on a Service that builds an Application Load Balancer fails reconciliation.
+        The Shield `CreateProtection` API does not accept NLB ARNs; the controller protects the NLB's associated Elastic IP addresses instead (one protection per `eip-allocation` ARN), so the NLB must have EIPs associated — e.g. via the `aws-load-balancer-eip-allocations` annotation. An NLB without EIPs fails reconciliation with a clear error when protection is enabled.
+
+    !!!example
+        - enable Shield Advanced protection
+            ```yaml
+            service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection: 'true'
+            ```
+        - disable Shield Advanced protection
+            ```yaml
+            service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection: 'false'
+            ```
 
 ## Access control
 Load balancer access can be controlled via following annotations:

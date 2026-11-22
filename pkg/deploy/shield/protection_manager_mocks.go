@@ -63,6 +63,21 @@ func (mr *MockProtectionManagerMockRecorder) DeleteProtection(arg0, arg1, arg2 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProtection", reflect.TypeOf((*MockProtectionManager)(nil).DeleteProtection), arg0, arg1, arg2)
 }
 
+// ResolveProtectionResourceARNs mocks base method.
+func (m *MockProtectionManager) ResolveProtectionResourceARNs(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveProtectionResourceARNs", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveProtectionResourceARNs indicates an expected call of ResolveProtectionResourceARNs.
+func (mr *MockProtectionManagerMockRecorder) ResolveProtectionResourceARNs(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveProtectionResourceARNs", reflect.TypeOf((*MockProtectionManager)(nil).ResolveProtectionResourceARNs), arg0, arg1)
+}
+
 // GetProtection mocks base method.
 func (m *MockProtectionManager) GetProtection(arg0 context.Context, arg1 string) (*ProtectionInfo, error) {
 	m.ctrl.T.Helper()
