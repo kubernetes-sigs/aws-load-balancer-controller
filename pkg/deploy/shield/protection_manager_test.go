@@ -224,7 +224,7 @@ func Test_defaultProtectionManager_ResolveProtectionResourceARNs(t *testing.T) {
 			},
 		},
 		{
-			name:        "NLB without EIPs errors",
+			name:        "NLB without EIPs resolves to an empty target set",
 			resourceARN: nlbARN,
 			describeLBs: []describeLBCalls{
 				{
@@ -238,7 +238,7 @@ func Test_defaultProtectionManager_ResolveProtectionResourceARNs(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "NLB " + nlbARN + " has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection",
+			want: nil,
 		},
 	}
 	for _, tt := range tests {

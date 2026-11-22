@@ -66,6 +66,9 @@ func (s *protectionSynthesizer) synthesizeProtectionsOnLB(ctx context.Context, l
 	if err != nil {
 		return errors.Wrap(err, "failed to resolve shield protection resource ARNs for LoadBalancer")
 	}
+	if enableProtection && len(resourceARNs) == 0 {
+		return errors.Errorf("NLB %s has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection", lbARN)
+	}
 	managedProtectionNames := sets.NewString(protectionNameManaged, protectionNameManagedLegacy)
 	for _, resourceARN := range resourceARNs {
 		protectionInfo, err := s.protectionManager.GetProtection(ctx, resourceARN)

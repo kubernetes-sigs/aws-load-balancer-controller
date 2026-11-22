@@ -39,7 +39,9 @@ type ProtectionManager interface {
 	// Shield Advanced protections must actually be created on. Shield Advanced does
 	// not accept Network Load Balancer ARNs (CreateProtection rejects them with
 	// InvalidResourceException); an NLB is protected through the allocation ARNs of
-	// its associated Elastic IP addresses.
+	// its associated Elastic IP addresses. An NLB without associated Elastic IPs
+	// resolves to an empty target set; callers decide whether that is an error
+	// (e.g. only when protection is being enabled).
 	ResolveProtectionResourceARNs(ctx context.Context, resourceARN string) ([]string, error)
 
 	// IsSubscribed checks whether subscribed to shield service.
@@ -186,9 +188,9 @@ func (m *defaultProtectionManager) ResolveProtectionResourceARNs(ctx context.Con
 			eipARNs = append(eipARNs, fmt.Sprintf("arn:aws:ec2:%s:%s:eip-allocation/%s", region, accountID, allocationID))
 		}
 	}
-	if len(eipARNs) == 0 {
-		return nil, errors.Errorf("NLB %s has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection", resourceARN)
-	}
+	// An NLB without Elastic IPs has no protectable targets; return an empty set
+	// and let the caller decide whether that is fatal (it is when protection is
+	// being enabled, a no-op when it is being disabled).
 	return eipARNs, nil
 }
 

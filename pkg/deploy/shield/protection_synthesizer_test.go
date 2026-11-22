@@ -254,6 +254,44 @@ func Test_protectionSynthesizer_Synthesize(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
+			name: "when protection is enabled on an NLB without EIPs, reconciliation fails",
+			fields: fields{
+				protectionSpecs: []shieldmodel.ProtectionSpec{
+					{
+						Enabled:     true,
+						ResourceARN: core.LiteralStringToken("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123"),
+					},
+				},
+				resolveCalls: []resolveCall{
+					{
+						resourceARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123",
+						arns:        nil,
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				return assert.EqualError(t, err, "NLB arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123 has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection", msgAndArgs...)
+			},
+		},
+		{
+			name: "when protection is disabled on an NLB without EIPs, reconciliation is a no-op",
+			fields: fields{
+				protectionSpecs: []shieldmodel.ProtectionSpec{
+					{
+						Enabled:     false,
+						ResourceARN: core.LiteralStringToken("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123"),
+					},
+				},
+				resolveCalls: []resolveCall{
+					{
+						resourceARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123",
+						arns:        nil,
+					},
+				},
+			},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "when resolving NLB EIP ARNs fails",
 			fields: fields{
 				protectionSpecs: []shieldmodel.ProtectionSpec{
