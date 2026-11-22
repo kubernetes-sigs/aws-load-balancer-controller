@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	shieldsdk "github.com/aws/aws-sdk-go-v2/service/shield"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
@@ -165,6 +168,97 @@ func Test_defaultProtectionManager_IsSubscribed(t *testing.T) {
 					assert.NoError(t, err)
 					assert.Equal(t, call.want, got)
 				}
+			}
+		})
+	}
+}
+
+func Test_defaultProtectionManager_ResolveProtectionResourceARNs(t *testing.T) {
+	const nlbARN = "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123"
+	type describeLBCalls struct {
+		req  *elbv2sdk.DescribeLoadBalancersInput
+		resp []elbv2types.LoadBalancer
+		err  error
+	}
+	tests := []struct {
+		name        string
+		resourceARN string
+		describeLBs []describeLBCalls
+		want        []string
+		wantErr     string
+	}{
+		{
+			name:        "non-NLB ARN is returned unchanged",
+			resourceARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-alb/abc123",
+			want:        []string{"arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-alb/abc123"},
+		},
+		{
+			name:        "NLB ARN resolves to EIP allocation ARNs, deduped across AZs",
+			resourceARN: nlbARN,
+			describeLBs: []describeLBCalls{
+				{
+					req: &elbv2sdk.DescribeLoadBalancersInput{LoadBalancerArns: []string{nlbARN}},
+					resp: []elbv2types.LoadBalancer{
+						{
+							AvailabilityZones: []elbv2types.AvailabilityZone{
+								{
+									LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{
+										{AllocationId: awssdk.String("eipalloc-1")},
+										{AllocationId: awssdk.String("eipalloc-2")},
+										{IpAddress: awssdk.String("2001:db8::1")}, // IPv6: no allocation ID
+									},
+								},
+								{
+									LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{
+										{AllocationId: awssdk.String("eipalloc-1")}, // duplicate across AZs
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{
+				"arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-1",
+				"arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-2",
+			},
+		},
+		{
+			name:        "NLB without EIPs errors",
+			resourceARN: nlbARN,
+			describeLBs: []describeLBCalls{
+				{
+					req: &elbv2sdk.DescribeLoadBalancersInput{LoadBalancerArns: []string{nlbARN}},
+					resp: []elbv2types.LoadBalancer{
+						{
+							AvailabilityZones: []elbv2types.AvailabilityZone{
+								{LoadBalancerAddresses: []elbv2types.LoadBalancerAddress{{IpAddress: awssdk.String("52.1.2.3")}}},
+							},
+						},
+					},
+				},
+			},
+			wantErr: "NLB " + nlbARN + " has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+			for _, call := range tt.describeLBs {
+				elbv2Client.EXPECT().DescribeLoadBalancersAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			m := &defaultProtectionManager{
+				elbv2Client: elbv2Client,
+				logger:      logr.New(&log.NullLogSink{}),
+			}
+			got, err := m.ResolveProtectionResourceARNs(context.Background(), tt.resourceARN)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}

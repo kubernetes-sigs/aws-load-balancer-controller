@@ -35,6 +35,8 @@ func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbA
 
 // buildShieldProtection builds the AWS Shield Advanced protection for the load balancer.
 // Shield Advanced protection is only supported on Network Load Balancers.
+// The model carries the NLB ARN; at deploy time the protection manager expands it into
+// the EIP allocation ARNs of the NLB's addresses (Shield rejects NLB ARNs directly).
 func (t *defaultModelBuildTask) buildShieldProtection(_ context.Context, lbARN core.StringToken) (*shieldmodel.Protection, error) {
 	rawEnableProtection := false
 	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixShieldAdvancedProtection, &rawEnableProtection, t.service.Annotations)

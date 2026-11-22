@@ -2,12 +2,17 @@ package shield
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	shieldsdk "github.com/aws/aws-sdk-go-v2/service/shield"
 	shieldtypes "github.com/aws/aws-sdk-go-v2/service/shield/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
 	"time"
 )
@@ -30,13 +35,21 @@ type ProtectionManager interface {
 	// returns nil if no protection exists.
 	GetProtection(ctx context.Context, resourceARN string) (*ProtectionInfo, error)
 
+	// ResolveProtectionResourceARNs maps a desired resource ARN to the ARN(s) that
+	// Shield Advanced protections must actually be created on. Shield Advanced does
+	// not accept Network Load Balancer ARNs (CreateProtection rejects them with
+	// InvalidResourceException); an NLB is protected through the allocation ARNs of
+	// its associated Elastic IP addresses.
+	ResolveProtectionResourceARNs(ctx context.Context, resourceARN string) ([]string, error)
+
 	// IsSubscribed checks whether subscribed to shield service.
 	IsSubscribed(ctx context.Context) (bool, error)
 }
 
-func NewDefaultProtectionManager(shieldClient services.Shield, logger logr.Logger) *defaultProtectionManager {
+func NewDefaultProtectionManager(shieldClient services.Shield, elbv2Client services.ELBV2, logger logr.Logger) *defaultProtectionManager {
 	return &defaultProtectionManager{
 		shieldClient:                        shieldClient,
+		elbv2Client:                         elbv2Client,
 		logger:                              logger,
 		protectionInfoByResourceARNCache:    cache.NewExpiring(),
 		protectionInfoByResourceARNCacheTTL: defaultProtectionInfoByResourceARNCacheTTL,
@@ -49,6 +62,7 @@ var _ ProtectionManager = &defaultProtectionManager{}
 
 type defaultProtectionManager struct {
 	shieldClient services.Shield
+	elbv2Client  services.ELBV2
 	logger       logr.Logger
 
 	protectionInfoByResourceARNCache    *cache.Expiring
@@ -133,6 +147,49 @@ func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceAR
 	}
 	m.protectionInfoByResourceARNCache.Set(resourceARN, protectionInfo, m.protectionInfoByResourceARNCacheTTL)
 	return protectionInfo, nil
+}
+
+// nlbARNPattern matches Network Load Balancer ARNs, e.g.
+// arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123
+var nlbARNPattern = regexp.MustCompile(`^arn:aws(?:-[a-z-]+)?:elasticloadbalancing:([^:]+):([^:]+):loadbalancer/net/`)
+
+// ResolveProtectionResourceARNs implements ProtectionManager.
+func (m *defaultProtectionManager) ResolveProtectionResourceARNs(ctx context.Context, resourceARN string) ([]string, error) {
+	matches := nlbARNPattern.FindStringSubmatch(resourceARN)
+	if matches == nil {
+		// ALB/CLB ARNs and other resource types are accepted by Shield Advanced directly.
+		return []string{resourceARN}, nil
+	}
+	region, accountID := matches[1], matches[2]
+	lbs, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, &elbv2sdk.DescribeLoadBalancersInput{
+		LoadBalancerArns: []string{resourceARN},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(lbs) == 0 {
+		return nil, errors.Errorf("load balancer not found: %s", resourceARN)
+	}
+	seenAllocationIDs := sets.NewString()
+	var eipARNs []string
+	for _, az := range lbs[0].AvailabilityZones {
+		for _, addr := range az.LoadBalancerAddresses {
+			if addr.AllocationId == nil {
+				// e.g. IPv6 addresses are not Elastic IPs
+				continue
+			}
+			allocationID := awssdk.ToString(addr.AllocationId)
+			if seenAllocationIDs.Has(allocationID) {
+				continue
+			}
+			seenAllocationIDs.Insert(allocationID)
+			eipARNs = append(eipARNs, fmt.Sprintf("arn:aws:ec2:%s:%s:eip-allocation/%s", region, accountID, allocationID))
+		}
+	}
+	if len(eipARNs) == 0 {
+		return nil, errors.Errorf("NLB %s has no associated Elastic IP addresses; Shield Advanced protects an NLB via its EIP allocation ARNs, associate EIPs with the NLB (e.g. via the aws-load-balancer-eip-allocations annotation) before enabling protection", resourceARN)
+	}
+	return eipARNs, nil
 }
 
 func (m *defaultProtectionManager) IsSubscribed(ctx context.Context) (bool, error) {

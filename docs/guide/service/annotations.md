@@ -637,6 +637,7 @@ You can configure TLS support via the following annotations:
 
     !!!warning ""
         Shield Advanced protection is only supported on Network Load Balancers. Setting the annotation on a Service that builds an Application Load Balancer fails reconciliation.
+        The Shield `CreateProtection` API does not accept NLB ARNs; the controller protects the NLB's associated Elastic IP addresses instead (one protection per `eip-allocation` ARN), so the NLB must have EIPs associated — e.g. via the `aws-load-balancer-eip-allocations` annotation. An NLB without EIPs fails reconciliation with a clear error when protection is enabled.
 
     !!!example
         - enable Shield Advanced protection

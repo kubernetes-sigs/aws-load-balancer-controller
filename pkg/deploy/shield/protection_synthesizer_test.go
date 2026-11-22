@@ -29,8 +29,14 @@ func Test_protectionSynthesizer_Synthesize(t *testing.T) {
 		protectionID string
 		err          error
 	}
+	type resolveCall struct {
+		resourceARN string
+		arns        []string
+		err         error
+	}
 	type fields struct {
 		protectionSpecs       []shieldmodel.ProtectionSpec
+		resolveCalls          []resolveCall
 		getProtectionCalls    []getProtectionCall
 		createProtectionCalls []createProtectionCall
 		deleteProtectionCalls []deleteProtectionCall
@@ -218,12 +224,70 @@ func Test_protectionSynthesizer_Synthesize(t *testing.T) {
 				return assert.EqualError(t, err, "failed to delete shield protection on LoadBalancer: some error", msgAndArgs...)
 			},
 		},
+		{
+			name: "when protection is desired on an NLB, protections are created per EIP allocation ARN",
+			fields: fields{
+				protectionSpecs: []shieldmodel.ProtectionSpec{
+					{
+						Enabled:     true,
+						ResourceARN: core.LiteralStringToken("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123"),
+					},
+				},
+				resolveCalls: []resolveCall{
+					{
+						resourceARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123",
+						arns: []string{
+							"arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-1",
+							"arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-2",
+						},
+					},
+				},
+				getProtectionCalls: []getProtectionCall{
+					{resourceARN: "arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-1", protectionInfo: nil},
+					{resourceARN: "arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-2", protectionInfo: nil},
+				},
+				createProtectionCalls: []createProtectionCall{
+					{resourceARN: "arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-1", protectionName: "managed by aws-load-balancer-controller", protectionID: "protection-id-1"},
+					{resourceARN: "arn:aws:ec2:us-west-2:123456789012:eip-allocation/eipalloc-2", protectionName: "managed by aws-load-balancer-controller", protectionID: "protection-id-2"},
+				},
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "when resolving NLB EIP ARNs fails",
+			fields: fields{
+				protectionSpecs: []shieldmodel.ProtectionSpec{
+					{
+						Enabled:     true,
+						ResourceARN: core.LiteralStringToken("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123"),
+					},
+				},
+				resolveCalls: []resolveCall{
+					{
+						resourceARN: "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-nlb/abc123",
+						err:         fmt.Errorf("some error"),
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				return assert.EqualError(t, err, "failed to resolve shield protection resource ARNs for LoadBalancer: some error", msgAndArgs...)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			protectionManager := NewMockProtectionManager(ctrl)
+			if len(tt.fields.resolveCalls) == 0 && len(tt.fields.protectionSpecs) > 0 {
+				for _, spec := range tt.fields.protectionSpecs {
+					arn, _ := spec.ResourceARN.Resolve(context.Background())
+					tt.fields.resolveCalls = append(tt.fields.resolveCalls, resolveCall{resourceARN: arn, arns: []string{arn}})
+				}
+			}
+			for _, call := range tt.fields.resolveCalls {
+				protectionManager.EXPECT().ResolveProtectionResourceARNs(gomock.Any(), call.resourceARN).Return(call.arns, call.err)
+			}
 			for _, call := range tt.fields.getProtectionCalls {
 				protectionManager.EXPECT().GetProtection(gomock.Any(), call.resourceARN).Return(call.protectionInfo, call.err)
 			}
