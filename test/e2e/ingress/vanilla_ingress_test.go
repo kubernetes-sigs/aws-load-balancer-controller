@@ -1168,6 +1168,178 @@ var _ = Describe("vanilla ingress tests", func() {
 			})
 		})
 	})
+
+	Context("with `alb.ingress.kubernetes.io/mutual-authentication` variant settings", func() {
+		const mtlsAnnotation = "alb.ingress.kubernetes.io/mutual-authentication"
+		var (
+			cert    string
+			ingBack networking.IngressBackend
+		)
+
+		BeforeEach(func() {
+			if strings.Contains(tf.Options.AWSRegion, "-iso-") || tf.Options.AWSRegion == "eusc-de-east-1" {
+				Skip("Skipping test, ALB mutual authentication not supported in this region")
+			}
+			if tf.Options.CertificateARNs == "" {
+				Skip("Skipping test, certificates ARNs not specified")
+			}
+			cert = strings.Split(tf.Options.CertificateARNs, ",")[0]
+		})
+
+		// deployMTLSIngress deploys an app and an HTTPS ingress carrying the given mutual authentication annotation value.
+		deployMTLSIngress := func(mtlsConfig string) (func(), *networking.Ingress) {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBack = networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{Number: 80},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":               "alb",
+				"alb.ingress.kubernetes.io/scheme":          "internet-facing",
+				"alb.ingress.kubernetes.io/target-type":     "ip",
+				"alb.ingress.kubernetes.io/listen-ports":    `[{"HTTPS": 443}]`,
+				"alb.ingress.kubernetes.io/certificate-arn": cert,
+				mtlsAnnotation: mtlsConfig,
+			}
+			if tf.Options.IPFamily == framework.IPv6 {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+			ing := manifest.NewIngressBuilder().
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBack}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			Expect(resStack.Setup(ctx)).To(Succeed())
+			return func() { resStack.TearDown(ctx) }, ing
+		}
+
+		// getListenerMTLSMode returns the mutual authentication mode of the HTTPS:443 listener, "off" when unset.
+		getListenerMTLSMode := func(lbARN string) (string, error) {
+			listeners, err := tf.LBManager.GetLoadBalancerListeners(ctx, lbARN)
+			if err != nil {
+				return "", err
+			}
+			for _, ls := range listeners {
+				if awssdk.ToInt32(ls.Port) != 443 {
+					continue
+				}
+				if ls.MutualAuthentication == nil || ls.MutualAuthentication.Mode == nil {
+					return string(elbv2model.MutualAuthenticationOffMode), nil
+				}
+				return awssdk.ToString(ls.MutualAuthentication.Mode), nil
+			}
+			return "", errors.New("listener on port 443 not found")
+		}
+
+		It("with mode 'off', one ALB shall be created with mutual authentication disabled", func() {
+			teardown, ing := deployMTLSIngress(`[{"port":443,"mode":"off"}]`)
+			defer teardown()
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			By("verifying listener has mutual authentication off", func() {
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 443, &verifier.ListenerExpectation{
+					ProtocolPort:          "HTTPS:443",
+					DefaultCertificateARN: cert,
+					MutualAuthentication: &verifier.MutualAuthenticationExpectation{
+						Mode: "off",
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			})
+		})
+
+		It("with mode 'passthrough', one ALB shall be created with mutual authentication passthrough", func() {
+			teardown, ing := deployMTLSIngress(`[{"port":443,"mode":"passthrough"}]`)
+			defer teardown()
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			By("verifying listener has mutual authentication passthrough", func() {
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 443, &verifier.ListenerExpectation{
+					ProtocolPort:          "HTTPS:443",
+					DefaultCertificateARN: cert,
+					MutualAuthentication: &verifier.MutualAuthenticationExpectation{
+						Mode: "passthrough",
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			})
+		})
+
+		It("with mode 'verify' and a trust store, one ALB shall be created with mutual authentication verify", func() {
+			if tf.Options.TrustStoreARN == "" {
+				Skip("Skipping test, trustStoreARN not set")
+			}
+			teardown, ing := deployMTLSIngress(fmt.Sprintf(
+				`[{"port":443,"mode":"verify","trustStore":"%s","advertiseTrustStoreCaNames":"on","ignoreClientCertificateExpiry":true}]`,
+				tf.Options.TrustStoreARN))
+			defer teardown()
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			By("verifying listener has mutual authentication verify", func() {
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 443, &verifier.ListenerExpectation{
+					ProtocolPort:          "HTTPS:443",
+					DefaultCertificateARN: cert,
+					MutualAuthentication: &verifier.MutualAuthenticationExpectation{
+						Mode:                          "verify",
+						TrustStoreARN:                 tf.Options.TrustStoreARN,
+						AdvertiseTrustStoreCaNames:    "on",
+						IgnoreClientCertificateExpiry: true,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			})
+		})
+
+		It("changing the annotation from 'verify' to 'off' shall turn mutual authentication off on the existing ALB", func() {
+			if tf.Options.TrustStoreARN == "" {
+				Skip("Skipping test, trust store ARN not set")
+			}
+			teardown, ing := deployMTLSIngress(fmt.Sprintf(
+				`[{"port":443,"mode":"verify","trustStore":"%s"}]`, tf.Options.TrustStoreARN))
+			defer teardown()
+
+			lbARN, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			By("verifying listener starts in verify mode", func() {
+				Eventually(func() (string, error) {
+					return getListenerMTLSMode(lbARN)
+				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(Equal("verify"))
+			})
+
+			By("updating the annotation to mode 'off'", func() {
+				Eventually(func() error {
+					if err := tf.K8sClient.Get(ctx, k8s.NamespacedName(ing), ing); err != nil {
+						return err
+					}
+					ing.Annotations[mtlsAnnotation] = `[{"port":443,"mode":"off"}]`
+					return tf.K8sClient.Update(ctx, ing)
+				}, utils.PollTimeoutShort, utils.PollIntervalShort).Should(Succeed())
+			})
+
+			By("verifying listener mutual authentication is turned off", func() {
+				Eventually(func() (string, error) {
+					return getListenerMTLSMode(lbARN)
+				}, utils.IngressReconcileTimeout, utils.PollIntervalMedium).Should(Equal("off"))
+			})
+		})
+	})
 })
 
 // ExpectOneLBProvisionedForIngress expects one LoadBalancer provisioned for Ingress.

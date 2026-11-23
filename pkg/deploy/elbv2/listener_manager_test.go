@@ -1,15 +1,36 @@
 package elbv2
 
 import (
+	"context"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/go-logr/logr"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/config"
 	acmModel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/acm"
+	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
 )
+
+const nlbMTLSTrustStoreARN = "arn:aws:elasticloadbalancing:us-east-1:123456789123:truststore/ts-1/8786hghf"
+
+// getMockClientCertIdentityFilter returns a single filter for subject CN with the given value
+func getMockClientCertIdentityFilter(value string) []elbv2types.ClientCertificateIdentityFilter {
+	return []elbv2types.ClientCertificateIdentityFilter{
+		{
+			Action:    elbv2types.ClientCertificateIdentityFilterActionAccept,
+			Field:     elbv2types.ClientCertificateIdentityFilterFieldSubjectCn,
+			MatchType: elbv2types.ClientCertificateIdentityFilterMatchTypeExact,
+			Value:     awssdk.String(value),
+		},
+	}
+}
 
 func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 	type args struct {
@@ -845,6 +866,130 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "null desired client certificate identity filters ignores existing filters on the listener",
+			args: args{
+				lsSpec: elbv2model.ListenerSpec{
+					Port:     443,
+					Protocol: elbv2model.ProtocolTLS,
+				},
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(443),
+						Protocol: elbv2types.ProtocolEnum("TLS"),
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+							Mode:                             awssdk.String("verify"),
+							TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+							IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+							AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+							ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("www.example.com"),
+						},
+					},
+				},
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                             awssdk.String("verify"),
+					TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+					ClientCertificateIdentityFilters: nil,
+				},
+			},
+			wantEnhanced: false,
+			wantLegacy:   false,
+		},
+		{
+			name: "empty desired client certificate identity filters drift from existing filters on the listener",
+			args: args{
+				lsSpec: elbv2model.ListenerSpec{
+					Port:     443,
+					Protocol: elbv2model.ProtocolTLS,
+				},
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(443),
+						Protocol: elbv2types.ProtocolEnum("TLS"),
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+							Mode:                             awssdk.String("verify"),
+							TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+							IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+							AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+							ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("www.example.com"),
+						},
+					},
+				},
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                             awssdk.String("verify"),
+					TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+					ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{},
+				},
+			},
+			wantEnhanced: true,
+			wantLegacy:   true,
+		},
+		{
+			name: "same client certificate identity filters have not drifted",
+			args: args{
+				lsSpec: elbv2model.ListenerSpec{
+					Port:     443,
+					Protocol: elbv2model.ProtocolTLS,
+				},
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(443),
+						Protocol: elbv2types.ProtocolEnum("TLS"),
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+							Mode:                             awssdk.String("verify"),
+							TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+							IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+							AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+							ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("www.example.com"),
+						},
+					},
+				},
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                             awssdk.String("verify"),
+					TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+					ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("www.example.com"),
+				},
+			},
+			wantEnhanced: false,
+			wantLegacy:   false,
+		},
+		{
+			name: "different client certificate identity filters have drifted",
+			args: args{
+				lsSpec: elbv2model.ListenerSpec{
+					Port:     443,
+					Protocol: elbv2model.ProtocolTLS,
+				},
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(443),
+						Protocol: elbv2types.ProtocolEnum("TLS"),
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+							Mode:                             awssdk.String("verify"),
+							TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+							IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+							AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+							ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("www.example.com"),
+						},
+					},
+				},
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                             awssdk.String("verify"),
+					TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+					ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("other.example.com"),
+				},
+			},
+			wantEnhanced: true,
+			wantLegacy:   true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -863,13 +1008,14 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 
 func Test_buildSDKModifyListenerInput(t *testing.T) {
 	testCases := []struct {
-		name                  string
-		lsSpec                elbv2model.ListenerSpec
-		desiredDefaultActions []elbv2types.Action
-		desiredDefaultCerts   []elbv2types.Certificate
-		removeMTLS            bool
-		removeALPN            bool
-		expected              elbv2sdk.ModifyListenerInput
+		name                                   string
+		lsSpec                                 elbv2model.ListenerSpec
+		desiredDefaultActions                  []elbv2types.Action
+		desiredDefaultCerts                    []elbv2types.Certificate
+		removeMTLS                             bool
+		removeALPN                             bool
+		removeClientCertificateIdentityFilters bool
+		expected                               elbv2sdk.ModifyListenerInput
 	}{
 		{
 			name: "all fields populated",
@@ -990,11 +1136,57 @@ func Test_buildSDKModifyListenerInput(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                                   "remove client certificate identity filters sends an empty list",
+			removeClientCertificateIdentityFilters: true,
+			lsSpec: elbv2model.ListenerSpec{
+				Port:     443,
+				Protocol: elbv2model.ProtocolTLS,
+				MutualAuthentication: &elbv2model.MutualAuthenticationAttributes{
+					Mode:                          string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStoreArn:                 awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+				},
+			},
+			expected: elbv2sdk.ModifyListenerInput{
+				Port:     awssdk.Int32(443),
+				Protocol: elbv2types.ProtocolEnumTls,
+				MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                             awssdk.String(string(elbv2model.MutualAuthenticationVerifyMode)),
+					TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+					ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{},
+				},
+			},
+		},
+		{
+			name: "null identity filters are omitted without the remove flag",
+			lsSpec: elbv2model.ListenerSpec{
+				Port:     443,
+				Protocol: elbv2model.ProtocolTLS,
+				MutualAuthentication: &elbv2model.MutualAuthenticationAttributes{
+					Mode:                          string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStoreArn:                 awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+				},
+			},
+			expected: elbv2sdk.ModifyListenerInput{
+				Port:     awssdk.Int32(443),
+				Protocol: elbv2types.ProtocolEnumTls,
+				MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                          awssdk.String(string(elbv2model.MutualAuthenticationVerifyMode)),
+					TrustStoreArn:                 awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:    elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := buildSDKModifyListenerInput(tc.lsSpec, tc.desiredDefaultActions, tc.desiredDefaultCerts, tc.removeMTLS, tc.removeALPN)
+			res := buildSDKModifyListenerInput(tc.lsSpec, tc.desiredDefaultActions, tc.desiredDefaultCerts, tc.removeMTLS, tc.removeALPN, tc.removeClientCertificateIdentityFilters)
 			assert.Equal(t, tc.expected, *res)
 		})
 	}
@@ -1207,6 +1399,190 @@ func Test_areListenerAttributesSupported(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			res := areListenerAttributesSupported(tc.protocol)
 			assert.Equal(t, tc.result, res)
+		})
+	}
+}
+
+func Test_translateClientCertificateIdentityFiltersToSdk(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []elbv2model.ClientCertificateIdentityFilter
+		want  []elbv2types.ClientCertificateIdentityFilter
+	}{
+		{
+			name:  "nil filters",
+			input: nil,
+			want:  nil,
+		},
+		{
+			name:  "empty filters",
+			input: []elbv2model.ClientCertificateIdentityFilter{},
+			want:  []elbv2types.ClientCertificateIdentityFilter{},
+		},
+		{
+			name: "multiple filters",
+			input: []elbv2model.ClientCertificateIdentityFilter{
+				{
+					Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+					Field:     elbv2model.ClientCertificateIdentityFilterFieldSubjectCn,
+					MatchType: elbv2model.MatchTypeExact,
+					Value:     "www.example.com",
+				},
+				{
+					Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+					Field:     elbv2model.ClientCertificateIdentityFilterFieldSanDns,
+					MatchType: elbv2model.MatchTypePrefix,
+					Value:     "api.",
+				},
+			},
+			want: []elbv2types.ClientCertificateIdentityFilter{
+				{
+					Action:    elbv2types.ClientCertificateIdentityFilterAction("accept"),
+					Field:     elbv2types.ClientCertificateIdentityFilterField("subject-cn"),
+					MatchType: elbv2types.ClientCertificateIdentityFilterMatchType("exact"),
+					Value:     awssdk.String("www.example.com"),
+				},
+				{
+					Action:    elbv2types.ClientCertificateIdentityFilterAction("accept"),
+					Field:     elbv2types.ClientCertificateIdentityFilterField("san-dns"),
+					MatchType: elbv2types.ClientCertificateIdentityFilterMatchType("prefix"),
+					Value:     awssdk.String("api."),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, translateClientCertificateIdentityFiltersToSdk(tt.input))
+		})
+	}
+}
+
+func Test_isRemoveClientCertificateIdentityFilters(t *testing.T) {
+	tests := []struct {
+		name    string
+		desired *elbv2types.MutualAuthenticationAttributes
+		want    bool
+	}{
+		{
+			name:    "no mutual authentication",
+			desired: nil,
+			want:    false,
+		},
+		{
+			name:    "off mode",
+			desired: &elbv2types.MutualAuthenticationAttributes{Mode: awssdk.String("off")},
+			want:    false,
+		},
+		{
+			name:    "verify mode with no desired filters",
+			desired: &elbv2types.MutualAuthenticationAttributes{Mode: awssdk.String("verify")},
+			want:    true,
+		},
+		{
+			name: "verify mode with empty list of filters",
+			desired: &elbv2types.MutualAuthenticationAttributes{
+				Mode:                             awssdk.String("verify"),
+				ClientCertificateIdentityFilters: []elbv2types.ClientCertificateIdentityFilter{},
+			},
+			want: false,
+		},
+		{
+			name: "verify mode with filters",
+			desired: &elbv2types.MutualAuthenticationAttributes{
+				Mode:                             awssdk.String("verify"),
+				ClientCertificateIdentityFilters: getMockClientCertIdentityFilter("www.example.com"),
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isRemoveClientCertificateIdentityFilters(tt.desired))
+		})
+	}
+}
+
+func Test_updateSDKListenerWithSettings_clientCertificateIdentityFilters(t *testing.T) {
+	tests := []struct {
+		name                   string
+		enhancedDefaulting     bool
+		actualFilters          []elbv2types.ClientCertificateIdentityFilter
+		wantModify             bool
+		wantModifyFiltersEmpty bool
+	}{
+		{
+			name:                   "enhanced defaulting on clears existing filters",
+			enhancedDefaulting:     true,
+			actualFilters:          getMockClientCertIdentityFilter("www.example.com"),
+			wantModify:             true,
+			wantModifyFiltersEmpty: true,
+		},
+		{
+			name:               "enhanced defaulting on does nothing once filters are cleared",
+			enhancedDefaulting: true,
+			actualFilters:      nil,
+			wantModify:         false,
+		},
+		{
+			name:               "enhanced defaulting off leaves existing filters alone",
+			enhancedDefaulting: false,
+			actualFilters:      getMockClientCertIdentityFilter("www.example.com"),
+			wantModify:         false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+
+			stack := core.NewDefaultStack(core.StackID{Namespace: "default", Name: "svc"})
+			resLS := elbv2model.NewListener(stack, "443", elbv2model.ListenerSpec{
+				LoadBalancerARN: core.LiteralStringToken("lb-arn"),
+				Port:            443,
+				Protocol:        elbv2model.ProtocolTLS,
+				MutualAuthentication: &elbv2model.MutualAuthenticationAttributes{
+					Mode:                          string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStoreArn:                 awssdk.String(nlbMTLSTrustStoreARN),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+				},
+			})
+			sdkLS := ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					ListenerArn: awssdk.String("listener-arn"),
+					Port:        awssdk.Int32(443),
+					Protocol:    elbv2types.ProtocolEnumTls,
+					MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+						Mode:                             awssdk.String(string(elbv2model.MutualAuthenticationVerifyMode)),
+						TrustStoreArn:                    awssdk.String(nlbMTLSTrustStoreARN),
+						IgnoreClientCertificateExpiry:    awssdk.Bool(false),
+						AdvertiseTrustStoreCaNames:       elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+						ClientCertificateIdentityFilters: tt.actualFilters,
+					},
+				},
+			}
+
+			if tt.wantModify {
+				elbv2Client.EXPECT().ModifyListenerWithContext(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, req *elbv2sdk.ModifyListenerInput) (*elbv2sdk.ModifyListenerOutput, error) {
+						require.NotNil(t, req.MutualAuthentication)
+						if tt.wantModifyFiltersEmpty {
+							assert.NotNil(t, req.MutualAuthentication.ClientCertificateIdentityFilters)
+							assert.Empty(t, req.MutualAuthentication.ClientCertificateIdentityFilters)
+						}
+						return &elbv2sdk.ModifyListenerOutput{}, nil
+					})
+			}
+
+			m := &defaultListenerManager{
+				elbv2Client:                     elbv2Client,
+				featureGates:                    config.NewFeatureGates(),
+				enhancedDefaultingPolicyEnabled: tt.enhancedDefaulting,
+				logger:                          logr.Discard(),
+			}
+			err := m.updateSDKListenerWithSettings(context.Background(), resLS, sdkLS)
+			assert.NoError(t, err)
 		})
 	}
 }

@@ -13,11 +13,12 @@ import (
 )
 
 type MutualAuthenticationConfig struct {
-	Port                          int32   `json:"port"`
-	Mode                          string  `json:"mode"`
-	TrustStore                    *string `json:"trustStore,omitempty"`
-	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
-	AdvertiseTrustStoreCaNames    *string `json:"advertiseTrustStoreCaNames,omitempty"`
+	Port                             int32                                        `json:"port"`
+	Mode                             string                                       `json:"mode"`
+	TrustStore                       *string                                      `json:"trustStore,omitempty"`
+	IgnoreClientCertificateExpiry    *bool                                        `json:"ignoreClientCertificateExpiry,omitempty"`
+	AdvertiseTrustStoreCaNames       *string                                      `json:"advertiseTrustStoreCaNames,omitempty"`
+	ClientCertificateIdentityFilters []elbv2model.ClientCertificateIdentityFilter `json:"clientCertificateIdentityFilters,omitempty"`
 }
 
 // ParseMtlsConfigEntries returns a map from listener ports to MutualAuthenticationAttributes
@@ -26,26 +27,31 @@ func ParseMtlsConfigEntries(ctx context.Context, elbv2Client services.ELBV2, ent
 
 	for _, mutualAuthenticationConfig := range entries {
 		port := mutualAuthenticationConfig.Port
+		if portAndMtlsAttributes[port] != nil {
+			return nil, errors.Errorf("duplicate mutual authentication attributes configuration on port %d", port)
+		}
 		mode := mutualAuthenticationConfig.Mode
 		truststoreNameOrArn := awssdk.ToString(mutualAuthenticationConfig.TrustStore)
-		ignoreClientCert := mutualAuthenticationConfig.IgnoreClientCertificateExpiry
+		ignoreClientCertExpiry := mutualAuthenticationConfig.IgnoreClientCertificateExpiry
 		advertiseTrustStoreCaNames := mutualAuthenticationConfig.AdvertiseTrustStoreCaNames
+		clientCertificateIdentityFilters := mutualAuthenticationConfig.ClientCertificateIdentityFilters
 
-		err := validateMutualAuthenticationConfig(protocol, port, mode, truststoreNameOrArn, ignoreClientCert, advertiseTrustStoreCaNames)
+		err := validateMutualAuthenticationConfig(protocol, port, mode, truststoreNameOrArn, ignoreClientCertExpiry, advertiseTrustStoreCaNames, clientCertificateIdentityFilters)
 		if err != nil {
 			return nil, err
 		}
 
-		if mode == string(elbv2model.MutualAuthenticationVerifyMode) && ignoreClientCert == nil {
-			ignoreClientCert = awssdk.Bool(false)
+		if mode == string(elbv2model.MutualAuthenticationVerifyMode) && ignoreClientCertExpiry == nil {
+			ignoreClientCertExpiry = awssdk.Bool(false)
 		}
-		portAndMtlsAttributes[port] = &elbv2model.MutualAuthenticationAttributes{Mode: mode, TrustStoreArn: awssdk.String(truststoreNameOrArn), IgnoreClientCertificateExpiry: ignoreClientCert, AdvertiseTrustStoreCaNames: advertiseTrustStoreCaNames}
+
+		portAndMtlsAttributes[port] = &elbv2model.MutualAuthenticationAttributes{Mode: mode, TrustStoreArn: awssdk.String(truststoreNameOrArn), IgnoreClientCertificateExpiry: ignoreClientCertExpiry, AdvertiseTrustStoreCaNames: advertiseTrustStoreCaNames, ClientCertificateIdentityFilters: clientCertificateIdentityFilters}
 	}
 
 	return parseMtlsAttributesForTrustStoreNames(ctx, elbv2Client, portAndMtlsAttributes)
 }
 
-func validateMutualAuthenticationConfig(protocol elbv2model.Protocol, port int32, mode string, truststoreNameOrArn string, ignoreClientCert *bool, advertiseTrustStoreCaNames *string) error {
+func validateMutualAuthenticationConfig(protocol elbv2model.Protocol, port int32, mode string, truststoreNameOrArn string, ignoreClientCert *bool, advertiseTrustStoreCaNames *string, clientCertificateIdentityFilters []elbv2model.ClientCertificateIdentityFilter) error {
 	// Verify that port is in range 1-65535, inclusive
 	if port < 1 || port > 65535 {
 		return errors.Errorf("listen port must be within [1, 65535]: %v", port)
@@ -60,6 +66,8 @@ func validateMutualAuthenticationConfig(protocol elbv2model.Protocol, port int32
 	var validModes []string
 	if protocol == elbv2model.ProtocolHTTPS {
 		validModes = []string{string(elbv2model.MutualAuthenticationOffMode), string(elbv2model.MutualAuthenticationPassthroughMode), string(elbv2model.MutualAuthenticationVerifyMode)}
+	} else if protocol == elbv2model.ProtocolTLS {
+		validModes = []string{string(elbv2model.MutualAuthenticationOffMode), string(elbv2model.MutualAuthenticationVerifyMode)}
 	}
 	if !slices.Contains(validModes, mode) {
 		return errors.Errorf("mutualAuthentication mode value must be among [%v] for protocol %v port %v : %s", strings.Join(validModes, ", "), protocol, port, mode)
@@ -75,7 +83,7 @@ func validateMutualAuthenticationConfig(protocol elbv2model.Protocol, port int32
 		return errors.Errorf("Mutual Authentication mode %s does not support trustStore for port %v", mode, port)
 	}
 
-	// Verify if the mutualAuthentication ignoreClientCert is valid for Off and Passthrough modes
+	// Verify if the mutualAuthentication ignoreClientCertExpiry is valid for Off and Passthrough modes
 	if (mode == string(elbv2model.MutualAuthenticationOffMode) || mode == string(elbv2model.MutualAuthenticationPassthroughMode)) && ignoreClientCert != nil {
 		return errors.Errorf("Mutual Authentication mode %s does not support ignoring client certificate expiry for port %v", mode, port)
 	}
@@ -90,6 +98,12 @@ func validateMutualAuthenticationConfig(protocol elbv2model.Protocol, port int32
 
 		if *advertiseTrustStoreCaNames != string(elbv2types.AdvertiseTrustStoreCaNamesEnumOff) && *advertiseTrustStoreCaNames != string(elbv2types.AdvertiseTrustStoreCaNamesEnumOn) {
 			return errors.Errorf("advertiseTrustStoreCaNames only supports the values \"on\" and \"off\" got value %s for port %v", *advertiseTrustStoreCaNames, port)
+		}
+	}
+
+	if clientCertificateIdentityFilters != nil {
+		if mode != string(elbv2model.MutualAuthenticationVerifyMode) {
+			return errors.Errorf("Mutual Authentication mode %s does not support clientCertificateIdentityFilters for port %v", mode, port)
 		}
 	}
 
