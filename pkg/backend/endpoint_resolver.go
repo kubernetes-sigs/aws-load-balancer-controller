@@ -23,9 +23,10 @@ var ErrNotFound = errors.New("backend not found")
 type EndpointResolver interface {
 	// ResolvePodEndpoints will resolve endpoints backed by pods directly,
 	// returns resolved podEndpoints.
+	// The second value is the containers-ready, non-terminating pods excluded because their node is not Ready.
 	// addressType filters EndpointSlices by AddressType. Pass empty to disable filtering.
 	ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
-		addressType discovery.AddressType) ([]PodEndpoint, error)
+		addressType discovery.AddressType) ([]PodEndpoint, []PodEndpoint, error)
 
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
 	ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
@@ -57,14 +58,14 @@ type defaultEndpointResolver struct {
 	logger               logr.Logger
 }
 
-func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, addressType discovery.AddressType) ([]PodEndpoint, error) {
+func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, addressType discovery.AddressType) ([]PodEndpoint, []PodEndpoint, error) {
 	_, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	endpointsDataList, err := r.computeServiceEndpointsData(ctx, svcKey, addressType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return r.resolvePodEndpointsWithEndpointsData(ctx, svcKey, svcPort, endpointsDataList)
 }
@@ -134,9 +135,12 @@ func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Contex
 	return endpointsDataList, nil
 }
 
-func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx context.Context, svcKey types.NamespacedName, svcPort corev1.ServicePort, endpointsDataList []EndpointsData) ([]PodEndpoint, error) {
+func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx context.Context, svcKey types.NamespacedName, svcPort corev1.ServicePort, endpointsDataList []EndpointsData) ([]PodEndpoint, []PodEndpoint, error) {
 	var readyPodEndpoints []PodEndpoint
 	var unknownPodEndpoints []PodEndpoint
+	// unknownNonTerminating are the unknownPodEndpoints to report as excluded if fail-open does not include them.
+	var unknownNonTerminating []PodEndpoint
+	var notReadyNodePodEndpoints []PodEndpoint
 
 	for _, epsData := range endpointsDataList {
 		for _, port := range epsData.Ports {
@@ -160,7 +164,7 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				podKey := types.NamespacedName{Namespace: podNamespace, Name: ep.TargetRef.Name}
 				pod, exists, err := r.podInfoRepo.Get(ctx, podKey)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				if !exists {
 					r.logger.Info("the pod in endpoint is not found in pod cache yet", "podKey", podKey.String())
@@ -194,25 +198,36 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				if readyCond := k8s.GetNodeCondition(node, corev1.NodeReady); readyCond != nil {
 					nodeReadyCondStatus = readyCond.Status
 				}
+				isTerminating := ep.Conditions.Terminating != nil && *ep.Conditions.Terminating
 				switch nodeReadyCondStatus {
 				case corev1.ConditionTrue:
 					// start from 1.22+, terminating pods are included in endpointSlices,
 					// and we don't want to include these pods if the node is known to be healthy.
-					if ep.Conditions.Terminating == nil || !*ep.Conditions.Terminating {
+					if !isTerminating {
 						podEndpoint.NodeReadyTime = nodeReadyTimeIfReady(node)
 						readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
 					}
 				case corev1.ConditionUnknown:
 					unknownPodEndpoints = append(unknownPodEndpoints, podEndpoint)
+					if !isTerminating {
+						unknownNonTerminating = append(unknownNonTerminating, podEndpoint)
+					}
+				default:
+					if !isTerminating {
+						notReadyNodePodEndpoints = append(notReadyNodePodEndpoints, podEndpoint)
+					}
 				}
 			}
 		}
 	}
 	podEndpoints := readyPodEndpoints
+	excluded := notReadyNodePodEndpoints
 	if r.failOpenEnabled && len(podEndpoints) == 0 {
 		podEndpoints = unknownPodEndpoints
+	} else {
+		excluded = append(excluded, unknownNonTerminating...)
 	}
-	return podEndpoints, nil
+	return podEndpoints, excluded, nil
 }
 
 func (r *defaultEndpointResolver) getNode(ctx context.Context, nodeName string) (*corev1.Node, error) {

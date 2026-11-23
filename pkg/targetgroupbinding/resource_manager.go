@@ -172,11 +172,12 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
 
 	var endpoints []backend.PodEndpoint
+	var nodeNotReadyExcluded []backend.PodEndpoint
 	var err error
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
-	endpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port,
+	endpoints, nodeNotReadyExcluded, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port,
 		endpointSliceAddressType(tgb))
 
 	if err != nil {
@@ -193,10 +194,16 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
 
+	// Pods held unready by our gate on a not-Ready node get no event when the node recovers, so keep requeueing.
+	pendingPod, pendingCount := findPendingGatePods(nodeNotReadyExcluded, targetHealthCondType)
+
 	// Block the checkpoint early-exit if any pod has a pending readiness gate condition in cache.
 	// Only compute when checkpoints match — if they differ the early-exit won't fire anyway.
 	if oldCheckPoint == newCheckPoint {
 		if !needReadinessGateFlip(endpoints, targetHealthCondType) {
+			if pendingCount > 0 {
+				return "", "", false, m.requeueForNodeNotReadyPods(tgbScopedLogger, pendingPod, pendingCount, false)
+			}
 			tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
 			return newCheckPoint, oldCheckPoint, true, nil
 		}
@@ -295,8 +302,46 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return "", "", false, ctrlerrors.NewRequeueNeededAfter("networking reconciliation", m.requeueDuration)
 	}
 
+	if pendingCount > 0 {
+		// Save the checkpoint so the retries take the early-exit path and make no ELB calls.
+		if err := m.updateTGBCheckPoint(ctx, tgb, newCheckPoint, oldCheckPoint); err != nil {
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
+		}
+		return "", "", false, m.requeueForNodeNotReadyPods(tgbScopedLogger, pendingPod, pendingCount, true)
+	}
+
 	tgbScopedLogger.Info("Successful reconcile", "checkpoint", newCheckPoint)
 	return newCheckPoint, oldCheckPoint, false, nil
+}
+
+// Info when the loop starts (full reconcile), V(1) on early-exit retries.
+func (m *defaultResourceManager) requeueForNodeNotReadyPods(logger logr.Logger, pod backend.PodEndpoint, count int, loopStart bool) error {
+	if !loopStart {
+		logger = logger.V(1)
+	}
+	logger.Info("Requeue for pod excluded because node not ready", "pod", pod.Pod.Key, "node", pod.Pod.NodeName, "podCount", count)
+	// Backoff is the TGB controller's exponential rate limiter.
+	return ctrlerrors.NewRequeueNeeded("node not ready pod excluded")
+}
+
+// findPendingGatePods returns the first excluded pod whose readiness gate for this TGB is not True, and how many there are.
+// A multi-TGB pod whose gate here is already True gets no loop in this TGB; its recovery relies on the other TGB's loop.
+func findPendingGatePods(excluded []backend.PodEndpoint, targetHealthCondType corev1.PodConditionType) (backend.PodEndpoint, int) {
+	var first backend.PodEndpoint
+	count := 0
+	for _, ep := range excluded {
+		if !ep.Pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
+			continue
+		}
+		if cond, exists := ep.Pod.GetPodCondition(targetHealthCondType); exists && cond.Status == corev1.ConditionTrue {
+			continue
+		}
+		if count == 0 {
+			first = ep
+		}
+		count++
+	}
+	return first, count
 }
 
 func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, string, bool, error) {
