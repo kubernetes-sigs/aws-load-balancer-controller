@@ -729,7 +729,7 @@ func configureIPv6SourceNAT(ctx context.Context, tf *framework.Framework, lbcSpe
 	// For simplicity, we just let the ELB control plane to assign it.
 	if tf.Options.IPFamily == framework.IPv6 {
 		// We need the # of zones, as we must configure source nat prefix for each lb zone.
-		zones, err := utils.GetClusterZones(ctx, tf.K8sClient)
+		zones, err := utils.GetClusterZones(ctx, tf.K8sClient, tf.Options.AutoModeNodeClassName)
 		Expect(err).NotTo(HaveOccurred())
 		subnetConfigs := make([]elbv2gw.SubnetConfiguration, len(zones))
 		for i := range subnetConfigs {

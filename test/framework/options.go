@@ -44,6 +44,10 @@ type Options struct {
 	EnableCertMgmtTests  bool
 	EnableMigrationTests bool
 
+	// AutoModeNodeClassName, when set, derives cluster zones from the status subnets of this
+	// EKS Auto Mode NodeClass instead of the zone labels of the current nodes.
+	AutoModeNodeClassName string
+
 	// ACM Certificate Management configuration for e2e test
 	Route53ValidationDomain string
 	PCAARN                  string
@@ -78,6 +82,7 @@ func (options *Options) BindFlags() {
 	flag.BoolVar(&options.EnableAGATests, "enable-aga-tests", false, "enables AWS Global Accelerator tests")
 	flag.BoolVar(&options.EnableCertMgmtTests, "enable-cert-tests", false, "enables AWS ACM Certificate Management tests")
 	flag.BoolVar(&options.EnableMigrationTests, "enable-migration-tests", false, "enables ingress-to-gateway migration tests")
+	flag.StringVar(&options.AutoModeNodeClassName, "automode-nodeclass-name", "", "name of the EKS Auto Mode NodeClass (e.g. default) to detect cluster zones from; when empty, zones are detected from node zone labels")
 
 	flag.StringVar(&options.Route53ValidationDomain, "route53-validation-domain", "", `Route53 domain that can be used for requesting amazon_issued certificates`)
 	flag.StringVar(&options.PCAARN, "pca-arn", "", `PCA ARN of CA that can be used to request private certificates`)
