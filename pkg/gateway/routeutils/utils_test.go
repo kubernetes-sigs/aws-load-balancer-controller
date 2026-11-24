@@ -54,6 +54,10 @@ func (m mockPreLoadRouteDescriptor) GetParentRefs() []gwv1.ParentReference {
 	panic("implement me")
 }
 
+func (m mockPreLoadRouteDescriptor) GetParentStatuses() []gwv1.RouteParentStatus {
+	panic("implement me")
+}
+
 func (m mockPreLoadRouteDescriptor) GetRawRoute() interface{} {
 	//TODO implement me
 	panic("implement me")

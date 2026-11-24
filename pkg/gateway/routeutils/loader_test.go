@@ -52,6 +52,9 @@ type mockRoute struct {
 	generation                int64
 	hostnames                 []gwv1.Hostname
 	CompatibleHostnamesByPort map[int32][]gwv1.Hostname
+	rawRoute                  interface{}
+	parentRefs                []gwv1.ParentReference
+	parentStatuses            []gwv1.RouteParentStatus
 }
 
 func (m *mockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
@@ -79,8 +82,11 @@ func (m *mockRoute) GetHostnames() []gwv1.Hostname {
 }
 
 func (m *mockRoute) GetParentRefs() []gwv1.ParentReference {
-	//TODO implement me
-	panic("implement me")
+	return m.parentRefs
+}
+
+func (m *mockRoute) GetParentStatuses() []gwv1.RouteParentStatus {
+	return m.parentStatuses
 }
 
 func (m *mockRoute) GetBackendRefs() []gwv1.BackendRef {
@@ -97,8 +103,7 @@ func (m *mockRoute) GetRouteGeneration() int64 {
 }
 
 func (m *mockRoute) GetRawRoute() interface{} {
-	//TODO implement me
-	panic("implement me")
+	return m.rawRoute
 }
 
 func (m *mockRoute) GetAttachedRules() []RouteRule {

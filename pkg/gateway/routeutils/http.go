@@ -92,6 +92,10 @@ func (httpRoute *httpRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return httpRoute.route.Spec.ParentRefs
 }
 
+func (httpRoute *httpRouteDescription) GetParentStatuses() []gwv1.RouteParentStatus {
+	return httpRoute.route.Status.Parents
+}
+
 func (httpRoute *httpRouteDescription) GetRouteKind() RouteKind {
 	return HTTPRouteKind
 }

@@ -83,6 +83,10 @@ func (udpRoute *udpRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return udpRoute.route.Spec.ParentRefs
 }
 
+func (udpRoute *udpRouteDescription) GetParentStatuses() []gwv1.RouteParentStatus {
+	return udpRoute.route.Status.Parents
+}
+
 func (udpRoute *udpRouteDescription) GetRouteKind() RouteKind {
 	return UDPRouteKind
 }

@@ -131,6 +131,16 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		}
 	}
 
+	// Clean up status entries we previously wrote for parents the route no longer references.
+	// These updates only act as a trigger: the stale parentRef is not in spec, so the route reconciler
+	// rebuilds status.parents from spec.parentRefs and drops the entry. The ParentRefRemoved
+	// reason/message is never written to the route.
+	for _, route := range loadedRoutes {
+		for _, staleRef := range findStaleParentStatuses(route, controllerName) {
+			routeStatusUpdates = append(routeStatusUpdates, GenerateRouteData(false, true, RouteStatusInfoParentRefRemovedReason, RouteStatusInfoParentRefRemovedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), staleRef))
+		}
+	}
+
 	gatewayListeners := allListeners{
 		GatewayListeners:     gw.Spec.Listeners,
 		ListenerSetListeners: listenerSetListeners,
