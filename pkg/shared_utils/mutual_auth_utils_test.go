@@ -17,14 +17,15 @@ import (
 
 func Test_validateMutualAuthenticationConfig(t *testing.T) {
 	tests := []struct {
-		name                 string
-		protocol             elbv2model.Protocol
-		port                 int32
-		mode                 string
-		trustStoreARN        string
-		ignoreClientCert     *bool
-		advertiseCANames     *string
-		expectedErrorMessage *string
+		name                             string
+		protocol                         elbv2model.Protocol
+		port                             int32
+		mode                             string
+		trustStoreARN                    string
+		ignoreClientCertExpiry           *bool
+		advertiseCANames                 *string
+		clientCertificateIdentityFilters []elbv2model.ClientCertificateIdentityFilter
+		expectedErrorMessage             *string
 	}{
 		{
 			name:     "happy path no validation error off mode",
@@ -46,20 +47,20 @@ func Test_validateMutualAuthenticationConfig(t *testing.T) {
 			trustStoreARN: "truststore",
 		},
 		{
-			name:             "happy path no validation error verify mode, with ignore client cert expiry",
-			protocol:         elbv2model.ProtocolHTTPS,
-			port:             800,
-			mode:             string(elbv2model.MutualAuthenticationVerifyMode),
-			trustStoreARN:    "truststore",
-			ignoreClientCert: awssdk.Bool(true),
+			name:                   "happy path no validation error verify mode, with ignore client cert expiry true",
+			protocol:               elbv2model.ProtocolHTTPS,
+			port:                   800,
+			mode:                   string(elbv2model.MutualAuthenticationVerifyMode),
+			trustStoreARN:          "truststore",
+			ignoreClientCertExpiry: awssdk.Bool(true),
 		},
 		{
-			name:             "happy path no validation error verify mode, with ignore client cert expiry false",
-			protocol:         elbv2model.ProtocolHTTPS,
-			port:             800,
-			mode:             string(elbv2model.MutualAuthenticationVerifyMode),
-			trustStoreARN:    "truststore",
-			ignoreClientCert: awssdk.Bool(false),
+			name:                   "happy path no validation error verify mode, with ignore client cert expiry false",
+			protocol:               elbv2model.ProtocolHTTPS,
+			port:                   800,
+			mode:                   string(elbv2model.MutualAuthenticationVerifyMode),
+			trustStoreARN:          "truststore",
+			ignoreClientCertExpiry: awssdk.Bool(false),
 		},
 		{
 			name:             "happy path no validation error verify mode, with advertise ca on",
@@ -114,20 +115,20 @@ func Test_validateMutualAuthenticationConfig(t *testing.T) {
 			expectedErrorMessage: awssdk.String("Mutual Authentication mode off does not support trustStore for port 800"),
 		},
 		{
-			name:                 "ignore client cert expiry set for off mode",
-			protocol:             elbv2model.ProtocolHTTPS,
-			port:                 800,
-			mode:                 string(elbv2model.MutualAuthenticationOffMode),
-			ignoreClientCert:     awssdk.Bool(true),
-			expectedErrorMessage: awssdk.String("Mutual Authentication mode off does not support ignoring client certificate expiry for port 800"),
+			name:                   "ignore client cert expiry set for off mode",
+			protocol:               elbv2model.ProtocolHTTPS,
+			port:                   800,
+			mode:                   string(elbv2model.MutualAuthenticationOffMode),
+			ignoreClientCertExpiry: awssdk.Bool(true),
+			expectedErrorMessage:   awssdk.String("Mutual Authentication mode off does not support ignoring client certificate expiry for port 800"),
 		},
 		{
-			name:                 "ignore client cert expiry set for passthrough mode",
-			protocol:             elbv2model.ProtocolHTTPS,
-			port:                 800,
-			mode:                 string(elbv2model.MutualAuthenticationPassthroughMode),
-			ignoreClientCert:     awssdk.Bool(true),
-			expectedErrorMessage: awssdk.String("Mutual Authentication mode passthrough does not support ignoring client certificate expiry for port 800"),
+			name:                   "ignore client cert expiry set for passthrough mode",
+			protocol:               elbv2model.ProtocolHTTPS,
+			port:                   800,
+			mode:                   string(elbv2model.MutualAuthenticationPassthroughMode),
+			ignoreClientCertExpiry: awssdk.Bool(true),
+			expectedErrorMessage:   awssdk.String("Mutual Authentication mode passthrough does not support ignoring client certificate expiry for port 800"),
 		},
 		{
 			name:                 "advertise ca set for off mode",
@@ -158,7 +159,7 @@ func Test_validateMutualAuthenticationConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res := validateMutualAuthenticationConfig(tt.protocol, tt.port, tt.mode, tt.trustStoreARN, tt.ignoreClientCert, tt.advertiseCANames)
+			res := validateMutualAuthenticationConfig(tt.protocol, tt.port, tt.mode, tt.trustStoreARN, tt.ignoreClientCertExpiry, tt.advertiseCANames, tt.clientCertificateIdentityFilters)
 
 			if tt.expectedErrorMessage == nil {
 				assert.Nil(t, res)
@@ -280,7 +281,7 @@ func Test_ParseMtlsConfigEntries(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:     "verify mode with explicit ignore client cert and advertise ca names preserved",
+			name:     "verify mode with ignore client cert expiry set to true",
 			protocol: elbv2model.ProtocolHTTPS,
 			entries: []MutualAuthenticationConfig{
 				{
@@ -301,6 +302,63 @@ func Test_ParseMtlsConfigEntries(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name:     "verify mode with advertise trust store ca names set to on",
+			protocol: elbv2model.ProtocolHTTPS,
+			entries: []MutualAuthenticationConfig{
+				{
+					Port:                       804,
+					Mode:                       string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStore:                 awssdk.String(resolvedArn),
+					AdvertiseTrustStoreCaNames: awssdk.String("on"),
+				},
+			},
+			setupMocks: func(elbv2Client *services.MockELBV2) {},
+			want: map[int32]*elbv2model.MutualAuthenticationAttributes{
+				804: {
+					Mode:                          string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStoreArn:                 awssdk.String(resolvedArn),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:    awssdk.String("on"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:     "verify mode with client certificate identity filters",
+			protocol: elbv2model.ProtocolTLS,
+			entries: []MutualAuthenticationConfig{
+				{
+					Port:       443,
+					Mode:       string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStore: awssdk.String(resolvedArn),
+					ClientCertificateIdentityFilters: []elbv2model.ClientCertificateIdentityFilter{
+						{
+							Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+							Field:     elbv2model.ClientCertificateIdentityFilterFieldSubjectCn,
+							MatchType: elbv2model.MatchTypePrefix,
+							Value:     "value",
+						},
+					},
+				},
+			},
+			setupMocks: func(elbv2Client *services.MockELBV2) {},
+			want: map[int32]*elbv2model.MutualAuthenticationAttributes{
+				443: {
+					Mode:                          string(elbv2model.MutualAuthenticationVerifyMode),
+					TrustStoreArn:                 awssdk.String(resolvedArn),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+					ClientCertificateIdentityFilters: []elbv2model.ClientCertificateIdentityFilter{
+						{
+							Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+							Field:     elbv2model.ClientCertificateIdentityFilterFieldSubjectCn,
+							MatchType: elbv2model.MatchTypePrefix,
+							Value:     "value",
+						},
+					},
+				},
+			},
 		},
 		{
 			name:       "empty entries returns empty map",

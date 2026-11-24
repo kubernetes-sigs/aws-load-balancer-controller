@@ -7359,6 +7359,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				defer ctrl.Finish()
 
 				ec2Client := services.NewMockEC2(ctrl)
+				elbv2Client := services.NewMockELBV2(ctrl)
 
 				subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
 				for _, call := range tt.resolveViaDiscoveryCalls {
@@ -7415,7 +7416,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				clientgoscheme.AddToScheme(k8sSchema)
 				k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 				enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, logr.Logger{})
-				builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
+				builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, elbv2Client, featureGates,
 					"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
 					backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector, tcpUdpEnabled, enhancedBackendBuilder)
 				ctx := context.Background()

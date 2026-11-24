@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -795,7 +795,7 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 
 func Test_buildListenerALPNPolicy(t *testing.T) {
 	ALPNPolicyHTTP1Only := elbv2gw.ALPNPolicyHTTP1Only
-	invalidALPNPoilcy := elbv2gw.ALPNPolicy("invalid")
+	invalidALPNPolicy := elbv2gw.ALPNPolicy("invalid")
 	tests := []struct {
 		name             string
 		listenerProtocol elbv2model.Protocol
@@ -830,7 +830,7 @@ func Test_buildListenerALPNPolicy(t *testing.T) {
 			name:             "TLS listener with invalid ALPN policy",
 			listenerProtocol: elbv2model.ProtocolTLS,
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
-				ALPNPolicy: &invalidALPNPoilcy,
+				ALPNPolicy: &invalidALPNPolicy,
 			},
 			want:    nil,
 			wantErr: errors.New("invalid ALPN policy InvalidPolicy, policy must be one of [None, HTTP1Only, HTTP2Only, HTTP2Optional, HTTP2Preferred]"),
@@ -1153,7 +1153,8 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 	verifyMode := elbv2gw.MutualAuthenticationVerifyMode
 	passthroughMode := elbv2gw.MutualAuthenticationPassthroughMode
 	offMode := elbv2gw.MutualAuthenticationOffMode
-	advertiseTrustStoreCaNames := elbv2gw.AdvertiseTrustStoreCaNamesEnumOn
+	advertiseTrustStoreCaNamesOn := elbv2gw.AdvertiseTrustStoreCaNamesEnumOn
+	advertiseTrustStoreCaNamesOff := elbv2gw.AdvertiseTrustStoreCaNamesEnumOff
 	trustStoreNameOnly := "my-trust-store"
 	nonExistentTrustStoreNameOnly := "non-existent-trust-store"
 	trustStoreArn := "arn:aws:elasticloadbalancing:us-west-2:123456789012:truststore/my-trust-store"
@@ -1275,7 +1276,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 					Mode:                          verifyMode,
 					TrustStore:                    &trustStoreArn,
 					IgnoreClientCertificateExpiry: &trueValue,
-					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNames,
+					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNamesOn,
 				},
 			},
 			want: &elbv2model.MutualAuthenticationAttributes{
@@ -1298,7 +1299,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 					Mode:                          verifyMode,
 					TrustStore:                    &trustStoreArn,
 					IgnoreClientCertificateExpiry: nil,
-					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNames,
+					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNamesOn,
 				},
 			},
 			want: &elbv2model.MutualAuthenticationAttributes{
@@ -1370,6 +1371,66 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			want:    nil,
 			wantErr: true,
 		},
+		{
+			name:     "TLS protocol off mode",
+			protocol: elbv2model.ProtocolTLS,
+			gwLsCfg: gwListenerConfig{
+				protocol:  elbv2model.ProtocolTLS,
+				hostnames: sets.New[string]("example.com"),
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode: offMode,
+				},
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                             string(elbv2gw.MutualAuthenticationOffMode),
+				TrustStoreArn:                    nil,
+				AdvertiseTrustStoreCaNames:       awssdk.String(""),
+				IgnoreClientCertificateExpiry:    nil,
+				ClientCertificateIdentityFilters: nil,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "TLS protocol verify mode with client certificate identity filters",
+			protocol: elbv2model.ProtocolTLS,
+			gwLsCfg: gwListenerConfig{
+				protocol:  elbv2model.ProtocolTLS,
+				hostnames: sets.New[string]("example.com"),
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode:                          verifyMode,
+					TrustStore:                    &trustStoreArn,
+					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNamesOff,
+					IgnoreClientCertificateExpiry: awssdk.Bool(true),
+					ClientCertificateIdentityFilters: []elbv2gw.ClientCertificateIdentityFilter{
+						{
+							Action:    elbv2gw.ClientCertificateIdentityFilterActionAccept,
+							Field:     elbv2gw.ClientCertificateIdentityFilterFieldSubjectCn,
+							MatchType: elbv2gw.MatchTypeExact,
+							Value:     "my-client.example.com",
+						},
+					},
+				},
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationVerifyMode),
+				TrustStoreArn:                 &trustStoreArn,
+				AdvertiseTrustStoreCaNames:    awssdk.String("off"),
+				IgnoreClientCertificateExpiry: awssdk.Bool(true),
+				ClientCertificateIdentityFilters: []elbv2model.ClientCertificateIdentityFilter{
+					{
+						Action:    elbv2model.ClientCertificateIdentityFilterActionAccept,
+						Field:     elbv2model.ClientCertificateIdentityFilterFieldSubjectCn,
+						MatchType: elbv2model.MatchTypeExact,
+						Value:     "my-client.example.com",
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1379,7 +1440,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 
 			mockELBV2Client := services.NewMockELBV2(ctrl)
 
-			if tt.protocol == elbv2model.ProtocolHTTPS {
+			if tt.protocol == elbv2model.ProtocolHTTPS || tt.protocol == elbv2model.ProtocolTLS {
 				if tt.lbLsCfg != nil && tt.lbLsCfg.MutualAuthentication != nil &&
 					tt.lbLsCfg.MutualAuthentication.Mode == verifyMode &&
 					tt.lbLsCfg.MutualAuthentication.TrustStore != nil &&
@@ -1423,7 +1484,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 }
 
 func Test_BuildListenerRules(t *testing.T) {
-	autheticateBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate
+	authenticateBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate
 	testCases := []struct {
 		name             string
 		ipAddressType    elbv2model.IPAddressType
@@ -1859,7 +1920,7 @@ func Test_BuildListenerRules(t *testing.T) {
 													UserPoolArn:              "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
 													UserPoolClientID:         "1example23456789",
 													UserPoolDomain:           "my-cognito-domain",
-													OnUnauthenticatedRequest: &autheticateBehavior,
+													OnUnauthenticatedRequest: &authenticateBehavior,
 													Scope:                    awssdk.String("openid"),
 													SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie"),
 													SessionTimeout:           awssdk.Int64(604800),
@@ -1951,7 +2012,7 @@ func Test_BuildListenerRules(t *testing.T) {
 													UserPoolArn:              "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
 													UserPoolClientID:         "1example23456789",
 													UserPoolDomain:           "my-cognito-domain",
-													OnUnauthenticatedRequest: &autheticateBehavior,
+													OnUnauthenticatedRequest: &authenticateBehavior,
 													Scope:                    awssdk.String("openid"),
 													SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie"),
 													SessionTimeout:           awssdk.Int64(604800),

@@ -38,6 +38,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-ssl-cert](#ssl-cert)                                                   | stringList                                    |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-ssl-ports](#ssl-ports)                                                 | stringList                                    |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy](#ssl-negotiation-policy)                       | string                                        | ELBSecurityPolicy-2016-08 |                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [service.beta.kubernetes.io/aws-load-balancer-mutual-authentication](#mutual-authentication)                         | json                                          |                          | TLS listeners only                                                                                                                                                                                                                                                                                                                                                                                                   |
 | [service.beta.kubernetes.io/aws-load-balancer-backend-protocol](#backend-protocol)                                   | string                                        |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags](#additional-resource-tags)                   | stringMap                                     |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol](#healthcheck-protocol)                           | string                                        | TCP                      |                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -613,6 +614,35 @@ You can configure TLS support via the following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
         ```
+
+- <a name="mutual-authentication">`service.beta.kubernetes.io/aws-load-balancer-mutual-authentication`</a> specifies the mutual authentication (mTLS) configuration for the Network Load Balancer TLS listener ports. See [Mutual authentication with TLS](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/mutual-authentication.html) in the AWS documentation for more details.
+
+    !!!note ""
+        - The value is a JSON list with one entry per listener port. Each port can appear only once.
+        - `port`: the service port (`spec.ports[].port`). The port must have a TLS listener, see [ssl-ports](#ssl-ports).
+        - `mode`: `"off"` | `"verify"`. NLB does not support `passthrough` mode.
+        - `trustStore`: ARN (`arn:aws:elasticloadbalancing:...`) or name (`my-trust-store`) of an existing trust store. Required for `verify` mode and not allowed for `off` mode.
+        - `ignoreClientCertificateExpiry`: `true` | `false` (default). `verify` mode only.
+        - `advertiseTrustStoreCaNames`: `"on"` | `"off"`. `verify` mode only.
+        - `clientCertificateIdentityFilters`: a list of filters on client certificate fields. `verify` mode only. Each filter has these fields:
+            - `field`: `subject-cn` | `subject-ou` | `san-dns` | `san-uri`
+            - `matchType`: `exact` | `prefix`
+            - `action`: `accept`
+            - `value`: the value to match
+        - To turn off mutual authentication on a listener after you enable it, set `mode` to `"off"` for that port. Removing the annotation turns it off only when the `EnhancedDefaultBehavior` [feature gate](../../deploy/configurations.md#feature-gates) is enabled. Otherwise, the listener keeps its current setting.
+        - To remove identity filters, set `clientCertificateIdentityFilters` to `[]`. If you remove the `clientCertificateIdentityFilters` property instead, the filters are cleared only when the `EnhancedDefaultBehavior` feature gate is enabled. Otherwise, the listener keeps its existing filters.
+
+    !!!example
+        - listener `TLS:443` uses `verify` mode with trust store `my-trust-store`, and only accepts client certificates whose subject CN is `www.example.com`
+        - listener `TLS:8443` uses `off` mode
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+            service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443, 8443"
+            service.beta.kubernetes.io/aws-load-balancer-mutual-authentication: >-
+              [{"port": 443, "mode": "verify", "trustStore": "my-trust-store", "ignoreClientCertificateExpiry": false,
+                "clientCertificateIdentityFilters": [{"field": "subject-cn", "matchType": "exact", "action": "accept", "value": "www.example.com"}]},
+               {"port": 8443, "mode": "off"}]
+            ```
 
 - <a name="backend-protocol">`service.beta.kubernetes.io/aws-load-balancer-backend-protocol`</a> specifies whether to use TLS for the backend traffic between the load balancer and the kubernetes pods.
 

@@ -109,13 +109,55 @@ const (
 	MutualAuthenticationVerifyMode      MutualAuthenticationMode = "verify"
 )
 
+// ClientCertificateIdentityFilterAction is the action to take when there is a match.
+// +kubebuilder:validation:Enum=accept
+type ClientCertificateIdentityFilterAction string
+
+const (
+	ClientCertificateIdentityFilterActionAccept ClientCertificateIdentityFilterAction = "accept"
+)
+
+// ClientCertificateIdentityFilterField is the field in the client certificate to compare against.
+// +kubebuilder:validation:Enum=subject-cn;subject-ou;san-dns;san-uri
+type ClientCertificateIdentityFilterField string
+
+const (
+	ClientCertificateIdentityFilterFieldSubjectCn ClientCertificateIdentityFilterField = "subject-cn"
+	ClientCertificateIdentityFilterFieldSubjectOu ClientCertificateIdentityFilterField = "subject-ou"
+	ClientCertificateIdentityFilterFieldSanDns    ClientCertificateIdentityFilterField = "san-dns"
+	ClientCertificateIdentityFilterFieldSanUri    ClientCertificateIdentityFilterField = "san-uri"
+)
+
+// ClientCertificateIdentityFilterMatchType is the method for matching the value.
+// +kubebuilder:validation:Enum=exact;prefix
+type ClientCertificateIdentityFilterMatchType string
+
+const (
+	MatchTypeExact  ClientCertificateIdentityFilterMatchType = "exact"
+	MatchTypePrefix ClientCertificateIdentityFilterMatchType = "prefix"
+)
+
+type ClientCertificateIdentityFilter struct {
+	// Action to take when there is a match.
+	Action ClientCertificateIdentityFilterAction `json:"action"`
+	// Field in the client certificate.
+	Field ClientCertificateIdentityFilterField `json:"field"`
+	// Method for matching the value.
+	MatchType ClientCertificateIdentityFilterMatchType `json:"matchType"`
+	// Value to match against.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=256
+	Value string `json:"value"`
+}
+
 type MutualAuthenticationAttributes struct {
 	Mode string `json:"mode"`
 
 	TrustStoreArn *string `json:"trustStoreArn,omitempty"`
 
-	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
-	AdvertiseTrustStoreCaNames    *string `json:"advertiseTrustStoreCaNames,omitempty"`
+	IgnoreClientCertificateExpiry    *bool                             `json:"ignoreClientCertificateExpiry,omitempty"`
+	AdvertiseTrustStoreCaNames       *string                           `json:"advertiseTrustStoreCaNames,omitempty"`
+	ClientCertificateIdentityFilters []ClientCertificateIdentityFilter `json:"clientCertificateIdentityFilters,omitempty"`
 }
 
 type AuthenticateCognitoActionConditionalBehavior string
@@ -396,7 +438,7 @@ type ListenerSpec struct {
 	// +optional
 	ALPNPolicy []string `json:"alpnPolicy,omitempty"`
 
-	// [HTTPS listener] The mutual TLS authentication config for a secure ALB listener.
+	// [HTTPS and TLS listeners] The mutual TLS authentication config for a secure listener.
 	// +optional
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 

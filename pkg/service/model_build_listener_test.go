@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -380,6 +381,74 @@ func Test_defaultModelBuilderTask_buildListenerAttributes(t *testing.T) {
 				}
 			}
 
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_computeServiceMutualAuthentication(t *testing.T) {
+	const trustStoreARN = "arn:aws:elasticloadbalancing:us-west-2:123456789012:truststore/ts-1/abc123"
+	tlsServicePorts := []corev1.ServicePort{
+		{
+			Name:       "https",
+			Port:       443,
+			TargetPort: intstr.FromInt(8443),
+			Protocol:   corev1.ProtocolTCP,
+		},
+	}
+
+	tests := []struct {
+		name       string
+		annotation string
+		want       map[int32]*elbv2model.MutualAuthenticationAttributes
+		wantErr    string
+	}{
+		{
+			name:       "entry for listener port is accepted",
+			annotation: `[{"port": 443, "mode": "verify", "trustStore": "` + trustStoreARN + `", "ignoreClientCertificateExpiry": false}]`,
+			want: map[int32]*elbv2model.MutualAuthenticationAttributes{
+				443: {
+					Mode:                          "verify",
+					TrustStoreArn:                 awssdk.String(trustStoreARN),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+				},
+			},
+		},
+		{
+			name:       "entry for target port is rejected",
+			annotation: `[{"port": 8443, "mode": "verify", "trustStore": "` + trustStoreARN + `", "ignoreClientCertificateExpiry": false}]`,
+			wantErr:    "mutualAuthentication annotation references port 8443, which is not a port on service default/svc",
+		},
+		{
+			name: "entry for unknown port is rejected even when another entry is valid",
+			annotation: `[{"port": 443, "mode": "off"}, ` +
+				`{"port": 9999, "mode": "off"}]`,
+			wantErr: "mutualAuthentication annotation references port 9999, which is not a port on service default/svc",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "svc",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/" + annotations.SvcLBSuffixMutualAuthentication: tt.annotation,
+					},
+				},
+				Spec: corev1.ServiceSpec{Ports: tlsServicePorts},
+			}
+			builder := &defaultModelBuildTask{
+				service:          svc,
+				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+			}
+
+			got, err := builder.computeServiceMutualAuthentication(context.Background())
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -809,7 +878,7 @@ func Test_buildListener_dualStackRoutingTGs(t *testing.T) {
 	cfg := &listenerConfig{tcpUdpPortsSet: sets.New[int32](), tlsPortsSet: sets.New[string](), quicPortsSet: sets.New[string]()}
 
 	ctx := context.Background()
-	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal)
+	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 	require.NotNil(t, ls)
 
@@ -869,7 +938,7 @@ func Test_buildListener_dualStackRoutingRegistersRule(t *testing.T) {
 
 	ctx := context.Background()
 	port := task.service.Spec.Ports[0]
-	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal)
+	ls, err := task.buildListener(ctx, port, cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 	require.NotNil(t, ls)
 
@@ -1044,7 +1113,7 @@ func Test_buildListenerSpec_dualStackRoutingAndActionsAnnotationError(t *testing
 		tcpUdpPortsSet: sets.New[int32](),
 	}
 
-	_, err := task.buildListener(context.Background(), svc.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
+	_, err := task.buildListener(context.Background(), svc.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.EqualError(t, err, "dual-stack routing annotation is incompatible with the actions annotation")
 }
 
@@ -1115,11 +1184,11 @@ func Test_dualStackRoutingTGNameStability(t *testing.T) {
 	dualStackAnnotations["service.beta.kubernetes.io/aws-load-balancer-dual-stack-routing"] = "true"
 
 	legacyTask, _, _ := newDualStackTask(t, ctrl, baseAnnotations)
-	_, err := legacyTask.buildListener(ctx, legacyTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
+	_, err := legacyTask.buildListener(ctx, legacyTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 
 	dualStackTask, _, _ := newDualStackTask(t, ctrl, dualStackAnnotations)
-	_, err = dualStackTask.buildListener(ctx, dualStackTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal)
+	_, err = dualStackTask.buildListener(ctx, dualStackTask.service.Spec.Ports[0], cfg, elbv2model.LoadBalancerSchemeInternal, nil)
 	require.NoError(t, err)
 
 	defaultResID := "default/mysvc:80"

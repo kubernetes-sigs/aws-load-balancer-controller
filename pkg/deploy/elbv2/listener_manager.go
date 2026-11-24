@@ -160,6 +160,13 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 	}
 	desiredDefaultCerts, _ := buildSDKCertificates(resLS.Spec.Certificates)
 	desiredDefaultMutualAuthentication := buildSDKMutualAuthenticationConfig(resLS.Spec.MutualAuthentication)
+	var removeClientCertificateIdentityFilters bool
+	if m.enhancedDefaultingPolicyEnabled {
+		removeClientCertificateIdentityFilters = isRemoveClientCertificateIdentityFilters(desiredDefaultMutualAuthentication)
+		if removeClientCertificateIdentityFilters {
+			desiredDefaultMutualAuthentication.ClientCertificateIdentityFilters = []elbv2types.ClientCertificateIdentityFilter{}
+		}
+	}
 	if !m.isSDKListenerSettingsDrifted(resLS.Spec, sdkLS, desiredDefaultActions, desiredDefaultCerts, desiredDefaultMutualAuthentication) {
 		return nil
 	}
@@ -170,7 +177,7 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 		removeALPN = isRemoveALPN(sdkLS, resLS.Spec)
 	}
 
-	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts, removeMutualAuth, removeALPN)
+	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts, removeMutualAuth, removeALPN, removeClientCertificateIdentityFilters)
 	req.ListenerArn = sdkLS.Listener.ListenerArn
 	m.logger.Info("modifying listener",
 		"stackID", resLS.Stack().StackID(),
@@ -368,8 +375,16 @@ func (m *defaultListenerManager) isSDKListenerSettingsDrifted(lsSpec elbv2model.
 		return !(sdkLS.Listener.MutualAuthentication == nil || sdkLS.Listener.MutualAuthentication.Mode == nil || *sdkLS.Listener.MutualAuthentication.Mode == string(elbv2model.MutualAuthenticationOffMode))
 	}
 
+	// Existing ClientCertificateIdentityFilters are kept when the field is omitted (nil). This is not a drift.
+	// When EnhancedDefaultBehavior on, updateSDKListenerWithSettings replaces nil with an empty list before this check.
+	actualMutualAuthentication := sdkLS.Listener.MutualAuthentication
+	if desiredDefaultMutualAuthentication.ClientCertificateIdentityFilters == nil && actualMutualAuthentication != nil {
+		actualWithoutFilters := *actualMutualAuthentication
+		actualWithoutFilters.ClientCertificateIdentityFilters = nil
+		actualMutualAuthentication = &actualWithoutFilters
+	}
 	// case 6 and case 7
-	return !cmp.Equal(desiredDefaultMutualAuthentication, sdkLS.Listener.MutualAuthentication, elbv2equality.CompareOptionsForMTLS())
+	return !cmp.Equal(desiredDefaultMutualAuthentication, actualMutualAuthentication, elbv2equality.CompareOptionsForMTLS())
 }
 
 func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates config.FeatureGates) (*elbv2sdk.CreateListenerInput, error) {
@@ -397,7 +412,7 @@ func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates co
 	return sdkObj, nil
 }
 
-func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultActions []elbv2types.Action, desiredDefaultCerts []elbv2types.Certificate, removeMTLS bool, removeALPN bool) *elbv2sdk.ModifyListenerInput {
+func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultActions []elbv2types.Action, desiredDefaultCerts []elbv2types.Certificate, removeMTLS bool, removeALPN bool, removeClientCertificateIdentityFilters bool) *elbv2sdk.ModifyListenerInput {
 	sdkObj := &elbv2sdk.ModifyListenerInput{}
 	sdkObj.Port = awssdk.Int32(lsSpec.Port)
 	sdkObj.Protocol = elbv2types.ProtocolEnum(lsSpec.Protocol)
@@ -415,6 +430,9 @@ func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultA
 		sdkObj.MutualAuthentication = mTLSOff
 	} else {
 		sdkObj.MutualAuthentication = buildSDKMutualAuthenticationConfig(lsSpec.MutualAuthentication)
+		if removeClientCertificateIdentityFilters {
+			sdkObj.MutualAuthentication.ClientCertificateIdentityFilters = []elbv2types.ClientCertificateIdentityFilter{}
+		}
 	}
 
 	return sdkObj
@@ -451,9 +469,10 @@ func buildSDKMutualAuthenticationConfig(modelMutualAuthenticationCfg *elbv2model
 		return nil
 	}
 	attributes := &elbv2types.MutualAuthenticationAttributes{
-		IgnoreClientCertificateExpiry: modelMutualAuthenticationCfg.IgnoreClientCertificateExpiry,
-		Mode:                          awssdk.String(modelMutualAuthenticationCfg.Mode),
-		TrustStoreArn:                 modelMutualAuthenticationCfg.TrustStoreArn,
+		IgnoreClientCertificateExpiry:    modelMutualAuthenticationCfg.IgnoreClientCertificateExpiry,
+		Mode:                             awssdk.String(modelMutualAuthenticationCfg.Mode),
+		TrustStoreArn:                    modelMutualAuthenticationCfg.TrustStoreArn,
+		ClientCertificateIdentityFilters: translateClientCertificateIdentityFiltersToSdk(modelMutualAuthenticationCfg.ClientCertificateIdentityFilters),
 	}
 
 	if modelMutualAuthenticationCfg.Mode == string(elbv2model.MutualAuthenticationVerifyMode) {
@@ -489,6 +508,16 @@ func isRemoveMTLS(sdkLS ListenerWithTags, desiredDefaultMutualAuthentication *el
 	return sdkLS.Listener.MutualAuthentication != nil
 }
 
+// isRemoveClientCertificateIdentityFilters -- should we send an empty filter list to clear existing filters?
+// Only used when EnhancedDefaultBehavior is on.
+func isRemoveClientCertificateIdentityFilters(desiredDefaultMutualAuthentication *elbv2types.MutualAuthenticationAttributes) bool {
+	if desiredDefaultMutualAuthentication == nil {
+		return false
+	}
+	return *desiredDefaultMutualAuthentication.Mode == string(elbv2model.MutualAuthenticationVerifyMode) &&
+		desiredDefaultMutualAuthentication.ClientCertificateIdentityFilters == nil
+}
+
 // isRemoveALPN -- should we inject the 'off' button for alpn?
 func isRemoveALPN(sdkLS ListenerWithTags, lsSpec elbv2model.ListenerSpec) bool {
 	// If the desired state already has alpn data, we should not inject.
@@ -510,4 +539,21 @@ func translateAdvertiseCAToEnum(s *string) elbv2types.AdvertiseTrustStoreCaNames
 		return elbv2types.AdvertiseTrustStoreCaNamesEnumOff
 	}
 	return elbv2types.AdvertiseTrustStoreCaNamesEnum(*s)
+}
+
+func translateClientCertificateIdentityFiltersToSdk(modelFilters []elbv2model.ClientCertificateIdentityFilter) []elbv2types.ClientCertificateIdentityFilter {
+	if modelFilters == nil {
+		return nil
+	}
+
+	sdkFilters := make([]elbv2types.ClientCertificateIdentityFilter, 0, len(modelFilters))
+	for _, filter := range modelFilters {
+		sdkFilters = append(sdkFilters, elbv2types.ClientCertificateIdentityFilter{
+			Action:    elbv2types.ClientCertificateIdentityFilterAction(filter.Action),
+			Field:     elbv2types.ClientCertificateIdentityFilterField(filter.Field),
+			MatchType: elbv2types.ClientCertificateIdentityFilterMatchType(filter.MatchType),
+			Value:     awssdk.String(filter.Value),
+		})
+	}
+	return sdkFilters
 }

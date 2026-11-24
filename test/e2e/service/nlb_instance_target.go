@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +48,12 @@ func (s *NLBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework
 }
 
 func (s *NLBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	// Some tests are skipped if certain resources aren't passed in. Check that stack
+	// exists before deletion to avoid nil pointer dereference
+	if s.resourceStack == nil {
+		return nil
+	}
+
 	return s.resourceStack.Cleanup(ctx, f)
 }
 
