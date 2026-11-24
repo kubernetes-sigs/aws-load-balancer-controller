@@ -1307,7 +1307,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				endpointSliceEnabled: tt.fields.endpointSliceEnabled,
 				logger:               logr.New(&log.NullLogSink{}),
 			}
-			got, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, "")
+			got, _, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, "")
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -3120,13 +3120,174 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints_NodeReadyTime(t *testing.T
 				failOpenEnabled: tt.failOpenEnabled,
 				logger:          logr.New(&log.NullLogSink{}),
 			}
-			got, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc), intstr.FromString("http"), "")
+			got, _, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc), intstr.FromString("http"), "")
 			assert.NoError(t, err)
 			// NodeReadyTime only annotates endpoints; it never changes which ones are returned.
 			assert.Len(t, got, 1)
 			assert.Equal(t, tt.pod.PodIP, got[0].IP)
 			assert.True(t, tt.wantNodeReadyTime.Equal(&got[0].NodeReadyTime),
 				"NodeReadyTime: want %v, got %v", tt.wantNodeReadyTime, got[0].NodeReadyTime)
+		})
+	}
+}
+
+func Test_defaultEndpointResolver_ResolvePodEndpoints_NodeNotReadyExcluded(t *testing.T) {
+	testNS := "test-ns"
+	nodeWithReady := func(name string, status corev1.ConditionStatus) *corev1.Node {
+		return &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: status}}},
+		}
+	}
+	nodes := []*corev1.Node{
+		nodeWithReady("node-ready", corev1.ConditionTrue),
+		nodeWithReady("node-unknown", corev1.ConditionUnknown),
+		nodeWithReady("node-false", corev1.ConditionFalse),
+		{ObjectMeta: metav1.ObjectMeta{Name: "node-no-cond"}},
+	}
+	newPod := func(name, nodeName, ip string, containersReady corev1.ConditionStatus) k8s.PodInfo {
+		return k8s.PodInfo{
+			Key:        types.NamespacedName{Namespace: testNS, Name: name},
+			Conditions: []corev1.PodCondition{{Type: corev1.ContainersReady, Status: containersReady}},
+			NodeName:   nodeName,
+			PodIP:      ip,
+		}
+	}
+	type podEp struct {
+		pod         k8s.PodInfo
+		ready       bool
+		terminating bool
+	}
+	readyPod := podEp{pod: newPod("ready", "node-ready", "10.0.0.1", corev1.ConditionTrue), ready: true}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNS, Name: "svc-1"},
+		Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Name: "http", Port: 80}}},
+	}
+
+	tests := []struct {
+		name            string
+		eps             []podEp
+		failOpenEnabled bool
+		wantEndpoints   []string
+		wantExcluded    []string
+	}{
+		{
+			name:          "node Unknown with another ready pod is reported",
+			eps:           []podEp{readyPod, {pod: newPod("p", "node-unknown", "10.0.0.2", corev1.ConditionTrue)}},
+			wantEndpoints: []string{"10.0.0.1"},
+			wantExcluded:  []string{"10.0.0.2"},
+		},
+		{
+			name:          "node Unknown without fail-open is reported",
+			eps:           []podEp{{pod: newPod("p", "node-unknown", "10.0.0.2", corev1.ConditionTrue)}},
+			wantExcluded:  []string{"10.0.0.2"},
+			wantEndpoints: nil,
+		},
+		{
+			name:            "node Unknown rescued by fail-open is not reported",
+			eps:             []podEp{{pod: newPod("p", "node-unknown", "10.0.0.2", corev1.ConditionTrue)}},
+			failOpenEnabled: true,
+			wantEndpoints:   []string{"10.0.0.2"},
+		},
+		{
+			name:            "node Ready=False is reported even with fail-open",
+			eps:             []podEp{{pod: newPod("p", "node-false", "10.0.0.3", corev1.ConditionTrue)}},
+			failOpenEnabled: true,
+			wantExcluded:    []string{"10.0.0.3"},
+		},
+		{
+			name:          "node without Ready condition is reported",
+			eps:           []podEp{readyPod, {pod: newPod("p", "node-no-cond", "10.0.0.4", corev1.ConditionTrue)}},
+			wantEndpoints: []string{"10.0.0.1"},
+			wantExcluded:  []string{"10.0.0.4"},
+		},
+		{
+			name:          "node Ready=True is included and not reported",
+			eps:           []podEp{{pod: newPod("p", "node-ready", "10.0.0.5", corev1.ConditionTrue)}},
+			wantEndpoints: []string{"10.0.0.5"},
+		},
+		{
+			name:          "containers not ready on Unknown node is not reported",
+			eps:           []podEp{readyPod, {pod: newPod("p", "node-unknown", "10.0.0.6", corev1.ConditionFalse)}},
+			wantEndpoints: []string{"10.0.0.1"},
+		},
+		{
+			name:          "ready endpoint on Unknown node is included and not reported",
+			eps:           []podEp{{pod: newPod("p", "node-unknown", "10.0.0.7", corev1.ConditionTrue), ready: true}},
+			wantEndpoints: []string{"10.0.0.7"},
+		},
+		{
+			name:          "terminating pod on not-Ready node is not reported",
+			eps:           []podEp{readyPod, {pod: newPod("p", "node-false", "10.0.0.8", corev1.ConditionTrue), terminating: true}},
+			wantEndpoints: []string{"10.0.0.1"},
+		},
+		{
+			name: "terminating pod on Unknown node without fail-open is not reported",
+			eps:  []podEp{{pod: newPod("p", "node-unknown", "10.0.0.10", corev1.ConditionTrue), terminating: true}},
+		},
+		{
+			name:            "terminating pod on Unknown node rescued by fail-open is not reported",
+			eps:             []podEp{{pod: newPod("p", "node-unknown", "10.0.0.11", corev1.ConditionTrue), terminating: true}},
+			failOpenEnabled: true,
+			wantEndpoints:   []string{"10.0.0.11"},
+		},
+		{
+			name:          "pod on missing node is not reported",
+			eps:           []podEp{readyPod, {pod: newPod("p", "node-gone", "10.0.0.9", corev1.ConditionTrue)}},
+			wantEndpoints: []string{"10.0.0.1"},
+		},
+	}
+
+	ips := func(eps []PodEndpoint) []string {
+		var out []string
+		for _, ep := range eps {
+			out = append(out, ep.IP)
+		}
+		return out
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			podInfoRepo := k8s.NewMockPodInfoRepo(ctrl)
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+			ctx := context.Background()
+			for _, node := range nodes {
+				assert.NoError(t, k8sClient.Create(ctx, node.DeepCopy()))
+			}
+			assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
+
+			var endpoints []discovery.Endpoint
+			for _, e := range tt.eps {
+				podInfoRepo.EXPECT().Get(gomock.Any(), e.pod.Key).Return(e.pod, true, nil).AnyTimes()
+				endpoints = append(endpoints, discovery.Endpoint{
+					Addresses:  []string{e.pod.PodIP},
+					Conditions: discovery.EndpointConditions{Ready: awssdk.Bool(e.ready), Terminating: awssdk.Bool(e.terminating)},
+					TargetRef:  &corev1.ObjectReference{Kind: "Pod", Namespace: testNS, Name: e.pod.Key.Name},
+				})
+			}
+			assert.NoError(t, k8sClient.Create(ctx, &discovery.EndpointSlice{
+				ObjectMeta:  metav1.ObjectMeta{Namespace: testNS, Name: "svc-1-abc", Labels: map[string]string{discovery.LabelServiceName: "svc-1"}},
+				AddressType: discovery.AddressTypeIPv4,
+				Ports:       []discovery.EndpointPort{{Name: awssdk.String("http"), Port: awssdk.Int32(8080)}},
+				Endpoints:   endpoints,
+			}))
+
+			r := &defaultEndpointResolver{
+				k8sClient:            k8sClient,
+				podInfoRepo:          podInfoRepo,
+				failOpenEnabled:      tt.failOpenEnabled,
+				endpointSliceEnabled: true,
+				logger:               logr.New(&log.NullLogSink{}),
+			}
+			got, excluded, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(svc), intstr.FromString("http"), "")
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantEndpoints, ips(got))
+			assert.Equal(t, tt.wantExcluded, ips(excluded))
 		})
 	}
 }

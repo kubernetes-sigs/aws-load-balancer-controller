@@ -3,6 +3,7 @@ package targetgroupbinding
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"sync"
 	"testing"
@@ -12,9 +13,14 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
+	discovery "k8s.io/api/discovery/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/v3/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/backend"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/error"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/networking"
 
@@ -30,6 +36,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -1522,4 +1529,582 @@ func Test_needReadinessGateFlip(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+type fakePodEndpointResolver struct {
+	endpoints []backend.PodEndpoint
+	excluded  []backend.PodEndpoint
+}
+
+func (f *fakePodEndpointResolver) ResolvePodEndpoints(_ context.Context, _ types.NamespacedName, _ intstr.IntOrString, _ discovery.AddressType) ([]backend.PodEndpoint, []backend.PodEndpoint, error) {
+	return f.endpoints, f.excluded, nil
+}
+
+func (f *fakePodEndpointResolver) ResolveNodePortEndpoints(_ context.Context, _ types.NamespacedName, _ intstr.IntOrString, _ ...backend.EndpointResolveOption) ([]backend.NodePortEndpoint, error) {
+	return nil, nil
+}
+
+type countingNetworkingManager struct {
+	podCalls int
+}
+
+func (n *countingNetworkingManager) ReconcileForPodEndpoints(_ context.Context, _ *elbv2api.TargetGroupBinding, _ []backend.PodEndpoint) error {
+	n.podCalls++
+	return nil
+}
+
+func (n *countingNetworkingManager) ReconcileForNodePortEndpoints(_ context.Context, _ *elbv2api.TargetGroupBinding, _ []backend.NodePortEndpoint) error {
+	return nil
+}
+
+func (n *countingNetworkingManager) Cleanup(_ context.Context, _ *elbv2api.TargetGroupBinding) error {
+	return nil
+}
+
+func (n *countingNetworkingManager) AttemptGarbageCollection(_ context.Context) error {
+	return nil
+}
+
+const nodeNotReadyRequeueReason = "node not ready pod excluded"
+
+func requeueReason(err error) string {
+	var requeue *ctrlerrors.RequeueNeeded
+	if errors.As(err, &requeue) {
+		return requeue.Reason()
+	}
+	return ""
+}
+
+func Test_defaultResourceManager_reconcileWithIPTargetType_nodeNotReadyRequeue(t *testing.T) {
+	tgbTemplate := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "tgb"},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/tg/1234567890abcdef",
+			TargetType:     &[]elbv2api.TargetType{elbv2api.TargetTypeIP}[0],
+			ServiceRef:     elbv2api.ServiceReference{Name: "svc", Port: intstr.FromInt32(80)},
+		},
+	}
+	condType := BuildTargetHealthPodConditionType(tgbTemplate)
+
+	readyEp := backend.PodEndpoint{
+		IP: "10.0.0.1", Port: 8080,
+		Pod: k8s.PodInfo{Key: types.NamespacedName{Namespace: "default", Name: "ready"}, NodeName: "node-ok"},
+	}
+	podWithGate := func(gateStatus *corev1.ConditionStatus) backend.PodEndpoint {
+		pod := k8s.PodInfo{
+			Key:            types.NamespacedName{Namespace: "default", Name: "stuck"},
+			NodeName:       "node-1",
+			PodIP:          "10.0.0.2",
+			ReadinessGates: []corev1.PodReadinessGate{{ConditionType: condType}},
+			Conditions:     []corev1.PodCondition{{Type: corev1.ContainersReady, Status: corev1.ConditionTrue}},
+		}
+		if gateStatus != nil {
+			pod.Conditions = append(pod.Conditions, corev1.PodCondition{Type: condType, Status: *gateStatus})
+		}
+		return backend.PodEndpoint{IP: "10.0.0.2", Port: 8080, Pod: pod}
+	}
+	gateFalse, gateTrue := corev1.ConditionFalse, corev1.ConditionTrue
+	stuckEp := podWithGate(&gateFalse)
+	readyTarget := TargetInfo{
+		Target:       elbv2types.TargetDescription{Id: awssdk.String("10.0.0.1"), Port: awssdk.Int32(8080)},
+		TargetHealth: &elbv2types.TargetHealth{State: elbv2types.TargetHealthStateEnumHealthy},
+	}
+
+	type env struct {
+		m        *defaultResourceManager
+		tgb      *elbv2api.TargetGroupBinding
+		resolver *fakePodEndpointResolver
+		targets  *MockTargetsManager
+		netMgr   *countingNetworkingManager
+	}
+	setup := func(t *testing.T, endpoints, excluded []backend.PodEndpoint, checkpointMatches bool) env {
+		ctrl := gomock.NewController(t)
+		k8sSchema := runtime.NewScheme()
+		clientgoscheme.AddToScheme(k8sSchema)
+		elbv2api.AddToScheme(k8sSchema)
+		tgb := tgbTemplate.DeepCopy()
+		if checkpointMatches {
+			checkpoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
+			assert.NoError(t, err)
+			SaveTGBReconcileCheckpoint(tgb, checkpoint)
+		}
+		k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(tgb.DeepCopy()).Build()
+		assert.NoError(t, k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "tgb"}, tgb))
+
+		resolver := &fakePodEndpointResolver{endpoints: endpoints, excluded: excluded}
+		targets := NewMockTargetsManager(ctrl)
+		netMgr := &countingNetworkingManager{}
+		vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+		vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any()).Return(networking.VPCInfo{}, nil).AnyTimes()
+		logger := logr.New(&log.NullLogSink{})
+		m := &defaultResourceManager{
+			k8sClient:           k8sClient,
+			targetsManager:      targets,
+			endpointResolver:    resolver,
+			networkingManager:   netMgr,
+			eventRecorder:       record.NewFakeRecorder(10),
+			logger:              logger,
+			vpcID:               "vpc-1",
+			vpcInfoProvider:     vpcInfoProvider,
+			multiClusterManager: NewMultiClusterManager(k8sClient, k8sClient, logger),
+			metricsCollector:    lbcmetrics.NewMockCollector(),
+			invalidVpcCache:     cache.NewExpiring(),
+			invalidVpcCacheTTL:  time.Minute,
+			needsPodAZCache:     cache.NewExpiring(),
+			needsPodAZCacheTTL:  time.Minute,
+			nodeAZCache:         cache.NewExpiring(),
+			nodeAZCacheTTL:      time.Minute,
+			requeueDuration:     15 * time.Second,
+		}
+		return env{m: m, tgb: tgb, resolver: resolver, targets: targets, netMgr: netMgr}
+	}
+
+	t.Run("checkpoint matches and gated pod excluded: requeue before early exit without ELB calls, every retry", func(t *testing.T) {
+		e := setup(t, []backend.PodEndpoint{readyEp}, []backend.PodEndpoint{stuckEp}, true)
+		checkpoint := GetTGBReconcileCheckpoint(e.tgb)
+		for i := 0; i < 3; i++ {
+			deferred, err := e.m.Reconcile(context.Background(), e.tgb)
+			assert.False(t, deferred)
+			assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err))
+		}
+		assert.Equal(t, 0, e.netMgr.podCalls)
+		assert.Equal(t, checkpoint, GetTGBReconcileCheckpoint(e.tgb))
+	})
+
+	t.Run("gated pod with absent gate condition is requeued", func(t *testing.T) {
+		e := setup(t, []backend.PodEndpoint{readyEp}, []backend.PodEndpoint{podWithGate(nil)}, true)
+		_, err := e.m.Reconcile(context.Background(), e.tgb)
+		assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err))
+	})
+
+	for _, tc := range []struct {
+		name     string
+		excluded []backend.PodEndpoint
+	}{
+		{name: "no excluded pod"},
+		{name: "excluded pod without gate", excluded: []backend.PodEndpoint{{IP: "10.0.0.3", Port: 8080, Pod: k8s.PodInfo{Key: types.NamespacedName{Namespace: "default", Name: "nogate"}}}}},
+		{name: "excluded pod with gate already True", excluded: []backend.PodEndpoint{podWithGate(&gateTrue)}},
+	} {
+		t.Run("checkpoint matches, "+tc.name+": deferred early exit, no requeue", func(t *testing.T) {
+			e := setup(t, []backend.PodEndpoint{readyEp}, tc.excluded, true)
+			deferred, err := e.m.Reconcile(context.Background(), e.tgb)
+			assert.True(t, deferred)
+			assert.NoError(t, err)
+		})
+	}
+
+	t.Run("checkpoint differs: full reconcile saves checkpoint and requeues, retries then early exit without ELB calls", func(t *testing.T) {
+		e := setup(t, []backend.PodEndpoint{readyEp}, []backend.PodEndpoint{stuckEp}, false)
+		e.targets.EXPECT().ListTargets(gomock.Any(), gomock.Any()).Return([]TargetInfo{readyTarget}, nil).Times(1)
+
+		deferred, err := e.m.Reconcile(context.Background(), e.tgb)
+		assert.False(t, deferred)
+		assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err))
+		assert.Equal(t, 1, e.netMgr.podCalls)
+		want, _ := calculateTGBReconcileCheckpoint([]backend.PodEndpoint{readyEp}, e.tgb)
+		stored := &elbv2api.TargetGroupBinding{}
+		assert.NoError(t, e.m.k8sClient.Get(context.Background(), types.NamespacedName{Namespace: "default", Name: "tgb"}, stored))
+		assert.Equal(t, want, GetTGBReconcileCheckpoint(stored))
+
+		deferred, err = e.m.Reconcile(context.Background(), stored)
+		assert.False(t, deferred)
+		assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err))
+		assert.Equal(t, 1, e.netMgr.podCalls)
+	})
+
+	t.Run("node back to Ready: pod is resolved again and registered", func(t *testing.T) {
+		e := setup(t, []backend.PodEndpoint{readyEp}, []backend.PodEndpoint{stuckEp}, true)
+		_, err := e.m.Reconcile(context.Background(), e.tgb)
+		assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err))
+
+		e.resolver.endpoints, e.resolver.excluded = []backend.PodEndpoint{readyEp, stuckEp}, nil
+		e.targets.EXPECT().ListTargets(gomock.Any(), gomock.Any()).Return([]TargetInfo{readyTarget}, nil).Times(1)
+		e.targets.EXPECT().RegisterTargets(gomock.Any(), gomock.Any(), gomock.Any()).
+			DoAndReturn(func(_ context.Context, _ *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+				assert.Len(t, targets, 1)
+				assert.Equal(t, "10.0.0.2", awssdk.ToString(targets[0].Id))
+				return nil
+			}).Times(1)
+
+		// No Pod object in the fake client, so the gate patch is NotFound and skipped: full reconcile ends with no error.
+		deferred, err := e.m.Reconcile(context.Background(), e.tgb)
+		assert.False(t, deferred)
+		assert.NoError(t, err)
+	})
+}
+
+// clientPodInfoRepo reads pods from the fake client, so gate patches are seen by the next resolve.
+type clientPodInfoRepo struct {
+	k8sClient client.Client
+}
+
+func (r *clientPodInfoRepo) Get(ctx context.Context, key types.NamespacedName) (k8s.PodInfo, bool, error) {
+	pod := &corev1.Pod{}
+	if err := r.k8sClient.Get(ctx, key, pod); err != nil {
+		if apierrors.IsNotFound(err) {
+			return k8s.PodInfo{}, false, nil
+		}
+		return k8s.PodInfo{}, false, err
+	}
+	return k8s.PodInfo{
+		Key:            key,
+		UID:            pod.UID,
+		ReadinessGates: pod.Spec.ReadinessGates,
+		Conditions:     pod.Status.Conditions,
+		NodeName:       pod.Spec.NodeName,
+		PodIP:          pod.Status.PodIP,
+	}, true, nil
+}
+
+func (r *clientPodInfoRepo) ListKeys(_ context.Context) []types.NamespacedName {
+	return nil
+}
+
+// fakeTargetsManager keeps the target group in memory and counts ELB calls.
+type fakeTargetsManager struct {
+	targets                    []TargetInfo
+	register, deregister, list int
+	lastRegistered             []string
+	lastDeregistered           []string
+}
+
+func (f *fakeTargetsManager) RegisterTargets(_ context.Context, _ *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+	f.register++
+	f.lastRegistered = nil
+	for _, t := range targets {
+		f.lastRegistered = append(f.lastRegistered, awssdk.ToString(t.Id))
+		f.targets = append(f.targets, TargetInfo{
+			Target:       elbv2types.TargetDescription{Id: t.Id, Port: t.Port},
+			TargetHealth: &elbv2types.TargetHealth{State: elbv2types.TargetHealthStateEnumInitial, Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress},
+		})
+	}
+	return nil
+}
+
+func (f *fakeTargetsManager) DeregisterTargets(_ context.Context, _ *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+	f.deregister++
+	f.lastDeregistered = nil
+	for _, t := range targets {
+		id := awssdk.ToString(t.Id)
+		f.lastDeregistered = append(f.lastDeregistered, id)
+		for i := range f.targets {
+			if awssdk.ToString(f.targets[i].Target.Id) == id {
+				f.targets = append(f.targets[:i], f.targets[i+1:]...)
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func (f *fakeTargetsManager) ListTargets(_ context.Context, _ *elbv2api.TargetGroupBinding) ([]TargetInfo, error) {
+	f.list++
+	return append([]TargetInfo(nil), f.targets...), nil
+}
+
+func (f *fakeTargetsManager) calls() int {
+	return f.register + f.deregister + f.list
+}
+
+func (f *fakeTargetsManager) resetCounts() {
+	f.register, f.deregister, f.list = 0, 0, 0
+	f.lastRegistered, f.lastDeregistered = nil, nil
+}
+
+func (f *fakeTargetsManager) setHealthy(id string) {
+	for i := range f.targets {
+		if awssdk.ToString(f.targets[i].Target.Id) == id {
+			f.targets[i].TargetHealth = &elbv2types.TargetHealth{State: elbv2types.TargetHealthStateEnumHealthy}
+		}
+	}
+}
+
+func (f *fakeTargetsManager) ids() []string {
+	var ids []string
+	for _, t := range f.targets {
+		ids = append(ids, awssdk.ToString(t.Target.Id))
+	}
+	return ids
+}
+
+func requeueAfterReason(err error) string {
+	var requeue *ctrlerrors.RequeueNeededAfter
+	if errors.As(err, &requeue) {
+		return requeue.Reason()
+	}
+	return ""
+}
+
+// realResolverEnv wires the real endpoint resolver and resource manager to a fake client:
+// pod A (no gate) on node-ok, pod B (gated) on node-b, both behind svc.
+type realResolverEnv struct {
+	t         *testing.T
+	ctx       context.Context
+	k8sClient client.Client
+	m         *defaultResourceManager
+	targets   *fakeTargetsManager
+	netMgr    *countingNetworkingManager
+	condType  corev1.PodConditionType
+	tgbKey    types.NamespacedName
+	withA     bool
+}
+
+const (
+	podAIP = "10.0.0.1"
+	podBIP = "10.0.0.2"
+)
+
+func readyNodeCond(status corev1.ConditionStatus) []corev1.NodeCondition {
+	return []corev1.NodeCondition{{Type: corev1.NodeReady, Status: status}}
+}
+
+func newRealResolverEnv(t *testing.T, failOpen, withA bool) *realResolverEnv {
+	ctrl := gomock.NewController(t)
+	ctx := context.Background()
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+	elbv2api.AddToScheme(k8sSchema)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "tgb"},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/tg/1234567890abcdef",
+			TargetType:     &[]elbv2api.TargetType{elbv2api.TargetTypeIP}[0],
+			ServiceRef:     elbv2api.ServiceReference{Name: "svc", Port: intstr.FromInt32(80)},
+		},
+	}
+	condType := BuildTargetHealthPodConditionType(tgb)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "svc"},
+		Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Name: "http", Port: 80, TargetPort: intstr.FromInt32(8080)}}},
+	}
+	newNode := func(name string) *corev1.Node {
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}, Status: corev1.NodeStatus{Conditions: readyNodeCond(corev1.ConditionTrue)}}
+	}
+	newPod := func(name, node, ip string, gates []corev1.PodReadinessGate) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: name, UID: types.UID(name + "-uid")},
+			Spec:       corev1.PodSpec{NodeName: node, ReadinessGates: gates},
+			Status: corev1.PodStatus{
+				PodIP:      ip,
+				Conditions: []corev1.PodCondition{{Type: corev1.ContainersReady, Status: corev1.ConditionTrue}},
+			},
+		}
+	}
+	eps := &discovery.EndpointSlice{
+		ObjectMeta:  metav1.ObjectMeta{Namespace: "default", Name: "svc-abc", Labels: map[string]string{discovery.LabelServiceName: "svc"}},
+		AddressType: discovery.AddressTypeIPv4,
+		Ports:       []discovery.EndpointPort{{Name: awssdk.String("http"), Port: awssdk.Int32(8080)}},
+	}
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(
+		tgb, svc, eps, newNode("node-ok"), newNode("node-b"),
+		newPod("pod-a", "node-ok", podAIP, nil),
+		newPod("pod-b", "node-b", podBIP, []corev1.PodReadinessGate{{ConditionType: condType}}),
+	).Build()
+
+	logger := logr.New(&log.NullLogSink{})
+	podRepo := &clientPodInfoRepo{k8sClient: k8sClient}
+	targets := &fakeTargetsManager{}
+	if withA {
+		// A is already registered and healthy.
+		targets.targets = []TargetInfo{{
+			Target:       elbv2types.TargetDescription{Id: awssdk.String(podAIP), Port: awssdk.Int32(8080)},
+			TargetHealth: &elbv2types.TargetHealth{State: elbv2types.TargetHealthStateEnumHealthy},
+		}}
+	}
+	netMgr := &countingNetworkingManager{}
+	vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+	vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any()).Return(networking.VPCInfo{}, nil).AnyTimes()
+	m := &defaultResourceManager{
+		k8sClient:           k8sClient,
+		targetsManager:      targets,
+		endpointResolver:    backend.NewDefaultEndpointResolver(k8sClient, podRepo, failOpen, true, logger),
+		networkingManager:   netMgr,
+		eventRecorder:       record.NewFakeRecorder(100),
+		logger:              logger,
+		vpcID:               "vpc-1",
+		vpcInfoProvider:     vpcInfoProvider,
+		podInfoRepo:         podRepo,
+		multiClusterManager: NewMultiClusterManager(k8sClient, k8sClient, logger),
+		metricsCollector:    lbcmetrics.NewMockCollector(),
+		invalidVpcCache:     cache.NewExpiring(),
+		invalidVpcCacheTTL:  time.Minute,
+		needsPodAZCache:     cache.NewExpiring(),
+		needsPodAZCacheTTL:  time.Minute,
+		nodeAZCache:         cache.NewExpiring(),
+		nodeAZCacheTTL:      time.Minute,
+		requeueDuration:     15 * time.Second,
+	}
+	return &realResolverEnv{t: t, ctx: ctx, k8sClient: k8sClient, m: m, targets: targets, netMgr: netMgr,
+		condType: condType, tgbKey: types.NamespacedName{Namespace: "default", Name: "tgb"}, withA: withA}
+}
+
+// setNodeB sets node-b's conditions; nil means no Ready condition.
+func (e *realResolverEnv) setNodeB(conds []corev1.NodeCondition) {
+	node := &corev1.Node{}
+	assert.NoError(e.t, e.k8sClient.Get(e.ctx, types.NamespacedName{Name: "node-b"}, node))
+	node.Status.Conditions = conds
+	assert.NoError(e.t, e.k8sClient.Status().Update(e.ctx, node))
+}
+
+// setSlice rewrites the EndpointSlice with A ready (if present) and B in the given state.
+func (e *realResolverEnv) setSlice(bReady, bTerminating bool) {
+	ep := func(name, node, ip string, ready, terminating bool) discovery.Endpoint {
+		return discovery.Endpoint{
+			Addresses:  []string{ip},
+			Conditions: discovery.EndpointConditions{Ready: awssdk.Bool(ready), Terminating: awssdk.Bool(terminating)},
+			NodeName:   awssdk.String(node),
+			TargetRef:  &corev1.ObjectReference{Kind: "Pod", Namespace: "default", Name: name},
+		}
+	}
+	eps := &discovery.EndpointSlice{}
+	assert.NoError(e.t, e.k8sClient.Get(e.ctx, types.NamespacedName{Namespace: "default", Name: "svc-abc"}, eps))
+	eps.Endpoints = nil
+	if e.withA {
+		eps.Endpoints = append(eps.Endpoints, ep("pod-a", "node-ok", podAIP, true, false))
+	}
+	eps.Endpoints = append(eps.Endpoints, ep("pod-b", "node-b", podBIP, bReady, bTerminating))
+	assert.NoError(e.t, e.k8sClient.Update(e.ctx, eps))
+}
+
+// reconcile runs one cycle on a freshly read TGB, as the controller does.
+func (e *realResolverEnv) reconcile() (bool, error) {
+	tgb := &elbv2api.TargetGroupBinding{}
+	assert.NoError(e.t, e.k8sClient.Get(e.ctx, e.tgbKey, tgb))
+	return e.m.Reconcile(e.ctx, tgb)
+}
+
+func (e *realResolverEnv) checkpoint() string {
+	tgb := &elbv2api.TargetGroupBinding{}
+	assert.NoError(e.t, e.k8sClient.Get(e.ctx, e.tgbKey, tgb))
+	return GetTGBReconcileCheckpoint(tgb)
+}
+
+func (e *realResolverEnv) gateB() corev1.ConditionStatus {
+	pod := &corev1.Pod{}
+	assert.NoError(e.t, e.k8sClient.Get(e.ctx, types.NamespacedName{Namespace: "default", Name: "pod-b"}, pod))
+	for _, c := range pod.Status.Conditions {
+		if c.Type == e.condType {
+			return c.Status
+		}
+	}
+	return ""
+}
+
+// registerB runs cycle 1: B ready on a Ready node is registered with gate False.
+func (e *realResolverEnv) registerB() {
+	e.setSlice(true, false)
+	_, err := e.reconcile()
+	assert.Equal(e.t, "monitor targetHealth", requeueAfterReason(err))
+	assert.Equal(e.t, 1, e.targets.register)
+	assert.Equal(e.t, []string{podBIP}, e.targets.lastRegistered)
+	assert.Equal(e.t, corev1.ConditionFalse, e.gateB())
+}
+
+func Test_defaultResourceManager_Reconcile_nodeNotReadyRequeue_realResolver(t *testing.T) {
+	badNodes := []struct {
+		name  string
+		conds []corev1.NodeCondition
+	}{
+		{name: "node Unknown", conds: readyNodeCond(corev1.ConditionUnknown)},
+		{name: "node Ready=False", conds: readyNodeCond(corev1.ConditionFalse)},
+		{name: "node without Ready condition", conds: nil},
+	}
+	for _, bad := range badNodes {
+		for _, failOpen := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s, failOpen=%v: requeue loop until node Ready, then register", bad.name, failOpen), func(t *testing.T) {
+				e := newRealResolverEnv(t, failOpen, true)
+
+				// Cycle 1: B registered, gate False.
+				e.registerB()
+
+				// Cycle 2: node bad, B not ready -> excluded, deregistered, checkpoint saved, rate-limited requeue.
+				e.targets.resetCounts()
+				e.netMgr.podCalls = 0
+				e.setNodeB(bad.conds)
+				e.setSlice(false, false)
+				deferred, err := e.reconcile()
+				assert.False(t, deferred)
+				assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err))
+				assert.Equal(t, 1, e.targets.deregister)
+				assert.Equal(t, []string{podBIP}, e.targets.lastDeregistered)
+				assert.Equal(t, 0, e.targets.register)
+				assert.Equal(t, []string{podAIP}, e.targets.ids())
+				assert.Equal(t, 1, e.netMgr.podCalls)
+				saved := e.checkpoint()
+				assert.NotEmpty(t, saved)
+
+				// Cycles 3-5: checkpoint early exit, still requeues, no ELB or networking calls.
+				e.targets.resetCounts()
+				e.netMgr.podCalls = 0
+				for i := 0; i < 3; i++ {
+					deferred, err = e.reconcile()
+					assert.False(t, deferred)
+					assert.Equal(t, nodeNotReadyRequeueReason, requeueReason(err), "retry %d", i)
+				}
+				assert.Equal(t, 0, e.targets.calls())
+				assert.Equal(t, 0, e.netMgr.podCalls)
+				assert.Equal(t, saved, e.checkpoint())
+
+				// Node Ready: B resolved again and registered once; no node-not-ready requeue.
+				e.setNodeB(readyNodeCond(corev1.ConditionTrue))
+				deferred, err = e.reconcile()
+				assert.False(t, deferred)
+				assert.Empty(t, requeueReason(err))
+				assert.Equal(t, "monitor targetHealth", requeueAfterReason(err))
+				assert.Equal(t, 1, e.targets.register)
+				assert.Equal(t, []string{podBIP}, e.targets.lastRegistered)
+				assert.Equal(t, 0, e.targets.deregister)
+
+				// B healthy: gate True, reconcile succeeds, next cycle is a plain early exit.
+				e.targets.setHealthy(podBIP)
+				_, err = e.reconcile()
+				assert.NoError(t, err)
+				assert.Equal(t, corev1.ConditionTrue, e.gateB())
+				e.targets.resetCounts()
+				deferred, err = e.reconcile()
+				assert.True(t, deferred)
+				assert.NoError(t, err)
+				assert.Equal(t, 0, e.targets.calls())
+			})
+		}
+	}
+
+	t.Run("terminating pod on Unknown node: deregistered, no requeue", func(t *testing.T) {
+		e := newRealResolverEnv(t, false, true)
+		e.registerB()
+
+		e.targets.resetCounts()
+		e.setNodeB(readyNodeCond(corev1.ConditionUnknown))
+		e.setSlice(false, true)
+		deferred, err := e.reconcile()
+		assert.False(t, deferred)
+		assert.NoError(t, err)
+		assert.Equal(t, []string{podBIP}, e.targets.lastDeregistered)
+
+		e.targets.resetCounts()
+		deferred, err = e.reconcile()
+		assert.True(t, deferred)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, e.targets.calls())
+	})
+
+	t.Run("fail-open, no other ready pod: B on Unknown node registered, no node-not-ready requeue", func(t *testing.T) {
+		e := newRealResolverEnv(t, true, false)
+		e.setNodeB(readyNodeCond(corev1.ConditionUnknown))
+		e.setSlice(false, false)
+		deferred, err := e.reconcile()
+		assert.False(t, deferred)
+		assert.Empty(t, requeueReason(err))
+		assert.Equal(t, "monitor targetHealth", requeueAfterReason(err))
+		assert.Equal(t, 1, e.targets.register)
+		assert.Equal(t, []string{podBIP}, e.targets.lastRegistered)
+		assert.Equal(t, corev1.ConditionFalse, e.gateB())
+
+		// B healthy while the node is still Unknown: gate True, loop ends.
+		e.targets.setHealthy(podBIP)
+		_, err = e.reconcile()
+		assert.NoError(t, err)
+		assert.Equal(t, corev1.ConditionTrue, e.gateB())
+	})
 }
