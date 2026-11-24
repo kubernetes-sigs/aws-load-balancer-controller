@@ -161,7 +161,7 @@ spec:
         - --external-managed-tags={{ join "," .Values.externalManagedTags }}
         {{- end }}
         {{- if .Values.defaultTags }}
-        - --default-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.defaultTags | trimSuffix "," }}
+        - {{ printf "--default-tags=%s" (include "aws-load-balancer-controller.convertMapToCsv" .Values.defaultTags | trimSuffix ",") | quote }}
         {{- end }}
         {{- if kindIs "bool" .Values.enableEndpointSlices }}
         - --enable-endpoint-slices={{ .Values.enableEndpointSlices }}
@@ -197,7 +197,7 @@ spec:
         - --load-balancer-class={{ .Values.loadBalancerClass }}
         {{- end }}
         {{- if .Values.vpcTags }}
-        - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
+        - {{ printf "--aws-vpc-tags=%s" (include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix ",") | quote }}
         {{- end }}
         {{- if .Values.maxTargetsPerTargetGroup }}
         - --max-targets-per-target-group={{ .Values.maxTargetsPerTargetGroup }}
