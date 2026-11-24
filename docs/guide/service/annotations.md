@@ -175,6 +175,9 @@ on the load balancer.
         - You must specify the same number of eip allocations as load balancer subnets [annotation](#subnets)
         - NLB must be internet-facing
 
+    !!!warning "Elastic IP allocations are immutable"
+        AWS does not allow the Elastic IP allocation of a subnet already attached to an existing NLB to be changed in place. If you change the allocation for an already-attached subnet to a different value, the controller must **replace** the load balancer (delete and recreate it). Adding a new subnet with its own allocation, removing this annotation, or setting an allocation that matches the live NLB does not replace the load balancer. Replacement creates a new NLB with a new DNS name and briefly interrupts traffic, so plan a traffic migration. An NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted; in that case remove the associations first or migrate manually. Because this is a destructive change, make sure the new allocation IDs are valid and available: as with initial creation, the controller does not pre-validate them, so an invalid allocation fails the recreate and leaves the Service without a load balancer until you correct the annotation.
+
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
@@ -188,6 +191,9 @@ on the load balancer.
         - This configuration is optional, and you can use it to assign static IPv4 addresses to your NLB
         - You must specify the same number of private IPv4 addresses as load balancer subnets [annotation](#subnets)
         - You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges
+
+    !!!warning "Private IPv4 addresses are immutable"
+        AWS does not allow the private IPv4 address of a subnet already attached to an existing NLB to be changed in place. If you change the address for an already-attached subnet to a different value, the controller must **replace** the load balancer (delete and recreate it), which creates a new NLB with a new DNS name and briefly interrupts traffic. Adding a new subnet with its own address, removing this annotation, or setting an address that matches the live NLB does not replace the load balancer. Plan a traffic migration, and note that an NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted until those associations are removed. Because this is a destructive change, make sure the new addresses are valid and within the subnet ranges: as with initial creation, the controller does not pre-validate them, so an invalid address fails the recreate and leaves the Service without a load balancer until you correct the annotation.
 
     !!!example
         ```
@@ -704,6 +710,9 @@ Load balancer access can be controlled via following annotations:
         ```
 
 - <a name="lb-scheme">`service.beta.kubernetes.io/aws-load-balancer-scheme`</a> specifies whether the NLB will be internet-facing or internal.  Valid values are `internal`, `internet-facing`. If not specified, default is `internal`.
+
+    !!!warning "Scheme is immutable"
+        AWS cannot change the scheme of an existing load balancer in place. Changing this annotation on a Service whose NLB already exists causes the controller to **replace** the load balancer (delete and recreate it), which creates a new NLB with a new DNS name and briefly interrupts traffic. Plan a traffic migration, and note that an NLB with active VPC endpoint service (PrivateLink) associations cannot be deleted until those associations are removed.
 
     !!!example
         ```
