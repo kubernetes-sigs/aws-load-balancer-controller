@@ -3,14 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/metrics/lbc"
@@ -122,6 +125,10 @@ func buildTestReconciler(mb *mockModelBuilder, sd *mockStackDeployer, objs ...cl
 
 func TestReconcile(t *testing.T) {
 	stack := core.NewDefaultStack(core.StackID(types.NamespacedName{Namespace: "default", Name: "my-svc"}))
+	// The error that NamespaceLifecycle admission returns for a create in a terminating namespace.
+	nsTerminatingErr := apierrors.NewForbidden(schema.GroupResource{Group: "elbv2.k8s.aws", Resource: "targetgroupbindings"}, "k8s-default-mysvc",
+		errors.New("unable to create new content in namespace default because it is being terminated"))
+	nsTerminatingErr.ErrStatus.Details.Causes = []metav1.StatusCause{{Type: corev1.NamespaceTerminatingCause, Field: "metadata.namespace"}}
 	tests := []struct {
 		name           string
 		svc            *corev1.Service
@@ -169,6 +176,34 @@ func TestReconcile(t *testing.T) {
 			},
 			lb:           &elbv2model.LoadBalancer{},
 			wantErr:      true,
+			wantDeployed: 1,
+		},
+		{
+			name: "lb not nil, deploy fails: returns error",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "my-svc",
+					Namespace:  "default",
+					Finalizers: []string{"service.k8s.aws/resources"},
+				},
+			},
+			lb:           &elbv2model.LoadBalancer{},
+			deployErr:    errors.New("deploy failed"),
+			wantErr:      true,
+			wantDeployed: 1,
+		},
+		{
+			name: "lb not nil, deploy rejected because the namespace is being deleted: no error",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "my-svc",
+					Namespace:  "default",
+					Finalizers: []string{"service.k8s.aws/resources"},
+				},
+			},
+			lb:           &elbv2model.LoadBalancer{},
+			deployErr:    fmt.Errorf("failed to synthesize targetGroupBinding: %w", nsTerminatingErr),
+			wantErr:      false,
 			wantDeployed: 1,
 		},
 	}

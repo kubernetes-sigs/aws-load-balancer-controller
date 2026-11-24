@@ -9,9 +9,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/k8s"
@@ -206,26 +204,7 @@ func isIngressBeingDeleted(ctx context.Context, k8sClient client.Client, ing *ne
 	if !ing.DeletionTimestamp.IsZero() {
 		return true, nil
 	}
-	return isIngressNamespaceTerminating(ctx, k8sClient, ing)
-}
-
-// isIngressNamespaceTerminating checks whether the namespace of the Ingress is being deleted.
-// It uses the condition of NamespaceLifecycle admission, which rejects new objects in a namespace
-// whose phase is Terminating. A namespace that is not found is treated as not terminating.
-func isIngressNamespaceTerminating(ctx context.Context, k8sClient client.Client, ing *networking.Ingress) (bool, error) {
-	ns := &corev1.Namespace{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Name: ing.Namespace}, ns); err != nil {
-		return false, client.IgnoreNotFound(err)
-	}
-	if ns.Status.Phase != corev1.NamespaceTerminating {
-		return false, nil
-	}
-	// The Namespace cache can lag behind the Ingress cache. An Ingress created after the cached
-	// namespace started terminating belongs to a newer namespace with the same name.
-	if ns.DeletionTimestamp != nil && ing.CreationTimestamp.After(ns.DeletionTimestamp.Time) {
-		return false, nil
-	}
-	return true, nil
+	return k8s.IsNamespaceTerminating(ctx, k8sClient, ing)
 }
 
 // classifyIngress will classify the Ingress resource and returns whether it should be managed by this controller, along with the ClassifiedIngress object.

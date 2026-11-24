@@ -192,6 +192,18 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
 	}
 
+	// The API server rejects new objects, such as a TargetGroupBinding, in a namespace that is being deleted.
+	// Treat the Service as not found, so that one backend in that namespace does not block the whole Gateway.
+	nsTerminating, err := k8s.IsNamespaceTerminating(ctx, k8sClient, svc)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch namespace of svc object %+v", svcIdentifier))
+	}
+	if nsTerminating {
+		initialErrorMessage := fmt.Sprintf("Service (%s:%s) is in a namespace that is being deleted", svcIdentifier.Namespace, svcIdentifier.Name)
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
+	}
+
 	// We just take 1, we don't care about the underlying protocol
 	// This works for singular protocols [TCP] or dual protocols [TCP_UDP].
 	var servicePort *corev1.ServicePort

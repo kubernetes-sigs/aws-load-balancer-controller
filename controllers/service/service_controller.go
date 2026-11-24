@@ -195,6 +195,12 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "deploy_model", deployModelFn)
 	if err != nil {
+		// The API server rejects new objects, such as a TargetGroupBinding, in a namespace that is being deleted.
+		// The Service is deleted with its namespace, and that deletion starts the next reconcile.
+		if apierrors.HasStatusCause(err, corev1.NamespaceTerminatingCause) {
+			r.logger.Info("deploy rejected because the namespace is being deleted, waiting for the Service to be deleted", "service", k8s.NamespacedName(svc))
+			return nil
+		}
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
 	}
 
