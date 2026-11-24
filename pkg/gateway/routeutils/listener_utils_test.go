@@ -294,6 +294,16 @@ func TestGetSupportedKinds(t *testing.T) {
 		expectedCount     int
 	}{
 		{
+			name:           "ALB HTTP listener with nil AllowedRoutes falls back to default kinds",
+			controllerName: gateway_constants.ALBGatewayController,
+			listener: gwv1.Listener{
+				Protocol:      gwv1.HTTPProtocolType,
+				AllowedRoutes: nil,
+			},
+			expectedSupported: true,
+			expectedCount:     1,
+		},
+		{
 			name:           "ALB HTTP listener default kinds",
 			controllerName: gateway_constants.ALBGatewayController,
 			listener: gwv1.Listener{
