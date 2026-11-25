@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/shared_utils"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/v3/apis/gateway/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/controllers/gateway"
@@ -278,9 +279,11 @@ func main() {
 		var listenerSetStatusUpdater gateway.ListenerSetStatusSubmitter
 		var listenerSetReconciler gateway.ListenerSetStatusReconciler
 		if listenerSetEnabled {
-			listenerSetReconcilerQueue := workqueue.NewTypedDelayingQueueWithConfig[routeutils.ListenerSetStatusData](workqueue.TypedDelayingQueueConfig[routeutils.ListenerSetStatusData]{
-				Name: "gateway-listenerset-status-update-reconciler",
-			})
+			listenerSetReconcilerQueue := workqueue.NewTypedRateLimitingQueueWithConfig[types.NamespacedName](
+				gateway.NewListenerSetStatusRateLimiter(),
+				workqueue.TypedRateLimitingQueueConfig[types.NamespacedName]{
+					Name: "gateway-listenerset-status-update-reconciler",
+				})
 			listenerSetReconciler = gateway.NewListenerSetStatusReconciler(listenerSetReconcilerQueue, mgr.GetClient(), ctrl.Log.WithName("listenerSetReconciler"))
 			listenerSetStatusUpdater = listenerSetReconciler
 		} else {
