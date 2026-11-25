@@ -183,11 +183,16 @@ func (c *defaultCertificateManager) CreateWithValidationRecords(ctx context.Cont
 				},
 			}
 			_, err = c.route53Client.ChangeRecordsWithContext(ctx, input)
-			if err != nil && strings.Contains(err.Error(), "exist") { // ignore other cert having the same validation records
+			// Only skip Route53's duplicate-record error, e.g. when another certificate for the same domain already
+			// created the same validation record. Other conflicts, such as a weighted record colliding with an existing
+			// simple record ("... a non-weighted set exists ..."), must be returned, as no record was written.
+			if err != nil && strings.Contains(err.Error(), "but it already exists") {
 				c.logger.Info("validation record already exists, skipping creation",
 					"certificateARN", resp.CertificateArn,
 					"record", opts.ResourceRecord.Name)
-			} else if err != nil {
+				continue
+			}
+			if err != nil {
 				return nil, err
 			}
 			c.logger.Info("created validation record", "certificateARN", resp.CertificateArn, "record", opts.ResourceRecord)

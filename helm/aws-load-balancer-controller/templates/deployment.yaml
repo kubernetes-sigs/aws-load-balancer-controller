@@ -208,7 +208,7 @@ spec:
         {{- if .Values.route53ValidationRecordRoutingPolicy }}
         - --route53-validation-record-routing-policy={{ .Values.route53ValidationRecordRoutingPolicy }}
         {{- end }}
-        {{- if .Values.route53ValidationRecordWeight }}
+        {{- if not (kindIs "invalid" .Values.route53ValidationRecordWeight) }}
         - --route53-validation-record-weight={{ .Values.route53ValidationRecordWeight }}
         {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
