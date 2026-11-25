@@ -263,6 +263,9 @@ func (cfg *ControllerConfig) Validate() error {
 	if err := cfg.validateRequiredSecretsLabel(); err != nil {
 		return err
 	}
+	if err := cfg.IngressConfig.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
