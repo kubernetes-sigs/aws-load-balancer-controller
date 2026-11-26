@@ -2,6 +2,7 @@ package acm
 
 import (
 	"context"
+	"slices"
 
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/core"
@@ -10,6 +11,27 @@ import (
 )
 
 var _ core.Resource = &Certificate{}
+
+// AmazonIssuedKeyAlgorithms are the key algorithms that can be requested for AMAZON_ISSUED certificates
+var AmazonIssuedKeyAlgorithms = []acmtypes.KeyAlgorithm{
+	acmtypes.KeyAlgorithmRsa2048,
+	acmtypes.KeyAlgorithmEcPrime256v1,
+	acmtypes.KeyAlgorithmEcSecp384r1,
+}
+
+// PrivateKeyAlgorithms are the key algorithms that can be requested for PRIVATE certificates issued by a PCA
+var PrivateKeyAlgorithms = append(slices.Clone(AmazonIssuedKeyAlgorithms),
+	acmtypes.KeyAlgorithmRsa3072,
+	acmtypes.KeyAlgorithmRsa4096,
+)
+
+// SupportedKeyAlgorithms returns the key algorithms that can be requested for the given certificate type
+func SupportedKeyAlgorithms(certType acmtypes.CertificateType) []acmtypes.KeyAlgorithm {
+	if certType == acmtypes.CertificateTypePrivate {
+		return PrivateKeyAlgorithms
+	}
+	return AmazonIssuedKeyAlgorithms
+}
 
 // Certificate represents an ACM Certificate.
 type Certificate struct {
@@ -82,7 +104,7 @@ type CertificateSpec struct {
 	ValidationMethod acmtypes.ValidationMethod `json:"validationMethod"`
 
 	// Key algorithm for the key pair
-	// currently not used nor set in the model
+	// ACM defaults to RSA_2048 if not set
 	// +optional
 	KeyAlgorithm acmtypes.KeyAlgorithm `json:"keyAlgorithm"`
 

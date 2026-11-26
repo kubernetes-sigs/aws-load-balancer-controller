@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"slices"
 	"strings"
 
 	acmtypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
@@ -69,12 +70,18 @@ func (t *defaultModelBuildTask) buildCertificateSpec(ctx context.Context, ing *C
 		certType = acmtypes.CertificateTypeAmazonIssued
 	}
 
+	keyAlgorithm, err := t.buildCertificateKeyAlgorithm(ctx, ing, certType)
+	if err != nil {
+		return nil, err
+	}
+
 	return &acmModel.CertificateSpec{
 		Type:                    certType,
 		CertificateAuthorityARN: caArn,
 		DomainName:              hosts[0],
 		SubjectAlternativeNames: hosts,
 		ValidationMethod:        acmtypes.ValidationMethodDns, // currently we only support DNS based validation for AMAZON_ISSUED certificates
+		KeyAlgorithm:            keyAlgorithm,
 		Tags:                    tags,
 	}, nil
 }
@@ -110,6 +117,28 @@ func (t *defaultModelBuildTask) buildCertificateCAArn(_ context.Context, ing *Cl
 
 	// or no ARN, implying amazon issued certificates
 	return ""
+}
+
+func (t *defaultModelBuildTask) buildCertificateKeyAlgorithm(_ context.Context, ing *ClassifiedIngress, certType acmtypes.CertificateType) (acmtypes.KeyAlgorithm, error) {
+	var rawKeyAlgorithm string
+	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixACMKeyAlgorithm, &rawKeyAlgorithm, ing.Ing.Annotations)
+
+	// key algorithm on the ingress takes precedence, then the controller default, then the ACM default
+	if rawKeyAlgorithm == "" {
+		rawKeyAlgorithm = t.defaultCertKeyAlgorithm
+	}
+	if rawKeyAlgorithm == "" {
+		rawKeyAlgorithm = string(acmtypes.KeyAlgorithmRsa2048)
+	}
+
+	keyAlgorithm := acmtypes.KeyAlgorithm(rawKeyAlgorithm)
+	supportedKeyAlgorithms := acmModel.SupportedKeyAlgorithms(certType)
+	if !slices.Contains(supportedKeyAlgorithms, keyAlgorithm) {
+		return "", fmt.Errorf("ingress %v/%v has invalid %v %q for %v certificates, must be one of %v", ing.Ing.Namespace, ing.Ing.Name,
+			annotations.IngressSuffixACMKeyAlgorithm, rawKeyAlgorithm, certType, supportedKeyAlgorithms)
+	}
+
+	return keyAlgorithm, nil
 }
 
 func (t *defaultModelBuildTask) buildCertificateTags(_ context.Context, ing *ClassifiedIngress) (map[string]string, error) {
