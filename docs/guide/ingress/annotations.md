@@ -814,7 +814,16 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
           clientSecret: base64 of your plain text clientSecret
         ```
 
-    !!!example
+    !!!example "Simplified — using discoveryEndpoint (recommended)"
+        If your IdP supports [OIDC Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html) (e.g. Keycloak, Okta, Dex), you can specify a single `discoveryEndpoint`.
+        The controller will automatically fetch `{discoveryEndpoint}/.well-known/openid-configuration` and populate
+        `issuer`, `authorizationEndpoint`, `tokenEndpoint`, and `userInfoEndpoint` for you.
+        ```
+        alb.ingress.kubernetes.io/auth-idp-oidc: '{"discoveryEndpoint":"https://example.com","secretName":"my-k8s-secret"}'
+        ```
+
+    !!!example "Full manual configuration"
+        You can still specify all four endpoint fields individually if needed.
         ```
         alb.ingress.kubernetes.io/auth-idp-oidc: '{"issuer":"https://example.com","authorizationEndpoint":"https://authorization.example.com","tokenEndpoint":"https://token.example.com","userInfoEndpoint":"https://userinfo.example.com","secretName":"my-k8s-secret"}'
         ```
