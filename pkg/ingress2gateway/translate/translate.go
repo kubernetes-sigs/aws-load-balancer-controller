@@ -63,7 +63,15 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 		}
 
 		// --- Group-level: merge annotations, resolve ports, ICP, ssl-redirect ---
-		mergedAnnotations, err := mergeGroupLBAnnotations(group.members)
+		icps := resolveGroupICPs(group.members, ingressClassParamsByClass)
+		var ignoredSuffixes []string
+		for _, icp := range icps {
+			if icp.Spec.LogDelivery != nil {
+				ignoredSuffixes = append(ignoredSuffixes, annotations.IngressSuffixLogDelivery)
+				break
+			}
+		}
+		mergedAnnotations, err := mergeGroupLBAnnotations(group.members, ignoredSuffixes...)
 		if err != nil {
 			return nil, fmt.Errorf("error in mergeGroupLBAnnotations for group %q: %w", group.name, err)
 		}
@@ -72,8 +80,6 @@ func Translate(in *ingress2gateway.InputResources) (*ingress2gateway.OutputResou
 		if err != nil {
 			return nil, fmt.Errorf("error in mergeGroupListenPorts for group %q: %w", group.name, err)
 		}
-
-		icps := resolveGroupICPs(group.members, ingressClassParamsByClass)
 
 		sslRedirectPort, err := resolveGroupSSLRedirect(group.members, ingressClassParamsByClass)
 		if err != nil {

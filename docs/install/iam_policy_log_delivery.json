@@ -1,0 +1,62 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DescribeDeliverySources",
+                "logs:DescribeDeliveryDestinations",
+                "logs:DescribeDeliveries",
+                "logs:GetDeliverySource",
+                "logs:GetDeliveryDestination",
+                "logs:GetDelivery"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:PutDeliverySource",
+                "logs:PutDeliveryDestination",
+                "logs:CreateDelivery",
+                "logs:TagResource"
+            ],
+            "Resource": [
+                "arn:aws:logs:*:*:delivery:*",
+                "arn:aws:logs:*:*:delivery-source:*",
+                "arn:aws:logs:*:*:delivery-destination:*"
+            ],
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:DeleteDeliverySource",
+                "logs:DeleteDeliveryDestination",
+                "logs:UpdateDeliveryConfiguration",
+                "logs:DeleteDelivery"
+            ],
+            "Resource": [
+                "arn:aws:logs:*:*:delivery:*",
+                "arn:aws:logs:*:*:delivery-source:*",
+                "arn:aws:logs:*:*:delivery-destination:*"
+            ],
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "elasticloadbalancing:AllowVendedLogDeliveryForResource"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

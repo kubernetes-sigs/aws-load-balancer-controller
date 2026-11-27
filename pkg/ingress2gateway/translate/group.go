@@ -125,6 +125,7 @@ var lbLevelAnnotationSuffixes = []string{
 	annotations.IngressSuffixWAFv2ACLARN,
 	annotations.IngressSuffixWAFv2ACLName,
 	annotations.IngressSuffixShieldAdvancedProtection,
+	annotations.IngressSuffixLogDelivery,
 	annotations.IngressSuffixLoadBalancerCapacityReservation,
 	annotations.IngressSuffixMutualAuthentication,
 }
@@ -132,15 +133,23 @@ var lbLevelAnnotationSuffixes = []string{
 // mergeGroupLBAnnotations merges LB-level annotations across group members.
 // Scalar annotations: error if >1 distinct value.
 // certificate-arn: union. tags / load-balancer-attributes: union keys, error on per-key conflict.
-func mergeGroupLBAnnotations(members []networking.Ingress) (map[string]string, error) {
+// Annotations overridden for the whole group can be excluded from merging and conflict checks.
+func mergeGroupLBAnnotations(members []networking.Ingress, ignoredSuffixes ...string) (map[string]string, error) {
 	if len(members) == 1 {
-		return resolveAnnotations(members[0]), nil
+		merged := resolveAnnotations(members[0])
+		for _, suffix := range ignoredSuffixes {
+			delete(merged, ingressAnnotationKeyPrefix+suffix)
+		}
+		return merged, nil
 	}
 
 	merged := make(map[string]string)
 
 	// Scalar LB-level annotations: error on conflict
 	for _, suffix := range lbLevelAnnotationSuffixes {
+		if slices.Contains(ignoredSuffixes, suffix) {
+			continue
+		}
 		if err := mergeExactMatchAnnotation(members, merged, suffix); err != nil {
 			return nil, err
 		}

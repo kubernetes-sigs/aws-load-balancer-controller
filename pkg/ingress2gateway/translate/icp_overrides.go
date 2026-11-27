@@ -25,6 +25,30 @@ func applyIngressClassParamsToLBConfig(spec *gatewayv1beta1.LoadBalancerConfigur
 		return nil
 	}
 
+	if icp.Spec.LogDelivery != nil {
+		deliveries := make([]gatewayv1beta1.LogDeliveryConfiguration, 0, len(*icp.Spec.LogDelivery))
+		for _, cfg := range *icp.Spec.LogDelivery {
+			delivery := gatewayv1beta1.LogDeliveryConfiguration{
+				LogType:                cfg.LogType,
+				DestinationArn:         cfg.DestinationARN,
+				DeliveryDestinationArn: cfg.DeliveryDestinationARN,
+				OutputFormat:           cfg.OutputFormat,
+				FieldDelimiter:         cfg.FieldDelimiter,
+			}
+			if cfg.S3DeliveryConfiguration != nil {
+				delivery.S3DeliveryConfiguration = &gatewayv1beta1.LogDeliveryS3Configuration{
+					SuffixPath:               cfg.S3DeliveryConfiguration.SuffixPath,
+					EnableHiveCompatiblePath: cfg.S3DeliveryConfiguration.EnableHiveCompatiblePath,
+				}
+			}
+			deliveries = append(deliveries, delivery)
+		}
+		if spec.LogDelivery != nil && !reflect.DeepEqual(spec.LogDelivery, deliveries) {
+			return fmt.Errorf("conflicting IngressClassParams log-delivery")
+		}
+		spec.LogDelivery = deliveries
+	}
+
 	if icp.Spec.Scheme != nil {
 		scheme := gatewayv1beta1.LoadBalancerScheme(*icp.Spec.Scheme)
 		if spec.Scheme != nil && *spec.Scheme != scheme {
@@ -228,6 +252,9 @@ func applyIngressClassParamsToLBConfig(spec *gatewayv1beta1.LoadBalancerConfigur
 // This is used to apply the merged ICP spec on top of the annotation-derived LBConfig.
 // ICP always has higher priority than annotations.
 func applyICPSpecOverride(dst, src *gatewayv1beta1.LoadBalancerConfigurationSpec) {
+	if src.LogDelivery != nil {
+		dst.LogDelivery = src.LogDelivery
+	}
 	if src.Scheme != nil {
 		dst.Scheme = src.Scheme
 	}

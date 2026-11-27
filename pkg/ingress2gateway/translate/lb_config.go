@@ -2,6 +2,7 @@ package translate
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 
@@ -11,6 +12,7 @@ import (
 	gwconstants "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/v3/pkg/ingress2gateway/utils"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/elbv2"
+	logdeliverymodel "sigs.k8s.io/aws-load-balancer-controller/v3/pkg/model/logdelivery"
 )
 
 // buildLoadBalancerConfigResource builds a LoadBalancerConfiguration from annotations.
@@ -130,12 +132,41 @@ func buildLoadBalancerConfigSpec(annos map[string]string, listenPorts []listenPo
 		spec.ShieldAdvanced = &gatewayv1beta1.ShieldConfiguration{Enabled: *v}
 	}
 
+	var logDeliveries []logdeliverymodel.Config
+	if exists, err := ingressAnnotationParser.ParseJSONAnnotation(annotations.IngressSuffixLogDelivery, &logDeliveries, annos); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: ignoring invalid %s%s annotation: %v\n", ingressAnnotationKeyPrefix, annotations.IngressSuffixLogDelivery, err)
+	} else if exists && len(logDeliveries) > 0 {
+		spec.LogDelivery = buildLogDeliveryConfigurations(logDeliveries)
+	}
+
 	listenerConfigs := buildListenerConfigurations(annos, listenPorts)
 	if len(listenerConfigs) > 0 {
 		spec.ListenerConfigurations = &listenerConfigs
 	}
 
 	return spec
+}
+
+// buildLogDeliveryConfigurations converts the log-delivery annotation into LoadBalancerConfiguration log deliveries.
+func buildLogDeliveryConfigurations(configs []logdeliverymodel.Config) []gatewayv1beta1.LogDeliveryConfiguration {
+	logDeliveries := make([]gatewayv1beta1.LogDeliveryConfiguration, 0, len(configs))
+	for _, config := range configs {
+		logDelivery := gatewayv1beta1.LogDeliveryConfiguration{
+			LogType:                config.LogType,
+			DestinationArn:         config.DestinationARN,
+			DeliveryDestinationArn: config.DeliveryDestinationARN,
+			OutputFormat:           config.OutputFormat,
+			FieldDelimiter:         config.FieldDelimiter,
+		}
+		if config.S3DeliveryConfiguration != nil {
+			logDelivery.S3DeliveryConfiguration = &gatewayv1beta1.LogDeliveryS3Configuration{
+				SuffixPath:               config.S3DeliveryConfiguration.SuffixPath,
+				EnableHiveCompatiblePath: config.S3DeliveryConfiguration.EnableHiveCompatiblePath,
+			}
+		}
+		logDeliveries = append(logDeliveries, logDelivery)
+	}
+	return logDeliveries
 }
 
 // buildListenerConfigurations builds ListenerConfiguration entries from annotations and listen-ports.

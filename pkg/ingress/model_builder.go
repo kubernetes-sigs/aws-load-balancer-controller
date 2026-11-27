@@ -294,6 +294,7 @@ type defaultModelBuildTask struct {
 	metricsCollector lbcmetrics.MetricCollector
 }
 
+// run checks deletion protection and builds the IngressGroup's load balancer, listeners, targets and optional log deliveries.
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	for _, inactiveMember := range t.ingGroup.InactiveMembers {
 		// Use the same rule as the group loader, so deletion protection applies to every Ingress that left
@@ -381,6 +382,10 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 
 	if err := t.buildLoadBalancerAddOns(ctx, lb.LoadBalancerARN()); err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_addons", err, t.metricsCollector)
+	}
+
+	if err := t.buildLogDeliveries(ctx, lb); err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_log_delivery", err, t.metricsCollector)
 	}
 
 	if err := t.buildFrontendNlbModel(ctx, lb, listenerPortConfigByIngress); err != nil {
